@@ -40,7 +40,7 @@ interface AppLayoutProps {
   children: React.ReactNode;
 }
 
-export function AppLayout({ children }: AppLayoutProps) {
+export default function AppLayout({ children }: AppLayoutProps) {
   const [location] = useLocation();
   const { user } = useAuth();
   const { t, language, toggleLanguage, isRTL } = useI18n();
@@ -254,6 +254,13 @@ export function AppLayout({ children }: AppLayoutProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile">
+                      <a className="w-full">
+                        {language === 'ar' ? 'الملف الشخصي' : 'Profile'}
+                      </a>
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <a href="/api/logout">
                       {t('actions.logout')}

@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { AppLayout } from '@/components/layout/AppLayout';
+import AppLayout from '@/components/layout/AppLayout';
 import { useI18n } from '@/hooks/use-i18n';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
@@ -1117,13 +1117,27 @@ function EditTaskForm({
   return (
     <Form {...editForm}>
       <form onSubmit={editForm.handleSubmit(async (data) => {
+        console.log('Form submitted with data:', data);
+        console.log('Form validation errors:', editForm.formState.errors);
+        
         try {
           // First update the task
+          console.log('Calling onSubmit with data:', data);
           await onSubmit(data);
+          console.log('Task updated successfully');
+          
           // Then upload files after successful task update
           if (uploadedFiles.length > 0) {
+            console.log('Uploading files...');
             await uploadEvidenceFiles(task.id);
+            console.log('Files uploaded successfully');
           }
+          
+          // Show success toast
+          toast({
+            title: language === 'ar' ? 'تم تحديث المهمة بنجاح' : 'Task Updated Successfully',
+            description: language === 'ar' ? 'تم تحديث المهمة والأدلة بنجاح' : 'Task and evidence updated successfully',
+          });
         } catch (error) {
           console.error('Error updating task:', error);
           toast({

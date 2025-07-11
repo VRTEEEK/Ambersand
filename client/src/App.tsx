@@ -12,6 +12,9 @@ import Projects from "@/pages/Projects";
 import Tasks from "@/pages/Tasks";
 import Evidence from "@/pages/Evidence";
 import ProjectDetail from "@/pages/ProjectDetail";
+import Analytics from "@/pages/Analytics";
+import Settings from "@/pages/Settings";
+import UserProfile from "@/pages/UserProfile";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -28,6 +31,9 @@ function Router() {
           <Route path="/projects/:id" component={ProjectDetail} />
           <Route path="/tasks" component={Tasks} />
           <Route path="/evidence" component={Evidence} />
+          <Route path="/analytics" component={Analytics} />
+          <Route path="/settings" component={Settings} />
+          <Route path="/profile" component={UserProfile} />
         </>
       )}
       <Route component={NotFound} />

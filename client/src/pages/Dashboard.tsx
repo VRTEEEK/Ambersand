@@ -4,7 +4,7 @@ import { useI18n } from '@/hooks/use-i18n';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
 import { isUnauthorizedError } from '@/lib/authUtils';
-import { AppLayout } from '@/components/layout/AppLayout';
+import AppLayout from '@/components/layout/AppLayout';
 import { MetricsCard } from '@/components/dashboard/MetricsCard';
 import { ComplianceChart } from '@/components/dashboard/ComplianceChart';
 import { RegulationStatus } from '@/components/dashboard/RegulationStatus';
