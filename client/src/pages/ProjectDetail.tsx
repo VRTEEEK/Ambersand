@@ -104,12 +104,15 @@ export default function ProjectDetail() {
     enabled: !!id,
   });
 
-  const { data: taskEvidence } = useQuery({
+  const { data: taskEvidence, refetch: refetchEvidence } = useQuery({
     queryKey: ['/api/evidence', { taskId: editingTask?.id }],
     queryFn: async () => {
+      console.log('🔍 Fetching evidence for task:', editingTask?.id);
       const response = await fetch(`/api/evidence?taskId=${editingTask?.id}`);
       if (!response.ok) throw new Error('Failed to fetch evidence');
-      return response.json();
+      const data = await response.json();
+      console.log('🔍 Evidence data received:', data);
+      return data;
     },
     enabled: !!editingTask?.id,
   });
@@ -621,7 +624,7 @@ export default function ProjectDetail() {
                           
                           <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
                             <Badge variant="outline" className="text-xs">
-                              {controlTasks.length} {language === 'ar' ? 'مهمة' : 'Tasks'}
+                              {(tasks?.filter((task: any) => task.eccControlId === control.eccControl.id) || []).length} {language === 'ar' ? 'مهمة' : 'Tasks'}
                             </Badge>
                             <Button
                               size="sm"
@@ -1074,6 +1077,8 @@ function EditTaskForm({
       }
 
       setUploadedFiles([]);
+      // Invalidate evidence queries to refresh the display
+      queryClient.invalidateQueries({ queryKey: ['/api/evidence'] });
       // Show success toast
       toast({
         title: language === 'ar' ? 'تم رفع الملفات بنجاح' : 'Files Uploaded Successfully',
