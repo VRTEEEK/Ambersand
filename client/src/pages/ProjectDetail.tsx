@@ -439,18 +439,29 @@ export default function ProjectDetail() {
                             
                             {/* Control Information */}
                             {taskControl && (
-                              <div className="bg-teal-50 dark:bg-teal-900/20 rounded-lg p-3 mb-3 text-sm">
-                                <div className="font-medium text-teal-800 dark:text-teal-200 mb-1">
+                              <div className="bg-teal-50 dark:bg-teal-900/20 rounded-lg p-3 mb-3 text-sm border border-teal-200 dark:border-teal-800">
+                                <div className="font-medium text-teal-800 dark:text-teal-200 mb-2 flex items-center gap-2">
+                                  <Target className="h-3 w-3" />
                                   {language === 'ar' ? 'الضابط المرتبط:' : 'Associated Control:'}
                                 </div>
-                                <div className="text-teal-700 dark:text-teal-300">
-                                  <div className="mb-1">
+                                <div className="grid grid-cols-1 gap-2 text-teal-700 dark:text-teal-300">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">{language === 'ar' ? 'الرمز:' : 'Code:'}</span>
+                                    <span className="bg-teal-600 text-white px-2 py-0.5 rounded text-xs">
+                                      {taskControl.eccControl.code}
+                                    </span>
+                                  </div>
+                                  <div>
                                     <span className="font-medium">{language === 'ar' ? 'المجال:' : 'Domain:'}</span> {' '}
-                                    {language === 'ar' && taskControl.eccControl.domainAr ? taskControl.eccControl.domainAr : taskControl.eccControl.domainEn}
+                                    <span className="text-xs bg-gray-200 dark:bg-gray-700 px-1 rounded">
+                                      {language === 'ar' && taskControl.eccControl.domainAr ? taskControl.eccControl.domainAr : taskControl.eccControl.domainEn}
+                                    </span>
                                   </div>
                                   <div>
                                     <span className="font-medium">{language === 'ar' ? 'المجال الفرعي:' : 'Subdomain:'}</span> {' '}
-                                    {language === 'ar' && taskControl.eccControl.subdomainAr ? taskControl.eccControl.subdomainAr : taskControl.eccControl.subdomainEn}
+                                    <span className="text-xs bg-gray-200 dark:bg-gray-700 px-1 rounded">
+                                      {language === 'ar' && taskControl.eccControl.subdomainAr ? taskControl.eccControl.subdomainAr : taskControl.eccControl.subdomainEn}
+                                    </span>
                                   </div>
                                 </div>
                               </div>
@@ -805,15 +816,94 @@ export default function ProjectDetail() {
 
                 {/* Control Details Section */}
                 {selectedControl && (
-                  <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border">
-                    <h4 className="font-medium text-gray-900 dark:text-white mb-3">
-                      {language === 'ar' ? 'الأدلة المطلوبة' : 'Evidence Required'}
+                  <div className="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg p-4">
+                    <h4 className="font-semibold text-teal-800 dark:text-teal-200 mb-3 flex items-center gap-2">
+                      <Target className="h-4 w-4" />
+                      {language === 'ar' ? 'تفاصيل الضابط المحدد' : 'Selected Control Details'}
                     </h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {language === 'ar' 
-                        ? (selectedControl.evidenceRequiredAr || selectedControl.evidenceAr || 'وثائق ، سياسات ، إجراءات ، وأدلة تدقيق')
-                        : (selectedControl.evidenceRequiredEn || selectedControl.evidenceEn || 'Documentation, policies, procedures, and audit evidence')}
-                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
+                      <div>
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                          {language === 'ar' ? 'الرمز:' : 'Code:'}
+                        </span>
+                        <span className="ml-2 bg-teal-600 text-white px-2 py-1 rounded text-xs">
+                          {selectedControl.code}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                          {language === 'ar' ? 'المجال:' : 'Domain:'}
+                        </span>
+                        <span className="ml-2 text-gray-600 dark:text-gray-400">
+                          {language === 'ar' && selectedControl.domainAr ? selectedControl.domainAr : selectedControl.domainEn}
+                        </span>
+                      </div>
+                      <div className="md:col-span-2">
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                          {language === 'ar' ? 'المجال الفرعي:' : 'Subdomain:'}
+                        </span>
+                        <span className="ml-2 text-gray-600 dark:text-gray-400">
+                          {language === 'ar' && selectedControl.subdomainAr ? selectedControl.subdomainAr : selectedControl.subdomainEn}
+                        </span>
+                      </div>
+                      <div className="md:col-span-2">
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                          {language === 'ar' ? 'وصف الضابط:' : 'Control Description:'}
+                        </span>
+                        <p className="mt-1 text-gray-600 dark:text-gray-400 text-sm">
+                          {language === 'ar' && selectedControl.controlAr ? selectedControl.controlAr : selectedControl.controlEn}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Evidence Requirements */}
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-3 mb-4">
+                      <span className="font-medium text-yellow-800 dark:text-yellow-200">
+                        {language === 'ar' ? 'الأدلة المطلوبة:' : 'Evidence Required:'}
+                      </span>
+                      <p className="mt-1 text-yellow-700 dark:text-yellow-300 text-sm">
+                        {language === 'ar' 
+                          ? (selectedControl.evidenceAr || selectedControl.evidenceRequiredAr || 'وثائق ، سياسات ، إجراءات ، وأدلة تدقيق')
+                          : (selectedControl.evidenceEn || selectedControl.evidenceRequiredEn || 'Documentation, policies, procedures, and audit evidence')}
+                      </p>
+                    </div>
+
+                    {/* File Upload Section */}
+                    <div className="border-t border-teal-200 dark:border-teal-800 pt-4">
+                      <h5 className="font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        {language === 'ar' ? 'رفع الأدلة (اختياري)' : 'Upload Evidence (Optional)'}
+                      </h5>
+                      <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center hover:border-teal-400 transition-colors">
+                        <input
+                          type="file"
+                          multiple
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.txt"
+                          className="hidden"
+                          id="task-evidence-upload"
+                          onChange={(e) => {
+                            const files = Array.from(e.target.files || []);
+                            console.log('Selected files for task:', files);
+                            // TODO: Implement file upload logic
+                          }}
+                        />
+                        <label htmlFor="task-evidence-upload" className="cursor-pointer">
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="bg-teal-100 dark:bg-teal-900 p-2 rounded-full">
+                              <FileText className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                            </div>
+                            <p className="font-medium text-gray-700 dark:text-gray-300 text-sm">
+                              {language === 'ar' ? 'اضغط لاختيار الملفات' : 'Click to select files'}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {language === 'ar' 
+                                ? 'PDF, Word, Excel, PowerPoint, Images'
+                                : 'PDF, Word, Excel, PowerPoint, Images'}
+                            </p>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 )}
 
