@@ -408,9 +408,7 @@ export default function ProjectDetail() {
                                 disabled
                               />
                               <Badge className="bg-teal-600 hover:bg-teal-700 text-white px-2 py-1 text-xs font-medium">
-                                {language === 'ar' && control.eccControl.codeAr 
-                                  ? control.eccControl.codeAr 
-                                  : control.eccControl.code}
+                                {control.eccControl.code}
                               </Badge>
                             </div>
                             <div className="flex-1 min-w-0">
@@ -530,9 +528,7 @@ export default function ProjectDetail() {
                         <SelectContent>
                           {projectControls?.map((control: any) => (
                             <SelectItem key={control.eccControl.id} value={control.eccControl.id.toString()}>
-                              {language === 'ar' && control.eccControl.codeAr 
-                                ? control.eccControl.codeAr 
-                                : control.eccControl.code} - {language === 'ar' ? control.eccControl.controlAr : control.eccControl.controlEn}
+                              {control.eccControl.code} - {language === 'ar' ? control.eccControl.titleAr : control.eccControl.titleEn}
                             </SelectItem>
                           ))}
                         </SelectContent>

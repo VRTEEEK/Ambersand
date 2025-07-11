@@ -54,7 +54,6 @@ export const organizations = pgTable("organizations", {
 export const eccControls = pgTable("ecc_controls", {
   id: serial("id").primaryKey(),
   code: varchar("code").notNull().unique(),
-  codeAr: varchar("code_ar"), // Arabic code representation
   domainEn: text("domain_en").notNull(),
   domainAr: text("domain_ar").notNull(),
   subdomainEn: text("subdomain_en").notNull(),
