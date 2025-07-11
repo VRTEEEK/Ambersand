@@ -224,7 +224,7 @@ export default function Projects() {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'urgent': return 'text-red-600';
+      case 'urgent': return 'text-yellow-600';
       case 'high': return 'text-orange-600';
       case 'medium': return 'text-yellow-600';
       case 'low': return 'text-green-600';

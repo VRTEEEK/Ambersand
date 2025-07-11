@@ -126,7 +126,7 @@ export default function Analytics() {
                   <Tooltip />
                   <Legend />
                   <Line type="monotone" dataKey="compliance" stroke="#3b82f6" strokeWidth={2} />
-                  <Line type="monotone" dataKey="target" stroke="#ef4444" strokeDasharray="5 5" />
+                  <Line type="monotone" dataKey="target" stroke="#eab308" strokeDasharray="5 5" />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>

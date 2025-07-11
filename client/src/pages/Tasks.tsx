@@ -99,7 +99,7 @@ const getPriorityColor = (priority: string) => {
     case 'low': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
     case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
     case 'high': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300';
-    case 'urgent': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
+    case 'urgent': return 'text-white dark:text-white';
     default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
   }
 };
@@ -170,7 +170,10 @@ function SortableTaskCard({ task, language, onTaskClick }: { task: Task; languag
             {language === 'ar' && task.titleAr ? task.titleAr : task.title}
           </h3>
         </div>
-        <Badge className={getPriorityColor(task.priority)}>
+        <Badge 
+          className={getPriorityColor(task.priority)}
+          style={{ backgroundColor: task.priority === 'urgent' ? '#eab308' : undefined }}
+        >
           {task.priority === 'low' ? (language === 'ar' ? 'منخفضة' : 'Low') :
            task.priority === 'medium' ? (language === 'ar' ? 'متوسطة' : 'Medium') :
            task.priority === 'high' ? (language === 'ar' ? 'عالية' : 'High') :
@@ -511,7 +514,7 @@ export default function Tasks() {
       <AppLayout>
         <div className="container mx-auto px-4 py-8">
           <div className="text-center py-12">
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <AlertCircle className="h-12 w-12 mx-auto mb-4" style={{ color: '#eab308' }} />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               {language === 'ar' ? 'خطأ في تحميل المهام' : 'Error loading tasks'}
             </h3>

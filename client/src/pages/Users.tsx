@@ -110,7 +110,7 @@ export default function Users() {
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'admin':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+        return 'text-white dark:text-white';
       case 'manager':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
       case 'viewer':
@@ -216,7 +216,7 @@ export default function Users() {
                         <Settings className="h-4 w-4 mr-2" />
                         {language === 'ar' ? 'تعديل' : 'Edit'}
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600">
+                      <DropdownMenuItem style={{ color: '#eab308' }}>
                         {language === 'ar' ? 'حذف' : 'Delete'}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -229,7 +229,10 @@ export default function Users() {
                     <span className="text-sm text-gray-600 dark:text-gray-400">
                       {language === 'ar' ? 'الدور' : 'Role'}
                     </span>
-                    <Badge className={cn('text-xs', getRoleColor(user.role))}>
+                    <Badge 
+                      className={cn('text-xs', getRoleColor(user.role))}
+                      style={{ backgroundColor: user.role === 'admin' ? '#eab308' : undefined }}
+                    >
                       <Shield className="h-3 w-3 mr-1" />
                       {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                     </Badge>

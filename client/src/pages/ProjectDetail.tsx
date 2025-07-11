@@ -258,7 +258,7 @@ export default function ProjectDetail() {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
       case 'in-progress': return 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300';
-      case 'blocked': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
+      case 'blocked': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
       case 'pending': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
     }
@@ -266,8 +266,8 @@ export default function ProjectDetail() {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'urgent': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
-      case 'high': return 'bg-red-50 text-red-700 dark:bg-red-900 dark:text-red-300';
+      case 'urgent': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
+      case 'high': return 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300';
       case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
       default: return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
     }
@@ -737,7 +737,7 @@ export default function ProjectDetail() {
                     <FormItem>
                       <FormLabel className="text-sm font-medium">
                         {language === 'ar' ? 'اسم المهمة' : 'Task Name'} 
-                        <span className="text-red-500 ml-1">*</span>
+                        <span className="ml-1" style={{ color: '#eab308' }}>*</span>
                       </FormLabel>
                       <FormControl>
                         <Input 
@@ -780,7 +780,7 @@ export default function ProjectDetail() {
                       <FormItem>
                         <FormLabel className="text-sm font-medium">
                           {language === 'ar' ? 'المجال' : 'Domain'} 
-                          <span className="text-red-500 ml-1">*</span>
+                          <span className="ml-1" style={{ color: '#eab308' }}>*</span>
                         </FormLabel>
                         <Select onValueChange={(value) => {
                           field.onChange(value);
@@ -820,7 +820,7 @@ export default function ProjectDetail() {
                         <FormItem>
                           <FormLabel className="text-sm font-medium">
                             {language === 'ar' ? 'المجال الفرعي' : 'Subdomain'} 
-                            <span className="text-red-500 ml-1">*</span>
+                            <span className="ml-1" style={{ color: '#eab308' }}>*</span>
                           </FormLabel>
                           <Select onValueChange={(value) => {
                             field.onChange(value);
@@ -867,7 +867,7 @@ export default function ProjectDetail() {
                         <FormItem>
                           <FormLabel className="text-sm font-medium">
                             {language === 'ar' ? 'الضابط' : 'Control'} 
-                            <span className="text-red-500 ml-1">*</span>
+                            <span className="ml-1" style={{ color: '#eab308' }}>*</span>
                           </FormLabel>
                           <Select onValueChange={(value) => {
                             const controlId = parseInt(value);
@@ -1198,7 +1198,7 @@ function EditTaskForm({
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
       case 'in-progress': return 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300';
-      case 'blocked': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
+      case 'blocked': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
       case 'pending': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
     }
