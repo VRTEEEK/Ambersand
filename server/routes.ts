@@ -85,13 +85,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
+      // Extract controlIds from the request body
+      const { controlIds, ...projectBody } = req.body;
+      
       const projectData = insertProjectSchema.parse({
-        ...req.body,
+        ...projectBody,
         ownerId: userId,
         organizationId: user?.organizationId,
       });
       
       const project = await storage.createProject(projectData);
+      
+      // Add controls to the project if provided
+      if (controlIds && Array.isArray(controlIds) && controlIds.length > 0) {
+        await storage.addControlsToProject(project.id, controlIds);
+      }
+      
       res.status(201).json(project);
     } catch (error) {
       console.error("Error creating project:", error);
