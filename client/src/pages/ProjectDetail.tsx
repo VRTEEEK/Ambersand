@@ -57,8 +57,8 @@ const taskSchema = z.object({
       message: 'Please enter valid email addresses separated by commas (e.g., user1@domain.com, user2@domain.com) or names'
     }
   ),
-  domain: z.string().min(1, 'Please select a domain'),
-  subdomain: z.string().min(1, 'Please select a subdomain'),
+  domain: z.string().optional(),
+  subdomain: z.string().optional(),
   controlId: z.number().min(1, 'Please select a related control'),
 });
 
@@ -1092,6 +1092,11 @@ function EditTaskForm({
     }
   };
   
+  // Get control details for pre-filling domain/subdomain
+  const taskControl = projectControls?.find(
+    (control: any) => control.eccControl.id === task.eccControlId
+  )?.eccControl;
+
   const editForm = useForm({
     resolver: zodResolver(taskSchema),
     defaultValues: {
@@ -1103,8 +1108,8 @@ function EditTaskForm({
       status: task.status || 'pending',
       dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
       assigneeEmail: task.assigneeId || '',
-      domain: task.domain || '',
-      subdomain: task.subdomain || '',
+      domain: task.domain || taskControl?.domain || '',
+      subdomain: task.subdomain || taskControl?.subdomain || '',
       controlId: task.eccControlId || undefined,
     },
   });
