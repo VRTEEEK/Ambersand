@@ -164,17 +164,21 @@ export default function ProjectDetail() {
 
   const updateTaskMutation = useMutation({
     mutationFn: async (data: TaskFormData & { id: number }) => {
-      console.log('Updating task with data:', data);
+      console.log('🔄 updateTaskMutation.mutationFn called with:', data);
       const taskData = {
         ...data,
         assigneeId: data.assigneeEmail,
         // Map controlId to eccControlId for database compatibility
         eccControlId: data.controlId,
       };
-      console.log('Final task data being sent:', taskData);
-      return await apiRequest(`/api/tasks/${data.id}`, 'PUT', taskData);
+      console.log('🔄 Final task data being sent to API:', taskData);
+      console.log('🔄 Making PUT request to:', `/api/tasks/${data.id}`);
+      const result = await apiRequest(`/api/tasks/${data.id}`, 'PUT', taskData);
+      console.log('🔄 API response received:', result);
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      console.log('✅ updateTaskMutation.onSuccess called with:', { data, variables });
       queryClient.invalidateQueries({ queryKey: ['/api/tasks', { projectId: id }] });
       queryClient.invalidateQueries({ queryKey: ['/api/evidence', { taskId: editingTask?.id }] });
       setIsTaskEditDialogOpen(false);
@@ -184,8 +188,8 @@ export default function ProjectDetail() {
         description: language === 'ar' ? 'تم تحديث المهمة بنجاح' : 'Task updated successfully',
       });
     },
-    onError: (error) => {
-      console.error('Update task error:', error);
+    onError: (error, variables) => {
+      console.error('❌ updateTaskMutation.onError called with:', { error, variables });
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',
         description: language === 'ar' ? 'فشل في تحديث المهمة' : 'Failed to update task',
@@ -967,9 +971,16 @@ export default function ProjectDetail() {
                 task={editingTask}
                 projectControls={projectControls}
                 taskEvidence={taskEvidence}
-                onSubmit={(data) => {
+                onSubmit={async (data) => {
                   console.log('Edit form onSubmit called with:', data);
-                  updateTaskMutation.mutate({ ...data, id: editingTask.id });
+                  try {
+                    console.log('About to call updateTaskMutation with:', { ...data, id: editingTask.id });
+                    await updateTaskMutation.mutateAsync({ ...data, id: editingTask.id });
+                    console.log('updateTaskMutation completed successfully');
+                  } catch (error) {
+                    console.error('updateTaskMutation failed:', error);
+                    throw error;
+                  }
                 }}
                 onCancel={() => {
                   setIsTaskEditDialogOpen(false);
