@@ -132,8 +132,8 @@ export default function Regulations() {
       descriptionAr: 'لوائح حماية البيانات الشخصية والخصوصية السعودية',
       icon: Database,
       color: 'orange',
-      totalControls: 18,
-      status: 'inactive',
+      totalControls: null,
+      status: 'planning',
     },
     {
       id: 'ndmo',
@@ -143,7 +143,7 @@ export default function Regulations() {
       descriptionAr: 'متطلبات حوكمة وإدارة البيانات الوطنية',
       icon: BookOpen,
       color: 'blue',
-      totalControls: 25,
+      totalControls: null,
       status: 'planning',
     },
   ];
@@ -151,22 +151,26 @@ export default function Regulations() {
   // Get unique main categories from ECC controls
   const getMainCategories = () => {
     if (!controls) return [];
-    const categories = new Set();
+    const categoryMap = new Map();
     controls.forEach((control: any) => {
-      const domain = language === 'ar' ? control.domainAr : control.domainEn;
-      if (domain) {
-        categories.add(domain);
+      const domainEn = control.domainEn;
+      const domainAr = control.domainAr;
+      if (domainEn) {
+        categoryMap.set(domainEn, {
+          en: domainEn,
+          ar: domainAr || domainEn
+        });
       }
     });
-    return Array.from(categories);
+    return Array.from(categoryMap.values());
   };
 
   // Get controls filtered by selected category
   const getFilteredControls = () => {
     if (!controls || !selectedCategory) return [];
     return controls.filter((control: any) => {
-      const domain = language === 'ar' ? control.domainAr : control.domainEn;
-      return domain === selectedCategory;
+      const domainEn = control.domainEn;
+      return domainEn === selectedCategory;
     });
   };
 
@@ -347,14 +351,9 @@ export default function Regulations() {
                     <div className={`w-12 h-12 bg-${framework.color}-100 rounded-lg flex items-center justify-center`}>
                       <Icon className={`h-6 w-6 text-${framework.color}-600`} />
                     </div>
-                    <Badge variant={
-                      framework.status === 'active' ? 'default' : 
-                      framework.status === 'inactive' ? 'destructive' : 'secondary'
-                    }>
+                    <Badge variant={framework.status === 'active' ? 'default' : 'secondary'}>
                       {framework.status === 'active' 
                         ? (language === 'ar' ? 'نشط' : 'Active')
-                        : framework.status === 'inactive'
-                        ? (language === 'ar' ? 'غير نشط' : 'Inactive')
                         : (language === 'ar' ? 'التخطيط' : 'Planning')
                       }
                     </Badge>
@@ -367,14 +366,16 @@ export default function Regulations() {
                   <p className="text-slate-600 text-sm mb-4">
                     {language === 'ar' ? framework.descriptionAr : framework.description}
                   </p>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-500">
-                      {language === 'ar' ? 'إجمالي الضوابط' : 'Total Controls'}
-                    </span>
-                    <span className="font-semibold text-slate-800">
-                      {framework.totalControls}
-                    </span>
-                  </div>
+                  {framework.totalControls && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-500">
+                        {language === 'ar' ? 'إجمالي الضوابط' : 'Total Controls'}
+                      </span>
+                      <span className="font-semibold text-slate-800">
+                        {framework.totalControls}
+                      </span>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -474,16 +475,13 @@ export default function Regulations() {
                       <Card 
                         key={index}
                         className="border border-slate-200 hover:shadow-md transition-shadow cursor-pointer hover:bg-slate-50"
-                        onClick={() => setSelectedCategory(category)}
+                        onClick={() => setSelectedCategory(category.en)}
                       >
                         <CardHeader className="pb-3">
                           <CardTitle className="text-base flex items-center justify-between">
-                            <span>{category}</span>
+                            <span>{language === 'ar' ? category.ar : category.en}</span>
                             <Badge variant="outline">
-                              {controls?.filter((c: any) => {
-                                const domain = language === 'ar' ? c.domainAr : c.domainEn;
-                                return domain === category;
-                              }).length || 0}
+                              {controls?.filter((c: any) => c.domainEn === category.en).length || 0}
                             </Badge>
                           </CardTitle>
                         </CardHeader>
@@ -512,7 +510,7 @@ export default function Regulations() {
                       ← {language === 'ar' ? 'العودة للمجالات' : 'Back to Domains'}
                     </Button>
                     <h3 className="text-lg font-semibold text-slate-800">
-                      {selectedCategory}
+                      {getMainCategories().find(cat => cat.en === selectedCategory)?.[language === 'ar' ? 'ar' : 'en'] || selectedCategory}
                     </h3>
                   </div>
                   <div className="space-y-3">
@@ -528,20 +526,31 @@ export default function Regulations() {
                                 {control.code}
                               </Badge>
                               <span className="text-sm text-slate-500">
-                                {language === 'ar' ? control.subdomainAr : control.subdomainEn}
+                                {language === 'ar' && control.subdomainAr ? control.subdomainAr : control.subdomainEn}
                               </span>
                             </div>
                             <h4 className="font-medium text-slate-800 mb-2">
-                              {language === 'ar' ? control.controlAr : control.controlEn}
+                              {language === 'ar' && control.controlAr ? control.controlAr : control.controlEn}
                             </h4>
                             
-                            {control.requirementEn && (
+                            {(control.requirementEn || control.requirementAr) && (
                               <div className="mt-3">
                                 <h5 className="text-sm font-medium text-slate-700 mb-1">
                                   {language === 'ar' ? 'المتطلب:' : 'Requirement:'}
                                 </h5>
                                 <p className="text-sm text-slate-600">
-                                  {language === 'ar' ? control.requirementAr : control.requirementEn}
+                                  {language === 'ar' && control.requirementAr ? control.requirementAr : control.requirementEn}
+                                </p>
+                              </div>
+                            )}
+                            
+                            {(control.evidenceEn || control.evidenceAr) && (
+                              <div className="mt-3">
+                                <h5 className="text-sm font-medium text-slate-700 mb-1">
+                                  {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
+                                </h5>
+                                <p className="text-sm text-slate-600">
+                                  {language === 'ar' && control.evidenceAr ? control.evidenceAr : control.evidenceEn}
                                 </p>
                               </div>
                             )}
