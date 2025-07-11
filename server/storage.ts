@@ -6,6 +6,8 @@ import {
   eccControls,
   complianceAssessments,
   controlAssessments,
+  customRegulations,
+  customControls,
   type User,
   type UpsertUser,
   type Project,
@@ -19,6 +21,10 @@ import {
   type InsertComplianceAssessment,
   type ControlAssessment,
   type InsertControlAssessment,
+  type CustomRegulation,
+  type InsertCustomRegulation,
+  type CustomControl,
+  type InsertCustomControl,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, like, or, sql, count } from "drizzle-orm";
@@ -62,6 +68,20 @@ export interface IStorage {
   getControlAssessments(complianceAssessmentId: number): Promise<ControlAssessment[]>;
   createControlAssessment(assessment: InsertControlAssessment): Promise<ControlAssessment>;
   updateControlAssessment(id: number, assessment: Partial<InsertControlAssessment>): Promise<ControlAssessment>;
+  
+  // Custom Regulation operations
+  getCustomRegulations(organizationId?: string): Promise<CustomRegulation[]>;
+  getCustomRegulation(id: number): Promise<CustomRegulation | undefined>;
+  createCustomRegulation(regulation: InsertCustomRegulation): Promise<CustomRegulation>;
+  updateCustomRegulation(id: number, regulation: Partial<InsertCustomRegulation>): Promise<CustomRegulation>;
+  deleteCustomRegulation(id: number): Promise<void>;
+  
+  // Custom Control operations
+  getCustomControls(regulationId?: number): Promise<CustomControl[]>;
+  getCustomControl(id: number): Promise<CustomControl | undefined>;
+  createCustomControl(control: InsertCustomControl): Promise<CustomControl>;
+  updateCustomControl(id: number, control: Partial<InsertCustomControl>): Promise<CustomControl>;
+  deleteCustomControl(id: number): Promise<void>;
   
   // Dashboard analytics
   getDashboardMetrics(organizationId?: string): Promise<{
@@ -132,17 +152,15 @@ export class DatabaseStorage implements IStorage {
 
   // Task operations
   async getTasks(projectId?: number, assigneeId?: string): Promise<Task[]> {
-    let query = db.select().from(tasks).orderBy(desc(tasks.updatedAt));
-    
     const conditions = [];
     if (projectId) conditions.push(eq(tasks.projectId, projectId));
     if (assigneeId) conditions.push(eq(tasks.assigneeId, assigneeId));
     
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      return await db.select().from(tasks).where(and(...conditions)).orderBy(desc(tasks.updatedAt));
     }
     
-    return await query;
+    return await db.select().from(tasks).orderBy(desc(tasks.updatedAt));
   }
 
   async getTask(id: number): Promise<Task | undefined> {
@@ -170,17 +188,15 @@ export class DatabaseStorage implements IStorage {
 
   // Evidence operations
   async getEvidence(projectId?: number, taskId?: number): Promise<Evidence[]> {
-    let query = db.select().from(evidence).orderBy(desc(evidence.createdAt));
-    
     const conditions = [];
     if (projectId) conditions.push(eq(evidence.projectId, projectId));
     if (taskId) conditions.push(eq(evidence.taskId, taskId));
     
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      return await db.select().from(evidence).where(and(...conditions)).orderBy(desc(evidence.createdAt));
     }
     
-    return await query;
+    return await db.select().from(evidence).orderBy(desc(evidence.createdAt));
   }
 
   async createEvidence(evidenceData: InsertEvidence): Promise<Evidence> {
@@ -194,10 +210,8 @@ export class DatabaseStorage implements IStorage {
 
   // ECC Controls operations
   async getEccControls(search?: string): Promise<EccControl[]> {
-    let query = db.select().from(eccControls).orderBy(eccControls.code);
-    
     if (search) {
-      query = query.where(
+      return await db.select().from(eccControls).where(
         or(
           like(eccControls.code, `%${search}%`),
           like(eccControls.domainEn, `%${search}%`),
@@ -205,10 +219,10 @@ export class DatabaseStorage implements IStorage {
           like(eccControls.controlEn, `%${search}%`),
           like(eccControls.controlAr, `%${search}%`)
         )
-      );
+      ).orderBy(eccControls.code);
     }
     
-    return await query;
+    return await db.select().from(eccControls).orderBy(eccControls.code);
   }
 
   async getEccControl(id: number): Promise<EccControl | undefined> {
@@ -284,13 +298,16 @@ export class DatabaseStorage implements IStorage {
     regulationStatus: Array<{ name: string; nameAr: string; progress: number; total: number; percentage: number }>;
   }> {
     // Get active projects count
-    const activeProjectsQuery = db
+    let activeProjectsQuery = db
       .select({ count: count() })
       .from(projects)
       .where(eq(projects.status, "active"));
     
     if (organizationId) {
-      activeProjectsQuery.where(eq(projects.organizationId, organizationId));
+      activeProjectsQuery = db
+        .select({ count: count() })
+        .from(projects)
+        .where(and(eq(projects.status, "active"), eq(projects.organizationId, organizationId)));
     }
     
     const [{ count: activeProjects }] = await activeProjectsQuery;
@@ -361,6 +378,72 @@ export class DatabaseStorage implements IStorage {
       complianceTrend,
       regulationStatus,
     };
+  }
+
+  // Custom Regulation operations
+  async getCustomRegulations(organizationId?: string): Promise<CustomRegulation[]> {
+    if (organizationId) {
+      return await db.select().from(customRegulations)
+        .where(eq(customRegulations.organizationId, organizationId))
+        .orderBy(desc(customRegulations.updatedAt));
+    }
+    return await db.select().from(customRegulations).orderBy(desc(customRegulations.updatedAt));
+  }
+
+  async getCustomRegulation(id: number): Promise<CustomRegulation | undefined> {
+    const [regulation] = await db.select().from(customRegulations).where(eq(customRegulations.id, id));
+    return regulation;
+  }
+
+  async createCustomRegulation(regulation: InsertCustomRegulation): Promise<CustomRegulation> {
+    const [newRegulation] = await db.insert(customRegulations).values(regulation).returning();
+    return newRegulation;
+  }
+
+  async updateCustomRegulation(id: number, regulation: Partial<InsertCustomRegulation>): Promise<CustomRegulation> {
+    const [updatedRegulation] = await db
+      .update(customRegulations)
+      .set({ ...regulation, updatedAt: new Date() })
+      .where(eq(customRegulations.id, id))
+      .returning();
+    return updatedRegulation;
+  }
+
+  async deleteCustomRegulation(id: number): Promise<void> {
+    await db.delete(customRegulations).where(eq(customRegulations.id, id));
+  }
+
+  // Custom Control operations
+  async getCustomControls(regulationId?: number): Promise<CustomControl[]> {
+    if (regulationId) {
+      return await db.select().from(customControls)
+        .where(eq(customControls.customRegulationId, regulationId))
+        .orderBy(customControls.code);
+    }
+    return await db.select().from(customControls).orderBy(customControls.code);
+  }
+
+  async getCustomControl(id: number): Promise<CustomControl | undefined> {
+    const [control] = await db.select().from(customControls).where(eq(customControls.id, id));
+    return control;
+  }
+
+  async createCustomControl(control: InsertCustomControl): Promise<CustomControl> {
+    const [newControl] = await db.insert(customControls).values(control).returning();
+    return newControl;
+  }
+
+  async updateCustomControl(id: number, control: Partial<InsertCustomControl>): Promise<CustomControl> {
+    const [updatedControl] = await db
+      .update(customControls)
+      .set({ ...control, updatedAt: new Date() })
+      .where(eq(customControls.id, id))
+      .returning();
+    return updatedControl;
+  }
+
+  async deleteCustomControl(id: number): Promise<void> {
+    await db.delete(customControls).where(eq(customControls.id, id));
   }
 }
 

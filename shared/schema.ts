@@ -67,6 +67,44 @@ export const eccControls = pgTable("ecc_controls", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Custom Regulations table (user-defined regulations)
+export const customRegulations = pgTable("custom_regulations", {
+  id: serial("id").primaryKey(),
+  name: varchar("name").notNull(),
+  nameAr: varchar("name_ar"),
+  description: text("description"),
+  descriptionAr: text("description_ar"),
+  category: varchar("category").notNull(), // internal, external, industry, custom
+  framework: varchar("framework"), // e.g., ISO 27001, SOX, custom framework name
+  version: varchar("version").default("1.0"),
+  status: varchar("status").notNull().default("draft"), // draft, active, archived
+  organizationId: varchar("organization_id").notNull(),
+  createdById: varchar("created_by_id").notNull(),
+  approvedById: varchar("approved_by_id"),
+  approvedAt: timestamp("approved_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Custom Controls table (controls within custom regulations)
+export const customControls = pgTable("custom_controls", {
+  id: serial("id").primaryKey(),
+  code: varchar("code").notNull(),
+  title: varchar("title").notNull(),
+  titleAr: varchar("title_ar"),
+  description: text("description").notNull(),
+  descriptionAr: text("description_ar"),
+  category: varchar("category"), // technical, administrative, physical
+  severity: varchar("severity").notNull().default("medium"), // low, medium, high, critical
+  evidence: text("evidence"),
+  evidenceAr: text("evidence_ar"),
+  requirement: text("requirement"),
+  requirementAr: text("requirement_ar"),
+  customRegulationId: integer("custom_regulation_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Projects table
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
@@ -241,6 +279,25 @@ export const eccControlsRelations = relations(eccControls, ({ many }) => ({
   assessments: many(controlAssessments),
 }));
 
+export const customRegulationsRelations = relations(customRegulations, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [customRegulations.createdById],
+    references: [users.id],
+  }),
+  approvedBy: one(users, {
+    fields: [customRegulations.approvedById],
+    references: [users.id],
+  }),
+  controls: many(customControls),
+}));
+
+export const customControlsRelations = relations(customControls, ({ one }) => ({
+  regulation: one(customRegulations, {
+    fields: [customControls.customRegulationId],
+    references: [customRegulations.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   id: true,
@@ -281,6 +338,18 @@ export const insertControlAssessmentSchema = createInsertSchema(controlAssessmen
   updatedAt: true,
 });
 
+export const insertCustomRegulationSchema = createInsertSchema(customRegulations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCustomControlSchema = createInsertSchema(customControls).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type UpsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -295,3 +364,7 @@ export type ComplianceAssessment = typeof complianceAssessments.$inferSelect;
 export type InsertComplianceAssessment = z.infer<typeof insertComplianceAssessmentSchema>;
 export type ControlAssessment = typeof controlAssessments.$inferSelect;
 export type InsertControlAssessment = z.infer<typeof insertControlAssessmentSchema>;
+export type CustomRegulation = typeof customRegulations.$inferSelect;
+export type InsertCustomRegulation = z.infer<typeof insertCustomRegulationSchema>;
+export type CustomControl = typeof customControls.$inferSelect;
+export type InsertCustomControl = z.infer<typeof insertCustomControlSchema>;

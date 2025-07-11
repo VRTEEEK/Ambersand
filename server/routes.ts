@@ -46,7 +46,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/dashboard/metrics', isAuthenticated, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
-      const metrics = await storage.getDashboardMetrics(user?.organizationId);
+      const metrics = await storage.getDashboardMetrics(user?.organizationId || undefined);
       res.json(metrics);
     } catch (error) {
       console.error("Error fetching dashboard metrics:", error);
@@ -58,7 +58,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/projects', isAuthenticated, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
-      const projects = await storage.getProjects(user?.organizationId);
+      const projects = await storage.getProjects(user?.organizationId || undefined);
       res.json(projects);
     } catch (error) {
       console.error("Error fetching projects:", error);
@@ -263,6 +263,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting evidence:", error);
       res.status(500).json({ message: "Failed to delete evidence" });
+    }
+  });
+
+  // Custom Regulations routes
+  app.get('/api/custom-regulations', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      const regulations = await storage.getCustomRegulations(user?.organizationId || undefined);
+      res.json(regulations);
+    } catch (error) {
+      console.error("Error fetching custom regulations:", error);
+      res.status(500).json({ message: "Failed to fetch custom regulations" });
+    }
+  });
+
+  app.get('/api/custom-regulations/:id', isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const regulation = await storage.getCustomRegulation(id);
+      if (!regulation) {
+        return res.status(404).json({ message: "Custom regulation not found" });
+      }
+      res.json(regulation);
+    } catch (error) {
+      console.error("Error fetching custom regulation:", error);
+      res.status(500).json({ message: "Failed to fetch custom regulation" });
+    }
+  });
+
+  app.post('/api/custom-regulations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      const regulationData = {
+        ...req.body,
+        organizationId: user?.organizationId || 'default',
+        createdById: userId,
+      };
+      
+      const regulation = await storage.createCustomRegulation(regulationData);
+      res.status(201).json(regulation);
+    } catch (error) {
+      console.error("Error creating custom regulation:", error);
+      res.status(500).json({ message: "Failed to create custom regulation" });
+    }
+  });
+
+  app.put('/api/custom-regulations/:id', isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const regulation = await storage.updateCustomRegulation(id, req.body);
+      res.json(regulation);
+    } catch (error) {
+      console.error("Error updating custom regulation:", error);
+      res.status(500).json({ message: "Failed to update custom regulation" });
+    }
+  });
+
+  app.delete('/api/custom-regulations/:id', isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteCustomRegulation(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting custom regulation:", error);
+      res.status(500).json({ message: "Failed to delete custom regulation" });
+    }
+  });
+
+  // Custom Controls routes
+  app.get('/api/custom-controls', isAuthenticated, async (req, res) => {
+    try {
+      const regulationId = req.query.regulationId ? parseInt(req.query.regulationId as string) : undefined;
+      const controls = await storage.getCustomControls(regulationId);
+      res.json(controls);
+    } catch (error) {
+      console.error("Error fetching custom controls:", error);
+      res.status(500).json({ message: "Failed to fetch custom controls" });
+    }
+  });
+
+  app.post('/api/custom-controls', isAuthenticated, async (req, res) => {
+    try {
+      const control = await storage.createCustomControl(req.body);
+      res.status(201).json(control);
+    } catch (error) {
+      console.error("Error creating custom control:", error);
+      res.status(500).json({ message: "Failed to create custom control" });
+    }
+  });
+
+  app.put('/api/custom-controls/:id', isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const control = await storage.updateCustomControl(id, req.body);
+      res.json(control);
+    } catch (error) {
+      console.error("Error updating custom control:", error);
+      res.status(500).json({ message: "Failed to update custom control" });
+    }
+  });
+
+  app.delete('/api/custom-controls/:id', isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteCustomControl(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting custom control:", error);
+      res.status(500).json({ message: "Failed to delete custom control" });
     }
   });
 

@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useI18n } from '@/hooks/use-i18n';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,11 +11,34 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, BookOpen, Shield, Database } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/lib/queryClient';
+import { Search, BookOpen, Shield, Database, Plus, Settings, FileText, Building } from 'lucide-react';
+
+// Custom regulation schema
+const customRegulationSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  nameAr: z.string().optional(),
+  description: z.string().min(1, 'Description is required'),
+  descriptionAr: z.string().optional(),
+  category: z.enum(['internal', 'external', 'industry', 'custom']),
+  framework: z.string().optional(),
+  version: z.string().default('1.0'),
+  status: z.enum(['draft', 'active', 'archived']).default('draft'),
+});
+
+type CustomRegulationFormData = z.infer<typeof customRegulationSchema>;
 
 export default function Regulations() {
   const { t, language } = useI18n();
   const [searchTerm, setSearchTerm] = useState('');
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: controls, isLoading } = useQuery({
     queryKey: ['/api/ecc-controls', { search: searchTerm }],
@@ -27,6 +53,50 @@ export default function Regulations() {
       return response.json();
     },
   });
+
+  const { data: customRegulations, isLoading: isLoadingCustom } = useQuery({
+    queryKey: ['/api/custom-regulations'],
+  });
+
+  const form = useForm<CustomRegulationFormData>({
+    resolver: zodResolver(customRegulationSchema),
+    defaultValues: {
+      name: '',
+      nameAr: '',
+      description: '',
+      descriptionAr: '',
+      category: 'internal',
+      framework: '',
+      version: '1.0',
+      status: 'draft',
+    },
+  });
+
+  const createRegulationMutation = useMutation({
+    mutationFn: async (data: CustomRegulationFormData) => {
+      await apiRequest('/api/custom-regulations', 'POST', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/custom-regulations'] });
+      setIsCreateDialogOpen(false);
+      form.reset();
+      toast({
+        title: language === 'ar' ? 'تم إنشاء التنظيم' : 'Regulation Created',
+        description: language === 'ar' ? 'تم إنشاء التنظيم المخصص بنجاح' : 'Custom regulation created successfully',
+      });
+    },
+    onError: () => {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في إنشاء التنظيم' : 'Failed to create regulation',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const onSubmit = (data: CustomRegulationFormData) => {
+    createRegulationMutation.mutate(data);
+  };
 
   // Group controls by domain
   const groupedControls = controls?.reduce((acc: any, control: any) => {
@@ -87,6 +157,144 @@ export default function Regulations() {
               }
             </p>
           </div>
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                {language === 'ar' ? 'إنشاء تنظيم مخصص' : 'Create Custom Regulation'}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>
+                  {language === 'ar' ? 'إنشاء تنظيم مخصص جديد' : 'Create New Custom Regulation'}
+                </DialogTitle>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{language === 'ar' ? 'الاسم (انجليزي)' : 'Name (English)'}</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., SOX Compliance" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="nameAr"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{language === 'ar' ? 'الاسم (عربي)' : 'Name (Arabic)'}</FormLabel>
+                          <FormControl>
+                            <Input placeholder="مثال: ضوابط ساربينز أوكسلي" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="category"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{language === 'ar' ? 'الفئة' : 'Category'}</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select category" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="internal">{language === 'ar' ? 'داخلي' : 'Internal'}</SelectItem>
+                              <SelectItem value="external">{language === 'ar' ? 'خارجي' : 'External'}</SelectItem>
+                              <SelectItem value="industry">{language === 'ar' ? 'صناعي' : 'Industry'}</SelectItem>
+                              <SelectItem value="custom">{language === 'ar' ? 'مخصص' : 'Custom'}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="framework"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{language === 'ar' ? 'الإطار المرجعي' : 'Framework'}</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., ISO 27001, SOX, COBIT" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'الوصف (انجليزي)' : 'Description (English)'}</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Describe the purpose and scope of this regulation..."
+                            className="min-h-[100px]"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="descriptionAr"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'الوصف (عربي)' : 'Description (Arabic)'}</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="اشرح الغرض والنطاق من هذا التنظيم..."
+                            className="min-h-[100px]"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex justify-end gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsCreateDialogOpen(false)}
+                    >
+                      {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                    </Button>
+                    <Button type="submit" disabled={createRegulationMutation.isPending}>
+                      {createRegulationMutation.isPending 
+                        ? (language === 'ar' ? 'جاري الإنشاء...' : 'Creating...') 
+                        : (language === 'ar' ? 'إنشاء' : 'Create')
+                      }
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Regulation Frameworks Overview */}
@@ -128,6 +336,53 @@ export default function Regulations() {
             );
           })}
         </div>
+
+        {/* Custom Regulations Section */}
+        {customRegulations && customRegulations.length > 0 && (
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building className="h-5 w-5" />
+                {language === 'ar' ? 'التنظيمات المخصصة' : 'Custom Regulations'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {customRegulations.map((regulation: any) => (
+                  <Card key={regulation.id} className="border border-slate-200 hover:shadow-md transition-shadow">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <Badge variant="outline" className="text-xs">
+                          {regulation.category}
+                        </Badge>
+                        <Badge variant={regulation.status === 'active' ? 'default' : 'secondary'}>
+                          {regulation.status}
+                        </Badge>
+                      </div>
+                      <CardTitle className="text-base">
+                        {language === 'ar' && regulation.nameAr ? regulation.nameAr : regulation.name}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-slate-600 mb-3 line-clamp-2">
+                        {language === 'ar' && regulation.descriptionAr 
+                          ? regulation.descriptionAr 
+                          : regulation.description
+                        }
+                      </p>
+                      {regulation.framework && (
+                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                          <FileText className="h-3 w-3" />
+                          {regulation.framework}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Search and Controls */}
         <Card className="glass-card">
