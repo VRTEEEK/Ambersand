@@ -21,27 +21,27 @@ export function MetricsCard({
   value,
   subtitle,
   icon: Icon,
-  iconColor = 'hsl(var(--primary))',
+  iconColor = '#2699A6',
   trend,
   progress,
   className,
 }: MetricsCardProps) {
   return (
-    <Card className={cn("bg-card border-border shadow-lg rounded-2xl transition-all duration-200 hover:shadow-xl hover:scale-[1.02]", className)}>
+    <Card className={cn("glass-card hover-lift", className)}>
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div className="flex-1">
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <p className="text-3xl font-bold text-card-foreground mt-1">{value}</p>
+            <p className="text-sm font-medium text-slate-600">{title}</p>
+            <p className="text-3xl font-bold text-slate-800 mt-1">{value}</p>
             
             {subtitle && (
-              <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+              <p className="text-sm text-slate-500 mt-1">{subtitle}</p>
             )}
             
             {trend && (
               <p className={cn(
                 "text-sm flex items-center mt-1",
-                trend.isPositive ? "text-green-600" : "text-destructive"
+                trend.isPositive ? "text-green-600" : "text-red-600"
               )}>
                 <span className="mr-1">
                   {trend.isPositive ? "↑" : "↓"}
@@ -59,7 +59,7 @@ export function MetricsCard({
                     cx="32"
                     cy="32"
                     r="28"
-                    stroke="hsl(var(--border))"
+                    stroke="#E2E8F0"
                     strokeWidth="4"
                     fill="none"
                   />
@@ -67,7 +67,7 @@ export function MetricsCard({
                     cx="32"
                     cy="32"
                     r="28"
-                    stroke="hsl(var(--primary))"
+                    stroke="#4A9B9B"
                     strokeWidth="4"
                     fill="none"
                     strokeDasharray={`${(progress / 100) * 175.9} 175.9`}
@@ -78,13 +78,13 @@ export function MetricsCard({
                 </svg>
                 {Icon && (
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <Icon className="h-6 w-6 text-primary" />
+                    <Icon className="h-6 w-6" style={{ color: iconColor }} />
                   </div>
                 )}
               </div>
             ) : Icon ? (
-              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                <Icon className="h-6 w-6 text-primary" />
+              <div className="w-12 h-12 bg-teal-50 rounded-lg flex items-center justify-center">
+                <Icon className="h-6 w-6" style={{ color: iconColor }} />
               </div>
             ) : null}
           </div>
