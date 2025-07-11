@@ -467,6 +467,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const evidenceData = {
           taskId,
           projectId,
+          title: file.originalname,
+          titleAr: file.originalname,
           fileName: file.originalname,
           filePath: file.path,
           fileSize: file.size,
