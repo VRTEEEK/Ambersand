@@ -39,8 +39,8 @@ const taskSchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
   status: z.enum(['pending', 'in-progress', 'completed', 'blocked']).default('pending'),
   dueDate: z.string().optional(),
-  assigneeId: z.string().optional(),
-  controlId: z.number().optional(),
+  assigneeEmail: z.string().optional(),
+  controlId: z.number().min(1, 'Please select a related control'),
 });
 
 type TaskFormData = z.infer<typeof taskSchema>;
@@ -93,8 +93,8 @@ export default function ProjectDetail() {
       priority: 'medium',
       status: 'pending',
       dueDate: '',
-      assigneeId: '',
-      controlId: undefined,
+      assigneeEmail: '',
+      controlId: selectedControlId || undefined,
     },
   });
 
@@ -103,7 +103,8 @@ export default function ProjectDetail() {
       const taskData = {
         ...data,
         projectId: parseInt(id!),
-        controlId: selectedControlId,
+        // Use the assigneeEmail as assigneeId for now
+        assigneeId: data.assigneeEmail,
       };
       return await apiRequest('/api/tasks', 'POST', taskData);
     },
@@ -153,14 +154,20 @@ export default function ProjectDetail() {
 
   const handleCreateTask = (controlId?: number) => {
     setSelectedControlId(controlId || null);
+    taskForm.setValue('controlId', controlId || undefined);
     setIsTaskDialogOpen(true);
   };
+
+  const selectedControl = projectControls?.find(
+    (control: any) => control.eccControl.id === taskForm.watch('controlId')
+  )?.eccControl;
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
       case 'in-progress': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
       case 'blocked': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
+      case 'pending': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
     }
   };
@@ -439,83 +446,140 @@ export default function ProjectDetail() {
 
         {/* Task Creation Dialog */}
         <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {language === 'ar' ? 'إنشاء مهمة جديدة' : 'Create New Task'}
               </DialogTitle>
+              <DialogDescription>
+                {language === 'ar' ? 'قم بإنشاء مهمة جديدة وتعيينها لضابط محدد' : 'Create a new task and assign it to a specific control'}
+              </DialogDescription>
             </DialogHeader>
             <Form {...taskForm}>
-              <form onSubmit={taskForm.handleSubmit(onTaskSubmit)} className="space-y-4">
+              <form onSubmit={taskForm.handleSubmit(onTaskSubmit)} className="space-y-6">
                 <FormField
                   control={taskForm.control}
                   name="title"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{language === 'ar' ? 'عنوان المهمة' : 'Task Title'}</FormLabel>
+                      <FormLabel className="text-sm font-medium">
+                        {language === 'ar' ? 'اسم المهمة' : 'Task Name'} 
+                        <span className="text-red-500 ml-1">*</span>
+                      </FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input 
+                          {...field} 
+                          placeholder={language === 'ar' ? 'أدخل اسم المهمة' : 'Enter task name'}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={taskForm.control}
-                  name="titleAr"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{language === 'ar' ? 'العنوان بالعربية' : 'Title in Arabic'}</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+
                 <FormField
                   control={taskForm.control}
                   name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{language === 'ar' ? 'الوصف' : 'Description'}</FormLabel>
+                      <FormLabel className="text-sm font-medium">
+                        {language === 'ar' ? 'الوصف' : 'Description'}
+                      </FormLabel>
                       <FormControl>
-                        <Textarea {...field} />
+                        <Textarea 
+                          {...field} 
+                          placeholder={language === 'ar' ? 'أدخل وصف المهمة' : 'Enter task description'}
+                          rows={3}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
+                <FormField
+                  control={taskForm.control}
+                  name="controlId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">
+                        {language === 'ar' ? 'الضابط المرتبط' : 'Related Control'} 
+                        <span className="text-red-500 ml-1">*</span>
+                      </FormLabel>
+                      <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={language === 'ar' ? 'اختر الضابط' : 'Select a control'} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {projectControls?.map((control: any) => (
+                            <SelectItem key={control.eccControl.id} value={control.eccControl.id.toString()}>
+                              {control.eccControl.code} - {language === 'ar' ? control.eccControl.titleAr : control.eccControl.titleEn}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Control Details Section */}
+                {selectedControl && (
+                  <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border">
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-3">
+                      {language === 'ar' ? 'تفاصيل الضابط' : 'Control Details'}
+                    </h4>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          {language === 'ar' ? 'الوصف:' : 'Description:'}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {language === 'ar' ? selectedControl.implementationGuidanceAr : selectedControl.implementationGuidanceEn}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          {language === 'ar' ? 'الأدلة المطلوبة:' : 'Evidence Required:'}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {language === 'ar' ? selectedControl.evidenceRequiredAr : selectedControl.evidenceRequiredEn}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <FormField
+                  control={taskForm.control}
+                  name="assigneeEmail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">
+                        {language === 'ar' ? 'المُكلف' : 'Assigned To'}
+                      </FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          placeholder={language === 'ar' ? 'أدخل اسم المُكلف أو البريد الإلكتروني' : 'Enter assignee name or email'}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={taskForm.control}
-                    name="priority"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'الأولوية' : 'Priority'}</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="low">{language === 'ar' ? 'منخفض' : 'Low'}</SelectItem>
-                            <SelectItem value="medium">{language === 'ar' ? 'متوسط' : 'Medium'}</SelectItem>
-                            <SelectItem value="high">{language === 'ar' ? 'عالي' : 'High'}</SelectItem>
-                            <SelectItem value="urgent">{language === 'ar' ? 'عاجل' : 'Urgent'}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                   <FormField
                     control={taskForm.control}
                     name="dueDate"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{language === 'ar' ? 'تاريخ الاستحقاق' : 'Due Date'}</FormLabel>
+                        <FormLabel className="text-sm font-medium">
+                          {language === 'ar' ? 'تاريخ الاستحقاق' : 'Due Date'}
+                        </FormLabel>
                         <FormControl>
                           <Input type="date" {...field} />
                         </FormControl>
@@ -523,18 +587,72 @@ export default function ProjectDetail() {
                       </FormItem>
                     )}
                   />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setIsTaskDialogOpen(false)}>
-                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                  </Button>
-                  <Button type="submit" disabled={createTaskMutation.isPending}>
-                    {createTaskMutation.isPending ? (
-                      language === 'ar' ? 'جاري الإنشاء...' : 'Creating...'
-                    ) : (
-                      language === 'ar' ? 'إنشاء المهمة' : 'Create Task'
+                  <FormField
+                    control={taskForm.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium">
+                          {language === 'ar' ? 'الحالة' : 'Status'}
+                        </FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="pending">{language === 'ar' ? 'لم تبدأ' : 'Not Started'}</SelectItem>
+                            <SelectItem value="in-progress">{language === 'ar' ? 'قيد التنفيذ' : 'In Progress'}</SelectItem>
+                            <SelectItem value="completed">{language === 'ar' ? 'مكتملة' : 'Completed'}</SelectItem>
+                            <SelectItem value="blocked">{language === 'ar' ? 'محجوبة' : 'Blocked'}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                  </Button>
+                  />
+                </div>
+
+                <div className="border-t pt-4">
+                  <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    <span className="font-medium">
+                      {language === 'ar' ? 'معاينة الحالة:' : 'Status Preview:'}
+                    </span>
+                    <Badge className={getStatusColor(taskForm.watch('status'))}>
+                      {taskForm.watch('status') === 'pending' ? (language === 'ar' ? 'لم تبدأ' : 'Not Started') : 
+                       taskForm.watch('status') === 'in-progress' ? (language === 'ar' ? 'قيد التنفيذ' : 'In Progress') :
+                       taskForm.watch('status') === 'completed' ? (language === 'ar' ? 'مكتملة' : 'Completed') :
+                       (language === 'ar' ? 'محجوبة' : 'Blocked')}
+                    </Badge>
+                  </div>
+                  
+                  <div className="flex justify-end gap-3">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => {
+                        setIsTaskDialogOpen(false);
+                        setSelectedControlId(null);
+                        taskForm.reset();
+                      }}
+                      className="px-6"
+                    >
+                      {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      disabled={createTaskMutation.isPending}
+                      className="bg-teal-600 hover:bg-teal-700 px-6"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      {createTaskMutation.isPending ? (
+                        language === 'ar' ? 'جاري الإنشاء...' : 'Creating...'
+                      ) : (
+                        language === 'ar' ? 'إنشاء المهمة' : 'Create Task'
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </form>
             </Form>
