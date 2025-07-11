@@ -83,28 +83,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/projects', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      console.log("Creating project for user:", userId);
+      console.log("Request body:", JSON.stringify(req.body, null, 2));
+      
       const user = await storage.getUser(userId);
+      console.log("User found:", user ? "yes" : "no");
       
       // Extract controlIds from the request body
       const { controlIds, ...projectBody } = req.body;
+      console.log("Extracted controlIds:", controlIds);
+      console.log("Project body:", projectBody);
       
       const projectData = insertProjectSchema.parse({
         ...projectBody,
         ownerId: userId,
         organizationId: user?.organizationId,
       });
+      console.log("Parsed project data:", projectData);
       
       const project = await storage.createProject(projectData);
+      console.log("Project created with ID:", project.id);
       
       // Add controls to the project if provided
       if (controlIds && Array.isArray(controlIds) && controlIds.length > 0) {
+        console.log("Adding", controlIds.length, "controls to project");
         await storage.addControlsToProject(project.id, controlIds);
+        console.log("Controls added successfully");
       }
       
       res.status(201).json(project);
     } catch (error) {
       console.error("Error creating project:", error);
-      res.status(500).json({ message: "Failed to create project" });
+      console.error("Error stack:", error instanceof Error ? error.stack : 'No stack available');
+      res.status(500).json({ 
+        message: "Failed to create project",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 

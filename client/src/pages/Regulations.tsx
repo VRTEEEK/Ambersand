@@ -641,55 +641,62 @@ export default function Regulations() {
                     </h3>
                   </div>
                   <div className="space-y-3">
-                    {getFilteredControls().map((control: any) => (
-                      <div
-                        key={control.id}
-                        className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors"
-                      >
-                        <div className="flex items-start gap-3 mb-3">
-                          <Checkbox
-                            checked={selectedControlIds.includes(control.id)}
-                            onCheckedChange={() => toggleControl(control.id)}
-                            className="mt-1 flex-shrink-0"
-                          />
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-3 mb-2">
-                              <Badge variant="secondary" className="font-mono text-xs">
-                                {control.code}
-                              </Badge>
-                              <span className="text-sm text-slate-500">
-                                {language === 'ar' && control.subdomainAr ? control.subdomainAr : control.subdomainEn}
-                              </span>
+                    {getFilteredControls().map((control: any) => {
+                      const isSelected = selectedControlIds.includes(control.id);
+                      return (
+                        <div
+                          key={control.id}
+                          className={`border rounded-lg p-4 transition-all duration-200 ${
+                            isSelected 
+                              ? 'border-teal-300 bg-teal-50 shadow-sm ring-1 ring-teal-200' 
+                              : 'border-slate-200 hover:bg-slate-50'
+                          }`}
+                        >
+                            <div className="flex items-start gap-3 mb-3">
+                              <Checkbox
+                                checked={selectedControlIds.includes(control.id)}
+                                onCheckedChange={() => toggleControl(control.id)}
+                                className="mt-1 flex-shrink-0"
+                              />
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-3 mb-2">
+                                  <Badge variant="secondary" className="font-mono text-xs">
+                                    {control.code}
+                                  </Badge>
+                                  <span className="text-sm text-slate-500">
+                                    {language === 'ar' && control.subdomainAr ? control.subdomainAr : control.subdomainEn}
+                                  </span>
+                                </div>
+                                <h4 className="font-medium text-slate-800 mb-2">
+                                  {language === 'ar' && control.controlAr ? control.controlAr : control.controlEn}
+                                </h4>
+                                
+                                {(control.requirementEn || control.requirementAr) && (
+                                  <div className="mt-3">
+                                    <h5 className="text-sm font-medium text-slate-700 mb-1">
+                                      {language === 'ar' ? 'المتطلب:' : 'Requirement:'}
+                                    </h5>
+                                    <p className="text-sm text-slate-600">
+                                      {language === 'ar' && control.requirementAr ? control.requirementAr : control.requirementEn}
+                                    </p>
+                                  </div>
+                                )}
+                                
+                                {(control.evidenceEn || control.evidenceAr) && (
+                                  <div className="mt-3">
+                                    <h5 className="text-sm font-medium text-slate-700 mb-1">
+                                      {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
+                                    </h5>
+                                    <p className="text-sm text-slate-600">
+                                      {language === 'ar' && control.evidenceAr ? control.evidenceAr : control.evidenceEn}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            <h4 className="font-medium text-slate-800 mb-2">
-                              {language === 'ar' && control.controlAr ? control.controlAr : control.controlEn}
-                            </h4>
-                            
-                            {(control.requirementEn || control.requirementAr) && (
-                              <div className="mt-3">
-                                <h5 className="text-sm font-medium text-slate-700 mb-1">
-                                  {language === 'ar' ? 'المتطلب:' : 'Requirement:'}
-                                </h5>
-                                <p className="text-sm text-slate-600">
-                                  {language === 'ar' && control.requirementAr ? control.requirementAr : control.requirementEn}
-                                </p>
-                              </div>
-                            )}
-                            
-                            {(control.evidenceEn || control.evidenceAr) && (
-                              <div className="mt-3">
-                                <h5 className="text-sm font-medium text-slate-700 mb-1">
-                                  {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
-                                </h5>
-                                <p className="text-sm text-slate-600">
-                                  {language === 'ar' && control.evidenceAr ? control.evidenceAr : control.evidenceEn}
-                                </p>
-                              </div>
-                            )}
-                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
