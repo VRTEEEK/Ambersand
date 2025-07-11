@@ -39,7 +39,23 @@ const taskSchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
   status: z.enum(['pending', 'in-progress', 'completed', 'blocked']).default('pending'),
   dueDate: z.string().optional(),
-  assigneeEmail: z.string().optional(),
+  assigneeEmail: z.string().optional().refine(
+    (value) => {
+      if (!value || value.trim() === '') return true;
+      
+      // Split by comma and validate each email
+      const emails = value.split(',').map(email => email.trim());
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      
+      return emails.every(email => {
+        // Allow names without @ (just names) or valid emails
+        return !email.includes('@') || emailRegex.test(email);
+      });
+    },
+    {
+      message: 'Please enter valid email addresses separated by commas (e.g., user1@domain.com, user2@domain.com) or names'
+    }
+  ),
   domain: z.string().min(1, 'Please select a domain'),
   subdomain: z.string().min(1, 'Please select a subdomain'),
   controlId: z.number().min(1, 'Please select a related control'),
@@ -462,7 +478,17 @@ export default function ProjectDetail() {
                               {task.assigneeId && (
                                 <div className="flex items-center gap-1 text-sm text-gray-500">
                                   <Users className="h-3 w-3" />
-                                  {task.assigneeId}
+                                  <span className="truncate max-w-40" title={task.assigneeId}>
+                                    {task.assigneeId.length > 30 
+                                      ? `${task.assigneeId.substring(0, 30)}...` 
+                                      : task.assigneeId
+                                    }
+                                  </span>
+                                  {task.assigneeId.includes(',') && (
+                                    <span className="text-xs bg-gray-200 dark:bg-gray-700 px-1 rounded">
+                                      {task.assigneeId.split(',').length} {language === 'ar' ? 'أشخاص' : 'people'}
+                                    </span>
+                                  )}
                                 </div>
                               )}
                               {task.dueDate && (
@@ -802,9 +828,18 @@ export default function ProjectDetail() {
                       <FormControl>
                         <Input 
                           {...field} 
-                          placeholder={language === 'ar' ? 'أدخل اسم المُكلف أو البريد الإلكتروني' : 'Enter assignee name or email'}
+                          placeholder={language === 'ar' 
+                            ? 'أدخل الأسماء أو الإيميلات مفصولة بفواصل (مثال: أحمد، sara@company.com، محمد)'
+                            : 'Enter names or emails separated by commas (e.g., John, sara@company.com, Ahmed)'
+                          }
                         />
                       </FormControl>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {language === 'ar' 
+                          ? 'يمكنك إدخال عدة أسماء أو عناوين بريد إلكتروني مفصولة بفواصل'
+                          : 'You can enter multiple names or email addresses separated by commas'
+                        }
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1116,9 +1151,18 @@ function EditTaskForm({
               <FormControl>
                 <Input 
                   {...field} 
-                  placeholder={language === 'ar' ? 'أدخل اسم المُكلف أو البريد الإلكتروني' : 'Enter assignee name or email'}
+                  placeholder={language === 'ar' 
+                    ? 'أدخل الأسماء أو الإيميلات مفصولة بفواصل (مثال: أحمد، sara@company.com، محمد)'
+                    : 'Enter names or emails separated by commas (e.g., John, sara@company.com, Ahmed)'
+                  }
                 />
               </FormControl>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {language === 'ar' 
+                  ? 'يمكنك إدخال عدة أسماء أو عناوين بريد إلكتروني مفصولة بفواصل'
+                  : 'You can enter multiple names or email addresses separated by commas'
+                }
+              </div>
               <FormMessage />
             </FormItem>
           )}
