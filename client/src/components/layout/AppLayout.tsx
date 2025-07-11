@@ -104,9 +104,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
     <div className="flex h-full flex-col">
       {/* Logo */}
       <div className="flex items-center justify-center p-6 border-b border-slate-200">
-        <div className="flex items-center space-x-2">
-          <Shield className="h-8 w-8" style={{ color: '#2699A6' }} />
-          <span className="text-xl font-bold text-slate-800">AMBERSAND</span>
+        <div className="flex items-center">
+          <img 
+            src="/attached_assets/Screenshot 2025-07-12 at 02.51.41_1752277916514.png" 
+            alt="Ambersand Logo" 
+            className="h-8 w-auto"
+          />
         </div>
       </div>
 
