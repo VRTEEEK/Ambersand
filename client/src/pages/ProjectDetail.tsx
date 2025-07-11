@@ -814,38 +814,7 @@ export default function ProjectDetail() {
                   )}
                 </div>
 
-                {/* Control Selection Summary */}
-                {selectedControl && (
-                  <div className="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-teal-800 dark:text-teal-200 text-sm mb-3">
-                      <Target className="h-4 w-4" />
-                      <span className="font-medium">
-                        {language === 'ar' ? 'الضابط المحدد:' : 'Selected Control:'}
-                      </span>
-                      <span className="bg-teal-600 text-white px-2 py-1 rounded text-xs">
-                        {selectedControl.code}
-                      </span>
-                      <span className="text-teal-700 dark:text-teal-300">
-                        {language === 'ar' && selectedControl.controlAr ? selectedControl.controlAr : selectedControl.controlEn}
-                      </span>
-                    </div>
-                    
-                    {/* Evidence Requirements */}
-                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <FileText className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                        <span className="font-medium text-yellow-800 dark:text-yellow-200">
-                          {language === 'ar' ? 'الأدلة المطلوبة:' : 'Evidence Required:'}
-                        </span>
-                      </div>
-                      <p className="text-yellow-700 dark:text-yellow-300 text-sm">
-                        {language === 'ar' 
-                          ? (selectedControl.evidenceAr || selectedControl.evidenceRequiredAr || 'وثائق ، سياسات ، إجراءات ، وأدلة تدقيق')
-                          : (selectedControl.evidenceEn || selectedControl.evidenceRequiredEn || 'Documentation, policies, procedures, and audit evidence')}
-                      </p>
-                    </div>
-                  </div>
-                )}
+                
 
                 <FormField
                   control={taskForm.control}
