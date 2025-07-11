@@ -10,7 +10,7 @@ import { ComplianceChart } from '@/components/dashboard/ComplianceChart';
 import { RegulationStatus } from '@/components/dashboard/RegulationStatus';
 import { ProjectsList } from '@/components/dashboard/ProjectsList';
 import { TasksList } from '@/components/dashboard/TasksList';
-import { QuickActions } from '@/components/dashboard/QuickActions';
+
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
   Shield, 
@@ -153,8 +153,7 @@ export default function Dashboard() {
           <TasksList />
         </div>
 
-        {/* Quick Actions */}
-        <QuickActions />
+
       </div>
     </AppLayout>
   );
