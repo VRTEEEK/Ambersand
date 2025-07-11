@@ -122,6 +122,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Project Controls routes
+  app.get('/api/projects/:id/controls', isAuthenticated, async (req: any, res) => {
+    try {
+      const projectId = parseInt(req.params.id);
+      const controls = await storage.getProjectControls(projectId);
+      res.json(controls);
+    } catch (error) {
+      console.error("Error fetching project controls:", error);
+      res.status(500).json({ message: "Failed to fetch project controls" });
+    }
+  });
+
+  app.post('/api/projects/:id/controls', isAuthenticated, async (req: any, res) => {
+    try {
+      const projectId = parseInt(req.params.id);
+      const { controlIds } = req.body;
+      
+      if (!Array.isArray(controlIds)) {
+        return res.status(400).json({ message: "controlIds must be an array" });
+      }
+
+      await storage.addControlsToProject(projectId, controlIds);
+      res.status(201).json({ message: "Controls added to project successfully" });
+    } catch (error) {
+      console.error("Error adding controls to project:", error);
+      res.status(500).json({ message: "Failed to add controls to project" });
+    }
+  });
+
+  app.delete('/api/projects/:projectId/controls/:controlId', isAuthenticated, async (req: any, res) => {
+    try {
+      const projectId = parseInt(req.params.projectId);
+      const controlId = parseInt(req.params.controlId);
+      
+      await storage.removeControlFromProject(projectId, controlId);
+      res.json({ message: "Control removed from project successfully" });
+    } catch (error) {
+      console.error("Error removing control from project:", error);
+      res.status(500).json({ message: "Failed to remove control from project" });
+    }
+  });
+
   // Tasks routes
   app.get('/api/tasks', isAuthenticated, async (req, res) => {
     try {

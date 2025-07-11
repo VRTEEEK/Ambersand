@@ -10,6 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Dialog,
   DialogContent,
@@ -24,6 +27,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { 
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { 
@@ -35,6 +43,10 @@ import {
   Trash2,
   Edit,
   Filter,
+  ChevronDown,
+  ChevronRight,
+  CheckCircle,
+  Shield,
 } from 'lucide-react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -55,6 +67,24 @@ const projectSchema = z.object({
 
 type ProjectFormData = z.infer<typeof projectSchema>;
 
+interface EccControl {
+  id: number;
+  code: string;
+  name: string;
+  nameAr: string | null;
+  description: string;
+  descriptionAr: string | null;
+  domain: string;
+  subdomain: string | null;
+  evidenceRequired: string[];
+}
+
+interface DomainStructure {
+  [domain: string]: {
+    [subdomain: string]: EccControl[];
+  };
+}
+
 export default function Projects() {
   const { t, language } = useI18n();
   const { toast } = useToast();
@@ -62,19 +92,39 @@ export default function Projects() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [selectedControlIds, setSelectedControlIds] = useState<number[]>([]);
+  const [openDomains, setOpenDomains] = useState<Set<string>>(new Set());
+  const [openSubdomains, setOpenSubdomains] = useState<Set<string>>(new Set());
 
   const { data: projects, isLoading, error } = useQuery({
     queryKey: ['/api/projects'],
     retry: false,
   });
 
+  const { data: eccControls } = useQuery({
+    queryKey: ['/api/ecc-controls'],
+    retry: false,
+  });
+
   const createProjectMutation = useMutation({
     mutationFn: async (data: ProjectFormData) => {
-      await apiRequest('POST', '/api/projects', data);
+      const response = await apiRequest('POST', '/api/projects', data);
+      const project = response;
+      
+      // If controls are selected, add them to the project
+      if (selectedControlIds.length > 0) {
+        await apiRequest('POST', `/api/projects/${project.id}/controls`, {
+          controlIds: selectedControlIds
+        });
+      }
+      
+      return project;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       setIsCreateDialogOpen(false);
+      setSelectedControlIds([]);
+      form.reset();
       toast({
         title: t('common.success'),
         description: 'Project created successfully',
@@ -117,6 +167,56 @@ export default function Projects() {
 
   const onSubmit = (data: ProjectFormData) => {
     createProjectMutation.mutate(data);
+  };
+
+  // Helper function to organize controls by domain structure
+  const organizeDomainStructure = (controls: EccControl[]): DomainStructure => {
+    const structure: DomainStructure = {};
+    
+    controls?.forEach(control => {
+      if (!structure[control.domain]) {
+        structure[control.domain] = {};
+      }
+      
+      const subdomain = control.subdomain || 'General';
+      if (!structure[control.domain][subdomain]) {
+        structure[control.domain][subdomain] = [];
+      }
+      
+      structure[control.domain][subdomain].push(control);
+    });
+    
+    return structure;
+  };
+
+  const domainStructure = organizeDomainStructure(eccControls || []);
+
+  const toggleDomain = (domain: string) => {
+    const newOpenDomains = new Set(openDomains);
+    if (newOpenDomains.has(domain)) {
+      newOpenDomains.delete(domain);
+    } else {
+      newOpenDomains.add(domain);
+    }
+    setOpenDomains(newOpenDomains);
+  };
+
+  const toggleSubdomain = (subdomain: string) => {
+    const newOpenSubdomains = new Set(openSubdomains);
+    if (newOpenSubdomains.has(subdomain)) {
+      newOpenSubdomains.delete(subdomain);
+    } else {
+      newOpenSubdomains.add(subdomain);
+    }
+    setOpenSubdomains(newOpenSubdomains);
+  };
+
+  const toggleControl = (controlId: number) => {
+    setSelectedControlIds(prev => 
+      prev.includes(controlId) 
+        ? prev.filter(id => id !== controlId)
+        : [...prev, controlId]
+    );
   };
 
   const getStatusBadgeVariant = (status: string) => {
@@ -367,12 +467,126 @@ export default function Projects() {
                     />
                   </div>
 
+                  {/* ECC Controls Selection */}
+                  <div className="border-t pt-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-5 w-5 text-teal-600" />
+                        <h3 className="text-lg font-semibold">ECC Controls Selection</h3>
+                      </div>
+                      <Badge variant="secondary">
+                        {selectedControlIds.length} selected
+                      </Badge>
+                    </div>
+                    
+                    <ScrollArea className="h-80 border rounded-md p-4">
+                      {Object.entries(domainStructure).map(([domain, subdomains]) => (
+                        <div key={domain} className="mb-2">
+                          <Collapsible 
+                            open={openDomains.has(domain)}
+                            onOpenChange={() => toggleDomain(domain)}
+                          >
+                            <CollapsibleTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                className="w-full justify-start p-2 hover:bg-slate-50"
+                              >
+                                {openDomains.has(domain) ? (
+                                  <ChevronDown className="h-4 w-4 mr-2" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 mr-2" />
+                                )}
+                                <div className="font-medium text-left">
+                                  {language === 'ar' && domain ? `${domain}` : domain}
+                                </div>
+                              </Button>
+                            </CollapsibleTrigger>
+                            
+                            <CollapsibleContent className="pl-6 space-y-1">
+                              {Object.entries(subdomains).map(([subdomain, controls]) => (
+                                <div key={subdomain} className="ml-2">
+                                  <Collapsible
+                                    open={openSubdomains.has(`${domain}-${subdomain}`)}
+                                    onOpenChange={() => toggleSubdomain(`${domain}-${subdomain}`)}
+                                  >
+                                    <CollapsibleTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        className="w-full justify-start p-1 text-sm hover:bg-slate-50"
+                                      >
+                                        {openSubdomains.has(`${domain}-${subdomain}`) ? (
+                                          <ChevronDown className="h-3 w-3 mr-2" />
+                                        ) : (
+                                          <ChevronRight className="h-3 w-3 mr-2" />
+                                        )}
+                                        <div className="text-slate-600">
+                                          {subdomain} ({controls.length})
+                                        </div>
+                                      </Button>
+                                    </CollapsibleTrigger>
+                                    
+                                    <CollapsibleContent className="pl-6 space-y-2">
+                                      {controls.map((control) => (
+                                        <div key={control.id} className="flex items-start space-x-2 p-2 rounded border hover:bg-slate-50">
+                                          <Checkbox
+                                            id={`control-${control.id}`}
+                                            checked={selectedControlIds.includes(control.id)}
+                                            onCheckedChange={() => toggleControl(control.id)}
+                                          />
+                                          <div className="flex-1 min-w-0">
+                                            <label
+                                              htmlFor={`control-${control.id}`}
+                                              className="block text-sm font-medium text-slate-700 cursor-pointer"
+                                            >
+                                              {control.code}
+                                            </label>
+                                            <p className="text-xs text-slate-600 mt-1">
+                                              {language === 'ar' && control.nameAr 
+                                                ? control.nameAr 
+                                                : control.name
+                                              }
+                                            </p>
+                                            {control.evidenceRequired.length > 0 && (
+                                              <div className="flex flex-wrap gap-1 mt-2">
+                                                {control.evidenceRequired.map((evidence, idx) => (
+                                                  <Badge key={idx} variant="outline" className="text-xs">
+                                                    {evidence}
+                                                  </Badge>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </CollapsibleContent>
+                                  </Collapsible>
+                                </div>
+                              ))}
+                            </CollapsibleContent>
+                          </Collapsible>
+                        </div>
+                      ))}
+                    </ScrollArea>
+                  </div>
+
                   <div className="flex justify-end space-x-2">
-                    <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => {
+                        setIsCreateDialogOpen(false);
+                        setSelectedControlIds([]);
+                        form.reset();
+                      }}
+                    >
                       {t('common.cancel')}
                     </Button>
-                    <Button type="submit" disabled={createProjectMutation.isPending}>
-                      {createProjectMutation.isPending ? t('common.loading') : t('common.create')}
+                    <Button 
+                      type="submit" 
+                      disabled={createProjectMutation.isPending}
+                      className="bg-teal-600 hover:bg-teal-700"
+                    >
+                      {createProjectMutation.isPending ? 'Creating...' : t('common.create')}
                     </Button>
                   </div>
                 </form>

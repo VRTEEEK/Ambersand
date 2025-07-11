@@ -1,6 +1,7 @@
 import {
   users,
   projects,
+  projectControls,
   tasks,
   evidence,
   eccControls,
@@ -12,6 +13,8 @@ import {
   type UpsertUser,
   type Project,
   type InsertProject,
+  type ProjectControl,
+  type InsertProjectControl,
   type Task,
   type InsertTask,
   type Evidence,
@@ -40,6 +43,12 @@ export interface IStorage {
   createProject(project: InsertProject): Promise<Project>;
   updateProject(id: number, project: Partial<InsertProject>): Promise<Project>;
   deleteProject(id: number): Promise<void>;
+  
+  // Project Controls operations
+  getProjectControls(projectId: number): Promise<(ProjectControl & { eccControl: EccControl })[]>;
+  addControlsToProject(projectId: number, controlIds: number[]): Promise<void>;
+  updateProjectControl(id: number, data: Partial<InsertProjectControl>): Promise<ProjectControl>;
+  removeControlFromProject(projectId: number, controlId: number): Promise<void>;
   
   // Task operations
   getTasks(projectId?: number, assigneeId?: string): Promise<Task[]>;
@@ -148,6 +157,51 @@ export class DatabaseStorage implements IStorage {
 
   async deleteProject(id: number): Promise<void> {
     await db.delete(projects).where(eq(projects.id, id));
+  }
+
+  // Project Controls operations
+  async getProjectControls(projectId: number): Promise<(ProjectControl & { eccControl: EccControl })[]> {
+    const result = await db
+      .select()
+      .from(projectControls)
+      .leftJoin(eccControls, eq(projectControls.eccControlId, eccControls.id))
+      .where(eq(projectControls.projectId, projectId))
+      .orderBy(eccControls.code);
+    
+    return result.map(row => ({
+      ...row.project_controls,
+      eccControl: row.ecc_controls!
+    }));
+  }
+
+  async addControlsToProject(projectId: number, controlIds: number[]): Promise<void> {
+    const insertData = controlIds.map(controlId => ({
+      projectId,
+      eccControlId: controlId,
+      status: 'pending' as const
+    }));
+    
+    await db.insert(projectControls).values(insertData);
+  }
+
+  async updateProjectControl(id: number, data: Partial<InsertProjectControl>): Promise<ProjectControl> {
+    const [updated] = await db
+      .update(projectControls)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(projectControls.id, id))
+      .returning();
+    return updated;
+  }
+
+  async removeControlFromProject(projectId: number, controlId: number): Promise<void> {
+    await db
+      .delete(projectControls)
+      .where(
+        and(
+          eq(projectControls.projectId, projectId),
+          eq(projectControls.eccControlId, controlId)
+        )
+      );
   }
 
   // Task operations

@@ -143,6 +143,20 @@ export const tasks = pgTable("tasks", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Project Controls Association table
+export const projectControls = pgTable("project_controls", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull(),
+  eccControlId: integer("ecc_control_id").notNull(),
+  status: varchar("status").notNull().default("pending"), // pending, in-progress, completed, not-applicable
+  assignedTo: varchar("assigned_to"),
+  dueDate: date("due_date"),
+  completedAt: timestamp("completed_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Evidence repository table
 export const evidence = pgTable("evidence", {
   id: serial("id").primaryKey(),
@@ -209,6 +223,18 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   }),
   tasks: many(tasks),
   evidence: many(evidence),
+  projectControls: many(projectControls),
+}));
+
+export const projectControlsRelations = relations(projectControls, ({ one }) => ({
+  project: one(projects, {
+    fields: [projectControls.projectId],
+    references: [projects.id],
+  }),
+  eccControl: one(eccControls, {
+    fields: [projectControls.eccControlId],
+    references: [eccControls.id],
+  }),
 }));
 
 export const tasksRelations = relations(tasks, ({ one, many }) => ({
@@ -277,6 +303,7 @@ export const eccControlsRelations = relations(eccControls, ({ many }) => ({
   tasks: many(tasks),
   evidence: many(evidence),
   assessments: many(controlAssessments),
+  projectControls: many(projectControls),
 }));
 
 export const customRegulationsRelations = relations(customRegulations, ({ one, many }) => ({
@@ -350,6 +377,12 @@ export const insertCustomControlSchema = createInsertSchema(customControls).omit
   updatedAt: true,
 });
 
+export const insertProjectControlSchema = createInsertSchema(projectControls).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type UpsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -360,6 +393,8 @@ export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type Evidence = typeof evidence.$inferSelect;
 export type InsertEvidence = z.infer<typeof insertEvidenceSchema>;
 export type EccControl = typeof eccControls.$inferSelect;
+export type ProjectControl = typeof projectControls.$inferSelect;
+export type InsertProjectControl = z.infer<typeof insertProjectControlSchema>;
 export type ComplianceAssessment = typeof complianceAssessments.$inferSelect;
 export type InsertComplianceAssessment = z.infer<typeof insertComplianceAssessmentSchema>;
 export type ControlAssessment = typeof controlAssessments.$inferSelect;
