@@ -544,7 +544,7 @@ export default function ProjectDetail() {
                                  task.status === 'completed' ? (language === 'ar' ? 'مكتملة' : 'Completed') :
                                  (language === 'ar' ? 'محجوبة' : 'Blocked')}
                               </Badge>
-                              <Badge className={getPriorityColor(task.priority)}>
+                              <Badge className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent hover:bg-primary/80 dark:bg-yellow-900 dark:text-yellow-300 bg-[#ed7f47] text-[#ffffff]">
                                 {task.priority === 'low' ? (language === 'ar' ? 'منخفضة' : 'Low') :
                                  task.priority === 'medium' ? (language === 'ar' ? 'متوسطة' : 'Medium') :
                                  task.priority === 'high' ? (language === 'ar' ? 'عالية' : 'High') :
