@@ -172,7 +172,7 @@ export default function ProjectDetail() {
         eccControlId: data.controlId,
       };
       console.log('Final task data being sent:', taskData);
-      return await apiRequest(`/api/tasks/${data.id}`, 'PATCH', taskData);
+      return await apiRequest(`/api/tasks/${data.id}`, 'PUT', taskData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks', { projectId: id }] });
@@ -1052,6 +1052,7 @@ function EditTaskForm({
       const response = await fetch('/api/evidence/upload', {
         method: 'POST',
         body: formData,
+        credentials: 'include',
       });
 
       if (!response.ok) {

@@ -445,6 +445,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Evidence upload endpoint
   app.post('/api/evidence/upload', isAuthenticated, upload.array('files', 10), async (req: any, res) => {
     try {
+      console.log('Evidence upload request received:', {
+        body: req.body,
+        filesCount: req.files?.length || 0,
+        user: req.user?.claims?.sub
+      });
+      
       const taskId = parseInt(req.body.taskId);
       const projectId = parseInt(req.body.projectId);
       const files = req.files as Express.Multer.File[];
@@ -464,12 +470,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           fileType: file.mimetype,
           description: `Evidence file: ${file.originalname}`,
           descriptionAr: `ملف أدلة: ${file.originalname}`,
+          uploadedById: req.user.claims.sub,
         };
         
+        console.log('Creating evidence record:', evidenceData);
         const evidence = await storage.createEvidence(evidenceData);
         evidenceRecords.push(evidence);
       }
 
+      console.log('Evidence upload successful:', evidenceRecords.length, 'files');
       res.status(201).json({
         message: "Files uploaded successfully",
         evidence: evidenceRecords,
