@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AppLayout from '@/components/layout/AppLayout';
 import { useI18n } from '@/hooks/use-i18n';
@@ -34,25 +34,139 @@ import {
   Clock,
   AlertCircle,
   Filter,
+  Target,
+  FileText,
+  Users,
+  GripVertical,
 } from 'lucide-react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const taskSchema = z.object({
   title: z.string().min(1, 'Task title is required'),
   titleAr: z.string().optional(),
   description: z.string().optional(),
   descriptionAr: z.string().optional(),
-  status: z.enum(['todo', 'in-progress', 'review', 'completed']),
+  status: z.enum(['pending', 'in-progress', 'review', 'completed']),
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
   dueDate: z.string().optional(),
   projectId: z.number().optional(),
-  assigneeId: z.string().optional(),
+  assigneeEmail: z.string().optional(),
+  controlId: z.number().optional(),
 });
 
 type TaskFormData = z.infer<typeof taskSchema>;
+
+interface Task {
+  id: number;
+  title: string;
+  titleAr?: string;
+  description?: string;
+  descriptionAr?: string;
+  status: string;
+  priority: string;
+  dueDate?: string;
+  assigneeId?: string;
+  projectId?: number;
+  eccControlId?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Sortable Task Card Component
+function SortableTaskCard({ task, language }: { task: Task; language: string }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-all cursor-grab active:cursor-grabbing"
+    >
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <GripVertical className="h-4 w-4 text-gray-400" />
+          <h3 className="font-medium text-gray-900 dark:text-white text-sm">
+            {language === 'ar' && task.titleAr ? task.titleAr : task.title}
+          </h3>
+        </div>
+        <Badge className={getPriorityColor(task.priority)}>
+          {task.priority === 'low' ? (language === 'ar' ? 'منخفضة' : 'Low') :
+           task.priority === 'medium' ? (language === 'ar' ? 'متوسطة' : 'Medium') :
+           task.priority === 'high' ? (language === 'ar' ? 'عالية' : 'High') :
+           (language === 'ar' ? 'عاجلة' : 'Urgent')}
+        </Badge>
+      </div>
+      
+      {task.description && (
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
+          {language === 'ar' && task.descriptionAr ? task.descriptionAr : task.description}
+        </p>
+      )}
+      
+      <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+        {task.assigneeId && (
+          <div className="flex items-center gap-1">
+            <Users className="h-3 w-3" />
+            <span className="truncate max-w-24">
+              {task.assigneeId.length > 20 ? `${task.assigneeId.substring(0, 20)}...` : task.assigneeId}
+            </span>
+          </div>
+        )}
+        {task.dueDate && (
+          <div className="flex items-center gap-1">
+            <Calendar className="h-3 w-3" />
+            <span>{new Date(task.dueDate).toLocaleDateString()}</span>
+          </div>
+        )}
+      </div>
+      
+      <div className="flex items-center justify-between">
+        <div className="text-xs text-gray-400">
+          ID: {task.id}
+        </div>
+        <div className="flex items-center gap-1 text-xs text-gray-500">
+          <Clock className="h-3 w-3" />
+          <span>{new Date(task.updatedAt).toLocaleDateString()}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Tasks() {
   const { t, language } = useI18n();
@@ -62,80 +176,180 @@ export default function Tasks() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
 
-  const { data: tasks, isLoading, error } = useQuery({
+  // Fetch tasks with fresh data - remove cache to get real-time data
+  const { data: tasks = [], isLoading, error, refetch } = useQuery({
     queryKey: ['/api/tasks'],
-    retry: false,
+    queryFn: async () => {
+      console.log('🔄 Fetching tasks...');
+      const response = await fetch('/api/tasks');
+      if (!response.ok) throw new Error('Failed to fetch tasks');
+      const data = await response.json();
+      console.log('✅ Tasks fetched:', data);
+      return data;
+    },
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    staleTime: 0, // Always fetch fresh data
   });
 
-  const { data: projects } = useQuery({
+  const { data: projects = [] } = useQuery({
     queryKey: ['/api/projects'],
-    retry: false,
-  });
-
-  const createTaskMutation = useMutation({
-    mutationFn: async (data: TaskFormData) => {
-      await apiRequest('POST', '/api/tasks', data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
-      setIsCreateDialogOpen(false);
-      toast({
-        title: t('common.success'),
-        description: 'Task created successfully',
-      });
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error as Error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: t('common.error'),
-        description: 'Failed to create task',
-        variant: 'destructive',
-      });
+    queryFn: async () => {
+      const response = await fetch('/api/projects');
+      if (!response.ok) throw new Error('Failed to fetch projects');
+      return response.json();
     },
   });
 
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
+  // Update task status mutation
   const updateTaskStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      await apiRequest('PUT', `/api/tasks/${id}`, { status });
+      console.log('🔄 Updating task status:', { id, status });
+      await apiRequest(`/api/tasks/${id}`, 'PUT', { status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      refetch(); // Force refetch to get fresh data
       toast({
-        title: t('common.success'),
-        description: 'Task status updated',
+        title: language === 'ar' ? 'تم تحديث المهمة' : 'Task Updated',
+        description: language === 'ar' ? 'تم تحديث حالة المهمة بنجاح' : 'Task status updated successfully',
       });
     },
     onError: (error) => {
+      console.error('❌ Error updating task status:', error);
       if (isUnauthorizedError(error as Error)) {
         toast({
           title: "Unauthorized",
           description: "You are logged out. Logging in again...",
           variant: "destructive",
         });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
+        setTimeout(() => window.location.href = "/api/login", 500);
         return;
       }
       toast({
-        title: t('common.error'),
-        description: 'Failed to update task status',
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في تحديث حالة المهمة' : 'Failed to update task status',
         variant: 'destructive',
       });
     },
   });
 
+  // Create task mutation
+  const createTaskMutation = useMutation({
+    mutationFn: async (data: TaskFormData) => {
+      console.log('🔄 Creating task:', data);
+      const taskData = {
+        ...data,
+        assigneeId: data.assigneeEmail, // Map to assigneeId
+        eccControlId: data.controlId, // Map to eccControlId
+      };
+      await apiRequest('/api/tasks', 'POST', taskData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      refetch(); // Force refetch
+      setIsCreateDialogOpen(false);
+      form.reset();
+      toast({
+        title: language === 'ar' ? 'تم إنشاء المهمة' : 'Task Created',
+        description: language === 'ar' ? 'تم إنشاء المهمة بنجاح' : 'Task created successfully',
+      });
+    },
+    onError: (error) => {
+      console.error('❌ Error creating task:', error);
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 500);
+        return;
+      }
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في إنشاء المهمة' : 'Failed to create task',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Drag and drop handlers
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const { active } = event;
+    const task = tasks.find((t: Task) => t.id === active.id);
+    setActiveTask(task || null);
+  }, [tasks]);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!over) {
+      setActiveTask(null);
+      return;
+    }
+
+    const activeId = active.id;
+    const overId = over.id;
+
+    // Check if dropping on a different column
+    if (typeof overId === 'string' && overId.startsWith('column-')) {
+      const newStatus = overId.replace('column-', '');
+      const task = tasks.find((t: Task) => t.id === activeId);
+      
+      if (task && task.status !== newStatus) {
+        updateTaskStatusMutation.mutate({
+          id: task.id,
+          status: newStatus,
+        });
+      }
+    }
+
+    setActiveTask(null);
+  }, [tasks, updateTaskStatusMutation]);
+
+  // Status mapping for the kanban board
+  const statusColumns = [
+    { id: 'pending', title: language === 'ar' ? 'لم تبدأ' : 'To Do', icon: Clock },
+    { id: 'in-progress', title: language === 'ar' ? 'قيد التنفيذ' : 'In Progress', icon: AlertCircle },
+    { id: 'review', title: language === 'ar' ? 'للمراجعة' : 'Review', icon: Search },
+    { id: 'completed', title: language === 'ar' ? 'مكتملة' : 'Completed', icon: CheckCircle2 },
+  ];
+
+  // Group tasks by status
+  const groupedTasks = statusColumns.reduce((acc, column) => {
+    acc[column.id] = (tasks || []).filter((task: Task) => task.status === column.id);
+    return acc;
+  }, {} as Record<string, Task[]>);
+
+  // Filter tasks
+  const filteredTasks = tasks?.filter((task: Task) => {
+    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (task.titleAr && task.titleAr.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
+    const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
+    
+    return matchesSearch && matchesStatus && matchesPriority;
+  }) || [];
+
+  // Apply filters to grouped tasks
+  const filteredGroupedTasks = statusColumns.reduce((acc, column) => {
+    acc[column.id] = filteredTasks.filter((task: Task) => task.status === column.id);
+    return acc;
+  }, {} as Record<string, Task[]>);
+
+  // Form for creating tasks
   const form = useForm<TaskFormData>({
     resolver: zodResolver(taskSchema),
     defaultValues: {
@@ -143,236 +357,140 @@ export default function Tasks() {
       titleAr: '',
       description: '',
       descriptionAr: '',
-      status: 'todo',
+      status: 'pending',
       priority: 'medium',
       dueDate: '',
+      projectId: undefined,
+      assigneeEmail: '',
+      controlId: undefined,
     },
   });
 
+  // Handle form submission
   const onSubmit = (data: TaskFormData) => {
     createTaskMutation.mutate(data);
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle2 className="h-4 w-4 text-green-600" />;
-      case 'in-progress':
-        return <Clock className="h-4 w-4 text-blue-600" />;
-      case 'review':
-        return <AlertCircle className="h-4 w-4 text-orange-600" />;
-      default:
-        return <Clock className="h-4 w-4 text-slate-400" />;
-    }
-  };
-
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'default';
-      case 'in-progress':
-        return 'secondary';
-      case 'review':
-        return 'outline';
-      case 'todo':
-        return 'outline';
-      default:
-        return 'secondary';
-    }
-  };
-
-  const getPriorityBadgeVariant = (priority: string) => {
+  // Utility functions
+  const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'urgent':
-        return 'destructive';
-      case 'high':
-        return 'destructive';
-      case 'medium':
-        return 'default';
-      case 'low':
-        return 'secondary';
-      default:
-        return 'secondary';
+      case 'low': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
+      case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
+      case 'high': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300';
+      case 'urgent': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
     }
   };
 
-  const getPriorityText = (priority: string) => {
-    switch (priority) {
-      case 'urgent':
-        return t('status.urgent');
-      case 'high':
-        return t('status.high');
-      case 'medium':
-        return t('status.medium');
-      case 'low':
-        return t('status.low');
-      default:
-        return priority;
-    }
-  };
-
-  const getStatusText = (status: string) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case 'todo':
-        return 'To Do';
-      case 'in-progress':
-        return 'In Progress';
-      case 'review':
-        return 'Review';
-      case 'completed':
-        return t('status.completed');
-      default:
-        return status;
+      case 'pending': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+      case 'in-progress': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
+      case 'review': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
+      case 'completed': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
     }
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'No due date';
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  const isOverdue = (dueDate: string | null) => {
-    if (!dueDate) return false;
-    return new Date(dueDate) < new Date();
-  };
-
-  const filteredTasks = tasks?.filter((task: any) => {
-    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         task.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
-    const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
-    return matchesSearch && matchesStatus && matchesPriority;
-  }) || [];
-
-  const groupedTasks = {
-    todo: filteredTasks.filter((task: any) => task.status === 'todo'),
-    'in-progress': filteredTasks.filter((task: any) => task.status === 'in-progress'),
-    review: filteredTasks.filter((task: any) => task.status === 'review'),
-    completed: filteredTasks.filter((task: any) => task.status === 'completed'),
-  };
-
-  if (error && isUnauthorizedError(error as Error)) {
-    return null; // Will redirect to login
+  // Handle error states
+  if (error) {
+    return (
+      <AppLayout>
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center py-12">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              {language === 'ar' ? 'خطأ في تحميل المهام' : 'Error loading tasks'}
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              {language === 'ar' ? 'حدث خطأ أثناء تحميل المهام' : 'There was an error loading tasks'}
+            </p>
+            <Button onClick={() => refetch()}>
+              {language === 'ar' ? 'إعادة المحاولة' : 'Try Again'}
+            </Button>
+          </div>
+        </div>
+      </AppLayout>
+    );
   }
 
   return (
     <AppLayout>
-      <div className="space-y-6">
+      <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800">
-              {t('nav.tasks')}
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              {language === 'ar' ? 'إدارة المهام' : 'Task Management'}
             </h1>
-            <p className="text-slate-600 mt-1">
-              {language === 'ar'
-                ? 'إدارة وتتبع المهام والمتطلبات'
-                : 'Manage and track tasks and requirements'
-              }
+            <p className="text-gray-600 dark:text-gray-400 mt-2">
+              {language === 'ar' ? 'نظام لوحة كانبان لإدارة المهام' : 'Kanban board system for task management'}
             </p>
           </div>
-
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button className="bg-teal-600 hover:bg-teal-700">
                 <Plus className="h-4 w-4 mr-2" />
-                {t('actions.addTask')}
+                {language === 'ar' ? 'إضافة مهمة' : 'Add Task'}
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
-                <DialogTitle>{t('actions.addTask')}</DialogTitle>
+                <DialogTitle>
+                  {language === 'ar' ? 'إضافة مهمة جديدة' : 'Add New Task'}
+                </DialogTitle>
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="title"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Task Title (English)</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="titleAr"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Task Title (Arabic)</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                  <FormField
+                    control={form.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'العنوان' : 'Title'}</FormLabel>
+                        <FormControl>
+                          <Input placeholder={language === 'ar' ? 'أدخل عنوان المهمة' : 'Enter task title'} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="description"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Description (English)</FormLabel>
-                          <FormControl>
-                            <Textarea {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="descriptionAr"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Description (Arabic)</FormLabel>
-                          <FormControl>
-                            <Textarea {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                  <FormField
+                    control={form.control}
+                    name="titleAr"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'العنوان بالعربية' : 'Title (Arabic)'}</FormLabel>
+                        <FormControl>
+                          <Input placeholder={language === 'ar' ? 'أدخل عنوان المهمة بالعربية' : 'Enter task title in Arabic'} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="status"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Status</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="todo">To Do</SelectItem>
-                              <SelectItem value="in-progress">In Progress</SelectItem>
-                              <SelectItem value="review">Review</SelectItem>
-                              <SelectItem value="completed">Completed</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'الوصف' : 'Description'}</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder={language === 'ar' ? 'أدخل وصف المهمة' : 'Enter task description'} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="priority"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Priority</FormLabel>
+                          <FormLabel>{language === 'ar' ? 'الأولوية' : 'Priority'}</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
                               <SelectTrigger>
@@ -380,22 +498,23 @@ export default function Tasks() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="low">Low</SelectItem>
-                              <SelectItem value="medium">Medium</SelectItem>
-                              <SelectItem value="high">High</SelectItem>
-                              <SelectItem value="urgent">Urgent</SelectItem>
+                              <SelectItem value="low">{language === 'ar' ? 'منخفضة' : 'Low'}</SelectItem>
+                              <SelectItem value="medium">{language === 'ar' ? 'متوسطة' : 'Medium'}</SelectItem>
+                              <SelectItem value="high">{language === 'ar' ? 'عالية' : 'High'}</SelectItem>
+                              <SelectItem value="urgent">{language === 'ar' ? 'عاجلة' : 'Urgent'}</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
+
                     <FormField
                       control={form.control}
                       name="dueDate"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Due Date</FormLabel>
+                          <FormLabel>{language === 'ar' ? 'تاريخ الاستحقاق' : 'Due Date'}</FormLabel>
                           <FormControl>
                             <Input type="date" {...field} />
                           </FormControl>
@@ -410,15 +529,15 @@ export default function Tasks() {
                     name="projectId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Project (Optional)</FormLabel>
+                        <FormLabel>{language === 'ar' ? 'المشروع' : 'Project'}</FormLabel>
                         <Select onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select a project" />
+                              <SelectValue placeholder={language === 'ar' ? 'اختر المشروع' : 'Select project'} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {projects?.map((project: any) => (
+                            {projects.map((project: any) => (
                               <SelectItem key={project.id} value={project.id.toString()}>
                                 {project.name}
                               </SelectItem>
@@ -430,12 +549,26 @@ export default function Tasks() {
                     )}
                   />
 
+                  <FormField
+                    control={form.control}
+                    name="assigneeEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'المُكلف' : 'Assignee'}</FormLabel>
+                        <FormControl>
+                          <Input placeholder={language === 'ar' ? 'أدخل البريد الإلكتروني أو الاسم' : 'Enter email or name'} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                   <div className="flex justify-end space-x-2">
                     <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                      {t('common.cancel')}
+                      {language === 'ar' ? 'إلغاء' : 'Cancel'}
                     </Button>
                     <Button type="submit" disabled={createTaskMutation.isPending}>
-                      {createTaskMutation.isPending ? t('common.loading') : t('common.create')}
+                      {createTaskMutation.isPending ? (language === 'ar' ? 'جاري الإنشاء...' : 'Creating...') : (language === 'ar' ? 'إنشاء' : 'Create')}
                     </Button>
                   </div>
                 </form>
@@ -445,14 +578,14 @@ export default function Tasks() {
         </div>
 
         {/* Filters */}
-        <Card className="glass-card">
+        <Card className="mb-6">
           <CardContent className="p-6">
             <div className="flex flex-col lg:flex-row gap-4">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
                   type="search"
-                  placeholder={t('actions.search')}
+                  placeholder={language === 'ar' ? 'بحث في المهام...' : 'Search tasks...'}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -463,11 +596,11 @@ export default function Tasks() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="todo">To Do</SelectItem>
-                  <SelectItem value="in-progress">In Progress</SelectItem>
-                  <SelectItem value="review">Review</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="all">{language === 'ar' ? 'كل الحالات' : 'All Status'}</SelectItem>
+                  <SelectItem value="pending">{language === 'ar' ? 'لم تبدأ' : 'To Do'}</SelectItem>
+                  <SelectItem value="in-progress">{language === 'ar' ? 'قيد التنفيذ' : 'In Progress'}</SelectItem>
+                  <SelectItem value="review">{language === 'ar' ? 'للمراجعة' : 'Review'}</SelectItem>
+                  <SelectItem value="completed">{language === 'ar' ? 'مكتملة' : 'Completed'}</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
@@ -475,11 +608,11 @@ export default function Tasks() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Priority</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="all">{language === 'ar' ? 'كل الأولويات' : 'All Priority'}</SelectItem>
+                  <SelectItem value="urgent">{language === 'ar' ? 'عاجلة' : 'Urgent'}</SelectItem>
+                  <SelectItem value="high">{language === 'ar' ? 'عالية' : 'High'}</SelectItem>
+                  <SelectItem value="medium">{language === 'ar' ? 'متوسطة' : 'Medium'}</SelectItem>
+                  <SelectItem value="low">{language === 'ar' ? 'منخفضة' : 'Low'}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -487,130 +620,82 @@ export default function Tasks() {
         </Card>
 
         {/* Kanban Board */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {Object.entries(groupedTasks).map(([status, statusTasks]) => (
-            <Card key={status} className="glass-card">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    {getStatusIcon(status)}
-                    <span>{getStatusText(status)}</span>
-                  </div>
-                  <Badge variant="outline">
-                    {statusTasks.length}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {isLoading ? (
-                    Array.from({ length: 3 }).map((_, i) => (
-                      <div key={i} className="p-3 border border-slate-200 rounded-lg">
-                        <Skeleton className="h-4 w-32 mb-2" />
-                        <Skeleton className="h-3 w-24 mb-2" />
-                        <Skeleton className="h-3 w-20" />
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {statusColumns.map((column) => {
+              const StatusIcon = column.icon;
+              const columnTasks = filteredGroupedTasks[column.id] || [];
+              
+              return (
+                <Card key={column.id} className="bg-gray-50 dark:bg-gray-800">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <StatusIcon className="h-5 w-5" />
+                        <span>{column.title}</span>
                       </div>
-                    ))
-                  ) : statusTasks.length === 0 ? (
-                    <div className="text-center py-6 text-slate-500">
-                      <p className="text-sm">No tasks</p>
-                    </div>
-                  ) : (
-                    statusTasks.map((task: any) => (
-                      <div
-                        key={task.id}
-                        className="p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="font-medium text-sm text-slate-800 truncate">
-                            {language === 'ar' && task.titleAr ? task.titleAr : task.title}
-                          </p>
-                          <Badge 
-                            variant={getPriorityBadgeVariant(task.priority)}
-                            className="text-xs"
-                          >
-                            {getPriorityText(task.priority)}
-                          </Badge>
-                        </div>
-                        
-                        {task.description && (
-                          <p className="text-xs text-slate-500 mb-2 line-clamp-2">
-                            {language === 'ar' && task.descriptionAr 
-                              ? task.descriptionAr 
-                              : task.description
-                            }
-                          </p>
-                        )}
-                        
-                        <div className="flex items-center justify-between text-xs">
-                          <div className="flex items-center text-slate-400">
-                            <Calendar className="h-3 w-3 mr-1" />
-                            <span className={isOverdue(task.dueDate) ? 'text-red-600' : ''}>
-                              {formatDate(task.dueDate)}
-                            </span>
-                          </div>
-                          
-                          {task.assigneeId && (
-                            <div className="flex items-center text-slate-400">
-                              <User className="h-3 w-3 mr-1" />
-                              <span className="truncate max-w-20">
-                                {task.assigneeId}
-                              </span>
+                      <Badge variant="outline" className="bg-white dark:bg-gray-700">
+                        {columnTasks.length}
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent 
+                    className="pt-0 min-h-[400px]"
+                    id={`column-${column.id}`}
+                  >
+                    <SortableContext items={columnTasks.map(task => task.id)} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-3">
+                        {isLoading ? (
+                          Array.from({ length: 3 }).map((_, i) => (
+                            <div key={i} className="p-4 bg-white dark:bg-gray-700 rounded-lg border">
+                              <Skeleton className="h-4 w-32 mb-2" />
+                              <Skeleton className="h-3 w-24 mb-2" />
+                              <Skeleton className="h-3 w-20" />
                             </div>
-                          )}
-                        </div>
-                        
-                        {status !== 'completed' && (
-                          <div className="mt-2 flex gap-1">
-                            {status === 'todo' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-xs h-6"
-                                onClick={() => updateTaskStatusMutation.mutate({ 
-                                  id: task.id, 
-                                  status: 'in-progress' 
-                                })}
-                              >
-                                Start
-                              </Button>
-                            )}
-                            {status === 'in-progress' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-xs h-6"
-                                onClick={() => updateTaskStatusMutation.mutate({ 
-                                  id: task.id, 
-                                  status: 'review' 
-                                })}
-                              >
-                                Review
-                              </Button>
-                            )}
-                            {status === 'review' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-xs h-6"
-                                onClick={() => updateTaskStatusMutation.mutate({ 
-                                  id: task.id, 
-                                  status: 'completed' 
-                                })}
-                              >
-                                Complete
-                              </Button>
-                            )}
+                          ))
+                        ) : columnTasks.length === 0 ? (
+                          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                            <p className="text-sm">
+                              {language === 'ar' ? 'لا توجد مهام' : 'No tasks'}
+                            </p>
                           </div>
+                        ) : (
+                          columnTasks.map((task) => (
+                            <SortableTaskCard key={task.id} task={task} language={language} />
+                          ))
                         )}
                       </div>
-                    ))
-                  )}
+                    </SortableContext>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          <DragOverlay>
+            {activeTask ? (
+              <div className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg transform rotate-2">
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-medium text-gray-900 dark:text-white text-sm">
+                    {language === 'ar' && activeTask.titleAr ? activeTask.titleAr : activeTask.title}
+                  </h3>
+                  <Badge className={getPriorityColor(activeTask.priority)}>
+                    {activeTask.priority}
+                  </Badge>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                {activeTask.description && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
+                    {language === 'ar' && activeTask.descriptionAr ? activeTask.descriptionAr : activeTask.description}
+                  </p>
+                )}
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       </div>
     </AppLayout>
   );
