@@ -128,6 +128,8 @@ export default function ProjectDetail() {
         projectId: parseInt(id!),
         // Use the assigneeEmail as assigneeId for now
         assigneeId: data.assigneeEmail,
+        // Map controlId to eccControlId for database compatibility
+        eccControlId: data.controlId,
       };
       return await apiRequest('/api/tasks', 'POST', taskData);
     },
@@ -155,6 +157,8 @@ export default function ProjectDetail() {
       const taskData = {
         ...data,
         assigneeId: data.assigneeEmail,
+        // Map controlId to eccControlId for database compatibility
+        eccControlId: data.controlId,
       };
       return await apiRequest(`/api/tasks/${data.id}`, 'PATCH', taskData);
     },
@@ -1027,7 +1031,7 @@ function EditTaskForm({
       assigneeEmail: task.assigneeId || '',
       domain: task.domain || '',
       subdomain: task.subdomain || '',
-      controlId: task.controlId || undefined,
+      controlId: task.eccControlId || undefined,
     },
   });
 
