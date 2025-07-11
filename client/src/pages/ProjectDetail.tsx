@@ -688,86 +688,15 @@ export default function ProjectDetail() {
 
                 {/* Control Details Section */}
                 {selectedControl && (
-                  <div className="bg-gradient-to-r from-teal-50 to-blue-50 dark:from-gray-800 dark:to-gray-700 p-5 rounded-lg border border-teal-200 dark:border-gray-600">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-teal-100 dark:bg-teal-900 rounded-lg">
-                        <Target className="h-5 w-5 text-teal-600 dark:text-teal-400" />
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-gray-900 dark:text-white text-lg">
-                          {language === 'ar' ? 'تفاصيل الضابط' : 'Control Details'}
-                        </h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {selectedControl.code} - {language === 'ar' && selectedControl.controlAr 
-                            ? selectedControl.controlAr 
-                            : selectedControl.controlEn}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-4">
-                      {/* Control Name */}
-                      <div className="bg-white dark:bg-gray-800 p-3 rounded-lg">
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          {language === 'ar' ? 'اسم الضابط:' : 'Control Name:'}
-                        </p>
-                        <p className="text-sm text-gray-900 dark:text-white font-medium">
-                          {language === 'ar' && selectedControl.controlAr 
-                            ? selectedControl.controlAr 
-                            : selectedControl.controlEn}
-                        </p>
-                      </div>
-
-                      {/* Implementation Guidance */}
-                      {(selectedControl.implementationGuidanceEn || selectedControl.implementationGuidanceAr) && (
-                        <div className="bg-white dark:bg-gray-800 p-3 rounded-lg">
-                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            {language === 'ar' ? 'إرشادات التنفيذ:' : 'Implementation Guidance:'}
-                          </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                            {language === 'ar' && selectedControl.implementationGuidanceAr 
-                              ? selectedControl.implementationGuidanceAr 
-                              : selectedControl.implementationGuidanceEn}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Evidence Required */}
-                      <div className="bg-white dark:bg-gray-800 p-3 rounded-lg">
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          {language === 'ar' ? 'الأدلة المطلوبة:' : 'Evidence Required:'}
-                        </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                          {language === 'ar' 
-                            ? (selectedControl.evidenceRequiredAr || selectedControl.evidenceAr || 'وثائق ، سياسات ، إجراءات ، وأدلة تدقيق')
-                            : (selectedControl.evidenceRequiredEn || selectedControl.evidenceEn || 'Documentation, policies, procedures, and audit evidence')}
-                        </p>
-                      </div>
-
-                      {/* Domain and Subdomain Info */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-white dark:bg-gray-800 p-3 rounded-lg">
-                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                            {language === 'ar' ? 'المجال' : 'Domain'}
-                          </p>
-                          <p className="text-sm text-gray-700 dark:text-gray-300">
-                            {language === 'ar' && selectedControl.domainAr 
-                              ? selectedControl.domainAr 
-                              : selectedControl.domainEn}
-                          </p>
-                        </div>
-                        <div className="bg-white dark:bg-gray-800 p-3 rounded-lg">
-                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                            {language === 'ar' ? 'المجال الفرعي' : 'Subdomain'}
-                          </p>
-                          <p className="text-sm text-gray-700 dark:text-gray-300">
-                            {language === 'ar' && selectedControl.subdomainAr 
-                              ? selectedControl.subdomainAr 
-                              : selectedControl.subdomainEn}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+                  <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border">
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-3">
+                      {language === 'ar' ? 'الأدلة المطلوبة' : 'Evidence Required'}
+                    </h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {language === 'ar' 
+                        ? (selectedControl.evidenceRequiredAr || selectedControl.evidenceAr || 'وثائق ، سياسات ، إجراءات ، وأدلة تدقيق')
+                        : (selectedControl.evidenceRequiredEn || selectedControl.evidenceEn || 'Documentation, policies, procedures, and audit evidence')}
+                    </p>
                   </div>
                 )}
 
