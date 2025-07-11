@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -170,10 +171,14 @@ export default function Projects() {
   };
 
   // Helper function to organize controls by domain structure
-  const organizeDomainStructure = (controls: EccControl[]): DomainStructure => {
+  const organizeDomainStructure = (controls: EccControl[] | undefined): DomainStructure => {
     const structure: DomainStructure = {};
     
-    controls?.forEach(control => {
+    if (!controls || !Array.isArray(controls)) {
+      return structure;
+    }
+    
+    controls.forEach(control => {
       if (!structure[control.domain]) {
         structure[control.domain] = {};
       }
@@ -189,7 +194,7 @@ export default function Projects() {
     return structure;
   };
 
-  const domainStructure = organizeDomainStructure(eccControls || []);
+  const domainStructure = organizeDomainStructure(eccControls);
 
   const toggleDomain = (domain: string) => {
     const newOpenDomains = new Set(openDomains);
@@ -306,6 +311,9 @@ export default function Projects() {
             <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>{t('actions.createProject')}</DialogTitle>
+                <DialogDescription>
+                  Create a new compliance project and select relevant ECC controls
+                </DialogDescription>
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -480,7 +488,7 @@ export default function Projects() {
                     </div>
                     
                     <ScrollArea className="h-80 border rounded-md p-4">
-                      {Object.entries(domainStructure).map(([domain, subdomains]) => (
+                      {eccControls ? Object.entries(domainStructure).map(([domain, subdomains]) => (
                         <div key={domain} className="mb-2">
                           <Collapsible 
                             open={openDomains.has(domain)}
@@ -546,7 +554,7 @@ export default function Projects() {
                                                 : control.name
                                               }
                                             </p>
-                                            {control.evidenceRequired.length > 0 && (
+                                            {control.evidenceRequired && control.evidenceRequired.length > 0 && (
                                               <div className="flex flex-wrap gap-1 mt-2">
                                                 {control.evidenceRequired.map((evidence, idx) => (
                                                   <Badge key={idx} variant="outline" className="text-xs">
@@ -565,7 +573,11 @@ export default function Projects() {
                             </CollapsibleContent>
                           </Collapsible>
                         </div>
-                      ))}
+                      )) : (
+                        <div className="flex items-center justify-center h-32 text-slate-500">
+                          Loading ECC controls...
+                        </div>
+                      )}
                     </ScrollArea>
                   </div>
 

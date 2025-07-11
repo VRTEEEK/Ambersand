@@ -31,9 +31,12 @@ Preferred communication style: Simple, everyday language.
 - **Core Entities**:
   - Users and Organizations
   - Projects and Tasks
+  - Project Controls (Many-to-Many association)
   - Evidence and Attachments
   - Compliance Assessments
   - ECC Controls and Regulations
+- **ECC Data**: 201 predefined ECC controls with Arabic/English content
+- **Control Relationships**: Projects can be associated with multiple ECC controls
 
 ## Key Components
 
@@ -44,9 +47,16 @@ Preferred communication style: Simple, everyday language.
 
 ### Compliance Management
 - **Regulation Library**: Predefined regulatory frameworks (ECC, PDPL, NDMO)
-- **Project Management**: Create and track compliance projects across regulations
+- **Project Management**: Create and track compliance projects with hierarchical control selection
+- **Control Association**: Many-to-many relationship between projects and ECC controls
 - **Task Management**: Assign and monitor compliance tasks with deadlines and priorities
 - **Evidence Management**: Upload and organize supporting documents and files
+
+### Project Control Selection
+- **Hierarchical Interface**: Browse ECC controls organized by domains and subdomains
+- **Real-time Selection**: Interactive control selection with live counter
+- **Evidence Requirements**: Display required evidence types for each control
+- **Collapsible Navigation**: Expandable domain/subdomain tree structure
 
 ### Internationalization
 - **Bilingual Support**: Arabic and English language support
