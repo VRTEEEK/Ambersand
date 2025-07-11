@@ -147,10 +147,27 @@ export default function Regulations() {
         description: language === 'ar' ? 'تم إنشاء مشروع الامتثال بنجاح' : 'Compliance project created successfully',
       });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Project creation error:', error);
+      
+      // Check if it's an authentication error
+      if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+        toast({
+          title: language === 'ar' ? 'غير مصرح' : 'Unauthorized',
+          description: language === 'ar' ? 'تم تسجيل خروجك. جاري تسجيل الدخول مرة أخرى...' : 'You are logged out. Logging in again...',
+          variant: 'destructive',
+        });
+        setTimeout(() => {
+          window.location.href = '/api/login';
+        }, 1500);
+        return;
+      }
+      
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',
-        description: language === 'ar' ? 'فشل في إنشاء المشروع' : 'Failed to create project',
+        description: language === 'ar' 
+          ? `فشل في إنشاء المشروع: ${error.message || 'خطأ غير معروف'}`
+          : `Failed to create project: ${error.message || 'Unknown error'}`,
         variant: 'destructive',
       });
     },
