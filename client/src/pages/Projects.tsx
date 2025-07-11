@@ -10,9 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Checkbox } from '@/components/ui/checkbox';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   Dialog,
   DialogContent,
@@ -22,6 +20,12 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { 
   Select,
   SelectContent,
   SelectItem,
@@ -29,25 +33,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { 
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { 
-  Plus, 
   Search, 
   Calendar, 
-  User, 
   MoreHorizontal,
   Trash2,
   Edit,
-  Filter,
-  ChevronDown,
-  ChevronRight,
-  CheckCircle,
-  Shield,
 } from 'lucide-react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -68,87 +58,18 @@ const projectSchema = z.object({
 
 type ProjectFormData = z.infer<typeof projectSchema>;
 
-interface EccControl {
-  id: number;
-  code: string;
-  name: string;
-  nameAr: string | null;
-  description: string;
-  descriptionAr: string | null;
-  domain: string;
-  subdomain: string | null;
-  evidenceRequired: string[];
-}
-
-interface DomainStructure {
-  [domain: string]: {
-    [subdomain: string]: EccControl[];
-  };
-}
-
 export default function Projects() {
   const { t, language } = useI18n();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [selectedControlIds, setSelectedControlIds] = useState<number[]>([]);
-  const [openDomains, setOpenDomains] = useState<Set<string>>(new Set());
-  const [openSubdomains, setOpenSubdomains] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<any>(null);
 
   const { data: projects, isLoading, error } = useQuery({
     queryKey: ['/api/projects'],
     retry: false,
-  });
-
-  const { data: eccControls } = useQuery({
-    queryKey: ['/api/ecc-controls'],
-    retry: false,
-  });
-
-  const createProjectMutation = useMutation({
-    mutationFn: async (data: ProjectFormData) => {
-      const response = await apiRequest('POST', '/api/projects', data);
-      const project = response;
-      
-      // If controls are selected, add them to the project
-      if (selectedControlIds.length > 0) {
-        await apiRequest('POST', `/api/projects/${project.id}/controls`, {
-          controlIds: selectedControlIds
-        });
-      }
-      
-      return project;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      setIsCreateDialogOpen(false);
-      setSelectedControlIds([]);
-      form.reset();
-      toast({
-        title: t('common.success'),
-        description: 'Project created successfully',
-      });
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error as Error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: t('common.error'),
-        description: 'Failed to create project',
-        variant: 'destructive',
-      });
-    },
   });
 
   const form = useForm<ProjectFormData>({
@@ -166,110 +87,127 @@ export default function Projects() {
     },
   });
 
+  const updateProjectMutation = useMutation({
+    mutationFn: async (data: ProjectFormData & { id: number }) => {
+      const { id, ...projectData } = data;
+      return await apiRequest(`/api/projects/${id}`, 'PUT', projectData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      setIsEditDialogOpen(false);
+      setEditingProject(null);
+      form.reset();
+      toast({
+        title: language === 'ar' ? 'تم تحديث المشروع' : 'Project Updated',
+        description: language === 'ar' ? 'تم تحديث المشروع بنجاح' : 'Project updated successfully',
+      });
+    },
+    onError: (error) => {
+      console.error('Project update error:', error);
+      
+      if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+        toast({
+          title: language === 'ar' ? 'غير مصرح' : 'Unauthorized',
+          description: language === 'ar' ? 'تم تسجيل خروجك. جاري تسجيل الدخول مرة أخرى...' : 'You are logged out. Logging in again...',
+          variant: 'destructive',
+        });
+        setTimeout(() => {
+          window.location.href = '/api/login';
+        }, 1500);
+        return;
+      }
+      
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' 
+          ? `فشل في تحديث المشروع: ${error.message || 'خطأ غير معروف'}`
+          : `Failed to update project: ${error.message || 'Unknown error'}`,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest(`/api/projects/${id}`, 'DELETE');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      toast({
+        title: language === 'ar' ? 'تم حذف المشروع' : 'Project Deleted',
+        description: language === 'ar' ? 'تم حذف المشروع بنجاح' : 'Project deleted successfully',
+      });
+    },
+    onError: (error) => {
+      console.error('Project delete error:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في حذف المشروع' : 'Failed to delete project',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const onSubmit = (data: ProjectFormData) => {
-    createProjectMutation.mutate(data);
+    if (editingProject) {
+      updateProjectMutation.mutate({ ...data, id: editingProject.id });
+    }
   };
 
-  // Helper function to organize controls by domain structure
-  const organizeDomainStructure = (controls: EccControl[] | undefined): DomainStructure => {
-    const structure: DomainStructure = {};
-    
-    if (!controls || !Array.isArray(controls)) {
-      return structure;
-    }
-    
-    controls.forEach(control => {
-      if (!structure[control.domain]) {
-        structure[control.domain] = {};
-      }
-      
-      const subdomain = control.subdomain || 'General';
-      if (!structure[control.domain][subdomain]) {
-        structure[control.domain][subdomain] = [];
-      }
-      
-      structure[control.domain][subdomain].push(control);
+  const handleEdit = (project: any) => {
+    setEditingProject(project);
+    form.reset({
+      name: project.name || '',
+      nameAr: project.nameAr || '',
+      description: project.description || '',
+      descriptionAr: project.descriptionAr || '',
+      status: project.status || 'planning',
+      priority: project.priority || 'medium',
+      startDate: project.startDate || '',
+      endDate: project.endDate || '',
+      regulationType: project.regulationType || 'ecc',
     });
-    
-    return structure;
+    setIsEditDialogOpen(true);
   };
 
-  const domainStructure = organizeDomainStructure(eccControls);
-
-  const toggleDomain = (domain: string) => {
-    const newOpenDomains = new Set(openDomains);
-    if (newOpenDomains.has(domain)) {
-      newOpenDomains.delete(domain);
-    } else {
-      newOpenDomains.add(domain);
+  const handleDelete = (project: any) => {
+    if (confirm(language === 'ar' ? 'هل أنت متأكد من حذف هذا المشروع؟' : 'Are you sure you want to delete this project?')) {
+      deleteProjectMutation.mutate(project.id);
     }
-    setOpenDomains(newOpenDomains);
-  };
-
-  const toggleSubdomain = (subdomain: string) => {
-    const newOpenSubdomains = new Set(openSubdomains);
-    if (newOpenSubdomains.has(subdomain)) {
-      newOpenSubdomains.delete(subdomain);
-    } else {
-      newOpenSubdomains.add(subdomain);
-    }
-    setOpenSubdomains(newOpenSubdomains);
-  };
-
-  const toggleControl = (controlId: number) => {
-    setSelectedControlIds(prev => 
-      prev.includes(controlId) 
-        ? prev.filter(id => id !== controlId)
-        : [...prev, controlId]
-    );
   };
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
-      case 'active':
-        return 'default';
-      case 'completed':
-        return 'secondary';
-      case 'overdue':
-        return 'destructive';
-      case 'planning':
-        return 'outline';
-      case 'on-hold':
-        return 'secondary';
-      default:
-        return 'secondary';
+      case 'active': return 'default';
+      case 'completed': return 'secondary';
+      case 'planning': return 'outline';
+      case 'on-hold': return 'destructive';
+      case 'overdue': return 'destructive';
+      default: return 'outline';
     }
   };
 
   const getStatusText = (status: string) => {
-    switch (status) {
-      case 'active':
-        return t('status.active');
-      case 'completed':
-        return t('status.completed');
-      case 'overdue':
-        return t('status.overdue');
-      case 'planning':
-        return t('status.planning');
-      case 'on-hold':
-        return 'On Hold';
-      default:
-        return status;
+    if (language === 'ar') {
+      switch (status) {
+        case 'active': return 'نشط';
+        case 'completed': return 'مكتمل';
+        case 'planning': return 'تخطيط';
+        case 'on-hold': return 'معلق';
+        case 'overdue': return 'متأخر';
+        default: return status;
+      }
     }
+    return status?.charAt(0).toUpperCase() + status?.slice(1) || 'Unknown';
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'urgent':
-        return 'text-red-600';
-      case 'high':
-        return 'text-orange-600';
-      case 'medium':
-        return 'text-yellow-600';
-      case 'low':
-        return 'text-green-600';
-      default:
-        return 'text-slate-600';
+      case 'urgent': return 'text-red-600';
+      case 'high': return 'text-orange-600';
+      case 'medium': return 'text-yellow-600';
+      case 'low': return 'text-green-600';
+      default: return 'text-slate-600';
     }
   };
 
@@ -300,306 +238,203 @@ export default function Projects() {
               }
             </p>
           </div>
-
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-teal-600 hover:bg-teal-700">
-                <Plus className="h-4 w-4 mr-2" />
-                {t('actions.createProject')}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>{t('actions.createProject')}</DialogTitle>
-                <DialogDescription>
-                  Create a new compliance project and select relevant ECC controls
-                </DialogDescription>
-              </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Project Name (English)</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="nameAr"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Project Name (Arabic)</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="description"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Description (English)</FormLabel>
-                          <FormControl>
-                            <Textarea {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="descriptionAr"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Description (Arabic)</FormLabel>
-                          <FormControl>
-                            <Textarea {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="status"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Status</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="planning">Planning</SelectItem>
-                              <SelectItem value="active">Active</SelectItem>
-                              <SelectItem value="on-hold">On Hold</SelectItem>
-                              <SelectItem value="completed">Completed</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="priority"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Priority</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="low">Low</SelectItem>
-                              <SelectItem value="medium">Medium</SelectItem>
-                              <SelectItem value="high">High</SelectItem>
-                              <SelectItem value="urgent">Urgent</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="regulationType"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Regulation Type</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="ecc">ECC</SelectItem>
-                              <SelectItem value="pdpl">PDPL</SelectItem>
-                              <SelectItem value="ndmo">NDMO</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="startDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Start Date</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="endDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>End Date</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  {/* ECC Controls Selection */}
-                  <div className="border-t pt-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <Shield className="h-5 w-5 text-teal-600" />
-                        <h3 className="text-lg font-semibold">ECC Controls Selection</h3>
-                      </div>
-                      <Badge variant="secondary">
-                        {selectedControlIds.length} selected
-                      </Badge>
-                    </div>
-                    
-                    <ScrollArea className="h-80 border rounded-md p-4">
-                      {eccControls ? Object.entries(domainStructure).map(([domain, subdomains]) => (
-                        <div key={domain} className="mb-2">
-                          <Collapsible 
-                            open={openDomains.has(domain)}
-                            onOpenChange={() => toggleDomain(domain)}
-                          >
-                            <CollapsibleTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                className="w-full justify-start p-2 hover:bg-slate-50"
-                              >
-                                {openDomains.has(domain) ? (
-                                  <ChevronDown className="h-4 w-4 mr-2" />
-                                ) : (
-                                  <ChevronRight className="h-4 w-4 mr-2" />
-                                )}
-                                <div className="font-medium text-left">
-                                  {language === 'ar' && domain ? `${domain}` : domain}
-                                </div>
-                              </Button>
-                            </CollapsibleTrigger>
-                            
-                            <CollapsibleContent className="pl-6 space-y-1">
-                              {Object.entries(subdomains).map(([subdomain, controls]) => (
-                                <div key={subdomain} className="ml-2">
-                                  <Collapsible
-                                    open={openSubdomains.has(`${domain}-${subdomain}`)}
-                                    onOpenChange={() => toggleSubdomain(`${domain}-${subdomain}`)}
-                                  >
-                                    <CollapsibleTrigger asChild>
-                                      <Button 
-                                        variant="ghost" 
-                                        className="w-full justify-start p-1 text-sm hover:bg-slate-50"
-                                      >
-                                        {openSubdomains.has(`${domain}-${subdomain}`) ? (
-                                          <ChevronDown className="h-3 w-3 mr-2" />
-                                        ) : (
-                                          <ChevronRight className="h-3 w-3 mr-2" />
-                                        )}
-                                        <div className="text-slate-600">
-                                          {subdomain} ({controls.length})
-                                        </div>
-                                      </Button>
-                                    </CollapsibleTrigger>
-                                    
-                                    <CollapsibleContent className="pl-6 space-y-2">
-                                      {controls.map((control) => (
-                                        <div key={control.id} className="flex items-start space-x-2 p-2 rounded border hover:bg-slate-50">
-                                          <Checkbox
-                                            id={`control-${control.id}`}
-                                            checked={selectedControlIds.includes(control.id)}
-                                            onCheckedChange={() => toggleControl(control.id)}
-                                          />
-                                          <div className="flex-1 min-w-0">
-                                            <label
-                                              htmlFor={`control-${control.id}`}
-                                              className="block text-sm font-medium text-slate-700 cursor-pointer"
-                                            >
-                                              {control.code}
-                                            </label>
-                                            <p className="text-xs text-slate-600 mt-1">
-                                              {language === 'ar' && control.nameAr 
-                                                ? control.nameAr 
-                                                : control.name
-                                              }
-                                            </p>
-                                            {control.evidenceRequired && control.evidenceRequired.length > 0 && (
-                                              <div className="flex flex-wrap gap-1 mt-2">
-                                                {control.evidenceRequired.map((evidence, idx) => (
-                                                  <Badge key={idx} variant="outline" className="text-xs">
-                                                    {evidence}
-                                                  </Badge>
-                                                ))}
-                                              </div>
-                                            )}
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </CollapsibleContent>
-                                  </Collapsible>
-                                </div>
-                              ))}
-                            </CollapsibleContent>
-                          </Collapsible>
-                        </div>
-                      )) : (
-                        <div className="flex items-center justify-center h-32 text-slate-500">
-                          Loading ECC controls...
-                        </div>
-                      )}
-                    </ScrollArea>
-                  </div>
-
-                  <div className="flex justify-end space-x-2">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={() => {
-                        setIsCreateDialogOpen(false);
-                        setSelectedControlIds([]);
-                        form.reset();
-                      }}
-                    >
-                      {t('common.cancel')}
-                    </Button>
-                    
-                  </div>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
         </div>
+
+        {/* Edit Project Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                {language === 'ar' ? 'تعديل المشروع' : 'Edit Project'}
+              </DialogTitle>
+              <DialogDescription>
+                {language === 'ar' ? 'تعديل تفاصيل المشروع' : 'Modify project details'}
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Project Name (English)</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="nameAr"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Project Name (Arabic)</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description (English)</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="descriptionAr"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description (Arabic)</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="planning">Planning</SelectItem>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="on-hold">On Hold</SelectItem>
+                            <SelectItem value="completed">Completed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="priority"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Priority</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="low">Low</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="high">High</SelectItem>
+                            <SelectItem value="urgent">Urgent</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="regulationType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Regulation Type</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="ecc">ECC</SelectItem>
+                            <SelectItem value="pdpl">PDPL</SelectItem>
+                            <SelectItem value="ndmo">NDMO</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="startDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Start Date</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="endDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>End Date</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => {
+                      setIsEditDialogOpen(false);
+                      setEditingProject(null);
+                      form.reset();
+                    }}
+                  >
+                    {t('common.cancel')}
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={updateProjectMutation.isPending}
+                    className="bg-teal-600 hover:bg-teal-700"
+                  >
+                    {updateProjectMutation.isPending ? 'Updating...' : t('common.update')}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
 
         {/* Filters */}
         <Card className="glass-card">
@@ -666,15 +501,9 @@ export default function Projects() {
               <p className="text-slate-500 mb-4">
                 {searchTerm || statusFilter !== 'all'
                   ? (language === 'ar' ? 'جرب تغيير مرشحات البحث' : 'Try adjusting your search filters')
-                  : (language === 'ar' ? 'ابدأ بإنشاء مشروعك الأول' : 'Get started by creating your first project')
+                  : (language === 'ar' ? 'يمكنك إنشاء مشروع من صفحة الأنظمة' : 'You can create projects from the Regulations page')
                 }
               </p>
-              {!searchTerm && statusFilter === 'all' && (
-                <Button onClick={() => setIsCreateDialogOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  {t('actions.createProject')}
-                </Button>
-              )}
             </div>
           ) : (
             filteredProjects.map((project: any) => (
@@ -689,9 +518,26 @@ export default function Projects() {
                         {getStatusText(project.status)}
                       </Badge>
                     </div>
-                    <Button variant="ghost" size="sm">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEdit(project)}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          {language === 'ar' ? 'تعديل' : 'Edit'}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => handleDelete(project)}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          {language === 'ar' ? 'حذف' : 'Delete'}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </CardHeader>
                 <CardContent>

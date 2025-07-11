@@ -125,7 +125,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put('/api/projects/:id', isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const projectData = insertProjectSchema.partial().parse(req.body);
+      const projectData = req.body;
       const project = await storage.updateProject(id, projectData);
       res.json(project);
     } catch (error) {
