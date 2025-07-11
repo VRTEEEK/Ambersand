@@ -55,6 +55,8 @@ export default function ProjectDetail() {
   const queryClient = useQueryClient();
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [selectedControlId, setSelectedControlId] = useState<number | null>(null);
+  const [isTaskEditDialogOpen, setIsTaskEditDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<any>(null);
 
   const { data: project, isLoading: projectLoading } = useQuery({
     queryKey: ['/api/projects', id],
@@ -131,6 +133,32 @@ export default function ProjectDetail() {
     },
   });
 
+  const updateTaskMutation = useMutation({
+    mutationFn: async (data: TaskFormData & { id: number }) => {
+      const taskData = {
+        ...data,
+        assigneeId: data.assigneeEmail,
+      };
+      return await apiRequest(`/api/tasks/${data.id}`, 'PATCH', taskData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks', { projectId: id }] });
+      setIsTaskEditDialogOpen(false);
+      setEditingTask(null);
+      toast({
+        title: language === 'ar' ? 'تم تحديث المهمة' : 'Task Updated',
+        description: language === 'ar' ? 'تم تحديث المهمة بنجاح' : 'Task updated successfully',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في تحديث المهمة' : 'Failed to update task',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const deleteProjectMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest(`/api/projects/${id}`, 'DELETE');
@@ -187,7 +215,7 @@ export default function ProjectDetail() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      case 'in-progress': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
+      case 'in-progress': return 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300';
       case 'blocked': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
       case 'pending': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
@@ -197,7 +225,7 @@ export default function ProjectDetail() {
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'urgent': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
-      case 'high': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300';
+      case 'high': return 'bg-red-50 text-red-700 dark:bg-red-900 dark:text-red-300';
       case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
       default: return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
     }
@@ -207,7 +235,7 @@ export default function ProjectDetail() {
     return (
       <AppLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-teal-600"></div>
         </div>
       </AppLayout>
     );
@@ -368,8 +396,14 @@ export default function ProjectDetail() {
             ) : (
               <div className="space-y-4">
                 {tasks?.map((task: any) => (
-                  <Card key={task.id}>
-                    <CardContent className="p-6">
+                  <Card key={task.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                    <CardContent 
+                      className="p-6"
+                      onClick={() => {
+                        setEditingTask(task);
+                        setIsTaskEditDialogOpen(true);
+                      }}
+                    >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
@@ -382,10 +416,16 @@ export default function ProjectDetail() {
                           )}
                           <div className="flex items-center gap-2 flex-wrap">
                             <Badge className={getStatusColor(task.status)}>
-                              {task.status}
+                              {task.status === 'pending' ? (language === 'ar' ? 'لم تبدأ' : 'Not Started') : 
+                               task.status === 'in-progress' ? (language === 'ar' ? 'قيد التنفيذ' : 'In Progress') :
+                               task.status === 'completed' ? (language === 'ar' ? 'مكتملة' : 'Completed') :
+                               (language === 'ar' ? 'محجوبة' : 'Blocked')}
                             </Badge>
                             <Badge className={getPriorityColor(task.priority)}>
-                              {task.priority}
+                              {task.priority === 'low' ? (language === 'ar' ? 'منخفضة' : 'Low') :
+                               task.priority === 'medium' ? (language === 'ar' ? 'متوسطة' : 'Medium') :
+                               task.priority === 'high' ? (language === 'ar' ? 'عالية' : 'High') :
+                               (language === 'ar' ? 'عاجلة' : 'Urgent')}
                             </Badge>
                             {task.dueDate && (
                               <div className="flex items-center gap-1 text-sm text-gray-500">
@@ -407,10 +447,10 @@ export default function ProjectDetail() {
             {Object.entries(groupedControls).map(([domain, controls]) => (
               <div key={domain} className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold bg-gradient-to-r from-teal-600 to-orange-600 bg-clip-text text-transparent">
+                  <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
                     {domain}
                   </h2>
-                  <Badge variant="secondary">
+                  <Badge variant="secondary" className="bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
                     {(controls as any[]).length} {language === 'ar' ? 'ضابط' : 'Controls'}
                   </Badge>
                 </div>
@@ -806,7 +846,276 @@ export default function ProjectDetail() {
             </Form>
           </DialogContent>
         </Dialog>
+
+        {/* Task Edit Dialog */}
+        <Dialog open={isTaskEditDialogOpen} onOpenChange={setIsTaskEditDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {language === 'ar' ? 'تعديل المهمة' : 'Edit Task'}
+              </DialogTitle>
+            </DialogHeader>
+            {editingTask && (
+              <EditTaskForm 
+                task={editingTask}
+                projectControls={projectControls}
+                onSubmit={(data) => updateTaskMutation.mutate({ ...data, id: editingTask.id })}
+                onCancel={() => {
+                  setIsTaskEditDialogOpen(false);
+                  setEditingTask(null);
+                }}
+                isLoading={updateTaskMutation.isPending}
+                language={language}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
+  );
+}
+
+// Task Edit Form Component
+function EditTaskForm({ 
+  task, 
+  projectControls, 
+  onSubmit, 
+  onCancel, 
+  isLoading, 
+  language 
+}: {
+  task: any;
+  projectControls: any[];
+  onSubmit: (data: any) => void;
+  onCancel: () => void;
+  isLoading: boolean;
+  language: string;
+}) {
+  const editForm = useForm({
+    resolver: zodResolver(taskSchema),
+    defaultValues: {
+      title: task.title || '',
+      titleAr: task.titleAr || '',
+      description: task.description || '',
+      descriptionAr: task.descriptionAr || '',
+      priority: task.priority || 'medium',
+      status: task.status || 'pending',
+      dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
+      assigneeEmail: task.assigneeId || '',
+      domain: task.domain || '',
+      subdomain: task.subdomain || '',
+      controlId: task.controlId || undefined,
+    },
+  });
+
+  const selectedEditControl = projectControls?.find(
+    (control: any) => control.eccControl.id === editForm.watch('controlId')
+  )?.eccControl;
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
+      case 'in-progress': return 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300';
+      case 'blocked': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
+      case 'pending': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+    }
+  };
+
+  return (
+    <Form {...editForm}>
+      <form onSubmit={editForm.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={editForm.control}
+            name="title"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm font-medium">
+                  {language === 'ar' ? 'العنوان (بالإنجليزية)' : 'Title (English)'}
+                  <span className="text-red-500 ml-1">*</span>
+                </FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder={language === 'ar' ? 'أدخل عنوان المهمة' : 'Enter task title'} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={editForm.control}
+            name="titleAr"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm font-medium">
+                  {language === 'ar' ? 'العنوان (بالعربية)' : 'Title (Arabic)'}
+                </FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder={language === 'ar' ? 'أدخل عنوان المهمة بالعربية' : 'Enter task title in Arabic'} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={editForm.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm font-medium">
+                  {language === 'ar' ? 'الوصف (بالإنجليزية)' : 'Description (English)'}
+                </FormLabel>
+                <FormControl>
+                  <Textarea {...field} placeholder={language === 'ar' ? 'أدخل وصف المهمة' : 'Enter task description'} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={editForm.control}
+            name="descriptionAr"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm font-medium">
+                  {language === 'ar' ? 'الوصف (بالعربية)' : 'Description (Arabic)'}
+                </FormLabel>
+                <FormControl>
+                  <Textarea {...field} placeholder={language === 'ar' ? 'أدخل وصف المهمة بالعربية' : 'Enter task description in Arabic'} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={editForm.control}
+          name="assigneeEmail"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-sm font-medium">
+                {language === 'ar' ? 'المُكلف' : 'Assigned To'}
+              </FormLabel>
+              <FormControl>
+                <Input 
+                  {...field} 
+                  placeholder={language === 'ar' ? 'أدخل اسم المُكلف أو البريد الإلكتروني' : 'Enter assignee name or email'}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-3 gap-4">
+          <FormField
+            control={editForm.control}
+            name="dueDate"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm font-medium">
+                  {language === 'ar' ? 'تاريخ الاستحقاق' : 'Due Date'}
+                </FormLabel>
+                <FormControl>
+                  <Input type="date" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={editForm.control}
+            name="priority"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm font-medium">
+                  {language === 'ar' ? 'الأولوية' : 'Priority'}
+                </FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="low">{language === 'ar' ? 'منخفضة' : 'Low'}</SelectItem>
+                    <SelectItem value="medium">{language === 'ar' ? 'متوسطة' : 'Medium'}</SelectItem>
+                    <SelectItem value="high">{language === 'ar' ? 'عالية' : 'High'}</SelectItem>
+                    <SelectItem value="urgent">{language === 'ar' ? 'عاجلة' : 'Urgent'}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={editForm.control}
+            name="status"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm font-medium">
+                  {language === 'ar' ? 'الحالة' : 'Status'}
+                </FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="pending">{language === 'ar' ? 'لم تبدأ' : 'Not Started'}</SelectItem>
+                    <SelectItem value="in-progress">{language === 'ar' ? 'قيد التنفيذ' : 'In Progress'}</SelectItem>
+                    <SelectItem value="completed">{language === 'ar' ? 'مكتملة' : 'Completed'}</SelectItem>
+                    <SelectItem value="blocked">{language === 'ar' ? 'محجوبة' : 'Blocked'}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="border-t pt-4">
+          <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400 mb-4">
+            <span className="font-medium">
+              {language === 'ar' ? 'معاينة الحالة:' : 'Status Preview:'}
+            </span>
+            <Badge className={getStatusColor(editForm.watch('status'))}>
+              {editForm.watch('status') === 'pending' ? (language === 'ar' ? 'لم تبدأ' : 'Not Started') : 
+               editForm.watch('status') === 'in-progress' ? (language === 'ar' ? 'قيد التنفيذ' : 'In Progress') :
+               editForm.watch('status') === 'completed' ? (language === 'ar' ? 'مكتملة' : 'Completed') :
+               (language === 'ar' ? 'محجوبة' : 'Blocked')}
+            </Badge>
+          </div>
+          
+          <div className="flex justify-end gap-3">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onCancel}
+              className="px-6"
+            >
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button 
+              type="submit" 
+              disabled={isLoading}
+              className="bg-teal-600 hover:bg-teal-700 px-6"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              {isLoading ? (
+                language === 'ar' ? 'جاري التحديث...' : 'Updating...'
+              ) : (
+                language === 'ar' ? 'تحديث المهمة' : 'Update Task'
+              )}
+            </Button>
+          </div>
+        </div>
+      </form>
+    </Form>
   );
 }
