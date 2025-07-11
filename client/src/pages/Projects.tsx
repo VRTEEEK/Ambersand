@@ -51,9 +51,17 @@ const projectSchema = z.object({
   descriptionAr: z.string().optional(),
   status: z.enum(['planning', 'active', 'completed', 'on-hold', 'overdue']),
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
+  startDate: z.string().min(1, 'Start date is required'),
+  endDate: z.string().min(1, 'End date is required'),
   regulationType: z.enum(['ecc', 'pdpl', 'ndmo']).optional(),
+}).refine((data) => {
+  if (data.startDate && data.endDate) {
+    return new Date(data.endDate) > new Date(data.startDate);
+  }
+  return true;
+}, {
+  message: "End date must be after start date",
+  path: ["endDate"],
 });
 
 type ProjectFormData = z.infer<typeof projectSchema>;
@@ -81,8 +89,8 @@ export default function Projects() {
       descriptionAr: '',
       status: 'planning',
       priority: 'medium',
-      startDate: '',
-      endDate: '',
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
       regulationType: 'ecc',
     },
   });
@@ -149,6 +157,16 @@ export default function Projects() {
   });
 
   const onSubmit = (data: ProjectFormData) => {
+    // Additional client-side validation for better UX
+    if (data.startDate && data.endDate && new Date(data.endDate) <= new Date(data.startDate)) {
+      toast({
+        title: language === 'ar' ? 'خطأ في التواريخ' : 'Date Error',
+        description: language === 'ar' ? 'تاريخ الانتهاء يجب أن يكون بعد تاريخ البداية' : 'End date must be after start date',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (editingProject) {
       updateProjectMutation.mutate({ ...data, id: editingProject.id });
     }
