@@ -395,50 +395,101 @@ export default function ProjectDetail() {
               </Card>
             ) : (
               <div className="space-y-4">
-                {tasks?.map((task: any) => (
-                  <Card key={task.id} className="cursor-pointer hover:shadow-md transition-shadow">
-                    <CardContent 
-                      className="p-6"
-                      onClick={() => {
-                        setEditingTask(task);
-                        setIsTaskEditDialogOpen(true);
-                      }}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                            {language === 'ar' && task.titleAr ? task.titleAr : task.title}
-                          </h3>
-                          {task.description && (
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                              {language === 'ar' && task.descriptionAr ? task.descriptionAr : task.description}
-                            </p>
-                          )}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge className={getStatusColor(task.status)}>
-                              {task.status === 'pending' ? (language === 'ar' ? 'لم تبدأ' : 'Not Started') : 
-                               task.status === 'in-progress' ? (language === 'ar' ? 'قيد التنفيذ' : 'In Progress') :
-                               task.status === 'completed' ? (language === 'ar' ? 'مكتملة' : 'Completed') :
-                               (language === 'ar' ? 'محجوبة' : 'Blocked')}
-                            </Badge>
-                            <Badge className={getPriorityColor(task.priority)}>
-                              {task.priority === 'low' ? (language === 'ar' ? 'منخفضة' : 'Low') :
-                               task.priority === 'medium' ? (language === 'ar' ? 'متوسطة' : 'Medium') :
-                               task.priority === 'high' ? (language === 'ar' ? 'عالية' : 'High') :
-                               (language === 'ar' ? 'عاجلة' : 'Urgent')}
-                            </Badge>
-                            {task.dueDate && (
-                              <div className="flex items-center gap-1 text-sm text-gray-500">
-                                <Calendar className="h-3 w-3" />
-                                {new Date(task.dueDate).toLocaleDateString()}
+                {tasks?.map((task: any) => {
+                  // Find the associated control
+                  const taskControl = projectControls?.find((control: any) => control.eccControl.id === task.controlId);
+                  
+                  return (
+                    <Card key={task.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                      <CardContent 
+                        className="p-6"
+                        onClick={() => {
+                          setEditingTask(task);
+                          setIsTaskEditDialogOpen(true);
+                        }}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h3 className="font-semibold text-gray-900 dark:text-white">
+                                {language === 'ar' && task.titleAr ? task.titleAr : task.title}
+                              </h3>
+                              {taskControl && (
+                                <Badge className="bg-teal-600 text-white text-xs">
+                                  {taskControl.eccControl.code}
+                                </Badge>
+                              )}
+                            </div>
+                            
+                            {/* Control Information */}
+                            {taskControl && (
+                              <div className="bg-teal-50 dark:bg-teal-900/20 rounded-lg p-3 mb-3 text-sm">
+                                <div className="font-medium text-teal-800 dark:text-teal-200 mb-1">
+                                  {language === 'ar' ? 'الضابط المرتبط:' : 'Associated Control:'}
+                                </div>
+                                <div className="text-teal-700 dark:text-teal-300">
+                                  <div className="mb-1">
+                                    <span className="font-medium">{language === 'ar' ? 'المجال:' : 'Domain:'}</span> {' '}
+                                    {language === 'ar' && taskControl.eccControl.domainAr ? taskControl.eccControl.domainAr : taskControl.eccControl.domainEn}
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">{language === 'ar' ? 'المجال الفرعي:' : 'Subdomain:'}</span> {' '}
+                                    {language === 'ar' && taskControl.eccControl.subdomainAr ? taskControl.eccControl.subdomainAr : taskControl.eccControl.subdomainEn}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {task.description && (
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                                {language === 'ar' && task.descriptionAr ? task.descriptionAr : task.description}
+                              </p>
+                            )}
+                            
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge className={getStatusColor(task.status)}>
+                                {task.status === 'pending' ? (language === 'ar' ? 'لم تبدأ' : 'Not Started') : 
+                                 task.status === 'in-progress' ? (language === 'ar' ? 'قيد التنفيذ' : 'In Progress') :
+                                 task.status === 'completed' ? (language === 'ar' ? 'مكتملة' : 'Completed') :
+                                 (language === 'ar' ? 'محجوبة' : 'Blocked')}
+                              </Badge>
+                              <Badge className={getPriorityColor(task.priority)}>
+                                {task.priority === 'low' ? (language === 'ar' ? 'منخفضة' : 'Low') :
+                                 task.priority === 'medium' ? (language === 'ar' ? 'متوسطة' : 'Medium') :
+                                 task.priority === 'high' ? (language === 'ar' ? 'عالية' : 'High') :
+                                 (language === 'ar' ? 'عاجلة' : 'Urgent')}
+                              </Badge>
+                              {task.assigneeId && (
+                                <div className="flex items-center gap-1 text-sm text-gray-500">
+                                  <Users className="h-3 w-3" />
+                                  {task.assigneeId}
+                                </div>
+                              )}
+                              {task.dueDate && (
+                                <div className="flex items-center gap-1 text-sm text-gray-500">
+                                  <Calendar className="h-3 w-3" />
+                                  {new Date(task.dueDate).toLocaleDateString()}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Evidence Indicator */}
+                            {taskControl && (
+                              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                <div className="flex items-center gap-2 text-xs text-gray-500">
+                                  <FileText className="h-3 w-3" />
+                                  <span>
+                                    {language === 'ar' ? 'انقر لعرض/رفع الأدلة المطلوبة' : 'Click to view/upload required evidence'}
+                                  </span>
+                                </div>
                               </div>
                             )}
                           </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </TabsContent>
@@ -854,6 +905,9 @@ export default function ProjectDetail() {
               <DialogTitle>
                 {language === 'ar' ? 'تعديل المهمة' : 'Edit Task'}
               </DialogTitle>
+              <DialogDescription>
+                {language === 'ar' ? 'تعديل تفاصيل المهمة والضابط المرتبط بها' : 'Edit task details and associated control information'}
+              </DialogDescription>
             </DialogHeader>
             {editingTask && (
               <EditTaskForm 
@@ -922,9 +976,68 @@ function EditTaskForm({
     }
   };
 
+  // Get the assigned control details
+  const assignedControl = projectControls?.find(
+    (control: any) => control.eccControl.id === task.controlId
+  )?.eccControl;
+
   return (
     <Form {...editForm}>
       <form onSubmit={editForm.handleSubmit(onSubmit)} className="space-y-6">
+        {/* Control Information Section */}
+        {assignedControl && (
+          <div className="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg p-4 mb-6">
+            <h3 className="font-semibold text-teal-800 dark:text-teal-200 mb-3 flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              {language === 'ar' ? 'الضابط المرتبط' : 'Associated Control'}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  {language === 'ar' ? 'الرمز:' : 'Code:'}
+                </span>
+                <span className="ml-2 bg-teal-600 text-white px-2 py-1 rounded text-xs">
+                  {assignedControl.code}
+                </span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  {language === 'ar' ? 'المجال:' : 'Domain:'}
+                </span>
+                <span className="ml-2 text-gray-600 dark:text-gray-400">
+                  {language === 'ar' && assignedControl.domainAr ? assignedControl.domainAr : assignedControl.domainEn}
+                </span>
+              </div>
+              <div className="md:col-span-2">
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  {language === 'ar' ? 'المجال الفرعي:' : 'Subdomain:'}
+                </span>
+                <span className="ml-2 text-gray-600 dark:text-gray-400">
+                  {language === 'ar' && assignedControl.subdomainAr ? assignedControl.subdomainAr : assignedControl.subdomainEn}
+                </span>
+              </div>
+              <div className="md:col-span-2">
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  {language === 'ar' ? 'وصف الضابط:' : 'Control Description:'}
+                </span>
+                <p className="mt-1 text-gray-600 dark:text-gray-400 text-sm">
+                  {language === 'ar' && assignedControl.controlAr ? assignedControl.controlAr : assignedControl.controlEn}
+                </p>
+              </div>
+              <div className="md:col-span-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-3">
+                <span className="font-medium text-yellow-800 dark:text-yellow-200">
+                  {language === 'ar' ? 'الأدلة المطلوبة:' : 'Evidence Required:'}
+                </span>
+                <p className="mt-1 text-yellow-700 dark:text-yellow-300 text-sm">
+                  {language === 'ar' 
+                    ? (assignedControl.evidenceAr || assignedControl.evidenceRequiredAr || 'وثائق ، سياسات ، إجراءات ، وأدلة تدقيق')
+                    : (assignedControl.evidenceEn || assignedControl.evidenceRequiredEn || 'Documentation, policies, procedures, and audit evidence')}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={editForm.control}
@@ -1078,6 +1191,78 @@ function EditTaskForm({
             )}
           />
         </div>
+
+        {/* Evidence Upload Section */}
+        {assignedControl && (
+          <div className="border-t pt-6">
+            <h4 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              {language === 'ar' ? 'رفع الأدلة' : 'Upload Evidence'}
+            </h4>
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                {language === 'ar' 
+                  ? 'قم برفع الملفات والوثائق المطلوبة لإثبات الامتثال لهذا الضابط'
+                  : 'Upload files and documents required to demonstrate compliance with this control'}
+              </p>
+              
+              <div className="space-y-3">
+                <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-teal-400 transition-colors">
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.txt"
+                    className="hidden"
+                    id="evidence-upload"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      console.log('Selected files:', files);
+                      // TODO: Implement file upload logic
+                    }}
+                  />
+                  <label htmlFor="evidence-upload" className="cursor-pointer">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="bg-teal-100 dark:bg-teal-900 p-3 rounded-full">
+                        <FileText className="h-6 w-6 text-teal-600 dark:text-teal-400" />
+                      </div>
+                      <p className="font-medium text-gray-700 dark:text-gray-300">
+                        {language === 'ar' ? 'اضغط لاختيار الملفات' : 'Click to select files'}
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {language === 'ar' 
+                          ? 'PDF, Word, Excel, PowerPoint, Images (حتى 10 ملفات)'
+                          : 'PDF, Word, Excel, PowerPoint, Images (up to 10 files)'}
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Evidence Guidelines */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                  <h5 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
+                    {language === 'ar' ? 'إرشادات الأدلة:' : 'Evidence Guidelines:'}
+                  </h5>
+                  <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                    <li>• {language === 'ar' ? 'تأكد من أن الملفات تدعم متطلبات الضابط' : 'Ensure files support the control requirements'}</li>
+                    <li>• {language === 'ar' ? 'استخدم أسماء ملفات وصفية وواضحة' : 'Use descriptive and clear file names'}</li>
+                    <li>• {language === 'ar' ? 'قم بتنظيم الوثائق بشكل منطقي' : 'Organize documents logically'}</li>
+                    <li>• {language === 'ar' ? 'تحقق من حداثة المعلومات والسياسات' : 'Verify information and policies are current'}</li>
+                  </ul>
+                </div>
+
+                {/* Existing Evidence (placeholder for now) */}
+                <div className="space-y-2">
+                  <h5 className="font-medium text-gray-700 dark:text-gray-300">
+                    {language === 'ar' ? 'الأدلة المرفوعة:' : 'Uploaded Evidence:'}
+                  </h5>
+                  <div className="bg-gray-100 dark:bg-gray-700 rounded p-3 text-center text-sm text-gray-500 dark:text-gray-400">
+                    {language === 'ar' ? 'لا توجد أدلة مرفوعة بعد' : 'No evidence uploaded yet'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="border-t pt-4">
           <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400 mb-4">
