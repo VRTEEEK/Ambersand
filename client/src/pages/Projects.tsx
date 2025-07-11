@@ -528,7 +528,7 @@ export default function Projects() {
             </div>
           ) : (
             filteredProjects.map((project: any) => (
-              <Card key={project.id} className="glass-card hover-lift">
+              <Card key={project.id} className="glass-card hover-lift cursor-pointer" onClick={() => setLocation(`/projects/${project.id}`)}>
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -541,7 +541,7 @@ export default function Projects() {
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
