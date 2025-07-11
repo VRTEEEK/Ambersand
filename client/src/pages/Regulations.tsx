@@ -705,7 +705,9 @@ export default function Regulations() {
                               <div className="flex-1">
                                 <div className="flex items-center space-x-3 mb-2">
                                   <Badge variant="secondary" className="font-mono text-xs">
-                                    {control.code}
+                                    {language === 'ar' && control.codeAr 
+                                      ? control.codeAr 
+                                      : control.code}
                                   </Badge>
                                   <span className="text-sm text-slate-500">
                                     {language === 'ar' && control.subdomainAr ? control.subdomainAr : control.subdomainEn}

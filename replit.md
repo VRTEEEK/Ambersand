@@ -134,3 +134,13 @@ Preferred communication style: Simple, everyday language.
 - **Session Storage**: PostgreSQL-backed sessions for scalability
 
 The application follows a modern full-stack architecture with strong typing throughout, comprehensive internationalization support, and a focus on compliance management workflows specific to Saudi regulatory requirements.
+
+## Recent Changes
+
+### July 2025 - Bilingual ECC Data Integration
+- **Complete ECC Data Replacement**: Successfully imported comprehensive bilingual ECC controls dataset with 201 controls
+- **Arabic Code Support**: Added `code_ar` field to database schema for proper Arabic numeral display
+- **Frontend Enhancements**: Updated all control code displays to show Arabic numerals (e.g., ١-١-١) when Arabic language is selected
+- **Control Name Display**: Enhanced task creation dropdown to show both code and control name for better identification
+- **Control Card Layout**: Implemented clean, compact control cards with comprehensive information display
+- **Schema Migration**: Added `codeAr` field to support bilingual control identification
