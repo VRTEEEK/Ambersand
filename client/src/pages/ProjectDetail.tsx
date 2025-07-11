@@ -1123,8 +1123,8 @@ function EditTaskForm({
         
         try {
           // First update the task
-          console.log('Calling onSubmit with data:', data);
-          await onSubmit(data);
+          console.log('Calling updateTaskMutation with data:', data);
+          await updateTaskMutation.mutateAsync({ ...data, id: task.id });
           console.log('Task updated successfully');
           
           // Then upload files after successful task update
