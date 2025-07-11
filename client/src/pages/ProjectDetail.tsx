@@ -1010,7 +1010,7 @@ function EditTaskForm({
   task: any;
   projectControls: any[];
   taskEvidence: any[];
-  onSubmit: (data: any) => void;
+  onSubmit: (data: any) => Promise<void>;
   onCancel: () => void;
   isLoading: boolean;
   language: string;
@@ -1594,6 +1594,7 @@ function EditTaskForm({
               type="submit" 
               disabled={isLoading || uploading}
               className="bg-teal-600 hover:bg-teal-700 px-6"
+              onClick={() => console.log('🔥 Submit button clicked!')}
             >
               <FileText className="h-4 w-4 mr-2" />
               {isLoading || uploading ? (
