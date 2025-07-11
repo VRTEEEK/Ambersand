@@ -104,6 +104,16 @@ export default function ProjectDetail() {
     enabled: !!id,
   });
 
+  const { data: taskEvidence } = useQuery({
+    queryKey: ['/api/evidence', { taskId: editingTask?.id }],
+    queryFn: async () => {
+      const response = await fetch(`/api/evidence?taskId=${editingTask?.id}`);
+      if (!response.ok) throw new Error('Failed to fetch evidence');
+      return response.json();
+    },
+    enabled: !!editingTask?.id,
+  });
+
   const taskForm = useForm<TaskFormData>({
     resolver: zodResolver(taskSchema),
     defaultValues: {
@@ -164,6 +174,7 @@ export default function ProjectDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks', { projectId: id }] });
+      queryClient.invalidateQueries({ queryKey: ['/api/evidence', { taskId: editingTask?.id }] });
       setIsTaskEditDialogOpen(false);
       setEditingTask(null);
       toast({
@@ -1017,6 +1028,46 @@ function EditTaskForm({
   const removeFile = (index: number) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
+
+  const uploadEvidenceFiles = async (taskId: number) => {
+    if (uploadedFiles.length === 0) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      uploadedFiles.forEach(file => {
+        formData.append('files', file);
+      });
+      formData.append('taskId', taskId.toString());
+      formData.append('projectId', task.projectId.toString());
+
+      const response = await fetch('/api/evidence/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      setUploadedFiles([]);
+      // Show success toast
+      toast({
+        title: language === 'ar' ? 'تم رفع الملفات بنجاح' : 'Files Uploaded Successfully',
+        description: language === 'ar' ? 'تم رفع الأدلة بنجاح' : 'Evidence files uploaded successfully',
+      });
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ في رفع الملفات' : 'File Upload Error',
+        description: language === 'ar' ? 'فشل في رفع الملفات. يرجى المحاولة مرة أخرى' : 'Failed to upload files. Please try again',
+        variant: 'destructive',
+      });
+      throw error;
+    } finally {
+      setUploading(false);
+    }
+  };
   
   const editForm = useForm({
     resolver: zodResolver(taskSchema),
@@ -1057,52 +1108,17 @@ function EditTaskForm({
 
   return (
     <Form {...editForm}>
-      <form onSubmit={editForm.handleSubmit(onSubmit)} className="space-y-6">
-        {/* Assigned Control Information */}
-        {assignedControl && (
-          <div className="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg p-4 mb-6">
-            <h3 className="font-semibold text-teal-800 dark:text-teal-200 mb-3 flex items-center gap-2">
-              <Target className="h-4 w-4" />
-              {language === 'ar' ? 'الضابط المرتبط' : 'Associated Control'}
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">
-                  {language === 'ar' ? 'الرمز:' : 'Code:'}
-                </span>
-                <span className="ml-2 bg-teal-600 text-white px-2 py-1 rounded text-xs">
-                  {assignedControl.code}
-                </span>
-              </div>
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">
-                  {language === 'ar' ? 'المجال:' : 'Domain:'}
-                </span>
-                <span className="ml-2 text-gray-600 dark:text-gray-400">
-                  {language === 'ar' && assignedControl.domainAr ? assignedControl.domainAr : assignedControl.domainEn}
-                </span>
-              </div>
-              <div className="md:col-span-2">
-                <span className="font-medium text-gray-700 dark:text-gray-300">
-                  {language === 'ar' ? 'المجال الفرعي:' : 'Subdomain:'}
-                </span>
-                <span className="ml-2 text-gray-600 dark:text-gray-400">
-                  {language === 'ar' && assignedControl.subdomainAr ? assignedControl.subdomainAr : assignedControl.subdomainEn}
-                </span>
-              </div>
-              <div className="md:col-span-2">
-                <span className="font-medium text-gray-700 dark:text-gray-300">
-                  {language === 'ar' ? 'وصف الضابط:' : 'Control Description:'}
-                </span>
-                <p className="mt-1 text-gray-600 dark:text-gray-400 text-sm">
-                  {language === 'ar' && assignedControl.controlAr ? assignedControl.controlAr : assignedControl.controlEn}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
+      <form onSubmit={editForm.handleSubmit(async (data) => {
+        try {
+          await onSubmit(data);
+          // Upload files after successful task update
+          if (uploadedFiles.length > 0) {
+            await uploadEvidenceFiles(task.id);
+          }
+        } catch (error) {
+          console.error('Error updating task:', error);
+        }
+      })} className="space-y-6">
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={editForm.control}
@@ -1197,6 +1213,51 @@ function EditTaskForm({
             </FormItem>
           )}
         />
+
+        {/* Assigned Control Information */}
+        {assignedControl && (
+          <div className="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg p-4">
+            <h3 className="font-semibold text-teal-800 dark:text-teal-200 mb-3 flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              {language === 'ar' ? 'الضابط المرتبط' : 'Associated Control'}
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  {language === 'ar' ? 'الرمز:' : 'Code:'}
+                </span>
+                <span className="ml-2 bg-teal-600 text-white px-2 py-1 rounded text-xs">
+                  {assignedControl.code}
+                </span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  {language === 'ar' ? 'المجال:' : 'Domain:'}
+                </span>
+                <span className="ml-2 text-gray-600 dark:text-gray-400">
+                  {language === 'ar' && assignedControl.domainAr ? assignedControl.domainAr : assignedControl.domainEn}
+                </span>
+              </div>
+              <div className="md:col-span-2">
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  {language === 'ar' ? 'المجال الفرعي:' : 'Subdomain:'}
+                </span>
+                <span className="ml-2 text-gray-600 dark:text-gray-400">
+                  {language === 'ar' && assignedControl.subdomainAr ? assignedControl.subdomainAr : assignedControl.subdomainEn}
+                </span>
+              </div>
+              <div className="md:col-span-2">
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  {language === 'ar' ? 'وصف الضابط:' : 'Control Description:'}
+                </span>
+                <p className="mt-1 text-gray-600 dark:text-gray-400 text-sm">
+                  {language === 'ar' && assignedControl.controlAr ? assignedControl.controlAr : assignedControl.controlEn}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-3 gap-4">
           <FormField
@@ -1405,9 +1466,57 @@ function EditTaskForm({
                   <h5 className="font-medium text-gray-700 dark:text-gray-300">
                     {language === 'ar' ? 'الأدلة المرفوعة سابقاً:' : 'Previously Uploaded Evidence:'}
                   </h5>
-                  <div className="bg-gray-100 dark:bg-gray-700 rounded p-3 text-center text-sm text-gray-500 dark:text-gray-400">
-                    {language === 'ar' ? 'لا توجد أدلة مرفوعة بعد' : 'No evidence uploaded yet'}
-                  </div>
+                  {taskEvidence && taskEvidence.length > 0 ? (
+                    <div className="space-y-2">
+                      {taskEvidence.map((evidence: any) => (
+                        <div key={evidence.id} className="flex items-center justify-between bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-3">
+                          <div className="flex items-center gap-3">
+                            <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">{evidence.fileName}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {evidence.fileSize ? `${(evidence.fileSize / (1024 * 1024)).toFixed(2)} MB` : 'Unknown size'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(`/api/evidence/${evidence.id}/download`, '_blank')}
+                              className="text-blue-600 hover:text-blue-700"
+                            >
+                              {language === 'ar' ? 'تحميل' : 'Download'}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={async () => {
+                                if (confirm(language === 'ar' ? 'هل تريد حذف هذا الملف؟' : 'Are you sure you want to delete this file?')) {
+                                  try {
+                                    await apiRequest(`/api/evidence/${evidence.id}`, 'DELETE');
+                                    // Refresh evidence list
+                                    queryClient.invalidateQueries({ queryKey: ['/api/evidence', { taskId: editingTask?.id }] });
+                                  } catch (error) {
+                                    console.error('Error deleting evidence:', error);
+                                  }
+                                }
+                              }}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bg-gray-100 dark:bg-gray-700 rounded p-3 text-center text-sm text-gray-500 dark:text-gray-400">
+                      {language === 'ar' ? 'لا توجد أدلة مرفوعة بعد' : 'No evidence uploaded yet'}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1438,11 +1547,11 @@ function EditTaskForm({
             </Button>
             <Button 
               type="submit" 
-              disabled={isLoading}
+              disabled={isLoading || uploading}
               className="bg-teal-600 hover:bg-teal-700 px-6"
             >
               <FileText className="h-4 w-4 mr-2" />
-              {isLoading ? (
+              {isLoading || uploading ? (
                 language === 'ar' ? 'جاري التحديث...' : 'Updating...'
               ) : (
                 language === 'ar' ? 'تحديث المهمة' : 'Update Task'

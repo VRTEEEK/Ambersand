@@ -442,6 +442,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Evidence upload endpoint
+  app.post('/api/evidence/upload', isAuthenticated, upload.array('files', 10), async (req: any, res) => {
+    try {
+      const taskId = parseInt(req.body.taskId);
+      const projectId = parseInt(req.body.projectId);
+      const files = req.files as Express.Multer.File[];
+      
+      if (!files || files.length === 0) {
+        return res.status(400).json({ message: "No files uploaded" });
+      }
+
+      const evidenceRecords = [];
+      for (const file of files) {
+        const evidenceData = {
+          taskId,
+          projectId,
+          fileName: file.originalname,
+          filePath: file.path,
+          fileSize: file.size,
+          fileType: file.mimetype,
+          description: `Evidence file: ${file.originalname}`,
+          descriptionAr: `ملف أدلة: ${file.originalname}`,
+        };
+        
+        const evidence = await storage.createEvidence(evidenceData);
+        evidenceRecords.push(evidence);
+      }
+
+      res.status(201).json({
+        message: "Files uploaded successfully",
+        evidence: evidenceRecords,
+      });
+    } catch (error) {
+      console.error("Error uploading evidence:", error);
+      res.status(500).json({ message: "Failed to upload evidence" });
+    }
+  });
+
   // Serve uploaded files
   app.get('/api/evidence/:id/download', isAuthenticated, async (req, res) => {
     try {
