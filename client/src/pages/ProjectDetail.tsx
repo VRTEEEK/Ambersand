@@ -465,38 +465,84 @@ export default function ProjectDetail() {
                             
                             {/* Control Information */}
                             {taskControl && (
-                              <div className="bg-teal-50 dark:bg-teal-900/20 rounded-lg p-3 mb-3 text-sm border border-teal-200 dark:border-teal-800">
-                                <div className="font-medium text-teal-800 dark:text-teal-200 mb-2 flex items-center gap-2">
-                                  <Target className="h-3 w-3" />
+                              <div className="bg-teal-50 dark:bg-teal-900/20 rounded-lg p-4 mb-3 text-sm border border-teal-200 dark:border-teal-800">
+                                <div className="font-medium text-teal-800 dark:text-teal-200 mb-3 flex items-center gap-2">
+                                  <Target className="h-4 w-4" />
                                   {language === 'ar' ? 'الضابط المرتبط:' : 'Associated Control:'}
                                 </div>
-                                <div className="grid grid-cols-1 gap-2 text-teal-700 dark:text-teal-300">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-medium">{language === 'ar' ? 'الرمز:' : 'Code:'}</span>
-                                    <span className="bg-teal-600 text-white px-2 py-0.5 rounded text-xs">
+                                
+                                <div className="space-y-3">
+                                  {/* Control Code and Title */}
+                                  <div className="flex items-start gap-3">
+                                    <span className="bg-teal-600 text-white px-2 py-1 rounded text-xs font-medium">
                                       {taskControl.eccControl.code}
                                     </span>
+                                    <div className="flex-1">
+                                      <p className="font-medium text-teal-900 dark:text-teal-100 text-sm leading-tight">
+                                        {language === 'ar' && taskControl.eccControl.controlAr 
+                                          ? taskControl.eccControl.controlAr 
+                                          : taskControl.eccControl.controlEn}
+                                      </p>
+                                    </div>
                                   </div>
-                                  <div>
-                                    <span className="font-medium">{language === 'ar' ? 'المجال:' : 'Domain:'}</span> {' '}
-                                    <span className="text-xs bg-gray-200 dark:bg-gray-700 px-1 rounded">
-                                      {language === 'ar' && taskControl.eccControl.domainAr ? taskControl.eccControl.domainAr : taskControl.eccControl.domainEn}
-                                    </span>
+                                  
+                                  {/* Domain and Subdomain */}
+                                  <div className="grid grid-cols-1 gap-2 text-teal-700 dark:text-teal-300">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">{language === 'ar' ? 'المجال:' : 'Domain:'}</span>
+                                      <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">
+                                        {language === 'ar' && taskControl.eccControl.domainAr ? taskControl.eccControl.domainAr : taskControl.eccControl.domainEn}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">{language === 'ar' ? 'المجال الفرعي:' : 'Subdomain:'}</span>
+                                      <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">
+                                        {language === 'ar' && taskControl.eccControl.subdomainAr ? taskControl.eccControl.subdomainAr : taskControl.eccControl.subdomainEn}
+                                      </span>
+                                    </div>
                                   </div>
-                                  <div>
-                                    <span className="font-medium">{language === 'ar' ? 'المجال الفرعي:' : 'Subdomain:'}</span> {' '}
-                                    <span className="text-xs bg-gray-200 dark:bg-gray-700 px-1 rounded">
-                                      {language === 'ar' && taskControl.eccControl.subdomainAr ? taskControl.eccControl.subdomainAr : taskControl.eccControl.subdomainEn}
-                                    </span>
+                                  
+                                  {/* Implementation Guidance */}
+                                  {(taskControl.eccControl.implementationGuidanceEn || taskControl.eccControl.implementationGuidanceAr) && (
+                                    <div className="bg-white dark:bg-gray-800 rounded p-3 border border-teal-200 dark:border-teal-700">
+                                      <h4 className="font-medium text-teal-800 dark:text-teal-200 mb-2 text-xs">
+                                        {language === 'ar' ? 'إرشادات التنفيذ:' : 'Implementation Guidance:'}
+                                      </h4>
+                                      <p className="text-xs text-teal-700 dark:text-teal-300 line-clamp-3">
+                                        {language === 'ar' && taskControl.eccControl.implementationGuidanceAr 
+                                          ? taskControl.eccControl.implementationGuidanceAr 
+                                          : taskControl.eccControl.implementationGuidanceEn}
+                                      </p>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Evidence Requirements */}
+                                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded p-3 border border-blue-200 dark:border-blue-700">
+                                    <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2 text-xs flex items-center gap-2">
+                                      <FileText className="h-3 w-3" />
+                                      {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
+                                    </h4>
+                                    <p className="text-xs text-blue-700 dark:text-blue-300 line-clamp-2">
+                                      {language === 'ar' && taskControl.eccControl.evidenceRequirementsAr 
+                                        ? taskControl.eccControl.evidenceRequirementsAr 
+                                        : taskControl.eccControl.evidenceRequirementsEn || 
+                                          (language === 'ar' ? 'وثائق، سياسات، إجراءات، وأدلة تدقيق' : 'Documentation, policies, procedures, and audit evidence')}
+                                    </p>
                                   </div>
                                 </div>
                               </div>
                             )}
                             
+                            {/* Task Description */}
                             {task.description && (
-                              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                                {language === 'ar' && task.descriptionAr ? task.descriptionAr : task.description}
-                              </p>
+                              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 mb-3 border border-gray-200 dark:border-gray-700">
+                                <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2 text-sm">
+                                  {language === 'ar' ? 'وصف المهمة:' : 'Task Description:'}
+                                </h4>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                  {language === 'ar' && task.descriptionAr ? task.descriptionAr : task.description}
+                                </p>
+                              </div>
                             )}
                             
                             <div className="flex items-center gap-2 flex-wrap">
@@ -536,17 +582,42 @@ export default function ProjectDetail() {
                               )}
                             </div>
 
-                            {/* Evidence Indicator */}
-                            {taskControl && (
-                              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                            {/* Task Metadata */}
+                            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
+                              <div className="flex items-center justify-between text-xs text-gray-500">
+                                <div className="flex items-center gap-4">
+                                  <div className="flex items-center gap-1">
+                                    <Calendar className="h-3 w-3" />
+                                    <span>
+                                      {language === 'ar' ? 'تاريخ الإنشاء:' : 'Created:'} {' '}
+                                      {task.createdAt ? new Date(task.createdAt).toLocaleDateString() : 'N/A'}
+                                    </span>
+                                  </div>
+                                  {task.updatedAt && task.updatedAt !== task.createdAt && (
+                                    <div className="flex items-center gap-1">
+                                      <Clock className="h-3 w-3" />
+                                      <span>
+                                        {language === 'ar' ? 'آخر تحديث:' : 'Updated:'} {' '}
+                                        {new Date(task.updatedAt).toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  ID: {task.id}
+                                </div>
+                              </div>
+                              
+                              {/* Evidence Indicator */}
+                              {taskControl && (
                                 <div className="flex items-center gap-2 text-xs text-gray-500">
                                   <FileText className="h-3 w-3" />
                                   <span>
                                     {language === 'ar' ? 'انقر لعرض/رفع الأدلة المطلوبة' : 'Click to view/upload required evidence'}
                                   </span>
                                 </div>
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </div>
                         </div>
                       </CardContent>
