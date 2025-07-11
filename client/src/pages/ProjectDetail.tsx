@@ -40,6 +40,8 @@ const taskSchema = z.object({
   status: z.enum(['pending', 'in-progress', 'completed', 'blocked']).default('pending'),
   dueDate: z.string().optional(),
   assigneeEmail: z.string().optional(),
+  domain: z.string().min(1, 'Please select a domain'),
+  subdomain: z.string().min(1, 'Please select a subdomain'),
   controlId: z.number().min(1, 'Please select a related control'),
 });
 
@@ -94,6 +96,8 @@ export default function ProjectDetail() {
       status: 'pending',
       dueDate: '',
       assigneeEmail: '',
+      domain: '',
+      subdomain: '',
       controlId: selectedControlId || undefined,
     },
   });
@@ -154,7 +158,25 @@ export default function ProjectDetail() {
 
   const handleCreateTask = (controlId?: number) => {
     setSelectedControlId(controlId || null);
-    taskForm.setValue('controlId', controlId || undefined);
+    
+    if (controlId) {
+      const selectedControl = projectControls?.find((control: any) => control.eccControl.id === controlId);
+      if (selectedControl) {
+        const domain = language === 'ar' && selectedControl.eccControl.domainAr 
+          ? selectedControl.eccControl.domainAr 
+          : selectedControl.eccControl.domainEn;
+        const subdomain = language === 'ar' && selectedControl.eccControl.subdomainAr 
+          ? selectedControl.eccControl.subdomainAr 
+          : selectedControl.eccControl.subdomainEn;
+        
+        taskForm.setValue('domain', domain);
+        taskForm.setValue('subdomain', subdomain);
+        taskForm.setValue('controlId', controlId);
+      }
+    } else {
+      taskForm.setValue('controlId', undefined);
+    }
+    
     setIsTaskDialogOpen(true);
   };
 
@@ -523,33 +545,146 @@ export default function ProjectDetail() {
                   )}
                 />
 
-                <FormField
-                  control={taskForm.control}
-                  name="controlId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-medium">
-                        {language === 'ar' ? 'الضابط المرتبط' : 'Related Control'} 
-                        <span className="text-red-500 ml-1">*</span>
-                      </FormLabel>
-                      <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder={language === 'ar' ? 'اختر الضابط' : 'Select a control'} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {projectControls?.map((control: any) => (
-                            <SelectItem key={control.eccControl.id} value={control.eccControl.id.toString()}>
-                              {control.eccControl.code} - {language === 'ar' ? control.eccControl.titleAr : control.eccControl.titleEn}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
+                {/* Hierarchical Control Selection */}
+                <div className="space-y-4">
+                  {/* Domain Selection */}
+                  <FormField
+                    control={taskForm.control}
+                    name="domain"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium">
+                          {language === 'ar' ? 'المجال' : 'Domain'} 
+                          <span className="text-red-500 ml-1">*</span>
+                        </FormLabel>
+                        <Select onValueChange={(value) => {
+                          field.onChange(value);
+                          // Reset subdomain and control when domain changes
+                          taskForm.setValue('subdomain', '');
+                          taskForm.setValue('controlId', undefined);
+                          setSelectedControlId(null);
+                        }} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={language === 'ar' ? 'اختر المجال' : 'Select a domain'} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {[...new Set(projectControls?.map((control: any) => 
+                              language === 'ar' && control.eccControl.domainAr 
+                                ? control.eccControl.domainAr 
+                                : control.eccControl.domainEn
+                            ))].map((domain: string) => (
+                              <SelectItem key={domain} value={domain}>
+                                {domain}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Subdomain Selection */}
+                  {taskForm.watch('domain') && (
+                    <FormField
+                      control={taskForm.control}
+                      name="subdomain"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium">
+                            {language === 'ar' ? 'المجال الفرعي' : 'Subdomain'} 
+                            <span className="text-red-500 ml-1">*</span>
+                          </FormLabel>
+                          <Select onValueChange={(value) => {
+                            field.onChange(value);
+                            // Reset control when subdomain changes
+                            taskForm.setValue('controlId', undefined);
+                            setSelectedControlId(null);
+                          }} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder={language === 'ar' ? 'اختر المجال الفرعي' : 'Select a subdomain'} />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {[...new Set(projectControls
+                                ?.filter((control: any) => {
+                                  const controlDomain = language === 'ar' && control.eccControl.domainAr 
+                                    ? control.eccControl.domainAr 
+                                    : control.eccControl.domainEn;
+                                  return controlDomain === taskForm.watch('domain');
+                                })
+                                ?.map((control: any) => 
+                                  language === 'ar' && control.eccControl.subdomainAr 
+                                    ? control.eccControl.subdomainAr 
+                                    : control.eccControl.subdomainEn
+                                ))].map((subdomain: string) => (
+                                <SelectItem key={subdomain} value={subdomain}>
+                                  {subdomain}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   )}
-                />
+
+                  {/* Control Selection */}
+                  {taskForm.watch('subdomain') && (
+                    <FormField
+                      control={taskForm.control}
+                      name="controlId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium">
+                            {language === 'ar' ? 'الضابط' : 'Control'} 
+                            <span className="text-red-500 ml-1">*</span>
+                          </FormLabel>
+                          <Select onValueChange={(value) => {
+                            const controlId = parseInt(value);
+                            field.onChange(controlId);
+                            setSelectedControlId(controlId);
+                          }} value={field.value?.toString()}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder={language === 'ar' ? 'اختر الضابط' : 'Select a control'} />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {projectControls
+                                ?.filter((control: any) => {
+                                  const controlDomain = language === 'ar' && control.eccControl.domainAr 
+                                    ? control.eccControl.domainAr 
+                                    : control.eccControl.domainEn;
+                                  const controlSubdomain = language === 'ar' && control.eccControl.subdomainAr 
+                                    ? control.eccControl.subdomainAr 
+                                    : control.eccControl.subdomainEn;
+                                  return controlDomain === taskForm.watch('domain') && 
+                                         controlSubdomain === taskForm.watch('subdomain');
+                                })
+                                ?.map((control: any) => (
+                                  <SelectItem key={control.eccControl.id} value={control.eccControl.id.toString()}>
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">
+                                        {control.eccControl.code} - {language === 'ar' && control.eccControl.controlAr 
+                                          ? control.eccControl.controlAr 
+                                          : control.eccControl.controlEn}
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </div>
 
                 {/* Control Details Section */}
                 {selectedControl && (
