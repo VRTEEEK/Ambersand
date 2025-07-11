@@ -7,6 +7,7 @@ interface MetricsCardProps {
   value: string | number;
   subtitle?: string;
   icon?: LucideIcon;
+  iconColor?: string;
   trend?: {
     value: string;
     isPositive: boolean;
@@ -20,6 +21,7 @@ export function MetricsCard({
   value,
   subtitle,
   icon: Icon,
+  iconColor = '#2699A6',
   trend,
   progress,
   className,
@@ -76,13 +78,13 @@ export function MetricsCard({
                 </svg>
                 {Icon && (
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <Icon className="text-teal-500 h-6 w-6" />
+                    <Icon className="h-6 w-6" style={{ color: iconColor }} />
                   </div>
                 )}
               </div>
             ) : Icon ? (
               <div className="w-12 h-12 bg-teal-50 rounded-lg flex items-center justify-center">
-                <Icon className="text-teal-500 h-6 w-6" />
+                <Icon className="h-6 w-6" style={{ color: iconColor }} />
               </div>
             ) : null}
           </div>

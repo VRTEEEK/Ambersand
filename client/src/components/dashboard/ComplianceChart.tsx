@@ -41,17 +41,30 @@ export function ComplianceChart({ data }: ComplianceChartProps) {
   const reviewTasks = tasks.filter(task => task.status === 'review').length;
   const pendingTasks = tasks.filter(task => task.status === 'pending').length;
 
-  const completedPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-  const inProgressPercentage = totalTasks > 0 ? Math.round((inProgressTasks / totalTasks) * 100) : 0;
-  const reviewPercentage = totalTasks > 0 ? Math.round((reviewTasks / totalTasks) * 100) : 0;
-  const pendingPercentage = totalTasks > 0 ? Math.round((pendingTasks / totalTasks) * 100) : 0;
+  // Calculate percentages for donut chart segments
+  const completedPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+  const inProgressPercentage = totalTasks > 0 ? (inProgressTasks / totalTasks) * 100 : 0;
+  const reviewPercentage = totalTasks > 0 ? (reviewTasks / totalTasks) * 100 : 0;
+  const pendingPercentage = totalTasks > 0 ? (pendingTasks / totalTasks) * 100 : 0;
 
-  // Create circular progress component
-  const CircularProgress = ({ percentage, color, size = 120 }: { percentage: number; color: string; size?: number }) => {
-    const radius = (size - 8) / 2;
+  // Create donut chart component
+  const DonutChart = ({ size = 280 }: { size?: number }) => {
+    const radius = (size - 60) / 2;
     const circumference = 2 * Math.PI * radius;
-    const strokeDasharray = circumference;
-    const strokeDashoffset = circumference - (percentage / 100) * circumference;
+    const strokeWidth = 40;
+    
+    // Calculate cumulative percentages for positioning
+    const completedOffset = 0;
+    const inProgressOffset = completedPercentage;
+    const reviewOffset = completedPercentage + inProgressPercentage;
+    const pendingOffset = completedPercentage + inProgressPercentage + reviewPercentage;
+
+    const createPath = (percentage: number, offset: number) => {
+      const strokeDasharray = `${(percentage / 100) * circumference} ${circumference}`;
+      const strokeDashoffset = -(offset / 100) * circumference;
+      
+      return { strokeDasharray, strokeDashoffset };
+    };
 
     return (
       <div className="relative inline-flex items-center justify-center">
@@ -61,29 +74,84 @@ export function ComplianceChart({ data }: ComplianceChartProps) {
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke="currentColor"
-            strokeWidth="4"
+            stroke="#E5E7EB"
+            strokeWidth={strokeWidth}
             fill="none"
-            className="text-gray-200 dark:text-gray-700"
+            className="dark:stroke-gray-700"
           />
-          {/* Progress circle */}
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            stroke={color}
-            strokeWidth="4"
-            fill="none"
-            strokeDasharray={strokeDasharray}
-            strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round"
-            className="transition-all duration-300 ease-in-out"
-          />
+          
+          {/* Completed segment */}
+          {completedPercentage > 0 && (
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              stroke="#2699A6"
+              strokeWidth={strokeWidth}
+              fill="none"
+              {...createPath(completedPercentage, completedOffset)}
+              strokeLinecap="round"
+              className="transition-all duration-1000 ease-out"
+            />
+          )}
+          
+          {/* In Progress segment */}
+          {inProgressPercentage > 0 && (
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              stroke="#3B82F6"
+              strokeWidth={strokeWidth}
+              fill="none"
+              {...createPath(inProgressPercentage, inProgressOffset)}
+              strokeLinecap="round"
+              className="transition-all duration-1000 ease-out"
+            />
+          )}
+          
+          {/* Review segment */}
+          {reviewPercentage > 0 && (
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              stroke="#F59E0B"
+              strokeWidth={strokeWidth}
+              fill="none"
+              {...createPath(reviewPercentage, reviewOffset)}
+              strokeLinecap="round"
+              className="transition-all duration-1000 ease-out"
+            />
+          )}
+          
+          {/* Pending segment */}
+          {pendingPercentage > 0 && (
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              stroke="#9CA3AF"
+              strokeWidth={strokeWidth}
+              fill="none"
+              {...createPath(pendingPercentage, pendingOffset)}
+              strokeLinecap="round"
+              className="transition-all duration-1000 ease-out"
+            />
+          )}
         </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-2xl font-bold text-gray-900 dark:text-white">
-            {percentage}%
-          </span>
+        
+        {/* Center content */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+          <div className="text-4xl font-bold text-gray-900 dark:text-white mb-1">
+            {Math.round(completedPercentage)}%
+          </div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            {language === 'ar' ? 'مكتمل' : 'Completed'}
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+            {completedTasks} {language === 'ar' ? 'من' : 'of'} {totalTasks} {language === 'ar' ? 'مهمة' : 'tasks'}
+          </div>
         </div>
       </div>
     );
@@ -95,127 +163,75 @@ export function ComplianceChart({ data }: ComplianceChartProps) {
         <CardTitle className="text-lg font-semibold">
           {language === 'ar' ? 'تقدم المهام' : 'Task Progress'}
         </CardTitle>
-        <Target className="h-5 w-5 text-blue-500" />
+        <Target className="h-5 w-5" style={{ color: '#2699A6' }} />
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          {/* Overall Progress Circle */}
-          <div className="flex flex-col items-center space-y-2">
-            <CircularProgress 
-              percentage={completedPercentage} 
-              color="#10B981" 
-              size={140}
-            />
-            <div className="text-center">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {language === 'ar' ? 'المهام المكتملة' : 'Completed Tasks'}
-              </p>
-              <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                {completedTasks} / {totalTasks}
-              </p>
-            </div>
+          {/* Main Donut Chart */}
+          <div className="flex flex-col items-center">
+            <DonutChart size={300} />
           </div>
 
-          {/* Status Breakdown */}
+          {/* Legend */}
           <div className="grid grid-cols-2 gap-4">
+            {/* Completed */}
+            <div className="flex items-center space-x-3">
+              <div className="w-4 h-4 rounded-full" style={{ backgroundColor: '#2699A6' }}></div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    {language === 'ar' ? 'مكتملة' : 'Completed'}
+                  </span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {completedTasks} ({Math.round(completedPercentage)}%)
+                  </span>
+                </div>
+              </div>
+            </div>
+
             {/* In Progress */}
             <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2">
-                <CircularProgress 
-                  percentage={inProgressPercentage} 
-                  color="#3B82F6" 
-                  size={60}
-                />
-                <div>
-                  <div className="flex items-center space-x-1">
-                    <Clock className="h-4 w-4 text-blue-500" />
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {language === 'ar' ? 'قيد التنفيذ' : 'In Progress'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    {inProgressTasks} {language === 'ar' ? 'مهمة' : 'tasks'}
-                  </p>
+              <div className="w-4 h-4 rounded-full bg-blue-500"></div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    {language === 'ar' ? 'قيد التنفيذ' : 'In Progress'}
+                  </span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {inProgressTasks} ({Math.round(inProgressPercentage)}%)
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* Review */}
             <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2">
-                <CircularProgress 
-                  percentage={reviewPercentage} 
-                  color="#F59E0B" 
-                  size={60}
-                />
-                <div>
-                  <div className="flex items-center space-x-1">
-                    <AlertCircle className="h-4 w-4 text-yellow-500" />
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {language === 'ar' ? 'للمراجعة' : 'Review'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    {reviewTasks} {language === 'ar' ? 'مهمة' : 'tasks'}
-                  </p>
+              <div className="w-4 h-4 rounded-full bg-yellow-500"></div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    {language === 'ar' ? 'للمراجعة' : 'Review'}
+                  </span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {reviewTasks} ({Math.round(reviewPercentage)}%)
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* Pending */}
             <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2">
-                <CircularProgress 
-                  percentage={pendingPercentage} 
-                  color="#6B7280" 
-                  size={60}
-                />
-                <div>
-                  <div className="flex items-center space-x-1">
-                    <Clock className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {language === 'ar' ? 'لم تبدأ' : 'Pending'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    {pendingTasks} {language === 'ar' ? 'مهمة' : 'tasks'}
-                  </p>
+              <div className="w-4 h-4 rounded-full bg-gray-400"></div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    {language === 'ar' ? 'لم تبدأ' : 'Pending'}
+                  </span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {pendingTasks} ({Math.round(pendingPercentage)}%)
+                  </span>
                 </div>
               </div>
-            </div>
-
-            {/* Completed */}
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2">
-                <CircularProgress 
-                  percentage={completedPercentage} 
-                  color="#10B981" 
-                  size={60}
-                />
-                <div>
-                  <div className="flex items-center space-x-1">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {language === 'ar' ? 'مكتملة' : 'Completed'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    {completedTasks} {language === 'ar' ? 'مهمة' : 'tasks'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Summary Stats */}
-          <div className="border-t pt-4">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {language === 'ar' ? 'إجمالي المهام' : 'Total Tasks'}
-              </span>
-              <Badge variant="outline" className="bg-white dark:bg-gray-800">
-                {totalTasks}
-              </Badge>
             </div>
           </div>
         </div>

@@ -105,7 +105,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       {/* Logo */}
       <div className="flex items-center justify-center p-6 border-b border-slate-200">
         <div className="flex items-center space-x-2">
-          <Shield className="h-8 w-8 text-teal-600" />
+          <Shield className="h-8 w-8" style={{ color: '#2699A6' }} />
           <span className="text-xl font-bold text-slate-800">AMBERSAND</span>
         </div>
       </div>
@@ -124,7 +124,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
                     : "text-slate-600 hover:bg-slate-100"
                 )}
               >
-                <Icon className={cn("w-5 h-5", isRTL ? "ml-3" : "mr-3")} />
+                <Icon 
+                  className={cn("w-5 h-5", isRTL ? "ml-3" : "mr-3")} 
+                  style={{ color: item.current ? '#2699A6' : undefined }}
+                />
                 <span>{item.title}</span>
               </a>
             </Link>
@@ -149,7 +152,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
                     : "text-slate-600 hover:bg-slate-100"
                 )}
               >
-                <Icon className={cn("w-5 h-5", isRTL ? "ml-3" : "mr-3")} />
+                <Icon 
+                  className={cn("w-5 h-5", isRTL ? "ml-3" : "mr-3")} 
+                  style={{ color: item.current ? '#2699A6' : undefined }}
+                />
                 <span>{item.title}</span>
               </a>
             </Link>
@@ -212,7 +218,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <div className="flex items-center space-x-4">
               {/* Search */}
               <div className="relative hidden md:block">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4" style={{ color: '#2699A6' }} />
                 <Input
                   type="search"
                   placeholder={t('actions.search')}
@@ -222,13 +228,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
               {/* Language Toggle */}
               <Button variant="ghost" onClick={toggleLanguage} className="text-sm">
-                <Globe className="h-4 w-4 mr-2" />
+                <Globe className="h-4 w-4 mr-2" style={{ color: '#2699A6' }} />
                 {language === 'en' ? 'العربية' : 'English'}
               </Button>
 
               {/* Notifications */}
               <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
+                <Bell className="h-5 w-5" style={{ color: '#2699A6' }} />
                 {notificationCount > 0 && (
                   <Badge
                     variant="destructive"
@@ -250,7 +256,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                       </AvatarFallback>
                     </Avatar>
                     <span>{user?.firstName} {user?.lastName}</span>
-                    <ChevronDown className="h-4 w-4" />
+                    <ChevronDown className="h-4 w-4" style={{ color: '#2699A6' }} />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
