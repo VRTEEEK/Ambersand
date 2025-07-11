@@ -970,7 +970,7 @@ export default function Regulations() {
                           {selectedControlIds.map(id => {
                             const control = controls?.find((c: any) => c.id === id);
                             return control ? (
-                              <Badge key={id} variant="outline" className="text-xs">
+                              <Badge key={id} variant="outline" className="text-xs text-[#f8f7fc] bg-[#18b5a7]">
                                 {control.code}
                               </Badge>
                             ) : null;

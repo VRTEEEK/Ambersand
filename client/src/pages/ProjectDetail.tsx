@@ -413,7 +413,9 @@ export default function ProjectDetail() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-2 leading-tight">
-                                {language === 'ar' ? control.eccControl.titleAr : control.eccControl.titleEn}
+                                {language === 'ar' && control.eccControl.subdomainAr 
+                                  ? control.eccControl.subdomainAr 
+                                  : control.eccControl.subdomainEn || control.eccControl.titleEn || control.eccControl.titleAr}
                               </h3>
                               <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
                                 {language === 'ar' && control.eccControl.implementationGuidanceAr 
