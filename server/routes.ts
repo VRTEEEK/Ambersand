@@ -286,7 +286,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const projectId = req.query.projectId ? parseInt(req.query.projectId as string) : undefined;
       const taskId = req.query.taskId ? parseInt(req.query.taskId as string) : undefined;
+      console.log('Evidence query - projectId:', projectId, 'taskId:', taskId);
       const evidence = await storage.getEvidence(projectId, taskId);
+      console.log('Evidence query result:', evidence.length, 'items found');
       res.json(evidence);
     } catch (error) {
       console.error("Error fetching evidence:", error);
