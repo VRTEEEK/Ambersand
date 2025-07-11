@@ -83,6 +83,27 @@ export default function Projects() {
     retry: false,
   });
 
+  // Fetch all tasks to calculate real progress
+  const { data: allTasks } = useQuery({
+    queryKey: ['/api/tasks'],
+    retry: false,
+  });
+
+  // Calculate progress for each project
+  const projectsWithProgress = projects?.map((project: any) => {
+    const projectTasks = allTasks?.filter((task: any) => task.projectId === project.id) || [];
+    const completedTasks = projectTasks.filter((task: any) => task.status === 'completed').length;
+    const totalTasks = projectTasks.length;
+    const realProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+    
+    return {
+      ...project,
+      realProgress,
+      taskCount: totalTasks,
+      completedTaskCount: completedTasks
+    };
+  }) || [];
+
   const form = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
@@ -232,7 +253,7 @@ export default function Projects() {
     }
   };
 
-  const filteredProjects = projects?.filter((project: any) => {
+  const filteredProjects = projectsWithProgress?.filter((project: any) => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          project.description?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
@@ -593,7 +614,14 @@ export default function Projects() {
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-slate-500">Progress:</span>
                       <span className="font-medium">
-                        {project.progress || 0}%
+                        {project.realProgress}%
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-500">Tasks:</span>
+                      <span className="font-medium">
+                        {project.completedTaskCount || 0}/{project.taskCount || 0}
                       </span>
                     </div>
                     
