@@ -1054,53 +1054,14 @@ function EditTaskForm({
   return (
     <Form {...editForm}>
       <form onSubmit={editForm.handleSubmit(onSubmit)} className="space-y-6">
-        {/* Control Selection Section */}
-        <div className="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg p-4 mb-6">
-          <h3 className="font-semibold text-teal-800 dark:text-teal-200 mb-3 flex items-center gap-2">
-            <Target className="h-4 w-4" />
-            {language === 'ar' ? 'الضابط المرتبط' : 'Associated Control'}
-          </h3>
-          
-          {!assignedControl && (
-            <div className="mb-4">
-              <FormField
-                control={editForm.control}
-                name="controlId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm font-medium">
-                      {language === 'ar' ? 'اختر الضابط:' : 'Select Control:'}
-                    </FormLabel>
-                    <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder={language === 'ar' ? 'اختر ضابط...' : 'Select a control...'} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {projectControls?.map((control: any) => (
-                          <SelectItem key={control.eccControl.id} value={control.eccControl.id.toString()}>
-                            <div className="flex items-center gap-2">
-                              <span className="bg-teal-600 text-white px-2 py-1 rounded text-xs">{control.eccControl.code}</span>
-                              <span className="text-sm">
-                                {language === 'ar' && control.eccControl.controlAr 
-                                  ? control.eccControl.controlAr.substring(0, 50) + '...'
-                                  : control.eccControl.controlEn.substring(0, 50) + '...'
-                                }
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          )}
-
-          {assignedControl && (
+        {/* Assigned Control Information */}
+        {assignedControl && (
+          <div className="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg p-4 mb-6">
+            <h3 className="font-semibold text-teal-800 dark:text-teal-200 mb-3 flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              {language === 'ar' ? 'الضابط المرتبط' : 'Associated Control'}
+            </h3>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="font-medium text-gray-700 dark:text-gray-300">
@@ -1134,19 +1095,9 @@ function EditTaskForm({
                   {language === 'ar' && assignedControl.controlAr ? assignedControl.controlAr : assignedControl.controlEn}
                 </p>
               </div>
-              <div className="md:col-span-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-3">
-                <span className="font-medium text-yellow-800 dark:text-yellow-200">
-                  {language === 'ar' ? 'الأدلة المطلوبة:' : 'Evidence Required:'}
-                </span>
-                <p className="mt-1 text-yellow-700 dark:text-yellow-300 text-sm">
-                  {language === 'ar' 
-                    ? (assignedControl.evidenceAr || assignedControl.evidenceRequiredAr || 'وثائق ، سياسات ، إجراءات ، وأدلة تدقيق')
-                    : (assignedControl.evidenceEn || assignedControl.evidenceRequiredEn || 'Documentation, policies, procedures, and audit evidence')}
-                </p>
-              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <FormField
@@ -1311,21 +1262,62 @@ function EditTaskForm({
           />
         </div>
 
-        {/* Evidence Upload Section */}
+        {/* Evidence Requirements and Upload Section */}
         {assignedControl && (
           <div className="border-t pt-6">
             <h4 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              {language === 'ar' ? 'رفع الأدلة' : 'Upload Evidence'}
+              {language === 'ar' ? 'متطلبات الأدلة ورفع الملفات' : 'Evidence Requirements & File Upload'}
             </h4>
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                {language === 'ar' 
-                  ? 'قم برفع الملفات والوثائق المطلوبة لإثبات الامتثال لهذا الضابط'
-                  : 'Upload files and documents required to demonstrate compliance with this control'}
-              </p>
+            
+            {/* Detailed Evidence Requirements */}
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">
+              <h5 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-3 flex items-center gap-2">
+                <Target className="h-4 w-4" />
+                {language === 'ar' ? 'الأدلة المطلوبة لهذا الضابط' : 'Required Evidence for This Control'}
+              </h5>
               
-              <div className="space-y-3">
+              <div className="space-y-4">
+                <div>
+                  <p className="text-yellow-700 dark:text-yellow-300 text-sm leading-relaxed">
+                    {language === 'ar' 
+                      ? (assignedControl.evidenceAr || assignedControl.evidenceRequiredAr || 'وثائق ، سياسات ، إجراءات ، وأدلة تدقيق تدعم تطبيق هذا الضابط')
+                      : (assignedControl.evidenceEn || assignedControl.evidenceRequiredEn || 'Documentation, policies, procedures, and audit evidence supporting implementation of this control')}
+                  </p>
+                </div>
+                
+                {/* Specific Evidence Types */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-yellow-200 dark:border-yellow-700">
+                    <h6 className="font-medium text-yellow-800 dark:text-yellow-200 mb-2">
+                      {language === 'ar' ? 'الوثائق المطلوبة:' : 'Required Documents:'}
+                    </h6>
+                    <ul className="text-xs text-yellow-700 dark:text-yellow-300 space-y-1">
+                      <li>• {language === 'ar' ? 'السياسات والإجراءات ذات الصلة' : 'Relevant policies and procedures'}</li>
+                      <li>• {language === 'ar' ? 'تقارير التدقيق الداخلي والخارجي' : 'Internal and external audit reports'}</li>
+                      <li>• {language === 'ar' ? 'سجلات التدريب والتوعية' : 'Training and awareness records'}</li>
+                      <li>• {language === 'ar' ? 'نتائج التقييمات والاختبارات' : 'Assessment and testing results'}</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-yellow-200 dark:border-yellow-700">
+                    <h6 className="font-medium text-yellow-800 dark:text-yellow-200 mb-2">
+                      {language === 'ar' ? 'الأدلة التطبيقية:' : 'Implementation Evidence:'}
+                    </h6>
+                    <ul className="text-xs text-yellow-700 dark:text-yellow-300 space-y-1">
+                      <li>• {language === 'ar' ? 'لقطات شاشة للأنظمة والتطبيقات' : 'System and application screenshots'}</li>
+                      <li>• {language === 'ar' ? 'سجلات النظام والأحداث' : 'System and event logs'}</li>
+                      <li>• {language === 'ar' ? 'تقارير المراقبة والتنبيهات' : 'Monitoring and alerting reports'}</li>
+                      <li>• {language === 'ar' ? 'إعدادات الأمان والضوابط' : 'Security settings and controls'}</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* File Upload Section */}
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+              <div className="space-y-4">
                 <div 
                   className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-teal-400 transition-colors"
                   onDragOver={(e) => {
@@ -1364,31 +1356,18 @@ function EditTaskForm({
                       </p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         {language === 'ar' 
-                          ? 'PDF, Word, Excel, PowerPoint, Images (حتى 10 ملفات)'
-                          : 'PDF, Word, Excel, PowerPoint, Images (up to 10 files)'}
+                          ? 'PDF, Word, Excel, PowerPoint, Images (حتى 10 ملفات، 10 ميجا بايت لكل ملف)'
+                          : 'PDF, Word, Excel, PowerPoint, Images (up to 10 files, 10MB each)'}
                       </p>
                     </div>
                   </label>
-                </div>
-
-                {/* Evidence Guidelines */}
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                  <h5 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
-                    {language === 'ar' ? 'إرشادات الأدلة:' : 'Evidence Guidelines:'}
-                  </h5>
-                  <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                    <li>• {language === 'ar' ? 'تأكد من أن الملفات تدعم متطلبات الضابط' : 'Ensure files support the control requirements'}</li>
-                    <li>• {language === 'ar' ? 'استخدم أسماء ملفات وصفية وواضحة' : 'Use descriptive and clear file names'}</li>
-                    <li>• {language === 'ar' ? 'قم بتنظيم الوثائق بشكل منطقي' : 'Organize documents logically'}</li>
-                    <li>• {language === 'ar' ? 'تحقق من حداثة المعلومات والسياسات' : 'Verify information and policies are current'}</li>
-                  </ul>
                 </div>
 
                 {/* Selected Files List */}
                 {uploadedFiles.length > 0 && (
                   <div className="space-y-2">
                     <h5 className="font-medium text-gray-700 dark:text-gray-300">
-                      {language === 'ar' ? 'الملفات المحددة:' : 'Selected Files:'}
+                      {language === 'ar' ? 'الملفات المحددة للرفع:' : 'Selected Files for Upload:'}
                     </h5>
                     <div className="space-y-2">
                       {uploadedFiles.map((file, index) => (
@@ -1417,7 +1396,7 @@ function EditTaskForm({
                   </div>
                 )}
 
-                {/* Existing Evidence (placeholder for now) */}
+                {/* Previously Uploaded Evidence */}
                 <div className="space-y-2">
                   <h5 className="font-medium text-gray-700 dark:text-gray-300">
                     {language === 'ar' ? 'الأدلة المرفوعة سابقاً:' : 'Previously Uploaded Evidence:'}
