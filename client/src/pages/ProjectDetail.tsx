@@ -417,11 +417,22 @@ export default function ProjectDetail() {
                                   ? control.eccControl.subdomainAr 
                                   : control.eccControl.subdomainEn || control.eccControl.titleEn || control.eccControl.titleAr}
                               </h3>
-                              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
-                                {language === 'ar' && control.eccControl.implementationGuidanceAr 
-                                  ? control.eccControl.implementationGuidanceAr 
-                                  : control.eccControl.implementationGuidanceEn}
+                              
+                              {/* Control Description */}
+                              <p className="text-sm text-gray-700 dark:text-gray-300 mb-2 line-clamp-2">
+                                {language === 'ar' && control.eccControl.controlAr 
+                                  ? control.eccControl.controlAr 
+                                  : control.eccControl.controlEn || 'No description available'}
                               </p>
+                              
+                              {/* Implementation Guidance */}
+                              {(control.eccControl.implementationGuidanceEn || control.eccControl.implementationGuidanceAr) && (
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
+                                  {language === 'ar' && control.eccControl.implementationGuidanceAr 
+                                    ? control.eccControl.implementationGuidanceAr 
+                                    : control.eccControl.implementationGuidanceEn}
+                                </p>
+                              )}
                               <div className="text-xs text-gray-500 dark:text-gray-400">
                                 <span className="font-medium">
                                   {language === 'ar' ? 'الأدلة المطلوبة:' : 'Evidence Required:'}
