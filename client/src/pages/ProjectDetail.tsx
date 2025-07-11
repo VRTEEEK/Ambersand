@@ -409,17 +409,44 @@ export default function ProjectDetail() {
                                 {language === 'ar' ? control.eccControl.titleAr : control.eccControl.titleEn}
                               </h4>
                             </div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                              {language === 'ar' ? control.eccControl.implementationGuidanceAr : control.eccControl.implementationGuidanceEn}
-                            </p>
-                            <div className="bg-blue-50 dark:bg-blue-900 p-3 rounded-lg">
-                              <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
-                                {language === 'ar' ? 'الأدلة المطلوبة:' : 'Evidence Required:'}
-                              </p>
-                              <p className="text-sm text-blue-700 dark:text-blue-300">
-                                {language === 'ar' ? control.eccControl.evidenceRequiredAr : control.eccControl.evidenceRequiredEn}
-                              </p>
-                            </div>
+                            {/* Control Description */}
+                            {(control.eccControl.implementationGuidanceEn || control.eccControl.implementationGuidanceAr) && (
+                              <div className="mb-3">
+                                <h5 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                  {language === 'ar' ? 'إرشادات التنفيذ:' : 'Implementation Guidance:'}
+                                </h5>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                  {language === 'ar' && control.eccControl.implementationGuidanceAr ? control.eccControl.implementationGuidanceAr : control.eccControl.implementationGuidanceEn}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Requirements */}
+                            {(control.eccControl.requirementEn || control.eccControl.requirementAr) && (
+                              <div className="mb-3">
+                                <h5 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                  {language === 'ar' ? 'المتطلب:' : 'Requirement:'}
+                                </h5>
+                                <p className="text-sm text-slate-600 dark:text-slate-400">
+                                  {language === 'ar' && control.eccControl.requirementAr ? control.eccControl.requirementAr : control.eccControl.requirementEn}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Evidence Required */}
+                            {(control.eccControl.evidenceEn || control.eccControl.evidenceAr || control.eccControl.evidenceRequiredEn || control.eccControl.evidenceRequiredAr) && (
+                              <div className="bg-blue-50 dark:bg-blue-900 p-3 rounded-lg">
+                                <h5 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
+                                  {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
+                                </h5>
+                                <p className="text-sm text-blue-700 dark:text-blue-300">
+                                  {language === 'ar' 
+                                    ? (control.eccControl.evidenceAr || control.eccControl.evidenceRequiredAr)
+                                    : (control.eccControl.evidenceEn || control.eccControl.evidenceRequiredEn)
+                                  }
+                                </p>
+                              </div>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 ml-4">
                             <Badge variant="secondary">
