@@ -381,92 +381,78 @@ export default function ProjectDetail() {
             )}
           </TabsContent>
 
-          <TabsContent value="controls" className="space-y-4">
+          <TabsContent value="controls" className="space-y-6">
             {Object.entries(groupedControls).map(([domain, controls]) => (
-              <Card key={domain}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg font-semibold bg-gradient-to-r from-teal-600 to-orange-600 bg-clip-text text-transparent">
-                      {domain}
-                    </CardTitle>
-                    <Badge variant="secondary">
-                      {(controls as any[]).length} {language === 'ar' ? 'ضابط' : 'Controls'}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
+              <div key={domain} className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold bg-gradient-to-r from-teal-600 to-orange-600 bg-clip-text text-transparent">
+                    {domain}
+                  </h2>
+                  <Badge variant="secondary">
+                    {(controls as any[]).length} {language === 'ar' ? 'ضابط' : 'Controls'}
+                  </Badge>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {(controls as any[]).map((control: any) => {
                     const controlTasks = tasks?.filter((task: any) => task.controlId === control.eccControl.id) || [];
                     return (
-                      <div key={control.id} className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Badge variant="outline" className="bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300">
+                      <Card key={control.id} className="relative hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="flex items-center gap-2 mb-2 flex-shrink-0">
+                              <input 
+                                type="checkbox" 
+                                className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500" 
+                                defaultChecked 
+                                disabled
+                              />
+                              <Badge className="bg-teal-600 hover:bg-teal-700 text-white px-2 py-1 text-xs font-medium">
                                 {control.eccControl.code}
                               </Badge>
-                              <h4 className="font-medium text-gray-900 dark:text-white">
-                                {language === 'ar' ? control.eccControl.titleAr : control.eccControl.titleEn}
-                              </h4>
                             </div>
-                            {/* Control Description */}
-                            {(control.eccControl.implementationGuidanceEn || control.eccControl.implementationGuidanceAr) && (
-                              <div className="mb-3">
-                                <h5 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                  {language === 'ar' ? 'إرشادات التنفيذ:' : 'Implementation Guidance:'}
-                                </h5>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                  {language === 'ar' && control.eccControl.implementationGuidanceAr ? control.eccControl.implementationGuidanceAr : control.eccControl.implementationGuidanceEn}
-                                </p>
-                              </div>
-                            )}
-
-                            {/* Requirements */}
-                            {(control.eccControl.requirementEn || control.eccControl.requirementAr) && (
-                              <div className="mb-3">
-                                <h5 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                  {language === 'ar' ? 'المتطلب:' : 'Requirement:'}
-                                </h5>
-                                <p className="text-sm text-slate-600 dark:text-slate-400">
-                                  {language === 'ar' && control.eccControl.requirementAr ? control.eccControl.requirementAr : control.eccControl.requirementEn}
-                                </p>
-                              </div>
-                            )}
-
-                            {/* Evidence Required */}
-                            {(control.eccControl.evidenceEn || control.eccControl.evidenceAr || control.eccControl.evidenceRequiredEn || control.eccControl.evidenceRequiredAr) && (
-                              <div className="bg-blue-50 dark:bg-blue-900 p-3 rounded-lg">
-                                <h5 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
-                                  {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
-                                </h5>
-                                <p className="text-sm text-blue-700 dark:text-blue-300">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-2 leading-tight">
+                                {language === 'ar' ? control.eccControl.titleAr : control.eccControl.titleEn}
+                              </h3>
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
+                                {language === 'ar' && control.eccControl.implementationGuidanceAr 
+                                  ? control.eccControl.implementationGuidanceAr 
+                                  : control.eccControl.implementationGuidanceEn}
+                              </p>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                <span className="font-medium">
+                                  {language === 'ar' ? 'الأدلة المطلوبة:' : 'Evidence Required:'}
+                                </span>
+                                <span className="ml-1">
                                   {language === 'ar' 
-                                    ? (control.eccControl.evidenceAr || control.eccControl.evidenceRequiredAr)
-                                    : (control.eccControl.evidenceEn || control.eccControl.evidenceRequiredEn)
-                                  }
-                                </p>
+                                    ? (control.eccControl.evidenceAr || control.eccControl.evidenceRequiredAr || 'وثائق ، سياسات ، إجراءات ، وأدلة تدقيق')
+                                    : (control.eccControl.evidenceEn || control.eccControl.evidenceRequiredEn || 'Documentation, policies, procedures, and audit evidence')}
+                                </span>
                               </div>
-                            )}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 ml-4">
-                            <Badge variant="secondary">
+                          
+                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                            <Badge variant="outline" className="text-xs">
                               {controlTasks.length} {language === 'ar' ? 'مهمة' : 'Tasks'}
                             </Badge>
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => handleCreateTask(control.eccControl.id)}
+                              className="text-xs px-2 py-1 h-6"
                             >
                               <Plus className="h-3 w-3 mr-1" />
                               {language === 'ar' ? 'إضافة مهمة' : 'Add Task'}
                             </Button>
                           </div>
-                        </div>
-                      </div>
+                        </CardContent>
+                      </Card>
                     );
                   })}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ))}
           </TabsContent>
         </Tabs>
