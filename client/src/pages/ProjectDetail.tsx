@@ -28,7 +28,8 @@ import {
   FileText,
   Target,
   Users,
-  Activity
+  Activity,
+  X
 } from 'lucide-react';
 
 const taskSchema = z.object({
@@ -979,6 +980,40 @@ function EditTaskForm({
   isLoading: boolean;
   language: string;
 }) {
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileSelection = (files: File[]) => {
+    const validFiles = files.filter(file => {
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      const allowedTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'image/jpeg',
+        'image/png',
+        'image/jpg',
+        'text/plain'
+      ];
+      
+      return file.size <= maxSize && allowedTypes.includes(file.type);
+    });
+
+    if (validFiles.length !== files.length) {
+      console.warn('Some files were rejected due to size or type restrictions');
+    }
+
+    setUploadedFiles(prev => [...prev, ...validFiles].slice(0, 10)); // Limit to 10 files
+  };
+
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+  
   const editForm = useForm({
     resolver: zodResolver(taskSchema),
     defaultValues: {
@@ -1010,21 +1045,62 @@ function EditTaskForm({
     }
   };
 
-  // Get the assigned control details
-  const assignedControl = projectControls?.find(
-    (control: any) => control.eccControl.id === task.controlId
-  )?.eccControl;
+  // Get the assigned control details - watch form value for real-time updates
+  const watchedControlId = editForm.watch('controlId');
+  const assignedControl = watchedControlId ? projectControls?.find(
+    (control: any) => control.eccControl.id === watchedControlId
+  )?.eccControl : null;
 
   return (
     <Form {...editForm}>
       <form onSubmit={editForm.handleSubmit(onSubmit)} className="space-y-6">
-        {/* Control Information Section */}
-        {assignedControl && (
-          <div className="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg p-4 mb-6">
-            <h3 className="font-semibold text-teal-800 dark:text-teal-200 mb-3 flex items-center gap-2">
-              <Target className="h-4 w-4" />
-              {language === 'ar' ? 'الضابط المرتبط' : 'Associated Control'}
-            </h3>
+        {/* Control Selection Section */}
+        <div className="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg p-4 mb-6">
+          <h3 className="font-semibold text-teal-800 dark:text-teal-200 mb-3 flex items-center gap-2">
+            <Target className="h-4 w-4" />
+            {language === 'ar' ? 'الضابط المرتبط' : 'Associated Control'}
+          </h3>
+          
+          {!assignedControl && (
+            <div className="mb-4">
+              <FormField
+                control={editForm.control}
+                name="controlId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">
+                      {language === 'ar' ? 'اختر الضابط:' : 'Select Control:'}
+                    </FormLabel>
+                    <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={language === 'ar' ? 'اختر ضابط...' : 'Select a control...'} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {projectControls?.map((control: any) => (
+                          <SelectItem key={control.eccControl.id} value={control.eccControl.id.toString()}>
+                            <div className="flex items-center gap-2">
+                              <span className="bg-teal-600 text-white px-2 py-1 rounded text-xs">{control.eccControl.code}</span>
+                              <span className="text-sm">
+                                {language === 'ar' && control.eccControl.controlAr 
+                                  ? control.eccControl.controlAr.substring(0, 50) + '...'
+                                  : control.eccControl.controlEn.substring(0, 50) + '...'
+                                }
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          )}
+
+          {assignedControl && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="font-medium text-gray-700 dark:text-gray-300">
@@ -1069,8 +1145,8 @@ function EditTaskForm({
                 </p>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="grid grid-cols-2 gap-4">
           <FormField
@@ -1250,7 +1326,23 @@ function EditTaskForm({
               </p>
               
               <div className="space-y-3">
-                <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-teal-400 transition-colors">
+                <div 
+                  className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-teal-400 transition-colors"
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.add('border-teal-400');
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove('border-teal-400');
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove('border-teal-400');
+                    const files = Array.from(e.dataTransfer.files);
+                    handleFileSelection(files);
+                  }}
+                >
                   <input
                     type="file"
                     multiple
@@ -1259,8 +1351,7 @@ function EditTaskForm({
                     id="evidence-upload"
                     onChange={(e) => {
                       const files = Array.from(e.target.files || []);
-                      console.log('Selected files:', files);
-                      // TODO: Implement file upload logic
+                      handleFileSelection(files);
                     }}
                   />
                   <label htmlFor="evidence-upload" className="cursor-pointer">
@@ -1269,7 +1360,7 @@ function EditTaskForm({
                         <FileText className="h-6 w-6 text-teal-600 dark:text-teal-400" />
                       </div>
                       <p className="font-medium text-gray-700 dark:text-gray-300">
-                        {language === 'ar' ? 'اضغط لاختيار الملفات' : 'Click to select files'}
+                        {language === 'ar' ? 'اضغط لاختيار الملفات أو اسحبها هنا' : 'Click to select files or drag them here'}
                       </p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         {language === 'ar' 
@@ -1293,10 +1384,43 @@ function EditTaskForm({
                   </ul>
                 </div>
 
+                {/* Selected Files List */}
+                {uploadedFiles.length > 0 && (
+                  <div className="space-y-2">
+                    <h5 className="font-medium text-gray-700 dark:text-gray-300">
+                      {language === 'ar' ? 'الملفات المحددة:' : 'Selected Files:'}
+                    </h5>
+                    <div className="space-y-2">
+                      {uploadedFiles.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-3">
+                          <div className="flex items-center gap-3">
+                            <FileText className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">{file.name}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {(file.size / (1024 * 1024)).toFixed(2)} MB
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeFile(index)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Existing Evidence (placeholder for now) */}
                 <div className="space-y-2">
                   <h5 className="font-medium text-gray-700 dark:text-gray-300">
-                    {language === 'ar' ? 'الأدلة المرفوعة:' : 'Uploaded Evidence:'}
+                    {language === 'ar' ? 'الأدلة المرفوعة سابقاً:' : 'Previously Uploaded Evidence:'}
                   </h5>
                   <div className="bg-gray-100 dark:bg-gray-700 rounded p-3 text-center text-sm text-gray-500 dark:text-gray-400">
                     {language === 'ar' ? 'لا توجد أدلة مرفوعة بعد' : 'No evidence uploaded yet'}
