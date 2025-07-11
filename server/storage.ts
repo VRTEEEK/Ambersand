@@ -351,26 +351,25 @@ export class DatabaseStorage implements IStorage {
     complianceTrend: Array<{ month: string; score: number }>;
     regulationStatus: Array<{ name: string; nameAr: string; progress: number; total: number; percentage: number }>;
   }> {
-    // Get active projects count
-    let activeProjectsQuery = db
+    // Get all projects count (including planning, active, completed)
+    let allProjectsQuery = db
       .select({ count: count() })
-      .from(projects)
-      .where(eq(projects.status, "active"));
+      .from(projects);
     
     if (organizationId) {
-      activeProjectsQuery = db
+      allProjectsQuery = db
         .select({ count: count() })
         .from(projects)
-        .where(and(eq(projects.status, "active"), eq(projects.organizationId, organizationId)));
+        .where(eq(projects.organizationId, organizationId));
     }
     
-    const [{ count: activeProjects }] = await activeProjectsQuery;
+    const [{ count: activeProjects }] = await allProjectsQuery;
 
-    // Get pending tasks count
+    // Get pending tasks count (including pending, in-progress)
     const pendingTasksQuery = db
       .select({ count: count() })
       .from(tasks)
-      .where(or(eq(tasks.status, "todo"), eq(tasks.status, "in-progress")));
+      .where(or(eq(tasks.status, "pending"), eq(tasks.status, "in-progress")));
     
     const [{ count: pendingTasks }] = await pendingTasksQuery;
 
@@ -379,15 +378,27 @@ export class DatabaseStorage implements IStorage {
       .select({ count: count() })
       .from(eccControls);
 
-    // For demo purposes, calculate compliance based on completed tasks vs total controls
+    // Get completed tasks count
     const [{ count: completedTasks }] = await db
       .select({ count: count() })
       .from(tasks)
       .where(eq(tasks.status, "completed"));
 
-    const overallCompliance = totalEccControls > 0 
-      ? Math.round((completedTasks / totalEccControls) * 100)
-      : 0;
+    // Get total tasks count
+    const [{ count: totalTasks }] = await db
+      .select({ count: count() })
+      .from(tasks);
+
+    // Calculate compliance based on completed tasks vs total tasks, or use project controls
+    const [{ count: totalProjectControls }] = await db
+      .select({ count: count() })
+      .from(projectControls);
+
+    const overallCompliance = totalProjectControls > 0 
+      ? Math.round((completedTasks / totalProjectControls) * 100)
+      : totalTasks > 0 
+        ? Math.round((completedTasks / totalTasks) * 100)
+        : 0;
 
     // Generate compliance trend data (last 6 months)
     const complianceTrend = [
@@ -399,28 +410,32 @@ export class DatabaseStorage implements IStorage {
       { month: "Dec", score: overallCompliance },
     ];
 
-    // Calculate regulation status
+    // Calculate regulation status based on actual project controls
     const regulationStatus = [
       {
         name: "ECC (Essential Cybersecurity Controls)",
         nameAr: "الضوابط الأساسية للأمن السيبراني",
         progress: completedTasks,
-        total: totalEccControls,
-        percentage: totalEccControls > 0 ? Math.round((completedTasks / totalEccControls) * 100) : 0,
+        total: totalProjectControls > 0 ? totalProjectControls : totalTasks,
+        percentage: totalProjectControls > 0 
+          ? Math.round((completedTasks / totalProjectControls) * 100)
+          : totalTasks > 0 
+            ? Math.round((completedTasks / totalTasks) * 100)
+            : 0,
       },
       {
         name: "PDPL (Personal Data Protection Law)",
         nameAr: "نظام حماية البيانات الشخصية",
         progress: Math.round(completedTasks * 0.8),
         total: 18,
-        percentage: Math.round((completedTasks * 0.8 / 18) * 100),
+        percentage: Math.min(100, Math.round((completedTasks * 0.8 / 18) * 100)),
       },
       {
         name: "NDMO (National Data Management Office)",
         nameAr: "مكتب إدارة البيانات الوطنية",
         progress: Math.round(completedTasks * 0.2),
         total: 25,
-        percentage: Math.round((completedTasks * 0.2 / 25) * 100),
+        percentage: Math.min(100, Math.round((completedTasks * 0.2 / 25) * 100)),
       },
     ];
 
