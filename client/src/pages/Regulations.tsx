@@ -705,8 +705,7 @@ export default function Regulations() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-3 mb-2">
                                 <Badge 
-                                  variant="secondary" 
-                                  className="bg-teal-600 text-white font-mono text-xs px-2 py-1 rounded"
+                                  className="text-xs text-[#f8f7fc] bg-[#18b5a7] font-mono px-2 py-1 rounded"
                                 >
                                   {control.code}
                                 </Badge>
