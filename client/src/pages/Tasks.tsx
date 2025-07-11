@@ -52,6 +52,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -113,8 +114,24 @@ const getStatusColor = (status: string) => {
   }
 };
 
+// Droppable Column Component
+function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `column-${id}`,
+  });
+
+  return (
+    <div 
+      ref={setNodeRef}
+      className={`min-h-[400px] w-full transition-colors ${isOver ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+    >
+      {children}
+    </div>
+  );
+}
+
 // Sortable Task Card Component
-function SortableTaskCard({ task, language }: { task: Task; language: string }) {
+function SortableTaskCard({ task, language, onTaskClick }: { task: Task; language: string; onTaskClick: (task: Task) => void }) {
   const {
     attributes,
     listeners,
@@ -130,13 +147,21 @@ function SortableTaskCard({ task, language }: { task: Task; language: string }) 
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const handleClick = (e: React.MouseEvent) => {
+    // Don't trigger click when dragging
+    if (isDragging) return;
+    e.preventDefault();
+    onTaskClick(task);
+  };
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
       {...listeners}
-      className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-all cursor-grab active:cursor-grabbing"
+      onClick={handleClick}
+      className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-all cursor-pointer hover:cursor-pointer active:cursor-grabbing"
     >
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-2">
@@ -197,7 +222,9 @@ export default function Tasks() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   // Fetch tasks with fresh data - remove cache to get real-time data
   const { data: tasks = [], isLoading, error, refetch } = useQuery({
@@ -306,6 +333,47 @@ export default function Tasks() {
     },
   });
 
+  // Update task mutation
+  const updateTaskMutation = useMutation({
+    mutationFn: async (data: TaskFormData & { id: number }) => {
+      console.log('🔄 Updating task:', data);
+      const taskData = {
+        ...data,
+        assigneeId: data.assigneeEmail, // Map to assigneeId
+        eccControlId: data.controlId, // Map to eccControlId
+      };
+      await apiRequest(`/api/tasks/${data.id}`, 'PUT', taskData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      refetch(); // Force refetch
+      setIsEditDialogOpen(false);
+      setSelectedTask(null);
+      editForm.reset();
+      toast({
+        title: language === 'ar' ? 'تم تحديث المهمة' : 'Task Updated',
+        description: language === 'ar' ? 'تم تحديث المهمة بنجاح' : 'Task updated successfully',
+      });
+    },
+    onError: (error) => {
+      console.error('❌ Error updating task:', error);
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 500);
+        return;
+      }
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في تحديث المهمة' : 'Failed to update task',
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Drag and drop handlers
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const { active } = event;
@@ -387,9 +455,52 @@ export default function Tasks() {
     },
   });
 
+  // Form for editing tasks
+  const editForm = useForm<TaskFormData>({
+    resolver: zodResolver(taskSchema),
+    defaultValues: {
+      title: '',
+      titleAr: '',
+      description: '',
+      descriptionAr: '',
+      status: 'pending',
+      priority: 'medium',
+      dueDate: '',
+      projectId: undefined,
+      assigneeEmail: '',
+      controlId: undefined,
+    },
+  });
+
   // Handle form submission
   const onSubmit = (data: TaskFormData) => {
     createTaskMutation.mutate(data);
+  };
+
+  // Handle edit form submission
+  const onEditSubmit = (data: TaskFormData) => {
+    if (selectedTask) {
+      updateTaskMutation.mutate({ ...data, id: selectedTask.id });
+    }
+  };
+
+  // Handle task click for editing
+  const handleTaskClick = (task: Task) => {
+    setSelectedTask(task);
+    // Populate edit form with task data
+    editForm.reset({
+      title: task.title,
+      titleAr: task.titleAr || '',
+      description: task.description || '',
+      descriptionAr: task.descriptionAr || '',
+      status: task.status,
+      priority: task.priority,
+      dueDate: task.dueDate || '',
+      projectId: task.projectId,
+      assigneeEmail: task.assigneeId || '',
+      controlId: task.eccControlId,
+    });
+    setIsEditDialogOpen(true);
   };
 
 
@@ -645,33 +756,32 @@ export default function Tasks() {
                       </Badge>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent 
-                    className="pt-0 min-h-[400px]"
-                    id={`column-${column.id}`}
-                  >
-                    <SortableContext items={columnTasks.map(task => task.id)} strategy={verticalListSortingStrategy}>
-                      <div className="space-y-3">
-                        {isLoading ? (
-                          Array.from({ length: 3 }).map((_, i) => (
-                            <div key={i} className="p-4 bg-white dark:bg-gray-700 rounded-lg border">
-                              <Skeleton className="h-4 w-32 mb-2" />
-                              <Skeleton className="h-3 w-24 mb-2" />
-                              <Skeleton className="h-3 w-20" />
+                  <CardContent className="pt-0 min-h-[400px]">
+                    <DroppableColumn id={column.id}>
+                      <SortableContext items={columnTasks.map(task => task.id)} strategy={verticalListSortingStrategy}>
+                        <div className="space-y-3 min-h-[400px]">
+                          {isLoading ? (
+                            Array.from({ length: 3 }).map((_, i) => (
+                              <div key={i} className="p-4 bg-white dark:bg-gray-700 rounded-lg border">
+                                <Skeleton className="h-4 w-32 mb-2" />
+                                <Skeleton className="h-3 w-24 mb-2" />
+                                <Skeleton className="h-3 w-20" />
+                              </div>
+                            ))
+                          ) : columnTasks.length === 0 ? (
+                            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                              <p className="text-sm">
+                                {language === 'ar' ? 'لا توجد مهام' : 'No tasks'}
+                              </p>
                             </div>
-                          ))
-                        ) : columnTasks.length === 0 ? (
-                          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                            <p className="text-sm">
-                              {language === 'ar' ? 'لا توجد مهام' : 'No tasks'}
-                            </p>
-                          </div>
-                        ) : (
-                          columnTasks.map((task) => (
-                            <SortableTaskCard key={task.id} task={task} language={language} />
-                          ))
-                        )}
-                      </div>
-                    </SortableContext>
+                          ) : (
+                            columnTasks.map((task) => (
+                              <SortableTaskCard key={task.id} task={task} language={language} onTaskClick={handleTaskClick} />
+                            ))
+                          )}
+                        </div>
+                      </SortableContext>
+                    </DroppableColumn>
                   </CardContent>
                 </Card>
               );
@@ -698,6 +808,192 @@ export default function Tasks() {
             ) : null}
           </DragOverlay>
         </DndContext>
+
+        {/* Edit Task Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>
+                {language === 'ar' ? 'تعديل المهمة' : 'Edit Task'}
+              </DialogTitle>
+            </DialogHeader>
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'العنوان (إنجليزي)' : 'Title (English)'}</FormLabel>
+                        <FormControl>
+                          <Input placeholder={language === 'ar' ? 'أدخل العنوان' : 'Enter title'} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="titleAr"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'العنوان (عربي)' : 'Title (Arabic)'}</FormLabel>
+                        <FormControl>
+                          <Input placeholder={language === 'ar' ? 'أدخل العنوان بالعربية' : 'Enter title in Arabic'} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'الوصف (إنجليزي)' : 'Description (English)'}</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder={language === 'ar' ? 'أدخل الوصف' : 'Enter description'} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="descriptionAr"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'الوصف (عربي)' : 'Description (Arabic)'}</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder={language === 'ar' ? 'أدخل الوصف بالعربية' : 'Enter description in Arabic'} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'الحالة' : 'Status'}</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={language === 'ar' ? 'اختر الحالة' : 'Select status'} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="pending">{language === 'ar' ? 'لم تبدأ' : 'To Do'}</SelectItem>
+                            <SelectItem value="in-progress">{language === 'ar' ? 'قيد التنفيذ' : 'In Progress'}</SelectItem>
+                            <SelectItem value="review">{language === 'ar' ? 'للمراجعة' : 'Review'}</SelectItem>
+                            <SelectItem value="completed">{language === 'ar' ? 'مكتملة' : 'Completed'}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="priority"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'الأولوية' : 'Priority'}</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={language === 'ar' ? 'اختر الأولوية' : 'Select priority'} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="low">{language === 'ar' ? 'منخفضة' : 'Low'}</SelectItem>
+                            <SelectItem value="medium">{language === 'ar' ? 'متوسطة' : 'Medium'}</SelectItem>
+                            <SelectItem value="high">{language === 'ar' ? 'عالية' : 'High'}</SelectItem>
+                            <SelectItem value="urgent">{language === 'ar' ? 'عاجلة' : 'Urgent'}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="dueDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'تاريخ الاستحقاق' : 'Due Date'}</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="projectId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'المشروع' : 'Project'}</FormLabel>
+                        <Select onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)} value={field.value?.toString()}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={language === 'ar' ? 'اختر المشروع' : 'Select project'} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {projects.map((project: any) => (
+                              <SelectItem key={project.id} value={project.id.toString()}>
+                                {project.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="assigneeEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'المُكلف' : 'Assignee'}</FormLabel>
+                        <FormControl>
+                          <Input placeholder={language === 'ar' ? 'أدخل البريد الإلكتروني أو الاسم' : 'Enter email or name'} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                  </Button>
+                  <Button type="submit" disabled={updateTaskMutation.isPending}>
+                    {updateTaskMutation.isPending ? (language === 'ar' ? 'جاري التحديث...' : 'Updating...') : (language === 'ar' ? 'تحديث' : 'Update')}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
