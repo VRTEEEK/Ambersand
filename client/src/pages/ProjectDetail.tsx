@@ -340,14 +340,6 @@ export default function ProjectDetail() {
               <Plus className="h-4 w-4 mr-2" />
               {language === 'ar' ? 'مهمة جديدة' : 'New Task'}
             </Button>
-            <Button
-              variant="destructive"
-              onClick={() => deleteProjectMutation.mutate()}
-              disabled={deleteProjectMutation.isPending}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              {language === 'ar' ? 'حذف المشروع' : 'Delete Project'}
-            </Button>
           </div>
         </div>
 
