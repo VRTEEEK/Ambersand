@@ -1,0 +1,220 @@
+Ambersand MVP Full-Stack Project Prompt
+Project Title
+Ambersand 
+Build a modern, bilingual (Arabic/English) compliance management MVP tailored for mid-to-large Saudi organizations to streamline adherence to:
+ECC (Essential Cybersecurity Controls by NCA)
+PDPL (Personal Data Protection Law)
+NDMO (National Data Management Office)
+ISO Standards (optional future phase)
+🔹 Target Personas
+Compliance Managers
+IT Security Teams
+Legal and Governance Officers
+Executives responsible for cybersecurity
+
+🔍 Core Features
+1. Regulation & Requirements Management • Predefined Regulation Library Central repository of key regulatory frameworks (e.g., PDPL, ECC, ISO standards) with clear, bilingual (Arabic & English) explanations, searchable by keyword, area, or topic. • Custom Regulation Creation Tools for users to define, edit, and manage their own internal rules and controls, ensuring alignment with organizational policies and local regulations. 2. Task & Project Management • Regulation-to-Project Conversion One-click transformation of selected regulations into structured compliance projects, complete with milestones, deadlines, and task breakdowns. • Task Assignment & Delegation Create and assign compliance tasks to teams or individuals, set clear ownership and deadlines, and track accountability across stakeholders. • Task Attachment & Evidence Management Attach and preview evidence files (text, PDF, images, audio, video, spreadsheets) directly within tasks to document compliance steps. 3. Evidence Repository & Version Control • Centralized Evidence Repository Secure, indexed storage for all evidence files, optimized for fast retrieval and version tracking, accessible both within tasks and independently. 4. Dashboard & Reporting • External Compliance Dashboard Real-time visualization of compliance status: project/task progress, completion rates, overdue items, pending approvals, and overall compliance health. • Compliance Scoring Automated scoring based on evidence completeness and adherence to regulatory requirements, enabling quick performance assessments. • Exportable & Printable Reports Generate auditor-ready PDF reports with embedded hyperlinks to underlying evidence documents for efficient review and auditing. 5. Notifications & Alerts • Comprehensive Notification System Automated alerts via system notifications, email, and SMS for task assignments, upcoming deadlines, completions, overdue actions, and status changes. 6. User & Role Management • User Authentication & Authorization Secure login and role-based access control with detailed user management capabilities to ensure data privacy and appropriate permissions. • Granular Permission Management Fine-grained control over viewing, editing, approving, and deleting actions across the platform to safeguard sensitive compliance data. 7. Multilingual & Localization Support • Bilingual Interface (Arabic & English) Fully localized UI components (dashboards, menus, notifications, reports) to serve diverse user groups and ensure usability in both languages.
+ Settings
+Organization configuration
+Role-based permission control (admins, managers, viewers)
+❓ Help / Support
+FAQ
+Contact support page/form
+Language Toggle
+Arabic/English switcher using i18next
+Dynamic UI localization
+Profile / Logout
+User profile & settings
+Logout securely
+
+User Flow
+Upon first access, users can Login, Register, or Recover Password.
+Demo user credentials will be provided.
+After authentication, users land on the Dashboard by default.
+Regulation Library Flow:
+The Regulation Library displays the following options:
+ECC (Essential Cybersecurity Controls)
+PDPL (Personal Data Protection Law)
+NDMO (National Data Management Office)
+Create Your Own: Allows users to define their own custom controls and structure, similar to ECC.
+Each regulation is accompanied by a brief description.
+Custom Regulation Creation:
+Tools for users to define, edit, and manage internal rules and controls aligned with organizational and national standards.
+Project Creation:
+After selecting a regulation, users can create a project.
+For ECC:
+Display five main domains:
+Cybersecurity Governance
+Cybersecurity Defense
+Cybersecurity Resilience
+Third-Party & Cloud Computing Cybersecurity
+Industrial Control Systems (ICS) Cybersecurity
+Under each domain, show related sub-controls (e.g., "1.1.1 Cybersecurity Strategy", "2.1 Asset Management")
+Each control includes:
+Control ID (e.g., CG-1.1.1)
+Description
+Required evidence description
+Users can select specific controls to include in their project.
+Project Details:
+Project Name
+Description
+Associated Regulation
+Selected Controls
+Project Management:
+View, edit, delete existing projects
+Task Management (within Projects):
+Add tasks linked to selected controls
+Each task includes:
+Task Name
+Description
+Related Control (dropdown/selector)
+Assigned To (name/email)
+Due Date (date picker)
+Status (Not Started, In Progress, Completed, Blocked)
+Users can view, edit, delete tasks
+🛠️ Tech Stack
+Frontend
+React (Next.js optional)
+TailwindCSS for styling
+i18next for bilingual localization
+Backend
+Express.js (REST API)
+PostgreSQL (ORM via Prisma)
+Multer for file uploads
+Socket.IO or backend job scheduler for notifications
+
+🧰 Database Structure (ECC-2:2024)
+Regulations follow:
+Regulation → Domain → Subdomain → Control
+ECC includes:
+4 Domains
+28 Subdomains
+108 Controls
+92 Subcontrols
+📂 Prisma Schema
+model Regulation {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique
+  name        Json      // { en: "ECC", ar: "الضوابط الأساسية" }
+  description Json?
+  domains     Domain[]
+}
+
+model Domain {
+  id           Int       @id @default(autoincrement())
+  regulationId Int
+  code         String
+  title        Json
+  description  Json?
+  Regulation   Regulation @relation(fields: [regulationId], references: [id])
+  subdomains   Subdomain[]
+}
+
+model Subdomain {
+  id        Int      @id @default(autoincrement())
+  domainId  Int
+  code      String
+  title     Json
+  objective Json
+  Domain    Domain   @relation(fields: [domainId], references: [id])
+  controls  Control[]
+}
+
+model Control {
+  id           Int       @id @default(autoincrement())
+  subdomainId  Int
+  code         String
+  description  Json
+  evidence     Json?
+  requirement  Json?
+  Subdomain    Subdomain @relation(fields: [subdomainId], references: [id])
+}
+
+Other Database Schema (Conceptual)
+users
+id (primary key)
+username
+password_hash
+preferred_language
+role (admin, manager, contributor)
+projects
+id (primary key)
+user_id (foreign key to users)
+regulation_id (foreign key to regulations)
+name
+description
+created_at
+project_controls (many-to-many join table)
+project_id (foreign key)
+control_id (foreign key)
+tasks
+id (primary key)
+project_id (foreign key)
+control_id (foreign key)
+name
+description
+assigned_to (user email or ID)
+due_date
+status (Not Started, In Progress, Completed, Blocked)
+created_at
+updated_at
+evidence
+id (primary key)
+task_id (foreign key)
+file_path
+version
+uploaded_by (user ID)
+uploaded_at
+tags (optional)
+
+
+📊 Dataset Integration
+Cleaned ECC-2:2024 structure with Arabic & English fields was processed from official source
+SQL INSERT script is available to populate the ecc_controls table
+
+🏠 Project Folder Structure
+ambersand/
+├── backend/
+│   ├── prisma/
+│   │   ├── schema.prisma
+│   │   └── seed.js
+│   ├── src/
+│   │   ├── controllers/
+│   │   ├── routes/
+│   │   ├── services/
+│   │   ├── middleware/
+│   │   ├── uploads/
+│   │   ├── sockets/
+│   │   └── app.js
+│   ├── .env
+│   ├── package.json
+│   └── server.js
+│
+├── frontend/
+│   ├── public/
+│   ├── src/
+│   │   ├── assets/
+│   │   ├── components/
+│   │   ├── layout/
+│   │   ├── features/
+│   │   ├── pages/
+│   │   ├── hooks/
+│   │   ├── i18n/
+│   │   ├── api/
+│   │   ├── contexts/
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   ├── tailwind.config.js
+│   ├── postcss.config.js
+│   ├── vite.config.ts
+│   └── package.json
+│
+├── docker-compose.yml
+├── README.md
+└── .gitignore
+
+
+User Interface (UI) / User Experience (UX): ● Branding: The application will use a provided logo for branding instead of displaying the name "Ambersand" as text in the UI. ● Theme: Light Theme with Ambersand Color Palette: ● Backgrounds (#F2F2F2 - Very light gray): Use for the overall application background, card backgrounds, and any large, clean areas. ● Primary Text & Strong Outlines (#0D0D0D - Very dark gray/near black): Apply to all main body text, headings, labels, form input text, and for clear, defined borders or outlines. ● Primary Accents & Interactive Elements (#2699A6 - Cool teal/blue): Use for major section headings, default states of buttons and navigation links, active tab indicators, checkboxes, radio buttons, and borders/highlights for focused or selected elements. ● Strong Accents & Call to Actions (#F2780C - Vibrant orange): Designate for primary action buttons (e.g., "Create Project", "Save Task", "Add New"), important alerts or notifications, and as a subtle hover/active state for primary accent elements. ● Secondary Accents & Lighter Elements (#F2994B - Softer orange/peach): Apply to secondary buttons (e.g., "Cancel", "Edit"), subtle status indicators (e.g., "In Progress" for tasks), and for small tags or badges. ● Responsive Design: Ensure the application is fully responsive and looks good on various screen sizes (mobile, tablet, desktop) using Tailwind CSS utilities. ● Intuitive Navigation: Clear and easy-to-use navigation between sections (Language, Regulations, Projects, Project Details). ● Forms: Well-designed forms for creating projects and tasks, with appropriate input types and validation, styled consistently with the chosen color palette. ● Data Display: Present controls, projects, and tasks in a clear, readable format (e.g., cards, tables, collapsible sections), adhering to the color scheme for text and backgrounds. ● Language Switching: Implement a mechanism (e.g., a button or dropdown in the header) to switch languages dynamically after the initial selection. Store translations in a JSON file or similar structure
+
+Let me know what you'd like to build out next: seed script, REST endpoints, frontend wireframes, etc.
+
