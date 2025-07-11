@@ -967,7 +967,10 @@ export default function ProjectDetail() {
                 task={editingTask}
                 projectControls={projectControls}
                 taskEvidence={taskEvidence}
-                onSubmit={(data) => updateTaskMutation.mutate({ ...data, id: editingTask.id })}
+                onSubmit={(data) => {
+                  console.log('Edit form onSubmit called with:', data);
+                  updateTaskMutation.mutate({ ...data, id: editingTask.id });
+                }}
                 onCancel={() => {
                   setIsTaskEditDialogOpen(false);
                   setEditingTask(null);
@@ -1123,8 +1126,8 @@ function EditTaskForm({
         
         try {
           // First update the task
-          console.log('Calling updateTaskMutation with data:', data);
-          await updateTaskMutation.mutateAsync({ ...data, id: task.id });
+          console.log('Calling onSubmit with data:', data);
+          await onSubmit(data);
           console.log('Task updated successfully');
           
           // Then upload files after successful task update

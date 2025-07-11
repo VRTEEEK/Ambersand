@@ -231,9 +231,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/tasks/:id', isAuthenticated, async (req, res) => {
     try {
+      console.log('PUT /api/tasks/:id called with:', { id: req.params.id, body: req.body });
       const id = parseInt(req.params.id);
       const taskData = insertTaskSchema.partial().parse(req.body);
+      console.log('Parsed task data:', taskData);
       const task = await storage.updateTask(id, taskData);
+      console.log('Task updated successfully:', task);
       res.json(task);
     } catch (error) {
       console.error("Error updating task:", error);
