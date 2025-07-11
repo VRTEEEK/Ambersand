@@ -963,6 +963,7 @@ export default function ProjectDetail() {
               <EditTaskForm 
                 task={editingTask}
                 projectControls={projectControls}
+                taskEvidence={taskEvidence}
                 onSubmit={(data) => updateTaskMutation.mutate({ ...data, id: editingTask.id })}
                 onCancel={() => {
                   setIsTaskEditDialogOpen(false);
@@ -983,6 +984,7 @@ export default function ProjectDetail() {
 function EditTaskForm({ 
   task, 
   projectControls, 
+  taskEvidence,
   onSubmit, 
   onCancel, 
   isLoading, 
@@ -990,6 +992,7 @@ function EditTaskForm({
 }: {
   task: any;
   projectControls: any[];
+  taskEvidence: any[];
   onSubmit: (data: any) => void;
   onCancel: () => void;
   isLoading: boolean;
@@ -997,6 +1000,8 @@ function EditTaskForm({
 }) {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const handleFileSelection = (files: File[]) => {
     const validFiles = files.filter(file => {
