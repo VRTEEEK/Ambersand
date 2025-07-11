@@ -164,12 +164,14 @@ export default function ProjectDetail() {
 
   const updateTaskMutation = useMutation({
     mutationFn: async (data: TaskFormData & { id: number }) => {
+      console.log('Updating task with data:', data);
       const taskData = {
         ...data,
         assigneeId: data.assigneeEmail,
         // Map controlId to eccControlId for database compatibility
         eccControlId: data.controlId,
       };
+      console.log('Final task data being sent:', taskData);
       return await apiRequest(`/api/tasks/${data.id}`, 'PATCH', taskData);
     },
     onSuccess: () => {
@@ -183,6 +185,7 @@ export default function ProjectDetail() {
       });
     },
     onError: (error) => {
+      console.error('Update task error:', error);
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',
         description: language === 'ar' ? 'فشل في تحديث المهمة' : 'Failed to update task',
@@ -1115,13 +1118,19 @@ function EditTaskForm({
     <Form {...editForm}>
       <form onSubmit={editForm.handleSubmit(async (data) => {
         try {
+          // First update the task
           await onSubmit(data);
-          // Upload files after successful task update
+          // Then upload files after successful task update
           if (uploadedFiles.length > 0) {
             await uploadEvidenceFiles(task.id);
           }
         } catch (error) {
           console.error('Error updating task:', error);
+          toast({
+            title: language === 'ar' ? 'خطأ في تحديث المهمة' : 'Task Update Error',
+            description: language === 'ar' ? 'فشل في تحديث المهمة' : 'Failed to update task',
+            variant: 'destructive',
+          });
         }
       })} className="space-y-6">
         <div className="grid grid-cols-2 gap-4">
@@ -1219,50 +1228,7 @@ function EditTaskForm({
           )}
         />
 
-        {/* Assigned Control Information */}
-        {assignedControl && (
-          <div className="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg p-4">
-            <h3 className="font-semibold text-teal-800 dark:text-teal-200 mb-3 flex items-center gap-2">
-              <Target className="h-4 w-4" />
-              {language === 'ar' ? 'الضابط المرتبط' : 'Associated Control'}
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">
-                  {language === 'ar' ? 'الرمز:' : 'Code:'}
-                </span>
-                <span className="ml-2 bg-teal-600 text-white px-2 py-1 rounded text-xs">
-                  {assignedControl.code}
-                </span>
-              </div>
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">
-                  {language === 'ar' ? 'المجال:' : 'Domain:'}
-                </span>
-                <span className="ml-2 text-gray-600 dark:text-gray-400">
-                  {language === 'ar' && assignedControl.domainAr ? assignedControl.domainAr : assignedControl.domainEn}
-                </span>
-              </div>
-              <div className="md:col-span-2">
-                <span className="font-medium text-gray-700 dark:text-gray-300">
-                  {language === 'ar' ? 'المجال الفرعي:' : 'Subdomain:'}
-                </span>
-                <span className="ml-2 text-gray-600 dark:text-gray-400">
-                  {language === 'ar' && assignedControl.subdomainAr ? assignedControl.subdomainAr : assignedControl.subdomainEn}
-                </span>
-              </div>
-              <div className="md:col-span-2">
-                <span className="font-medium text-gray-700 dark:text-gray-300">
-                  {language === 'ar' ? 'وصف الضابط:' : 'Control Description:'}
-                </span>
-                <p className="mt-1 text-gray-600 dark:text-gray-400 text-sm">
-                  {language === 'ar' && assignedControl.controlAr ? assignedControl.controlAr : assignedControl.controlEn}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+
 
         <div className="grid grid-cols-3 gap-4">
           <FormField
@@ -1331,6 +1297,51 @@ function EditTaskForm({
             )}
           />
         </div>
+
+        {/* Assigned Control Information */}
+        {assignedControl && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <h3 className="font-semibold text-blue-800 dark:text-blue-200 mb-3 flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              {language === 'ar' ? 'الضابط المرتبط' : 'Associated Control'}
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  {language === 'ar' ? 'الرمز:' : 'Code:'}
+                </span>
+                <span className="ml-2 bg-blue-600 text-white px-2 py-1 rounded text-xs">
+                  {assignedControl.code}
+                </span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  {language === 'ar' ? 'المجال:' : 'Domain:'}
+                </span>
+                <span className="ml-2 text-gray-600 dark:text-gray-400">
+                  {language === 'ar' && assignedControl.domainAr ? assignedControl.domainAr : assignedControl.domainEn}
+                </span>
+              </div>
+              <div className="md:col-span-2">
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  {language === 'ar' ? 'المجال الفرعي:' : 'Subdomain:'}
+                </span>
+                <span className="ml-2 text-gray-600 dark:text-gray-400">
+                  {language === 'ar' && assignedControl.subdomainAr ? assignedControl.subdomainAr : assignedControl.subdomainEn}
+                </span>
+              </div>
+              <div className="md:col-span-2">
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  {language === 'ar' ? 'وصف الضابط:' : 'Control Description:'}
+                </span>
+                <p className="mt-1 text-gray-600 dark:text-gray-400 text-sm">
+                  {language === 'ar' && assignedControl.controlAr ? assignedControl.controlAr : assignedControl.controlEn}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Evidence Requirements and Upload Section */}
         {assignedControl && (
