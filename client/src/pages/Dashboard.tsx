@@ -78,13 +78,29 @@ export default function Dashboard() {
 
   return (
     <AppLayout>
-      <div className="space-y-6 animate-fade-in">
+      <div className="space-y-8 animate-fade-in">
+        {/* Header Section */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-card-foreground">
+              {t('dashboard.title')}
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Welcome back! Here's your compliance overview
+            </p>
+          </div>
+          <div className="flex items-center text-sm text-muted-foreground">
+            <TrendingUp className="w-4 h-4 mr-1" />
+            +5% from last month
+          </div>
+        </div>
+
         {/* Key Metrics Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {metricsLoading ? (
             // Loading skeletons
             Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-xl p-6 shadow-sm border">
+              <div key={i} className="bg-card rounded-2xl p-6 shadow-lg border border-border">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <Skeleton className="h-4 w-24 mb-2" />
@@ -145,15 +161,13 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Projects and ListTodo Row */}
+        {/* Projects and Tasks Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <ProjectsList />
           </div>
           <TasksList />
         </div>
-
-
       </div>
     </AppLayout>
   );

@@ -103,81 +103,64 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const SidebarContent = () => (
     <div className="flex h-full flex-col">
       {/* Logo */}
-      <div className="flex items-center justify-center p-6 border-b border-slate-200">
-        <div className="flex items-center space-x-2">
-          <Shield className="h-8 w-8" style={{ color: '#2699A6' }} />
-          <span className="text-xl font-bold text-slate-800">AMBERSAND</span>
+      <div className="flex items-center justify-center p-4">
+        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg">
+          <span className="text-primary font-bold text-xl">A</span>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+      <nav className="flex-1 px-2 py-6 space-y-3 overflow-y-auto">
         {navigationItems.map((item) => {
           const Icon = item.icon;
           return (
             <Link key={item.href} href={item.href}>
               <a
                 className={cn(
-                  "flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors",
+                  "flex items-center justify-center w-12 h-12 text-sm font-medium rounded-xl transition-all duration-200 mx-auto",
                   item.current
-                    ? "bg-teal-50 text-teal-600 border border-teal-200"
-                    : "text-slate-600 hover:bg-slate-100"
+                    ? "bg-white text-primary shadow-lg scale-105"
+                    : "text-primary-foreground hover:bg-white/20 hover:scale-105"
                 )}
+                title={item.title}
               >
-                <Icon 
-                  className={cn("w-5 h-5", isRTL ? "ml-3" : "mr-3")} 
-                  style={{ color: item.current ? '#2699A6' : undefined }}
-                />
-                <span>{item.title}</span>
+                <Icon className="h-6 w-6" />
               </a>
             </Link>
           );
         })}
 
-        <Separator className="my-6" />
-        
-        <p className="px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-          Administration
-        </p>
-
-        {adminItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <Link key={item.href} href={item.href}>
-              <a
-                className={cn(
-                  "flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors",
-                  item.current
-                    ? "bg-teal-50 text-teal-600 border border-teal-200"
-                    : "text-slate-600 hover:bg-slate-100"
-                )}
-              >
-                <Icon 
-                  className={cn("w-5 h-5", isRTL ? "ml-3" : "mr-3")} 
-                  style={{ color: item.current ? '#2699A6' : undefined }}
-                />
-                <span>{item.title}</span>
-              </a>
-            </Link>
-          );
-        })}
+        <div className="border-t border-primary-foreground/20 mt-6 pt-6">
+          {adminItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link key={item.href} href={item.href}>
+                <a
+                  className={cn(
+                    "flex items-center justify-center w-12 h-12 text-sm font-medium rounded-xl transition-all duration-200 mx-auto mb-3",
+                    item.current
+                      ? "bg-white text-primary shadow-lg scale-105"
+                      : "text-primary-foreground hover:bg-white/20 hover:scale-105"
+                  )}
+                  title={item.title}
+                >
+                  <Icon className="h-6 w-6" />
+                </a>
+              </Link>
+            );
+          })}
+        </div>
       </nav>
 
       {/* User Profile */}
-      <div className="p-4 border-t border-slate-200">
-        <div className="flex items-center">
-          <Avatar className="w-10 h-10">
+      <div className="p-4 border-t border-primary-foreground/20">
+        <div className="flex items-center justify-center">
+          <Avatar className="w-12 h-12 border-2 border-white shadow-lg">
             <AvatarImage src={user?.profileImageUrl || undefined} />
-            <AvatarFallback>
+            <AvatarFallback className="bg-white text-primary font-bold">
               {user?.firstName?.[0]}{user?.lastName?.[0]}
             </AvatarFallback>
           </Avatar>
-          <div className={cn("flex-1", isRTL ? "mr-3" : "ml-3")}>
-            <p className="text-sm font-medium text-slate-800">
-              {user?.firstName} {user?.lastName}
-            </p>
-            <p className="text-xs text-slate-500 capitalize">{user?.role}</p>
-          </div>
         </div>
       </div>
     </div>
@@ -186,14 +169,14 @@ export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className={cn("flex min-h-screen", isRTL && "rtl")}>
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:fixed lg:left-0 lg:top-0 lg:z-40 lg:h-screen lg:w-64 lg:block">
-        <div className="h-full bg-white shadow-lg border-r border-slate-200">
+      <aside className="hidden lg:fixed lg:left-0 lg:top-0 lg:z-40 lg:h-screen lg:w-20 lg:block">
+        <div className="h-full bg-primary shadow-lg">
           <SidebarContent />
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-64">
+      <main className="flex-1 lg:ml-20">
         {/* Header */}
         <header className="bg-white shadow-sm border-b border-slate-200 px-6 py-4">
           <div className="flex items-center justify-between">
@@ -205,13 +188,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
                     <Menu className="h-6 w-6" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side={isRTL ? "right" : "left"} className="w-64 p-0">
+                <SheetContent side={isRTL ? "right" : "left"} className="w-20 p-0">
                   <SidebarContent />
                 </SheetContent>
               </Sheet>
 
-              <h1 className="text-2xl font-bold text-slate-800 ml-4 lg:ml-0">
-                {t('dashboard.title')}
+              <h1 className="text-2xl font-bold text-card-foreground ml-4 lg:ml-0">
+                AMBERSAND
               </h1>
             </div>
 
@@ -278,8 +261,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </header>
 
         {/* Page Content */}
-        <div className="p-6">
-          {children}
+        <div className="p-6 bg-background min-h-screen">
+          <div className="max-w-7xl mx-auto">
+            <div className="bg-card rounded-3xl shadow-lg p-8 min-h-[calc(100vh-8rem)]">
+              {children}
+            </div>
+          </div>
         </div>
       </main>
     </div>
