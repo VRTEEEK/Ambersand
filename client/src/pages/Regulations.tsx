@@ -696,48 +696,59 @@ export default function Regulations() {
                               : 'border-slate-200 hover:bg-slate-50'
                           }`}
                         >
-                            <div className="flex items-start gap-3 mb-3">
-                              <Checkbox
-                                checked={selectedControlIds.includes(control.id)}
-                                onCheckedChange={() => toggleControl(control.id)}
-                                className="mt-1 flex-shrink-0"
-                              />
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-3 mb-2">
-                                  <Badge variant="secondary" className="font-mono text-xs">
-                                    {control.code}
-                                  </Badge>
-                                  <span className="text-sm text-slate-500">
-                                    {language === 'ar' && control.subdomainAr ? control.subdomainAr : control.subdomainEn}
+                          <div className="flex items-start gap-3">
+                            <Checkbox
+                              checked={selectedControlIds.includes(control.id)}
+                              onCheckedChange={() => toggleControl(control.id)}
+                              className="mt-1 flex-shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 mb-2">
+                                <Badge 
+                                  variant="secondary" 
+                                  className="bg-teal-600 text-white font-mono text-xs px-2 py-1 rounded"
+                                >
+                                  {control.code}
+                                </Badge>
+                                <h4 className="font-medium text-slate-900 truncate">
+                                  {language === 'ar' && control.subdomainAr ? control.subdomainAr : control.subdomainEn}
+                                </h4>
+                              </div>
+                              
+                              <p className="text-sm text-slate-600 mb-3 line-clamp-2">
+                                {language === 'ar' && control.controlAr 
+                                  ? control.controlAr.length > 150 
+                                    ? control.controlAr.substring(0, 150) + '...'
+                                    : control.controlAr
+                                  : control.controlEn
+                                    ? control.controlEn.length > 150 
+                                      ? control.controlEn.substring(0, 150) + '...'
+                                      : control.controlEn
+                                    : 'No description available'
+                                }
+                              </p>
+                              
+                              {(control.evidenceEn || control.evidenceAr) && (
+                                <div className="text-sm">
+                                  <span className="font-medium text-slate-700">
+                                    {language === 'ar' ? 'الأدلة المطلوبة: ' : 'Evidence Required: '}
+                                  </span>
+                                  <span className="text-slate-600">
+                                    {language === 'ar' && control.evidenceAr 
+                                      ? control.evidenceAr.length > 100
+                                        ? control.evidenceAr.substring(0, 100) + '...'
+                                        : control.evidenceAr
+                                      : control.evidenceEn
+                                        ? control.evidenceEn.length > 100
+                                          ? control.evidenceEn.substring(0, 100) + '...'
+                                          : control.evidenceEn
+                                        : (language === 'ar' ? 'غير محدد' : 'Not specified')
+                                    }
                                   </span>
                                 </div>
-                                <h4 className="font-medium text-slate-800 mb-2">
-                                  {language === 'ar' && control.controlAr ? control.controlAr : control.controlEn}
-                                </h4>
-                                
-                                {(control.requirementEn || control.requirementAr) && (
-                                  <div className="mt-3">
-                                    <h5 className="text-sm font-medium text-slate-700 mb-1">
-                                      {language === 'ar' ? 'المتطلب:' : 'Requirement:'}
-                                    </h5>
-                                    <p className="text-sm text-slate-600">
-                                      {language === 'ar' && control.requirementAr ? control.requirementAr : control.requirementEn}
-                                    </p>
-                                  </div>
-                                )}
-                                
-                                {(control.evidenceEn || control.evidenceAr) && (
-                                  <div className="mt-3">
-                                    <h5 className="text-sm font-medium text-slate-700 mb-1">
-                                      {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
-                                    </h5>
-                                    <p className="text-sm text-slate-600">
-                                      {language === 'ar' && control.evidenceAr ? control.evidenceAr : control.evidenceEn}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
+                              )}
                             </div>
+                          </div>
                         </div>
                       );
                     })}
