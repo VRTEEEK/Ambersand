@@ -11,13 +11,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import { Search, BookOpen, Shield, Database, Plus, Settings, FileText, Building } from 'lucide-react';
+import { Search, BookOpen, Shield, Database, Plus, Settings, FileText, Building, CheckSquare, Square } from 'lucide-react';
 
 // Custom regulation schema
 const customRegulationSchema = z.object({
@@ -33,12 +34,28 @@ const customRegulationSchema = z.object({
 
 type CustomRegulationFormData = z.infer<typeof customRegulationSchema>;
 
+// Project creation schema
+const projectSchema = z.object({
+  name: z.string().min(1, 'Project name is required'),
+  nameAr: z.string().optional(),
+  description: z.string().optional(),
+  descriptionAr: z.string().optional(),
+  status: z.enum(['planning', 'active', 'completed', 'on-hold']).default('planning'),
+  priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+});
+
+type ProjectFormData = z.infer<typeof projectSchema>;
+
 export default function Regulations() {
   const { t, language } = useI18n();
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [selectedFramework, setSelectedFramework] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedControlIds, setSelectedControlIds] = useState<number[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -76,6 +93,20 @@ export default function Regulations() {
     },
   });
 
+  const projectForm = useForm<ProjectFormData>({
+    resolver: zodResolver(projectSchema),
+    defaultValues: {
+      name: '',
+      nameAr: '',
+      description: '',
+      descriptionAr: '',
+      status: 'planning',
+      priority: 'medium',
+      startDate: '',
+      endDate: '',
+    },
+  });
+
   const createRegulationMutation = useMutation({
     mutationFn: async (data: CustomRegulationFormData) => {
       await apiRequest('/api/custom-regulations', 'POST', data);
@@ -98,8 +129,74 @@ export default function Regulations() {
     },
   });
 
+  const createProjectMutation = useMutation({
+    mutationFn: async (data: ProjectFormData) => {
+      const projectData = {
+        ...data,
+        controlIds: selectedControlIds,
+      };
+      return await apiRequest('/api/projects', 'POST', projectData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      setIsProjectDialogOpen(false);
+      setSelectedControlIds([]);
+      projectForm.reset();
+      toast({
+        title: language === 'ar' ? 'تم إنشاء المشروع' : 'Project Created',
+        description: language === 'ar' ? 'تم إنشاء مشروع الامتثال بنجاح' : 'Compliance project created successfully',
+      });
+    },
+    onError: () => {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في إنشاء المشروع' : 'Failed to create project',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const onSubmit = (data: CustomRegulationFormData) => {
     createRegulationMutation.mutate(data);
+  };
+
+  const onProjectSubmit = (data: ProjectFormData) => {
+    createProjectMutation.mutate(data);
+  };
+
+  // Control selection functions
+  const toggleControl = (controlId: number) => {
+    setSelectedControlIds(prev => 
+      prev.includes(controlId) 
+        ? prev.filter(id => id !== controlId)
+        : [...prev, controlId]
+    );
+  };
+
+  const toggleDomainSelection = (domain: string) => {
+    const domainControls = controls?.filter((control: any) => control.domainEn === domain) || [];
+    const domainControlIds = domainControls.map((control: any) => control.id);
+    const allSelected = domainControlIds.every((id: number) => selectedControlIds.includes(id));
+    
+    if (allSelected) {
+      // Deselect all domain controls
+      setSelectedControlIds(prev => prev.filter(id => !domainControlIds.includes(id)));
+    } else {
+      // Select all domain controls
+      setSelectedControlIds(prev => [...new Set([...prev, ...domainControlIds])]);
+    }
+  };
+
+  const isDomainSelected = (domain: string) => {
+    const domainControls = controls?.filter((control: any) => control.domainEn === domain) || [];
+    const domainControlIds = domainControls.map((control: any) => control.id);
+    return domainControlIds.length > 0 && domainControlIds.every((id: number) => selectedControlIds.includes(id));
+  };
+
+  const isDomainPartiallySelected = (domain: string) => {
+    const domainControls = controls?.filter((control: any) => control.domainEn === domain) || [];
+    const domainControlIds = domainControls.map((control: any) => control.id);
+    return domainControlIds.some((id: number) => selectedControlIds.includes(id)) && !isDomainSelected(domain);
   };
 
   // Group controls by domain
@@ -471,30 +568,60 @@ export default function Regulations() {
                     {language === 'ar' ? 'المجالات الرئيسية' : 'Main Domains'}
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {getMainCategories().map((category: any, index) => (
-                      <Card 
-                        key={index}
-                        className="border border-slate-200 hover:shadow-md transition-shadow cursor-pointer hover:bg-slate-50"
-                        onClick={() => setSelectedCategory(category.en)}
-                      >
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-base flex items-center justify-between">
-                            <span>{language === 'ar' ? category.ar : category.en}</span>
-                            <Badge variant="outline">
-                              {controls?.filter((c: any) => c.domainEn === category.en).length || 0}
-                            </Badge>
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm text-slate-600">
-                            {language === 'ar' 
-                              ? 'انقر لعرض الضوابط في هذا المجال'
-                              : 'Click to view controls in this domain'
-                            }
-                          </p>
-                        </CardContent>
-                      </Card>
-                    ))}
+                    {getMainCategories().map((category: any, index) => {
+                      const domainControlsCount = controls?.filter((c: any) => c.domainEn === category.en).length || 0;
+                      const selectedCount = controls?.filter((c: any) => c.domainEn === category.en && selectedControlIds.includes(c.id)).length || 0;
+                      const isSelected = isDomainSelected(category.en);
+                      const isPartiallySelected = isDomainPartiallySelected(category.en);
+                      
+                      return (
+                        <Card 
+                          key={index}
+                          className="border border-slate-200 hover:shadow-md transition-shadow hover:bg-slate-50"
+                        >
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-base flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <Checkbox
+                                  checked={isSelected}
+                                  ref={(ref) => {
+                                    if (ref && isPartiallySelected) {
+                                      ref.indeterminate = true;
+                                    }
+                                  }}
+                                  onCheckedChange={() => toggleDomainSelection(category.en)}
+                                  className="flex-shrink-0"
+                                />
+                                <span
+                                  className="cursor-pointer"
+                                  onClick={() => setSelectedCategory(category.en)}
+                                >
+                                  {language === 'ar' ? category.ar : category.en}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {selectedCount > 0 && (
+                                  <Badge variant="default" className="bg-teal-600">
+                                    {selectedCount}
+                                  </Badge>
+                                )}
+                                <Badge variant="outline">
+                                  {domainControlsCount}
+                                </Badge>
+                              </div>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-sm text-slate-600">
+                              {language === 'ar' 
+                                ? 'انقر لعرض الضوابط في هذا المجال'
+                                : 'Click to view controls in this domain'
+                              }
+                            </p>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
                 </div>
               ) : (
@@ -519,7 +646,12 @@ export default function Regulations() {
                         key={control.id}
                         className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors"
                       >
-                        <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-start gap-3 mb-3">
+                          <Checkbox
+                            checked={selectedControlIds.includes(control.id)}
+                            onCheckedChange={() => toggleControl(control.id)}
+                            className="mt-1 flex-shrink-0"
+                          />
                           <div className="flex-1">
                             <div className="flex items-center space-x-3 mb-2">
                               <Badge variant="secondary" className="font-mono text-xs">
@@ -589,6 +721,230 @@ export default function Regulations() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Floating Create Project Button - Shows when controls are selected */}
+        {selectedControlIds.length > 0 && (
+          <div className="fixed bottom-8 right-8 z-50">
+            <Dialog open={isProjectDialogOpen} onOpenChange={setIsProjectDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  size="lg"
+                  className="bg-teal-600 hover:bg-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
+                >
+                  <Plus className="h-5 w-5" />
+                  {language === 'ar' ? 'إنشاء مشروع' : 'Create Project'}
+                  <Badge variant="secondary" className="bg-white text-teal-600 ml-2">
+                    {selectedControlIds.length}
+                  </Badge>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>
+                    {language === 'ar' ? 'إنشاء مشروع امتثال جديد' : 'Create New Compliance Project'}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {language === 'ar' 
+                      ? `إنشاء مشروع امتثال جديد مع ${selectedControlIds.length} ضابط محدد`
+                      : `Create a new compliance project with ${selectedControlIds.length} selected controls`
+                    }
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...projectForm}>
+                  <form onSubmit={projectForm.handleSubmit(onProjectSubmit)} className="space-y-6">
+                    {/* Project Details */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={projectForm.control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{language === 'ar' ? 'اسم المشروع (انجليزي)' : 'Project Name (English)'}</FormLabel>
+                            <FormControl>
+                              <Input placeholder="ECC Compliance Implementation" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={projectForm.control}
+                        name="nameAr"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{language === 'ar' ? 'اسم المشروع (عربي)' : 'Project Name (Arabic)'}</FormLabel>
+                            <FormControl>
+                              <Input placeholder="تطبيق ضوابط الأمن السيبراني الأساسية" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={projectForm.control}
+                        name="status"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{language === 'ar' ? 'الحالة' : 'Status'}</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select status" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="planning">{language === 'ar' ? 'تخطيط' : 'Planning'}</SelectItem>
+                                <SelectItem value="active">{language === 'ar' ? 'نشط' : 'Active'}</SelectItem>
+                                <SelectItem value="completed">{language === 'ar' ? 'مكتمل' : 'Completed'}</SelectItem>
+                                <SelectItem value="on-hold">{language === 'ar' ? 'معلق' : 'On Hold'}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={projectForm.control}
+                        name="priority"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{language === 'ar' ? 'الأولوية' : 'Priority'}</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select priority" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="low">{language === 'ar' ? 'منخفضة' : 'Low'}</SelectItem>
+                                <SelectItem value="medium">{language === 'ar' ? 'متوسطة' : 'Medium'}</SelectItem>
+                                <SelectItem value="high">{language === 'ar' ? 'عالية' : 'High'}</SelectItem>
+                                <SelectItem value="urgent">{language === 'ar' ? 'عاجلة' : 'Urgent'}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={projectForm.control}
+                        name="startDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{language === 'ar' ? 'تاريخ البدء' : 'Start Date'}</FormLabel>
+                            <FormControl>
+                              <Input type="date" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={projectForm.control}
+                        name="endDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{language === 'ar' ? 'تاريخ الانتهاء' : 'End Date'}</FormLabel>
+                            <FormControl>
+                              <Input type="date" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={projectForm.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{language === 'ar' ? 'الوصف (انجليزي)' : 'Description (English)'}</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="Describe the project goals and scope..."
+                              className="min-h-[80px]"
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={projectForm.control}
+                      name="descriptionAr"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{language === 'ar' ? 'الوصف (عربي)' : 'Description (Arabic)'}</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="اشرح أهداف ونطاق المشروع..."
+                              className="min-h-[80px]"
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Selected Controls Summary */}
+                    <div className="border-t pt-4">
+                      <h4 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                        <Shield className="h-5 w-5 text-teal-600" />
+                        {language === 'ar' ? 'الضوابط المحددة' : 'Selected Controls'}
+                        <Badge variant="secondary">{selectedControlIds.length}</Badge>
+                      </h4>
+                      <div className="max-h-32 overflow-y-auto bg-slate-50 rounded-md p-3">
+                        <div className="flex flex-wrap gap-1">
+                          {selectedControlIds.map(id => {
+                            const control = controls?.find((c: any) => c.id === id);
+                            return control ? (
+                              <Badge key={id} variant="outline" className="text-xs">
+                                {control.code}
+                              </Badge>
+                            ) : null;
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setIsProjectDialogOpen(false);
+                          projectForm.reset();
+                        }}
+                      >
+                        {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                      </Button>
+                      <Button 
+                        type="submit" 
+                        disabled={createProjectMutation.isPending}
+                        className="bg-teal-600 hover:bg-teal-700"
+                      >
+                        {createProjectMutation.isPending 
+                          ? (language === 'ar' ? 'جاري الإنشاء...' : 'Creating...') 
+                          : (language === 'ar' ? 'إنشاء المشروع' : 'Create Project')
+                        }
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </div>
         )}
       </div>
     </AppLayout>
