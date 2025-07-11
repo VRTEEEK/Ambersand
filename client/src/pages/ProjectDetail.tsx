@@ -1132,8 +1132,8 @@ function EditTaskForm({
   return (
     <Form {...editForm}>
       <form onSubmit={editForm.handleSubmit(async (data) => {
-        console.log('Form submitted with data:', data);
-        console.log('Form validation errors:', editForm.formState.errors);
+        console.log('📝 Form submitted with data:', data);
+        console.log('📝 Form validation errors:', editForm.formState.errors);
         
         try {
           // First update the task
@@ -1594,7 +1594,12 @@ function EditTaskForm({
               type="submit" 
               disabled={isLoading || uploading}
               className="bg-teal-600 hover:bg-teal-700 px-6"
-              onClick={() => console.log('🔥 Submit button clicked!')}
+              onClick={() => {
+                console.log('🔥 Submit button clicked!');
+                console.log('📝 Form state:', editForm.formState);
+                console.log('📝 Form values:', editForm.getValues());
+                console.log('📝 Form errors:', editForm.formState.errors);
+              }}
             >
               <FileText className="h-4 w-4 mr-2" />
               {isLoading || uploading ? (
