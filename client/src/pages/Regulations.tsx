@@ -37,9 +37,12 @@ export default function Regulations() {
   const { t, language } = useI18n();
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [selectedFramework, setSelectedFramework] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Only fetch ECC controls when ECC framework is selected
   const { data: controls, isLoading } = useQuery({
     queryKey: ['/api/ecc-controls', { search: searchTerm }],
     queryFn: async ({ queryKey }) => {
@@ -52,6 +55,7 @@ export default function Regulations() {
       if (!response.ok) throw new Error('Failed to fetch controls');
       return response.json();
     },
+    enabled: selectedFramework === 'ecc', // Only fetch when ECC is selected
   });
 
   const { data: customRegulations, isLoading: isLoadingCustom } = useQuery({
@@ -110,16 +114,18 @@ export default function Regulations() {
 
   const regulationFrameworks = [
     {
+      id: 'ecc',
       name: 'ECC (Essential Cybersecurity Controls)',
       nameAr: 'الضوابط الأساسية للأمن السيبراني',
       description: 'Saudi cybersecurity regulatory framework for critical infrastructure protection',
       descriptionAr: 'الإطار التنظيمي السعودي للأمن السيبراني لحماية البنى التحتية الحيوية',
       icon: Shield,
       color: 'teal',
-      totalControls: controls?.length || 0,
+      totalControls: 201,
       status: 'active',
     },
     {
+      id: 'pdpl',
       name: 'PDPL (Personal Data Protection Law)',
       nameAr: 'نظام حماية البيانات الشخصية',
       description: 'Saudi personal data protection and privacy regulations',
@@ -127,9 +133,10 @@ export default function Regulations() {
       icon: Database,
       color: 'orange',
       totalControls: 18,
-      status: 'active',
+      status: 'inactive',
     },
     {
+      id: 'ndmo',
       name: 'NDMO (National Data Management Office)',
       nameAr: 'مكتب إدارة البيانات الوطنية',
       description: 'National data governance and management requirements',
@@ -140,6 +147,28 @@ export default function Regulations() {
       status: 'planning',
     },
   ];
+
+  // Get unique main categories from ECC controls
+  const getMainCategories = () => {
+    if (!controls) return [];
+    const categories = new Set();
+    controls.forEach((control: any) => {
+      const domain = language === 'ar' ? control.domainAr : control.domainEn;
+      if (domain) {
+        categories.add(domain);
+      }
+    });
+    return Array.from(categories);
+  };
+
+  // Get controls filtered by selected category
+  const getFilteredControls = () => {
+    if (!controls || !selectedCategory) return [];
+    return controls.filter((control: any) => {
+      const domain = language === 'ar' ? control.domainAr : control.domainEn;
+      return domain === selectedCategory;
+    });
+  };
 
   return (
     <AppLayout>
@@ -301,16 +330,31 @@ export default function Regulations() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {regulationFrameworks.map((framework, index) => {
             const Icon = framework.icon;
+            const isSelected = selectedFramework === framework.id;
             return (
-              <Card key={index} className="glass-card hover-lift">
+              <Card 
+                key={index} 
+                className={`glass-card hover-lift cursor-pointer transition-all ${
+                  isSelected ? 'ring-2 ring-blue-500 shadow-lg' : ''
+                }`}
+                onClick={() => {
+                  setSelectedFramework(framework.id);
+                  setSelectedCategory(null);
+                }}
+              >
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className={`w-12 h-12 bg-${framework.color}-100 rounded-lg flex items-center justify-center`}>
                       <Icon className={`h-6 w-6 text-${framework.color}-600`} />
                     </div>
-                    <Badge variant={framework.status === 'active' ? 'default' : 'secondary'}>
+                    <Badge variant={
+                      framework.status === 'active' ? 'default' : 
+                      framework.status === 'inactive' ? 'destructive' : 'secondary'
+                    }>
                       {framework.status === 'active' 
                         ? (language === 'ar' ? 'نشط' : 'Active')
+                        : framework.status === 'inactive'
+                        ? (language === 'ar' ? 'غير نشط' : 'Inactive')
                         : (language === 'ar' ? 'التخطيط' : 'Planning')
                       }
                     </Badge>
@@ -384,69 +428,95 @@ export default function Regulations() {
           </Card>
         )}
 
-        {/* Search and Controls */}
-        <Card className="glass-card">
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <CardTitle className="text-xl">
-                {language === 'ar' ? 'الضوابط الأساسية للأمن السيبراني' : 'Essential Cybersecurity Controls (ECC)'}
-              </CardTitle>
-              <div className="relative w-full sm:w-80">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
-                <Input
-                  type="search"
-                  placeholder={language === 'ar' ? 'البحث في الضوابط...' : 'Search controls...'}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+        {/* ECC Framework Details */}
+        {selectedFramework === 'ecc' && (
+          <Card className="glass-card">
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  {language === 'ar' ? 'الضوابط الأساسية للأمن السيبراني' : 'Essential Cybersecurity Controls'}
+                </CardTitle>
+                <div className="w-full sm:w-96">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input
+                      placeholder={language === 'ar' ? 'البحث في الضوابط...' : 'Search controls...'}
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {isLoading ? (
-              // Loading skeletons
-              <div className="space-y-6">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="space-y-4">
-                    <Skeleton className="h-6 w-48" />
-                    <div className="space-y-3">
-                      {[1, 2].map((j) => (
-                        <div key={j} className="border border-slate-200 rounded-lg p-4">
-                          <Skeleton className="h-5 w-32 mb-2" />
-                          <Skeleton className="h-4 w-full mb-2" />
-                          <Skeleton className="h-4 w-3/4" />
-                        </div>
-                      ))}
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="space-y-3">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="flex items-center space-x-4">
+                      <Skeleton className="h-12 w-12 rounded" />
+                      <div className="space-y-2 flex-1">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-4 w-1/2" />
+                      </div>
                     </div>
+                  ))}
+                </div>
+              ) : !selectedCategory ? (
+                // Show main categories first
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-slate-800">
+                    {language === 'ar' ? 'المجالات الرئيسية' : 'Main Domains'}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {getMainCategories().map((category: any, index) => (
+                      <Card 
+                        key={index}
+                        className="border border-slate-200 hover:shadow-md transition-shadow cursor-pointer hover:bg-slate-50"
+                        onClick={() => setSelectedCategory(category)}
+                      >
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-base flex items-center justify-between">
+                            <span>{category}</span>
+                            <Badge variant="outline">
+                              {controls?.filter((c: any) => {
+                                const domain = language === 'ar' ? c.domainAr : c.domainEn;
+                                return domain === category;
+                              }).length || 0}
+                            </Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-slate-600">
+                            {language === 'ar' 
+                              ? 'انقر لعرض الضوابط في هذا المجال'
+                              : 'Click to view controls in this domain'
+                            }
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ))}
                   </div>
-                ))}
-              </div>
-            ) : Object.keys(groupedControls).length === 0 ? (
-              <div className="text-center py-12">
-                <BookOpen className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-600 mb-2">
-                  {language === 'ar' ? 'لم يتم العثور على ضوابط' : 'No controls found'}
-                </h3>
-                <p className="text-slate-500">
-                  {language === 'ar' 
-                    ? 'جرب البحث بمصطلحات مختلفة أو امسح مرشح البحث'
-                    : 'Try searching with different terms or clear the search filter'
-                  }
-                </p>
-              </div>
-            ) : (
-              Object.entries(groupedControls).map(([domain, domainControls]: [string, any]) => (
-                <div key={domain} className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <h3 className="text-lg font-semibold text-slate-800">{domain}</h3>
-                    <Badge variant="outline">
-                      {(domainControls as any[]).length} {language === 'ar' ? 'ضابط' : 'controls'}
-                    </Badge>
+                </div>
+              ) : (
+                // Show filtered controls for selected category
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedCategory(null)}
+                      className="flex items-center gap-2"
+                    >
+                      ← {language === 'ar' ? 'العودة للمجالات' : 'Back to Domains'}
+                    </Button>
+                    <h3 className="text-lg font-semibold text-slate-800">
+                      {selectedCategory}
+                    </h3>
                   </div>
-                  
                   <div className="space-y-3">
-                    {(domainControls as any[]).map((control: any) => (
+                    {getFilteredControls().map((control: any) => (
                       <div
                         key={control.id}
                         className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors"
@@ -475,29 +545,42 @@ export default function Regulations() {
                                 </p>
                               </div>
                             )}
-                            
-                            {control.evidenceEn && (
-                              <div className="mt-3">
-                                <h5 className="text-sm font-medium text-slate-700 mb-1">
-                                  {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
-                                </h5>
-                                <p className="text-sm text-slate-600">
-                                  {language === 'ar' ? control.evidenceAr : control.evidenceEn}
-                                </p>
-                              </div>
-                            )}
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
-                  
-                  <Separator />
                 </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Other Framework Details */}
+        {selectedFramework && selectedFramework !== 'ecc' && (
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                {selectedFramework === 'pdpl' && <Database className="h-5 w-5" />}
+                {selectedFramework === 'ndmo' && <BookOpen className="h-5 w-5" />}
+                {regulationFrameworks.find(f => f.id === selectedFramework)?.nameAr && language === 'ar'
+                  ? regulationFrameworks.find(f => f.id === selectedFramework)?.nameAr
+                  : regulationFrameworks.find(f => f.id === selectedFramework)?.name
+                }
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8">
+                <p className="text-slate-600">
+                  {language === 'ar' 
+                    ? 'تفاصيل هذا الإطار التنظيمي ستكون متاحة قريباً'
+                    : 'Details for this regulatory framework will be available soon'
+                  }
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </AppLayout>
   );
