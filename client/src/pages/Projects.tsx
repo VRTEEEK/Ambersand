@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useI18n } from '@/hooks/use-i18n';
 import { useToast } from '@/hooks/use-toast';
@@ -38,6 +39,7 @@ import {
   MoreHorizontal,
   Trash2,
   Edit,
+  Eye,
 } from 'lucide-react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -70,6 +72,7 @@ export default function Projects() {
   const { t, language } = useI18n();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -543,6 +546,10 @@ export default function Projects() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setLocation(`/projects/${project.id}`)}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          {language === 'ar' ? 'عرض' : 'View'}
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleEdit(project)}>
                           <Edit className="h-4 w-4 mr-2" />
                           {language === 'ar' ? 'تعديل' : 'Edit'}

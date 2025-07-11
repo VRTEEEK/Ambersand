@@ -11,6 +11,7 @@ import Regulations from "@/pages/Regulations";
 import Projects from "@/pages/Projects";
 import Tasks from "@/pages/Tasks";
 import Evidence from "@/pages/Evidence";
+import ProjectDetail from "@/pages/ProjectDetail";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -24,6 +25,7 @@ function Router() {
           <Route path="/" component={Dashboard} />
           <Route path="/regulations" component={Regulations} />
           <Route path="/projects" component={Projects} />
+          <Route path="/projects/:id" component={ProjectDetail} />
           <Route path="/tasks" component={Tasks} />
           <Route path="/evidence" component={Evidence} />
         </>
