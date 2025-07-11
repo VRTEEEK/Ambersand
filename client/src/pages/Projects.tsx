@@ -593,13 +593,7 @@ export default function Projects() {
                     >
                       {t('common.cancel')}
                     </Button>
-                    <Button 
-                      type="submit" 
-                      disabled={createProjectMutation.isPending}
-                      className="bg-teal-600 hover:bg-teal-700"
-                    >
-                      {createProjectMutation.isPending ? 'Creating...' : t('common.create')}
-                    </Button>
+                    
                   </div>
                 </form>
               </Form>

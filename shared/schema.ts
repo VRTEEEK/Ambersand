@@ -340,7 +340,11 @@ export const insertProjectSchema = createInsertSchema(projects).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+}).transform((data) => ({
+  ...data,
+  startDate: data.startDate === '' ? null : data.startDate,
+  endDate: data.endDate === '' ? null : data.endDate,
+}));
 
 export const insertTaskSchema = createInsertSchema(tasks).omit({
   id: true,
