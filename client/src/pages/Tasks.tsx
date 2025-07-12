@@ -118,7 +118,7 @@ const getStatusColor = (status: string) => {
   }
 };
 
-// Droppable Column Component with performance optimizations
+// Droppable Column Component with enhanced drop zone
 const DroppableColumn = memo(function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${id}`,
@@ -127,9 +127,25 @@ const DroppableColumn = memo(function DroppableColumn({ id, children }: { id: st
   return (
     <div 
       ref={setNodeRef}
-      className={`min-h-[400px] w-full transition-colors ${isOver ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+      className={`min-h-[500px] w-full p-2 rounded-lg transition-all duration-200 ${
+        isOver 
+          ? 'bg-blue-50 dark:bg-blue-900/30 border-2 border-blue-300 dark:border-blue-600 border-dashed' 
+          : 'border-2 border-transparent hover:border-gray-200 dark:hover:border-gray-700'
+      }`}
+      style={{
+        minHeight: '500px',
+        position: 'relative',
+      }}
     >
       {children}
+      {/* Invisible drop zone overlay that covers the entire column */}
+      {isOver && (
+        <div className="absolute inset-0 bg-blue-100/50 dark:bg-blue-900/20 rounded-lg pointer-events-none flex items-center justify-center">
+          <div className="text-blue-600 dark:text-blue-400 font-medium text-sm bg-white dark:bg-gray-800 px-3 py-2 rounded-md shadow-sm border border-blue-200 dark:border-blue-700">
+            Drop here
+          </div>
+        </div>
+      )}
     </div>
   );
 });
@@ -793,14 +809,14 @@ export default function Tasks() {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[700px]">
             {statusColumns.map((column) => {
               const StatusIcon = column.icon;
               const columnTasks = filteredGroupedTasks[column.id] || [];
               
               return (
-                <Card key={column.id} className="bg-gray-50 dark:bg-gray-800">
-                  <CardHeader className="flex flex-col space-y-1.5 p-6 pb-3 bg-[#0d94881a]">
+                <Card key={column.id} className="bg-gray-50 dark:bg-gray-800 flex flex-col h-full">
+                  <CardHeader className="flex flex-col space-y-1.5 p-6 pb-3 bg-[#0d94881a] flex-shrink-0">
                     <CardTitle className="text-lg flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <StatusIcon className="h-5 w-5" />
@@ -811,10 +827,10 @@ export default function Tasks() {
                       </Badge>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="pt-0 min-h-[400px]">
+                  <CardContent className="pt-0 flex-1 flex flex-col p-2">
                     <DroppableColumn id={column.id}>
                       <SortableContext items={columnTasks.map(task => task.id)} strategy={verticalListSortingStrategy}>
-                        <div className="space-y-3 min-h-[400px] max-h-[600px] overflow-y-auto">
+                        <div className="space-y-3 flex-1 overflow-y-auto">
                           {isLoading ? (
                             Array.from({ length: 3 }).map((_, i) => (
                               <div key={i} className="p-4 bg-white dark:bg-gray-700 rounded-lg border">
