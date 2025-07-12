@@ -336,7 +336,7 @@ export default function ProjectDetail() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button onClick={() => handleCreateTask()} className="bg-teal-600 hover:bg-teal-700">
+            <Button onClick={() => handleCreateTask()} className="bg-teal-600 hover:bg-teal-700 text-white">
               <Plus className="h-4 w-4 mr-2" />
               {language === 'ar' ? 'مهمة جديدة' : 'New Task'}
             </Button>
@@ -344,56 +344,88 @@ export default function ProjectDetail() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <Card className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+            <CardContent className="p-0">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
                     {language === 'ar' ? 'إجمالي الضوابط' : 'Total Controls'}
                   </p>
-                  <p className="text-2xl font-bold text-blue-600">{projectControls?.length || 0}</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{projectControls?.length || 0}</p>
+                  <div className="flex items-center text-xs text-gray-500">
+                    <span className="flex items-center">
+                      <div className="w-2 h-2 bg-teal-500 rounded-full mr-2"></div>
+                      {language === 'ar' ? 'فعالة' : 'Active'}
+                    </span>
+                  </div>
                 </div>
-                <Target className="h-8 w-8 text-blue-600" />
+                <div className="w-12 h-12 bg-teal-50 dark:bg-teal-900/20 rounded-lg flex items-center justify-center">
+                  <Target className="h-6 w-6 text-teal-600 dark:text-teal-400" />
+                </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-6">
+          <Card className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+            <CardContent className="p-0">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
                     {language === 'ar' ? 'إجمالي المهام' : 'Total Tasks'}
                   </p>
-                  <p className="text-2xl font-bold text-orange-600">{totalTasks}</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{totalTasks}</p>
+                  <div className="flex items-center text-xs text-gray-500">
+                    <span className="flex items-center">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                      {language === 'ar' ? 'إجمالي' : 'Total'}
+                    </span>
+                  </div>
                 </div>
-                <Activity className="h-8 w-8 text-orange-600" />
+                <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
+                  <Activity className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-6">
+          <Card className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+            <CardContent className="p-0">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
                     {language === 'ar' ? 'المهام المكتملة' : 'Completed Tasks'}
                   </p>
-                  <p className="text-2xl font-bold text-green-600">{completedTasks}</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{completedTasks}</p>
+                  <div className="flex items-center text-xs text-gray-500">
+                    <span className="flex items-center">
+                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                      {language === 'ar' ? 'مكتملة' : 'Completed'}
+                    </span>
+                  </div>
                 </div>
-                <CheckCircle className="h-8 w-8 text-green-600" />
+                <div className="w-12 h-12 bg-green-50 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
+                  <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-6">
+          <Card className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+            <CardContent className="p-0">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
                     {language === 'ar' ? 'معدل الإكمال' : 'Completion Rate'}
                   </p>
-                  <p className="text-2xl font-bold text-purple-600">{completionRate}%</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{completionRate}%</p>
+                  <div className="flex items-center text-xs text-gray-500">
+                    <span className="flex items-center">
+                      <div className="w-2 h-2 bg-gray-500 rounded-full mr-2"></div>
+                      {language === 'ar' ? 'معدل' : 'Rate'}
+                    </span>
+                  </div>
                 </div>
-                <Clock className="h-8 w-8 text-purple-600" />
+                <div className="w-12 h-12 bg-gray-50 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                  <Clock className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -421,7 +453,7 @@ export default function ProjectDetail() {
                   <p className="text-gray-500 dark:text-gray-400 mb-4">
                     {language === 'ar' ? 'لم يتم إنشاء أي مهام لهذا المشروع بعد.' : 'No tasks have been created for this project yet.'}
                   </p>
-                  <Button onClick={() => handleCreateTask()} className="bg-teal-600 hover:bg-teal-700">
+                  <Button onClick={() => handleCreateTask()} className="bg-teal-600 hover:bg-teal-700 text-white">
                     <Plus className="h-4 w-4 mr-2" />
                     {language === 'ar' ? 'إنشاء المهمة الأولى' : 'Create First Task'}
                   </Button>
@@ -449,7 +481,7 @@ export default function ProjectDetail() {
                                 {language === 'ar' && task.titleAr ? task.titleAr : task.title}
                               </h3>
                               {taskControl && (
-                                <Badge className="bg-teal-600 text-white text-xs">
+                                <Badge variant="secondary" className="text-xs">
                                   {taskControl.eccControl.code}
                                 </Badge>
                               )}
@@ -457,8 +489,8 @@ export default function ProjectDetail() {
                             
                             {/* Control Information */}
                             {taskControl && (
-                              <div className="bg-teal-50 dark:bg-teal-900/20 rounded-lg p-4 mb-3 text-sm border border-teal-200 dark:border-teal-800">
-                                <div className="font-medium text-teal-800 dark:text-teal-200 mb-3 flex items-center gap-2">
+                              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-3 text-sm border border-gray-200 dark:border-gray-700">
+                                <div className="font-medium text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
                                   <Target className="h-4 w-4" />
                                   {language === 'ar' ? 'الضابط المرتبط:' : 'Associated Control:'}
                                 </div>
@@ -466,11 +498,11 @@ export default function ProjectDetail() {
                                 <div className="space-y-3">
                                   {/* Control Code and Title */}
                                   <div className="flex items-start gap-3">
-                                    <span className="bg-teal-600 text-white px-2 py-1 rounded text-xs font-medium">
+                                    <span className="bg-gray-600 text-white px-2 py-1 rounded text-xs font-medium">
                                       {taskControl.eccControl.code}
                                     </span>
                                     <div className="flex-1">
-                                      <p className="font-medium text-teal-900 dark:text-teal-100 text-sm leading-tight">
+                                      <p className="font-medium text-gray-900 dark:text-gray-100 text-sm leading-tight">
                                         {language === 'ar' && taskControl.eccControl.controlAr 
                                           ? taskControl.eccControl.controlAr 
                                           : taskControl.eccControl.controlEn}
@@ -479,7 +511,7 @@ export default function ProjectDetail() {
                                   </div>
                                   
                                   {/* Domain and Subdomain */}
-                                  <div className="grid grid-cols-1 gap-2 text-teal-700 dark:text-teal-300">
+                                  <div className="grid grid-cols-1 gap-2 text-gray-700 dark:text-gray-300">
                                     <div className="flex items-center gap-2">
                                       <span className="font-medium">{language === 'ar' ? 'المجال:' : 'Domain:'}</span>
                                       <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">
@@ -496,11 +528,11 @@ export default function ProjectDetail() {
                                   
                                   {/* Implementation Guidance */}
                                   {(taskControl.eccControl.implementationGuidanceEn || taskControl.eccControl.implementationGuidanceAr) && (
-                                    <div className="bg-white dark:bg-gray-800 rounded p-3 border border-teal-200 dark:border-teal-700">
-                                      <h4 className="font-medium text-teal-800 dark:text-teal-200 mb-2 text-xs">
+                                    <div className="bg-white dark:bg-gray-900 rounded p-3 border border-gray-200 dark:border-gray-700">
+                                      <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-2 text-xs">
                                         {language === 'ar' ? 'إرشادات التنفيذ:' : 'Implementation Guidance:'}
                                       </h4>
-                                      <p className="text-xs text-teal-700 dark:text-teal-300 line-clamp-3">
+                                      <p className="text-xs text-gray-700 dark:text-gray-300 line-clamp-3">
                                         {language === 'ar' && taskControl.eccControl.implementationGuidanceAr 
                                           ? taskControl.eccControl.implementationGuidanceAr 
                                           : taskControl.eccControl.implementationGuidanceEn}
@@ -509,12 +541,12 @@ export default function ProjectDetail() {
                                   )}
                                   
                                   {/* Evidence Requirements */}
-                                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded p-3 border border-blue-200 dark:border-blue-700">
-                                    <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2 text-xs flex items-center gap-2">
+                                  <div className="bg-gray-100 dark:bg-gray-700 rounded p-3 border border-gray-200 dark:border-gray-600">
+                                    <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-2 text-xs flex items-center gap-2">
                                       <FileText className="h-3 w-3" />
                                       {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
                                     </h4>
-                                    <p className="text-xs text-blue-700 dark:text-blue-300 line-clamp-2">
+                                    <p className="text-xs text-gray-700 dark:text-gray-300 line-clamp-2">
                                       {language === 'ar' && taskControl.eccControl.evidenceRequirementsAr 
                                         ? taskControl.eccControl.evidenceRequirementsAr 
                                         : taskControl.eccControl.evidenceRequirementsEn || 
@@ -654,7 +686,7 @@ export default function ProjectDetail() {
                                 defaultChecked 
                                 disabled
                               />
-                              <Badge className="bg-teal-600 hover:bg-teal-700 text-white px-2 py-1 text-xs font-medium">
+                              <Badge variant="secondary" className="px-2 py-1 text-xs font-medium">
                                 {control.eccControl.code}
                               </Badge>
                             </div>
