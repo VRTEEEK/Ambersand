@@ -709,7 +709,7 @@ export default function Regulations() {
                           });
                         }
                       }}
-                      className="flex items-center gap-2 bg-teal-50 hover:bg-teal-100 text-teal-700 border-teal-200"
+                      className="flex items-center gap-2 bg-[#f8f7fc] hover:bg-teal-100 text-teal-700 border-teal-200"
                     >
                       {(() => {
                         const categoryControls = getFilteredControls();
