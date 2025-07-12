@@ -93,45 +93,7 @@ export default function Dashboard() {
           {/* Overlay for better text readability */}
           <div className="absolute inset-0 bg-gradient-to-r from-teal-600/90 via-teal-700/80 to-teal-800/90"></div>
           
-          {/* Content */}
-          <div className="relative px-8 py-16 md:py-20">
-            <div className="text-center">
-              
-              
-              {/* Quick Stats Overview */}
-              <div className="flex flex-wrap items-center justify-center gap-8 text-white/90">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                    <Shield className="h-5 w-5" />
-                  </div>
-                  <div className="text-left">
-                    <div className="text-2xl font-bold text-white">{metrics?.overallCompliance || 0}%</div>
-                    <div className="text-sm">{t('dashboard.overallCompliance')}</div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                    <FolderOpen className="h-5 w-5" />
-                  </div>
-                  <div className="text-left">
-                    <div className="text-2xl font-bold text-white">{metrics?.activeProjects || 0}</div>
-                    <div className="text-sm">{t('dashboard.activeProjects')}</div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                    <Clock className="h-5 w-5" />
-                  </div>
-                  <div className="text-left">
-                    <div className="text-2xl font-bold text-white">{metrics?.pendingTasks || 0}</div>
-                    <div className="text-sm">{t('dashboard.pendingTasks')}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          
         </div>
 
         {/* Key Metrics Row */}
