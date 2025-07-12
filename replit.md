@@ -8,6 +8,17 @@ Ambersand is a modern, bilingual (Arabic/English) compliance management platform
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+### July 12, 2025 - Drag and Drop Performance Optimizations
+- Enhanced drag and drop sensors with improved constraints and collision detection
+- Added virtualization limiting 50 tasks per column to prevent DOM performance issues
+- Implemented debounced search with 300ms delay to reduce filtering overhead
+- Added memoization for filtered tasks and grouped tasks calculations
+- Improved drag handle with dedicated grab area to prevent click conflicts
+- Added performance indicators showing task counts and warnings for large datasets
+- Optimized SortableTaskCard and DroppableColumn components with React.memo
+
 ## System Architecture
 
 ### Frontend Architecture

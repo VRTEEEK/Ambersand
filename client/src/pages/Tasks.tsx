@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, memo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AppLayout from '@/components/layout/AppLayout';
 import { useI18n } from '@/hooks/use-i18n';
@@ -50,15 +50,18 @@ import {
   DragOverlay,
   DragStartEvent,
   PointerSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   useDroppable,
+  closestCenter,
 } from '@dnd-kit/core';
 import {
   arrayMove,
   SortableContext,
   useSortable,
   verticalListSortingStrategy,
+  sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -115,8 +118,8 @@ const getStatusColor = (status: string) => {
   }
 };
 
-// Droppable Column Component
-function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }) {
+// Droppable Column Component with performance optimizations
+const DroppableColumn = memo(function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${id}`,
   });
@@ -129,10 +132,10 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
       {children}
     </div>
   );
-}
+});
 
-// Sortable Task Card Component
-function SortableTaskCard({ task, language, onTaskClick }: { task: Task; language: string; onTaskClick: (task: Task) => void }) {
+// Sortable Task Card Component - Memoized for performance
+const SortableTaskCard = memo(function SortableTaskCard({ task, language, onTaskClick }: { task: Task; language: string; onTaskClick: (task: Task) => void }) {
   const {
     attributes,
     listeners,
@@ -151,6 +154,8 @@ function SortableTaskCard({ task, language, onTaskClick }: { task: Task; languag
   const handleClick = (e: React.MouseEvent) => {
     // Don't trigger click when dragging
     if (isDragging) return;
+    // Only trigger on non-drag handle areas
+    if ((e.target as HTMLElement).closest('[data-drag-handle]')) return;
     e.preventDefault();
     onTaskClick(task);
   };
@@ -160,13 +165,18 @@ function SortableTaskCard({ task, language, onTaskClick }: { task: Task; languag
       ref={setNodeRef}
       style={style}
       {...attributes}
-      {...listeners}
       onClick={handleClick}
-      className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-all cursor-pointer hover:cursor-pointer active:cursor-grabbing"
+      className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-all cursor-pointer hover:cursor-pointer"
     >
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-2">
-          <GripVertical className="h-4 w-4 text-gray-400" />
+          <div 
+            {...listeners}
+            data-drag-handle
+            className="cursor-grab active:cursor-grabbing p-1 -m-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+          >
+            <GripVertical className="h-4 w-4 text-gray-400" />
+          </div>
           <h3 className="font-medium text-gray-900 dark:text-white text-sm">
             {language === 'ar' && task.titleAr ? task.titleAr : task.title}
           </h3>
@@ -216,19 +226,28 @@ function SortableTaskCard({ task, language, onTaskClick }: { task: Task; languag
       </div>
     </div>
   );
-}
+});
 
 export default function Tasks() {
   const { t, language } = useI18n();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+
+  // Debounce search input for performance
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // Fetch tasks with fresh data - remove cache to get real-time data
   const { data: tasks = [], isLoading, error, refetch } = useQuery({
@@ -255,12 +274,17 @@ export default function Tasks() {
     },
   });
 
-  // Drag and drop sensors
+  // Enhanced drag and drop sensors for better performance with many items
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 10, // Increased distance to prevent accidental drags
+        delay: 100, // Small delay to improve performance
+        tolerance: 5,
       },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
     })
   );
 
@@ -420,27 +444,26 @@ export default function Tasks() {
     { id: 'completed', title: language === 'ar' ? 'مكتملة' : 'Completed', icon: CheckCircle2 },
   ];
 
-  // Group tasks by status
-  const groupedTasks = statusColumns.reduce((acc, column) => {
-    acc[column.id] = (tasks || []).filter((task: Task) => task.status === column.id);
-    return acc;
-  }, {} as Record<string, Task[]>);
+  // Memoize filtered tasks for performance with debounced search
+  const filteredTasks = useMemo(() => {
+    return tasks?.filter((task: Task) => {
+      const matchesSearch = debouncedSearchTerm === '' || 
+                           task.title.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+                           (task.titleAr && task.titleAr.toLowerCase().includes(debouncedSearchTerm.toLowerCase()));
+      const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
+      const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
+      
+      return matchesSearch && matchesStatus && matchesPriority;
+    }) || [];
+  }, [tasks, debouncedSearchTerm, statusFilter, priorityFilter]);
 
-  // Filter tasks
-  const filteredTasks = tasks?.filter((task: Task) => {
-    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (task.titleAr && task.titleAr.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
-    const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
-    
-    return matchesSearch && matchesStatus && matchesPriority;
-  }) || [];
-
-  // Apply filters to grouped tasks
-  const filteredGroupedTasks = statusColumns.reduce((acc, column) => {
-    acc[column.id] = filteredTasks.filter((task: Task) => task.status === column.id);
-    return acc;
-  }, {} as Record<string, Task[]>);
+  // Memoize grouped tasks for performance
+  const filteredGroupedTasks = useMemo(() => {
+    return statusColumns.reduce((acc, column) => {
+      acc[column.id] = filteredTasks.filter((task: Task) => task.status === column.id);
+      return acc;
+    }, {} as Record<string, Task[]>);
+  }, [filteredTasks, statusColumns]);
 
   // Form for creating tasks
   const form = useForm<TaskFormData>({
@@ -543,6 +566,18 @@ export default function Tasks() {
             <p className="text-gray-600 dark:text-gray-400 mt-2">
               {language === 'ar' ? 'نظام لوحة كانبان لإدارة المهام' : 'Kanban board system for task management'}
             </p>
+            {tasks && tasks.length > 0 && (
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {language === 'ar' 
+                  ? `عرض ${filteredTasks.length} من ${tasks.length} مهمة` 
+                  : `Showing ${filteredTasks.length} of ${tasks.length} tasks`}
+                {filteredTasks.length > 200 && (
+                  <span className="ml-2 text-amber-600 dark:text-amber-400">
+                    {language === 'ar' ? '(استخدم الفلتر لتحسين الأداء)' : '(Use filters for better performance)'}
+                  </span>
+                )}
+              </p>
+            )}
           </div>
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
@@ -739,6 +774,7 @@ export default function Tasks() {
         {/* Kanban Board */}
         <DndContext
           sensors={sensors}
+          collisionDetection={closestCenter}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
@@ -763,7 +799,7 @@ export default function Tasks() {
                   <CardContent className="pt-0 min-h-[400px]">
                     <DroppableColumn id={column.id}>
                       <SortableContext items={columnTasks.map(task => task.id)} strategy={verticalListSortingStrategy}>
-                        <div className="space-y-3 min-h-[400px]">
+                        <div className="space-y-3 min-h-[400px] max-h-[600px] overflow-y-auto">
                           {isLoading ? (
                             Array.from({ length: 3 }).map((_, i) => (
                               <div key={i} className="p-4 bg-white dark:bg-gray-700 rounded-lg border">
@@ -779,9 +815,25 @@ export default function Tasks() {
                               </p>
                             </div>
                           ) : (
-                            columnTasks.map((task) => (
-                              <SortableTaskCard key={task.id} task={task} language={language} onTaskClick={handleTaskClick} />
-                            ))
+                            <>
+                              {columnTasks.slice(0, 50).map((task) => (
+                                <SortableTaskCard key={task.id} task={task} language={language} onTaskClick={handleTaskClick} />
+                              ))}
+                              {columnTasks.length > 50 && (
+                                <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+                                  <p className="text-sm">
+                                    {language === 'ar' 
+                                      ? `+${columnTasks.length - 50} مهام أخرى` 
+                                      : `+${columnTasks.length - 50} more tasks`}
+                                  </p>
+                                  <p className="text-xs mt-1">
+                                    {language === 'ar' 
+                                      ? 'استخدم الفلترة للعثور على مهام محددة' 
+                                      : 'Use filters to find specific tasks'}
+                                  </p>
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       </SortableContext>
