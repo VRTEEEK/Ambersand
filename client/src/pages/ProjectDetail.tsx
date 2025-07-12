@@ -38,7 +38,7 @@ const taskSchema = z.object({
   description: z.string().optional(),
   descriptionAr: z.string().optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
-  status: z.enum(['pending', 'in-progress', 'completed', 'blocked']).default('pending'),
+  status: z.enum(['pending', 'in-progress', 'review', 'completed', 'blocked']).default('pending'),
   dueDate: z.string().optional(),
   assigneeEmail: z.string().optional().refine(
     (value) => {

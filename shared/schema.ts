@@ -373,6 +373,8 @@ export const insertTaskSchema = createInsertSchema(tasks).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  status: z.enum(['pending', 'in-progress', 'review', 'completed', 'blocked']).default('pending'),
 });
 
 export const insertEvidenceSchema = createInsertSchema(evidence).omit({
