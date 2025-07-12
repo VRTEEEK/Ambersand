@@ -104,7 +104,7 @@ export default function Landing() {
         }}
       >
         {/* Overlay for better text readability */}
-        <div className="absolute inset-0 bg-gradient-to-r from-teal-900/90 via-teal-800/85 to-teal-700/90"></div>
+        <div className="absolute inset-0 from-teal-900/90 via-teal-800/85 to-teal-700/90 bg-[#ffffff]"></div>
         
         {/* Content */}
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
