@@ -46,25 +46,26 @@ export function MetricsCard({
       <CardContent className="relative p-6 text-white">
         <div className="flex items-center justify-between">
           <div className="flex-1">
-            <p className="text-sm font-medium text-white/90 mb-2">{title}</p>
-            <p className="text-3xl font-bold text-white mt-1">{value}</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-white/90">{title}</p>
+              {trend && (
+                <span className={cn(
+                  "text-xs flex items-center px-2 py-1 rounded-full backdrop-blur-sm font-medium",
+                  trend.isPositive 
+                    ? "text-green-200 bg-green-500/30" 
+                    : "text-red-200 bg-red-500/30"
+                )}>
+                  <span className="mr-1">
+                    {trend.isPositive ? "↗" : "↘"}
+                  </span>
+                  {trend.value}
+                </span>
+              )}
+            </div>
+            <p className="text-3xl font-bold text-white">{value}</p>
             
             {subtitle && (
-              <p className="text-sm text-white/80 mt-2">{subtitle}</p>
-            )}
-            
-            {trend && (
-              <div className={cn(
-                "text-sm flex items-center mt-2 px-2 py-1 rounded-md backdrop-blur-sm",
-                trend.isPositive 
-                  ? "text-green-200 bg-green-500/20" 
-                  : "text-red-200 bg-red-500/20"
-              )}>
-                <span className="mr-1 font-semibold">
-                  {trend.isPositive ? "↗" : "↘"}
-                </span>
-                {trend.value}
-              </div>
+              <p className="text-sm text-white/80 mt-1">{subtitle}</p>
             )}
           </div>
           
