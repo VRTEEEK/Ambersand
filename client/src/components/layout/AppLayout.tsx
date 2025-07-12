@@ -219,15 +219,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </div>
 
             <div className="flex items-center space-x-4">
-              {/* Search */}
-              <div className="relative hidden md:block">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4" style={{ color: '#2699A6' }} />
-                <Input
-                  type="search"
-                  placeholder={t('actions.search')}
-                  className="pl-10 w-64"
-                />
-              </div>
+              
 
               {/* Language Toggle */}
               <Button variant="ghost" onClick={toggleLanguage} className="text-sm">
