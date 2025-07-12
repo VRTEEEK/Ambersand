@@ -748,7 +748,7 @@ export default function Tasks() {
               
               return (
                 <Card key={column.id} className="bg-gray-50 dark:bg-gray-800">
-                  <CardHeader className="pb-3">
+                  <CardHeader className="flex flex-col space-y-1.5 p-6 pb-3 bg-[#0d94881a]">
                     <CardTitle className="text-lg flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <StatusIcon className="h-5 w-5" />
