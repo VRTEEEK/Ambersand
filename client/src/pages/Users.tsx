@@ -505,9 +505,9 @@ export default function Users() {
         </div>
 
         {/* Search and Quick Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 gap-6">
           {/* Search Bar */}
-          <div className="lg:col-span-3">
+          <div>
             <Card className="border border-slate-200/60 dark:border-slate-700/60 shadow-lg backdrop-blur-sm">
               <CardContent className="p-6">
                 <div className="relative">
@@ -524,24 +524,7 @@ export default function Users() {
             </Card>
           </div>
 
-          {/* Quick Stats */}
-          <div className="lg:col-span-1">
-            <Card className="border border-slate-200/60 dark:border-slate-700/60 shadow-lg backdrop-blur-sm bg-gradient-to-br from-[#2699A6]/5 to-[#2699A6]/10">
-              <CardContent className="p-6">
-                <div className="text-center">
-                  <div className="w-12 h-12 bg-[#2699A6]/20 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Eye className="h-6 w-6 text-[#2699A6]" />
-                  </div>
-                  <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                    {users.filter((u: User) => u.role === 'viewer').length}
-                  </p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    {language === 'ar' ? 'مشاهد' : 'Viewers'}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          
         </div>
 
         {/* Users List */}
