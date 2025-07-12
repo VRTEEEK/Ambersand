@@ -161,60 +161,54 @@ function SortableTaskCard({ task, language, onTaskClick }: { task: Task; languag
       {...attributes}
       {...listeners}
       onClick={handleClick}
-      className="group p-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:shadow-lg hover:shadow-slate-200 dark:hover:shadow-slate-900/50 transition-all duration-300 cursor-pointer hover:cursor-pointer active:cursor-grabbing hover:-translate-y-1"
+      className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-all cursor-pointer hover:cursor-pointer active:cursor-grabbing"
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3 flex-1">
-          <GripVertical className="h-4 w-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
-          <h3 className="font-semibold text-slate-900 dark:text-white text-sm leading-tight">
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <GripVertical className="h-4 w-4 text-gray-400" />
+          <h3 className="font-medium text-gray-900 dark:text-white text-sm">
             {language === 'ar' && task.titleAr ? task.titleAr : task.title}
           </h3>
         </div>
         <Badge 
-          className={`${getPriorityColor(task.priority)} shadow-sm`}
-          style={{ 
-            backgroundColor: task.priority === 'urgent' ? '#eab308' : 
-                           task.priority === 'high' ? '#f97316' :
-                           task.priority === 'medium' ? '#3b82f6' : '#10b981',
-            color: 'white',
-            border: 'none'
-          }}
+          className={getPriorityColor(task.priority)}
+          style={{ backgroundColor: task.priority === 'urgent' ? '#eab308' : undefined }}
         >
           {task.priority === 'low' ? (language === 'ar' ? 'منخفضة' : 'Low') :
-           task.priority === 'medium' ? (language === 'ar' ? 'متوسطة' : 'Med') :
+           task.priority === 'medium' ? (language === 'ar' ? 'متوسطة' : 'Medium') :
            task.priority === 'high' ? (language === 'ar' ? 'عالية' : 'High') :
            (language === 'ar' ? 'عاجلة' : 'Urgent')}
         </Badge>
       </div>
       
       {task.description && (
-        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4 line-clamp-2 leading-relaxed">
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
           {language === 'ar' && task.descriptionAr ? task.descriptionAr : task.description}
         </p>
       )}
       
-      <div className="flex items-center gap-3 text-xs text-slate-500 mb-4">
+      <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
         {task.assigneeId && (
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-md">
-            <User className="h-3 w-3" />
-            <span className="truncate max-w-20 font-medium">
-              {task.assigneeId.length > 15 ? `${task.assigneeId.substring(0, 15)}...` : task.assigneeId}
+          <div className="flex items-center gap-1">
+            <Users className="h-3 w-3" />
+            <span className="truncate max-w-24">
+              {task.assigneeId.length > 20 ? `${task.assigneeId.substring(0, 20)}...` : task.assigneeId}
             </span>
           </div>
         )}
         {task.dueDate && (
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-md">
+          <div className="flex items-center gap-1">
             <Calendar className="h-3 w-3" />
-            <span className="font-medium">{new Date(task.dueDate).toLocaleDateString()}</span>
+            <span>{new Date(task.dueDate).toLocaleDateString()}</span>
           </div>
         )}
       </div>
       
-      <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-700">
-        <div className="text-xs text-slate-400 font-medium">
-          #{task.id}
+      <div className="flex items-center justify-between">
+        <div className="text-xs text-gray-400">
+          ID: {task.id}
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+        <div className="flex items-center gap-1 text-xs text-gray-500">
           <Clock className="h-3 w-3" />
           <span>{new Date(task.updatedAt).toLocaleDateString()}</span>
         </div>
@@ -538,34 +532,24 @@ export default function Tasks() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-teal-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 -m-6 p-6">
-        {/* Stylish Header with gradient background */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-8 mb-8 backdrop-blur-sm bg-opacity-80">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-            <div className="flex items-center gap-6">
-              <div className="p-4 bg-gradient-to-r from-teal-500 to-blue-600 rounded-2xl shadow-lg">
-                <Target className="h-10 w-10 text-white" />
-              </div>
-              <div>
-                <h1 className="text-5xl font-bold bg-gradient-to-r from-teal-600 to-blue-600 bg-clip-text text-transparent mb-2">
-                  Task Management
-                </h1>
-                <p className="text-slate-600 dark:text-slate-400 text-lg">
-                  {language === 'ar'
-                    ? 'إدارة وتتبع المهام والأنشطة بطريقة ذكية ومرنة'
-                    : 'Organize, track, and manage your team\'s workflow efficiently'
-                  }
-                </p>
-              </div>
-            </div>
-            
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-4 rounded-xl text-lg font-semibold">
-                  <Plus className="h-5 w-5 mr-3" />
-                  {language === 'ar' ? 'مهمة جديدة' : 'Create Task'}
-                </Button>
-              </DialogTrigger>
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              {language === 'ar' ? 'إدارة المهام' : 'Task Management'}
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">
+              {language === 'ar' ? 'نظام لوحة كانبان لإدارة المهام' : 'Kanban board system for task management'}
+            </p>
+          </div>
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-teal-600 hover:bg-teal-700">
+                <Plus className="h-4 w-4 mr-2" />
+                {language === 'ar' ? 'إضافة مهمة' : 'Add Task'}
+              </Button>
+            </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
                 <DialogTitle>
@@ -709,118 +693,89 @@ export default function Tasks() {
           </Dialog>
         </div>
 
-        {/* Modern Filters Section */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6 mb-8">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg">
-              <Filter className="h-5 w-5 text-white" />
+        {/* Filters */}
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  type="search"
+                  placeholder={language === 'ar' ? 'بحث في المهام...' : 'Search tasks...'}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full lg:w-[150px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === 'ar' ? 'كل الحالات' : 'All Status'}</SelectItem>
+                  <SelectItem value="pending">{language === 'ar' ? 'لم تبدأ' : 'To Do'}</SelectItem>
+                  <SelectItem value="in-progress">{language === 'ar' ? 'قيد التنفيذ' : 'In Progress'}</SelectItem>
+                  <SelectItem value="review">{language === 'ar' ? 'للمراجعة' : 'Review'}</SelectItem>
+                  <SelectItem value="completed">{language === 'ar' ? 'مكتملة' : 'Completed'}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger className="w-full lg:w-[150px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === 'ar' ? 'كل الأولويات' : 'All Priority'}</SelectItem>
+                  <SelectItem value="urgent">{language === 'ar' ? 'عاجلة' : 'Urgent'}</SelectItem>
+                  <SelectItem value="high">{language === 'ar' ? 'عالية' : 'High'}</SelectItem>
+                  <SelectItem value="medium">{language === 'ar' ? 'متوسطة' : 'Medium'}</SelectItem>
+                  <SelectItem value="low">{language === 'ar' ? 'منخفضة' : 'Low'}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <h3 className="text-xl font-semibold text-slate-800 dark:text-white">
-              {language === 'ar' ? 'تصفية المهام' : 'Filter Tasks'}
-            </h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
-              <Input
-                type="search"
-                placeholder={language === 'ar' ? 'ابحث في المهام...' : 'Search tasks...'}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-12 h-12 border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-12 border-slate-300 rounded-xl">
-                <SelectValue placeholder={language === 'ar' ? 'حالة المهمة' : 'Task Status'} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{language === 'ar' ? 'كل الحالات' : 'All Status'}</SelectItem>
-                <SelectItem value="pending">{language === 'ar' ? 'لم تبدأ' : 'To Do'}</SelectItem>
-                <SelectItem value="in-progress">{language === 'ar' ? 'قيد التنفيذ' : 'In Progress'}</SelectItem>
-                <SelectItem value="review">{language === 'ar' ? 'للمراجعة' : 'Review'}</SelectItem>
-                <SelectItem value="completed">{language === 'ar' ? 'مكتملة' : 'Completed'}</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger className="h-12 border-slate-300 rounded-xl">
-                <SelectValue placeholder={language === 'ar' ? 'أولوية المهمة' : 'Task Priority'} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{language === 'ar' ? 'كل الأولويات' : 'All Priority'}</SelectItem>
-                <SelectItem value="urgent">{language === 'ar' ? 'عاجلة' : 'Urgent'}</SelectItem>
-                <SelectItem value="high">{language === 'ar' ? 'عالية' : 'High'}</SelectItem>
-                <SelectItem value="medium">{language === 'ar' ? 'متوسطة' : 'Medium'}</SelectItem>
-                <SelectItem value="low">{language === 'ar' ? 'منخفضة' : 'Low'}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        {/* Modern Kanban Board */}
+        {/* Kanban Board */}
         <DndContext
           sensors={sensors}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {statusColumns.map((column, index) => {
+            {statusColumns.map((column) => {
               const StatusIcon = column.icon;
               const columnTasks = filteredGroupedTasks[column.id] || [];
               
-              // Different gradient colors for each column
-              const gradients = [
-                'from-red-500 to-orange-500',
-                'from-yellow-500 to-orange-500', 
-                'from-blue-500 to-indigo-500',
-                'from-green-500 to-teal-500'
-              ];
-              
               return (
-                <div key={column.id} className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-                  {/* Column Header with Gradient */}
-                  <div className={`bg-gradient-to-r ${gradients[index]} p-6 text-white`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                          <StatusIcon className="h-6 w-6" />
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-bold">{column.title}</h3>
-                          <p className="text-white/80 text-sm">
-                            {columnTasks.length} {language === 'ar' ? 'مهمة' : 'tasks'}
-                          </p>
-                        </div>
+                <Card key={column.id} className="bg-gray-50 dark:bg-gray-800">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <StatusIcon className="h-5 w-5" />
+                        <span>{column.title}</span>
                       </div>
-                      <div className="bg-white/20 backdrop-blur-sm rounded-full px-3 py-1">
-                        <span className="text-sm font-semibold">{columnTasks.length}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Column Content */}
-                  <div className="p-4 min-h-[500px] bg-slate-50 dark:bg-slate-900">
+                      <Badge variant="outline" className="bg-white dark:bg-gray-700">
+                        {columnTasks.length}
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0 min-h-[400px]">
                     <DroppableColumn id={column.id}>
                       <SortableContext items={columnTasks.map(task => task.id)} strategy={verticalListSortingStrategy}>
-                        <div className="space-y-4 min-h-[450px]">
+                        <div className="space-y-3 min-h-[400px]">
                           {isLoading ? (
                             Array.from({ length: 3 }).map((_, i) => (
-                              <div key={i} className="p-4 bg-white dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm">
-                                <Skeleton className="h-4 w-32 mb-3" />
+                              <div key={i} className="p-4 bg-white dark:bg-gray-700 rounded-lg border">
+                                <Skeleton className="h-4 w-32 mb-2" />
                                 <Skeleton className="h-3 w-24 mb-2" />
                                 <Skeleton className="h-3 w-20" />
                               </div>
                             ))
                           ) : columnTasks.length === 0 ? (
-                            <div className="text-center py-16 text-slate-400">
-                              <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600">
-                                <p className="text-sm font-medium">
-                                  {language === 'ar' ? 'لا توجد مهام' : 'No tasks'}
-                                </p>
-                                <p className="text-xs mt-1">
-                                  {language === 'ar' ? 'اسحب المهام هنا' : 'Drag tasks here'}
-                                </p>
-                              </div>
+                            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                              <p className="text-sm">
+                                {language === 'ar' ? 'لا توجد مهام' : 'No tasks'}
+                              </p>
                             </div>
                           ) : (
                             columnTasks.map((task) => (
@@ -830,25 +785,25 @@ export default function Tasks() {
                         </div>
                       </SortableContext>
                     </DroppableColumn>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               );
             })}
           </div>
 
           <DragOverlay>
             {activeTask ? (
-              <div className="p-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl transform rotate-3 scale-105 opacity-90">
-                <div className="flex items-start justify-between mb-3">
-                  <h3 className="font-semibold text-slate-900 dark:text-white text-sm">
+              <div className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg transform rotate-2">
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-medium text-gray-900 dark:text-white text-sm">
                     {language === 'ar' && activeTask.titleAr ? activeTask.titleAr : activeTask.title}
                   </h3>
-                  <Badge className="bg-teal-500 text-white">
+                  <Badge className={getPriorityColor(activeTask.priority)}>
                     {activeTask.priority}
                   </Badge>
                 </div>
                 {activeTask.description && (
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-2 line-clamp-2">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
                     {language === 'ar' && activeTask.descriptionAr ? activeTask.descriptionAr : activeTask.description}
                   </p>
                 )}
@@ -856,9 +811,6 @@ export default function Tasks() {
             ) : null}
           </DragOverlay>
         </DndContext>
-        
-        {/* Closing container div */}
-      </div>
 
         {/* Edit Task Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
