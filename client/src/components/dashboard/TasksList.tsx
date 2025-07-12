@@ -44,6 +44,42 @@ export function TasksList() {
     }
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending':
+      case 'todo':
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+      case 'in-progress':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
+      case 'review':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
+      case 'completed':
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
+      case 'overdue':
+        return 'bg-[#ea580b] text-white dark:bg-[#ea580b] dark:text-white';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'pending':
+      case 'todo':
+        return 'To Do';
+      case 'in-progress':
+        return 'In Progress';
+      case 'review':
+        return 'Review';
+      case 'completed':
+        return 'Completed';
+      case 'overdue':
+        return 'Overdue';
+      default:
+        return status;
+    }
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'No due date';
     return new Date(dateString).toLocaleDateString();
@@ -100,9 +136,7 @@ export function TasksList() {
           </div>
         ) : (
           upcomingTasks.map((task: any) => (
-            <Link key={task.id} href={`/tasks/${task.id}`}>
-              <div className="p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
-              
+            <div key={task.id} className="p-3 border border-slate-200 rounded-lg">
               <div className="flex items-center justify-between mb-2">
                 <p className="font-medium text-sm text-slate-800 truncate">
                   {task.title}
@@ -114,9 +148,19 @@ export function TasksList() {
                   {getPriorityText(task.priority)}
                 </Badge>
               </div>
-              <p className="text-xs text-slate-500 mb-2">
-                Project: {task.projectId || 'Unassigned'}
-              </p>
+              
+              {/* Status and Project Info */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(task.status)}`}>
+                    {getStatusText(task.status)}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Project: {task.projectId || 'Unassigned'}
+                </p>
+              </div>
+              
               <div className="flex items-center justify-between">
                 <p className="text-xs text-slate-400 flex items-center">
                   <User className="h-3 w-3 mr-1" />
@@ -127,8 +171,7 @@ export function TasksList() {
                   {formatDate(task.dueDate)}
                 </p>
               </div>
-              </div>
-            </Link>
+            </div>
           ))
         )}
       </CardContent>
