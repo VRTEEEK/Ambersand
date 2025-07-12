@@ -72,7 +72,7 @@ export default function Landing() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-teal-50">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 bg-[#ffffff]">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-3">
               <img src={logoPath} alt="Ambersand Logo" className="h-8" />
@@ -93,7 +93,6 @@ export default function Landing() {
           </div>
         </div>
       </header>
-
       {/* Hero Section with Background Image */}
       <section 
         className="relative py-32 lg:py-40 overflow-hidden"
@@ -163,7 +162,6 @@ export default function Landing() {
           </div>
         </div>
       </section>
-
       {/* Features Section */}
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -203,7 +201,6 @@ export default function Landing() {
           </div>
         </div>
       </section>
-
       {/* Benefits Section */}
       <section className="py-16 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -230,7 +227,6 @@ export default function Landing() {
           </div>
         </div>
       </section>
-
       {/* CTA Section */}
       <section className="py-16 bg-gradient-to-r from-teal-600 to-teal-700">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -254,7 +250,6 @@ export default function Landing() {
           </Button>
         </div>
       </section>
-
       {/* Footer */}
       <footer className="bg-slate-800 text-slate-300 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
