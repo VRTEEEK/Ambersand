@@ -671,18 +671,58 @@ export default function Regulations() {
               ) : (
                 // Show filtered controls for selected category
                 <div className="space-y-4">
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedCategory(null)}
+                        className="flex items-center gap-2"
+                      >
+                        ← {language === 'ar' ? 'العودة للمجالات' : 'Back to Domains'}
+                      </Button>
+                      <h3 className="text-lg font-semibold text-slate-800">
+                        {getMainCategories().find(cat => cat.en === selectedCategory)?.[language === 'ar' ? 'ar' : 'en'] || selectedCategory}
+                      </h3>
+                    </div>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setSelectedCategory(null)}
-                      className="flex items-center gap-2"
+                      onClick={() => {
+                        const categoryControls = getFilteredControls();
+                        const categoryControlIds = categoryControls.map((control: any) => control.id);
+                        const allSelected = categoryControlIds.every((id: number) => selectedControlIds.includes(id));
+                        
+                        if (allSelected) {
+                          // Deselect all controls in this category
+                          setSelectedControlIds(prev => prev.filter(id => !categoryControlIds.includes(id)));
+                        } else {
+                          // Select all controls in this category
+                          setSelectedControlIds(prev => {
+                            const newIds = [...prev];
+                            categoryControlIds.forEach((id: number) => {
+                              if (!newIds.includes(id)) {
+                                newIds.push(id);
+                              }
+                            });
+                            return newIds;
+                          });
+                        }
+                      }}
+                      className="flex items-center gap-2 bg-teal-50 hover:bg-teal-100 text-teal-700 border-teal-200"
                     >
-                      ← {language === 'ar' ? 'العودة للمجالات' : 'Back to Domains'}
+                      {(() => {
+                        const categoryControls = getFilteredControls();
+                        const categoryControlIds = categoryControls.map((control: any) => control.id);
+                        const allSelected = categoryControlIds.every((id: number) => selectedControlIds.includes(id));
+                        return allSelected 
+                          ? (language === 'ar' ? 'إلغاء تحديد الكل' : 'Deselect All')
+                          : (language === 'ar' ? 'تحديد الكل' : 'Select All');
+                      })()}
+                      <Badge variant="secondary" className="bg-teal-100 text-teal-700">
+                        {getFilteredControls().length}
+                      </Badge>
                     </Button>
-                    <h3 className="text-lg font-semibold text-slate-800">
-                      {getMainCategories().find(cat => cat.en === selectedCategory)?.[language === 'ar' ? 'ar' : 'en'] || selectedCategory}
-                    </h3>
                   </div>
                   <div className="space-y-3">
                     {getFilteredControls().map((control: any) => {
