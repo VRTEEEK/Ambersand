@@ -42,6 +42,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User Management routes
+  app.get('/api/users', isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUser = await storage.getUser(req.user.claims.sub);
+      
+      // Only admins can view all users
+      if (currentUser?.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const users = await storage.getAllUsers(currentUser.organizationId || undefined);
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.post('/api/users', isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUser = await storage.getUser(req.user.claims.sub);
+      
+      // Only admins can create users
+      if (currentUser?.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const { id, email, firstName, lastName, role, organizationId } = req.body;
+      
+      if (!id || !email || !role) {
+        return res.status(400).json({ message: "ID, email, and role are required" });
+      }
+
+      const newUser = await storage.createUser({
+        id,
+        email,
+        firstName,
+        lastName,
+        role,
+        organizationId: organizationId || currentUser.organizationId,
+      });
+
+      res.status(201).json(newUser);
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  app.patch('/api/users/:userId/role', isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUser = await storage.getUser(req.user.claims.sub);
+      
+      // Only admins can update user roles
+      if (currentUser?.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const { userId } = req.params;
+      const { role } = req.body;
+
+      if (!role || !['admin', 'manager', 'viewer'].includes(role)) {
+        return res.status(400).json({ message: "Valid role is required (admin, manager, viewer)" });
+      }
+
+      const updatedUser = await storage.updateUserRole(userId, role);
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      res.status(500).json({ message: "Failed to update user role" });
+    }
+  });
+
+  app.patch('/api/users/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUser = await storage.getUser(req.user.claims.sub);
+      
+      // Only admins can update user details
+      if (currentUser?.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const { userId } = req.params;
+      const updates = req.body;
+
+      const updatedUser = await storage.updateUser(userId, updates);
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  app.delete('/api/users/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUser = await storage.getUser(req.user.claims.sub);
+      
+      // Only admins can delete users
+      if (currentUser?.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const { userId } = req.params;
+      
+      // Prevent self-deletion
+      if (userId === currentUser.id) {
+        return res.status(400).json({ message: "Cannot delete your own account" });
+      }
+
+      await storage.deleteUser(userId);
+      res.json({ message: "User deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
   // Dashboard metrics
   app.get('/api/dashboard/metrics', isAuthenticated, async (req: any, res) => {
     try {

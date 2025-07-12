@@ -343,6 +343,22 @@ export const insertUserSchema = createInsertSchema(users).pick({
   organizationId: true,
 });
 
+export const createUserSchema = createInsertSchema(users).pick({
+  id: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  role: true,
+}).extend({
+  id: z.string().min(1, 'User ID is required'),
+  email: z.string().email('Valid email is required'),
+  role: z.enum(['admin', 'manager', 'viewer']),
+});
+
+export const updateRoleSchema = z.object({
+  role: z.enum(['admin', 'manager', 'viewer']),
+});
+
 export const insertProjectSchema = createInsertSchema(projects).omit({
   id: true,
   createdAt: true,

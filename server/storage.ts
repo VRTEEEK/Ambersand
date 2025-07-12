@@ -37,6 +37,13 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   
+  // User Management operations
+  getAllUsers(organizationId?: string): Promise<User[]>;
+  createUser(user: Omit<UpsertUser, 'id'> & { id: string }): Promise<User>;
+  updateUserRole(userId: string, role: string): Promise<User>;
+  updateUser(userId: string, updates: Partial<UpsertUser>): Promise<User>;
+  deleteUser(userId: string): Promise<void>;
+  
   // Project operations
   getProjects(organizationId?: string): Promise<Project[]>;
   getProject(id: number): Promise<Project | undefined>;
@@ -123,6 +130,68 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return user;
+  }
+
+  // User Management operations
+  async getAllUsers(organizationId?: string): Promise<User[]> {
+    let query = db.select().from(users);
+    
+    if (organizationId) {
+      query = query.where(eq(users.organizationId, organizationId));
+    }
+    
+    const result = await query.orderBy(desc(users.createdAt));
+    return result;
+  }
+
+  async createUser(userData: Omit<UpsertUser, 'id'> & { id: string }): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values({
+        ...userData,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return user;
+  }
+
+  async updateUserRole(userId: string, role: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({
+        role,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    return user;
+  }
+
+  async updateUser(userId: string, updates: Partial<UpsertUser>): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    return user;
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, userId));
   }
 
   // Project operations
