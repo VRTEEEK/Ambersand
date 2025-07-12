@@ -12,6 +12,7 @@ import Projects from "@/pages/Projects";
 import Tasks from "@/pages/Tasks";
 import Evidence from "@/pages/Evidence";
 import ProjectDetail from "@/pages/ProjectDetail";
+import TaskDetail from "@/pages/TaskDetail";
 import Analytics from "@/pages/Analytics";
 import Settings from "@/pages/Settings";
 import UserProfile from "@/pages/UserProfile";
@@ -31,6 +32,7 @@ function Router() {
           <Route path="/projects" component={Projects} />
           <Route path="/projects/:id" component={ProjectDetail} />
           <Route path="/tasks" component={Tasks} />
+          <Route path="/tasks/:id" component={TaskDetail} />
           <Route path="/evidence" component={Evidence} />
           <Route path="/analytics" component={Analytics} />
           <Route path="/users" component={Users} />
