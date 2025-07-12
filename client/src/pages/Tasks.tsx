@@ -167,18 +167,20 @@ const SortableTaskCard = memo(function SortableTaskCard({ task, language, onTask
       style={style}
       {...attributes}
       onClick={handleClick}
-      className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-all cursor-pointer hover:cursor-pointer"
+      className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-all cursor-pointer"
     >
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-2">
-          <div 
+          <button 
             {...listeners}
-            data-drag-handle
+            type="button"
             className="drag-handle cursor-grab active:cursor-grabbing p-1 -m-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 touch-none"
             style={{ touchAction: 'none' }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
-            <GripVertical className="h-4 w-4 text-gray-400 pointer-events-none" />
-          </div>
+            <GripVertical className="h-4 w-4 text-gray-400" />
+          </button>
           <h3 className="font-medium text-gray-900 dark:text-white text-sm">
             {language === 'ar' && task.titleAr ? task.titleAr : task.title}
           </h3>
@@ -276,14 +278,9 @@ export default function Tasks() {
     },
   });
 
-  // Fixed drag and drop sensors - reduced constraints for better responsiveness
+  // Simple drag and drop sensors without constraints
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5, // Reduced distance for better responsiveness
-        // Removed delay that was preventing drag start
-      },
-    }),
+    useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -892,7 +889,14 @@ export default function Tasks() {
               </DialogTitle>
             </DialogHeader>
             <Form {...editForm}>
-              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+              <form onSubmit={editForm.handleSubmit(onEditSubmit, (errors) => {
+                console.error('❌ Form validation errors:', errors);
+                toast({
+                  title: language === 'ar' ? 'خطأ في النموذج' : 'Form Error',
+                  description: language === 'ar' ? 'يرجى التحقق من البيانات المدخلة' : 'Please check the form data',
+                  variant: 'destructive',
+                });
+              })} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={editForm.control}
@@ -1060,7 +1064,17 @@ export default function Tasks() {
                   <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                     {language === 'ar' ? 'إلغاء' : 'Cancel'}
                   </Button>
-                  <Button type="submit" disabled={updateTaskMutation.isPending}>
+                  <Button 
+                    type="submit" 
+                    disabled={updateTaskMutation.isPending}
+                    onClick={(e) => {
+                      console.log('🔘 Update button clicked');
+                      e.preventDefault();
+                      editForm.handleSubmit(onEditSubmit, (errors) => {
+                        console.error('❌ Form validation errors:', errors);
+                      })();
+                    }}
+                  >
                     {updateTaskMutation.isPending ? (language === 'ar' ? 'جاري التحديث...' : 'Updating...') : (language === 'ar' ? 'تحديث' : 'Update')}
                   </Button>
                 </div>
