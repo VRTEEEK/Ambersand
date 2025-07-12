@@ -258,7 +258,8 @@ export default function ProjectDetail() {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
       case 'in-progress': return 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300';
-      case 'blocked': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
+      case 'review': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
+      case 'blocked': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300';
       case 'pending': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
     }
@@ -573,6 +574,7 @@ export default function ProjectDetail() {
                               <Badge className={getStatusColor(task.status)}>
                                 {task.status === 'pending' ? (language === 'ar' ? 'لم تبدأ' : 'Not Started') : 
                                  task.status === 'in-progress' ? (language === 'ar' ? 'قيد التنفيذ' : 'In Progress') :
+                                 task.status === 'review' ? (language === 'ar' ? 'قيد المراجعة' : 'Under Review') :
                                  task.status === 'completed' ? (language === 'ar' ? 'مكتملة' : 'Completed') :
                                  (language === 'ar' ? 'محجوبة' : 'Blocked')}
                               </Badge>
@@ -1024,6 +1026,7 @@ export default function ProjectDetail() {
                     <Badge className={getStatusColor(taskForm.watch('status'))}>
                       {taskForm.watch('status') === 'pending' ? (language === 'ar' ? 'لم تبدأ' : 'Not Started') : 
                        taskForm.watch('status') === 'in-progress' ? (language === 'ar' ? 'قيد التنفيذ' : 'In Progress') :
+                       taskForm.watch('status') === 'review' ? (language === 'ar' ? 'قيد المراجعة' : 'Under Review') :
                        taskForm.watch('status') === 'completed' ? (language === 'ar' ? 'مكتملة' : 'Completed') :
                        (language === 'ar' ? 'محجوبة' : 'Blocked')}
                     </Badge>
@@ -1430,6 +1433,7 @@ function EditTaskForm({
                   <SelectContent>
                     <SelectItem value="pending">{language === 'ar' ? 'لم تبدأ' : 'Not Started'}</SelectItem>
                     <SelectItem value="in-progress">{language === 'ar' ? 'قيد التنفيذ' : 'In Progress'}</SelectItem>
+                    <SelectItem value="review">{language === 'ar' ? 'قيد المراجعة' : 'Under Review'}</SelectItem>
                     <SelectItem value="completed">{language === 'ar' ? 'مكتملة' : 'Completed'}</SelectItem>
                     <SelectItem value="blocked">{language === 'ar' ? 'محجوبة' : 'Blocked'}</SelectItem>
                   </SelectContent>
@@ -1689,6 +1693,7 @@ function EditTaskForm({
             <Badge className={getStatusColor(editForm.watch('status'))}>
               {editForm.watch('status') === 'pending' ? (language === 'ar' ? 'لم تبدأ' : 'Not Started') : 
                editForm.watch('status') === 'in-progress' ? (language === 'ar' ? 'قيد التنفيذ' : 'In Progress') :
+               editForm.watch('status') === 'review' ? (language === 'ar' ? 'قيد المراجعة' : 'Under Review') :
                editForm.watch('status') === 'completed' ? (language === 'ar' ? 'مكتملة' : 'Completed') :
                (language === 'ar' ? 'محجوبة' : 'Blocked')}
             </Badge>
