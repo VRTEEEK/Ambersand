@@ -331,19 +331,7 @@ export default function Users() {
           <div className="relative px-8 py-16 md:py-20">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
               <div className="text-center lg:text-left">
-                <div className="flex items-center justify-center lg:justify-start gap-4 mb-6">
-                  <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/30">
-                    <UsersIcon className="h-8 w-8 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">
-                      {language === 'ar' ? 'إدارة المستخدمين' : 'User Management'}
-                    </h1>
-                    <p className="text-xl text-white/90 font-light">
-                      {language === 'ar' ? 'إدارة المستخدمين والأدوار في المنظمة' : 'Manage users and roles in your organization'}
-                    </p>
-                  </div>
-                </div>
+                
                 
                 {/* Stats Overview */}
                 <div className="flex flex-wrap items-center justify-center lg:justify-start gap-6 text-white/90">
