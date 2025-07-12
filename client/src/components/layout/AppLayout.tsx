@@ -255,9 +255,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   <Button variant="ghost" className="flex items-center space-x-2 text-sm">
                     <Avatar className="w-8 h-8">
                       <AvatarImage src={user?.profileImageUrl || undefined} />
-                      <AvatarFallback>
-                        {user?.firstName?.[0]}{user?.lastName?.[0]}
-                      </AvatarFallback>
                     </Avatar>
                     <span>{user?.firstName} {user?.lastName}</span>
                     <ChevronDown className="h-4 w-4" style={{ color: '#2699A6' }} />
