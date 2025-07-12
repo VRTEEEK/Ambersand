@@ -17,6 +17,7 @@ import Analytics from "@/pages/Analytics";
 import Settings from "@/pages/Settings";
 import UserProfile from "@/pages/UserProfile";
 import Users from "@/pages/Users";
+import Notifications from "@/pages/Notifications";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -36,6 +37,7 @@ function Router() {
           <Route path="/evidence" component={Evidence} />
           <Route path="/analytics" component={Analytics} />
           <Route path="/users" component={Users} />
+          <Route path="/notifications" component={Notifications} />
           <Route path="/settings" component={Settings} />
           <Route path="/profile" component={UserProfile} />
         </>

@@ -10,6 +10,7 @@ interface TranslationStrings {
   'nav.tasks': string;
   'nav.evidence': string;
   'nav.analytics': string;
+  'nav.notifications': string;
   'nav.users': string;
   'nav.settings': string;
   
@@ -85,6 +86,7 @@ const translations: Record<Language, TranslationStrings> = {
     'nav.tasks': 'Task Management',
     'nav.evidence': 'Evidence Repository',
     'nav.analytics': 'Analytics & Reports',
+    'nav.notifications': 'Notifications',
     'nav.users': 'User Management',
     'nav.settings': 'Settings',
     
@@ -158,6 +160,7 @@ const translations: Record<Language, TranslationStrings> = {
     'nav.tasks': 'إدارة المهام',
     'nav.evidence': 'مستودع الأدلة',
     'nav.analytics': 'التحليلات والتقارير',
+    'nav.notifications': 'الإشعارات',
     'nav.users': 'إدارة المستخدمين',
     'nav.settings': 'الإعدادات',
     
