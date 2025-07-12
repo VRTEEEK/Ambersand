@@ -479,42 +479,51 @@ export default function Regulations() {
             return (
               <Card 
                 key={index} 
-                className={`glass-card hover-lift cursor-pointer transition-all ${
-                  isSelected ? 'ring-2 ring-blue-500 shadow-lg' : ''
+                className={`border border-slate-200/60 dark:border-slate-700/60 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 bg-white dark:bg-slate-800 cursor-pointer ${
+                  isSelected ? 'ring-2 ring-[#2699A6] shadow-xl border-[#2699A6]/30' : ''
                 }`}
                 onClick={() => {
                   setSelectedFramework(framework.id);
                   setSelectedCategory(null);
                 }}
               >
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className={`w-12 h-12 bg-${framework.color}-100 rounded-lg flex items-center justify-center`}>
-                      <Icon className={`h-6 w-6 text-${framework.color}-600`} />
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="w-12 h-12 bg-slate-100 dark:bg-slate-700 rounded-xl flex items-center justify-center border border-slate-200 dark:border-slate-600">
+                      <Icon className="h-6 w-6 text-slate-600 dark:text-slate-400" />
                     </div>
-                    <Badge variant={framework.status === 'active' ? 'default' : 'secondary'}>
+                    <Badge 
+                      variant={framework.status === 'active' ? 'default' : 'secondary'}
+                      className={framework.status === 'active' 
+                        ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800'
+                        : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+                      }
+                    >
                       {framework.status === 'active' 
                         ? (language === 'ar' ? 'نشط' : 'Active')
                         : (language === 'ar' ? 'التخطيط' : 'Planning')
                       }
                     </Badge>
                   </div>
-                  <CardTitle className="text-lg">
+                  <CardTitle className="text-lg text-slate-900 dark:text-white leading-tight">
                     {language === 'ar' ? framework.nameAr : framework.name}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-slate-600 text-sm mb-4">
+                  <p className="text-slate-600 dark:text-slate-400 text-sm mb-4 line-clamp-3">
                     {language === 'ar' ? framework.descriptionAr : framework.description}
                   </p>
                   {framework.totalControls && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-500">
+                    <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-100 dark:border-slate-600">
+                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                         {language === 'ar' ? 'إجمالي الضوابط' : 'Total Controls'}
                       </span>
-                      <span className="font-semibold text-slate-800">
-                        {framework.totalControls}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl font-bold text-slate-900 dark:text-white">
+                          {framework.totalControls}
+                        </span>
+                        <div className="w-2 h-2 bg-[#2699A6] rounded-full"></div>
+                      </div>
                     </div>
                   )}
                 </CardContent>
