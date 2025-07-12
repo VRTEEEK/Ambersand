@@ -132,10 +132,6 @@ export default function Landing() {
                 <ArrowRight className="ml-2 h-6 w-6" />
               </a>
             </Button>
-            
-            <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10 text-lg px-8 py-4 h-auto font-semibold">
-              {language === 'ar' ? 'اكتشف المزيد' : 'Learn More'}
-            </Button>
           </div>
           
           {/* Features highlight */}
