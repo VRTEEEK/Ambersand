@@ -11,6 +11,7 @@ import {
   Globe,
 } from 'lucide-react';
 import heroBackgroundPath from "@assets/image_1752308988455.png";
+import logoPath from "@assets/Logo_1752310054852.png";
 
 export default function Landing() {
   const { t, toggleLanguage, language } = useI18n();
@@ -74,8 +75,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-3">
-              <Shield className="h-8 w-8 text-teal-600" />
-              <span className="text-2xl font-bold text-slate-800">AMBERSAND</span>
+              <img src={logoPath} alt="Ambersand Logo" className="h-8" />
             </div>
             
             <div className="flex items-center space-x-4">
@@ -264,8 +264,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center space-x-3 mb-4 md:mb-0">
-              <Shield className="h-6 w-6 text-teal-500" />
-              <span className="text-lg font-bold text-white">AMBERSAND</span>
+              <img src={logoPath} alt="Ambersand Logo" className="h-6" />
             </div>
             
             <p className="text-sm">
