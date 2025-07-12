@@ -8,13 +8,11 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { useTheme } from "@/contexts/ThemeContext";
-import { Settings as SettingsIcon, Globe, Bell, Shield, Database, Users, Mail, Moon, Sun } from 'lucide-react';
+import { Settings as SettingsIcon, Globe, Bell, Shield, Database, Users, Mail } from 'lucide-react';
 
 export default function Settings() {
   const { language, setLanguage } = useI18n();
   const { toast } = useToast();
-  const { theme, toggleTheme } = useTheme();
 
   const handleSave = () => {
     toast({
@@ -65,31 +63,6 @@ export default function Settings() {
                     <SelectItem value="ar">العربية</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="theme">
-                  {language === 'ar' ? 'المظهر' : 'Theme'}
-                </Label>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    {theme === 'light' ? (
-                      <Sun className="h-4 w-4 text-yellow-500" />
-                    ) : (
-                      <Moon className="h-4 w-4 text-blue-500" />
-                    )}
-                    <span className="text-sm">
-                      {theme === 'light' 
-                        ? (language === 'ar' ? 'فاتح' : 'Light')
-                        : (language === 'ar' ? 'داكن' : 'Dark')
-                      }
-                    </span>
-                  </div>
-                  <Switch 
-                    checked={theme === 'dark'}
-                    onCheckedChange={toggleTheme}
-                  />
-                </div>
               </div>
 
               <div className="space-y-2">

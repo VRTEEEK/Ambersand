@@ -105,7 +105,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const SidebarContent = () => (
     <div className="flex h-full flex-col">
       {/* Logo */}
-      <div className="flex items-center justify-center p-6 border-b border-slate-200 dark:border-slate-700">
+      <div className="flex items-center justify-center p-6 border-b border-slate-200">
         <div className="flex items-center">
           <img 
             src={Logo} 
@@ -125,8 +125,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 className={cn(
                   "flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors",
                   item.current
-                    ? "bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-700"
-                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    ? "bg-teal-50 text-teal-600 border border-teal-200"
+                    : "text-slate-600 hover:bg-slate-100"
                 )}
               >
                 <Icon 
@@ -141,7 +141,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
         <Separator className="my-6" />
         
-        <p className="px-4 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+        <p className="px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
           Administration
         </p>
 
@@ -153,8 +153,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 className={cn(
                   "flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors",
                   item.current
-                    ? "bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-700"
-                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    ? "bg-teal-50 text-teal-600 border border-teal-200"
+                    : "text-slate-600 hover:bg-slate-100"
                 )}
               >
                 <Icon 
@@ -169,7 +169,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       </nav>
 
       {/* User Profile */}
-      <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+      <div className="p-4 border-t border-slate-200">
         <div className="flex items-center">
           <Avatar className="w-10 h-10">
             <AvatarImage src={user?.profileImageUrl || undefined} />
@@ -178,10 +178,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </AvatarFallback>
           </Avatar>
           <div className={cn("flex-1", isRTL ? "mr-3" : "ml-3")}>
-            <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+            <p className="text-sm font-medium text-slate-800">
               {user?.firstName} {user?.lastName}
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">{user?.role}</p>
+            <p className="text-xs text-slate-500 capitalize">{user?.role}</p>
           </div>
         </div>
       </div>
@@ -192,7 +192,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     <div className={cn("flex min-h-screen", isRTL && "rtl")}>
       {/* Desktop Sidebar */}
       <aside className="hidden lg:fixed lg:left-0 lg:top-0 lg:z-40 lg:h-screen lg:w-64 lg:block">
-        <div className="h-full bg-white dark:bg-slate-900 shadow-lg border-r border-slate-200 dark:border-slate-700">
+        <div className="h-full bg-white shadow-lg border-r border-slate-200">
           <SidebarContent />
         </div>
       </aside>
@@ -200,7 +200,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       {/* Main Content */}
       <main className="flex-1 lg:ml-64">
         {/* Header */}
-        <header className="bg-white dark:bg-slate-900 shadow-sm border-b border-slate-200 dark:border-slate-700 px-6 py-4">
+        <header className="bg-white shadow-sm border-b border-slate-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               {/* Mobile Menu */}
@@ -215,7 +215,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 </SheetContent>
               </Sheet>
 
-              <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200 ml-4 lg:ml-0">
+              <h1 className="text-2xl font-bold text-slate-800 ml-4 lg:ml-0">
                 {t('dashboard.title')}
               </h1>
             </div>
