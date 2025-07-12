@@ -622,14 +622,7 @@ export default function Evidence() {
                 </CardHeader>
                 
                 <CardContent className="space-y-4">
-                  {item.description && (
-                    <p className="text-sm text-slate-600 line-clamp-2 leading-relaxed bg-slate-50 p-3 rounded-lg">
-                      {language === 'ar' && item.descriptionAr 
-                        ? item.descriptionAr 
-                        : item.description
-                      }
-                    </p>
-                  )}
+                  
                   
                   {/* Evidence Details Grid */}
                   <div className="grid grid-cols-2 gap-3 text-sm">
