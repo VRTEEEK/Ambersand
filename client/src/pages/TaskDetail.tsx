@@ -155,6 +155,8 @@ export default function TaskDetail() {
 
   const getPriorityBadgeVariant = (priority: string) => {
     switch (priority) {
+      case 'urgent':
+        return 'destructive';
       case 'high':
         return 'destructive';
       case 'medium':

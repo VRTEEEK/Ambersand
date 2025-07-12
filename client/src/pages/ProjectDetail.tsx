@@ -266,8 +266,8 @@ export default function ProjectDetail() {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'urgent': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
-      case 'high': return 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300';
+      case 'urgent': return 'bg-[#ea580b] text-white dark:bg-[#ea580b] dark:text-white';
+      case 'high': return 'bg-[#ea580b] text-white dark:bg-[#ea580b] dark:text-white';
       case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
       default: return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
     }
