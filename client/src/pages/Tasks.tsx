@@ -70,7 +70,7 @@ const taskSchema = z.object({
   titleAr: z.string().optional(),
   description: z.string().optional(),
   descriptionAr: z.string().optional(),
-  status: z.enum(['pending', 'in-progress', 'review', 'completed']),
+  status: z.enum(['pending', 'in-progress', 'review', 'completed', 'blocked']),
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
   dueDate: z.string().optional(),
   projectId: z.number().optional(),
