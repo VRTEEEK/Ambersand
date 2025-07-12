@@ -549,88 +549,168 @@ export default function Projects() {
             </div>
           ) : (
             filteredProjects.map((project: any) => (
-              <Card key={project.id} className="glass-card hover-lift cursor-pointer" onClick={() => setLocation(`/projects/${project.id}`)}>
-                <CardHeader>
+              <Card 
+                key={project.id} 
+                className="hover:shadow-xl transition-all duration-300 cursor-pointer group border-l-4 border-l-[#2699A6] bg-gradient-to-br from-white to-slate-50 overflow-hidden"
+                onClick={() => setLocation(`/projects/${project.id}`)}
+              >
+                <CardHeader className="pb-4 bg-gradient-to-r from-[#2699A6]/5 to-transparent">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="text-lg mb-2">
-                        {language === 'ar' && project.nameAr ? project.nameAr : project.name}
+                      <CardTitle className="text-xl font-bold group-hover:text-[#2699A6] transition-colors mb-2">
+                        {language === 'ar' && project.nameAr 
+                          ? project.nameAr 
+                          : project.name
+                        }
                       </CardTitle>
-                      <Badge variant={getStatusBadgeVariant(project.status)}>
-                        {getStatusText(project.status)}
-                      </Badge>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setLocation(`/projects/${project.id}`)}>
-                          <Eye className="h-4 w-4 mr-2" />
-                          {language === 'ar' ? 'عرض' : 'View'}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleEdit(project)}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          {language === 'ar' ? 'تعديل' : 'Edit'}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => handleDelete(project)}
-                          className="text-red-600"
+                      <div className="flex items-center flex-wrap gap-2">
+                        <Badge 
+                          variant={getStatusBadgeVariant(project.status)}
+                          className="text-xs font-semibold"
                         >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          {language === 'ar' ? 'حذف' : 'Delete'}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          {getStatusText(project.status)}
+                        </Badge>
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs font-medium ${getPriorityColor(project.priority)} border-current`}
+                        >
+                          {project.priority?.charAt(0).toUpperCase() + project.priority?.slice(1)} Priority
+                        </Badge>
+                        {project.regulationType && (
+                          <Badge variant="secondary" className="text-xs bg-[#2699A6]/10 text-[#2699A6] border border-[#2699A6]/20">
+                            {project.regulationType.toUpperCase()}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-1 ml-4">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 rounded-full bg-white/50 hover:bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-all duration-200"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLocation(`/projects/${project.id}`);
+                        }}
+                      >
+                        <Eye className="h-4 w-4 text-[#2699A6]" />
+                      </Button>
+                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-9 w-9 rounded-full bg-white/50 hover:bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-all duration-200"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreHorizontal className="h-4 w-4 text-[#2699A6]" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(project);
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <Edit className="h-4 w-4 mr-2 text-[#2699A6]" />
+                            {language === 'ar' ? 'تعديل' : 'Edit Project'}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleDelete(project)}
+                            className="text-red-600 cursor-pointer focus:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            {language === 'ar' ? 'حذف' : 'Delete Project'}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <p className="text-sm text-slate-600 line-clamp-2">
-                      {language === 'ar' && project.descriptionAr 
-                        ? project.descriptionAr 
-                        : project.description || 'No description available'
-                      }
-                    </p>
-                    
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-500">Priority:</span>
-                      <span className={`font-medium ${getPriorityColor(project.priority)}`}>
-                        {project.priority?.charAt(0).toUpperCase() + project.priority?.slice(1)}
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-slate-600 line-clamp-2 leading-relaxed">
+                    {language === 'ar' && project.descriptionAr 
+                      ? project.descriptionAr 
+                      : project.description || (language === 'ar' ? 'لا يوجد وصف متاح' : 'No description available')
+                    }
+                  </p>
+                  
+                  {/* Progress Section */}
+                  <div className="bg-slate-50 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-slate-700">
+                        {language === 'ar' ? 'التقدم العام' : 'Overall Progress'}
                       </span>
-                    </div>
-                    
-                    {project.regulationType && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-500">Regulation:</span>
-                        <Badge variant="outline">
-                          {project.regulationType.toUpperCase()}
-                        </Badge>
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-500">Progress:</span>
-                      <span className="font-medium">
+                      <span className="text-lg font-bold text-[#2699A6]">
                         {project.realProgress}%
                       </span>
                     </div>
                     
+                    {/* Progress Bar */}
+                    <div className="w-full bg-slate-200 rounded-full h-2.5">
+                      <div 
+                        className="bg-gradient-to-r from-[#2699A6] to-[#34d399] h-2.5 rounded-full transition-all duration-500"
+                        style={{ width: `${project.realProgress}%` }}
+                      ></div>
+                    </div>
+                    
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-500">Tasks:</span>
-                      <span className="font-medium">
+                      <div className="flex items-center text-slate-600">
+                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                        {language === 'ar' ? 'المهام المكتملة' : 'Completed Tasks'}
+                      </div>
+                      <span className="font-semibold text-slate-800">
                         {project.completedTaskCount || 0}/{project.taskCount || 0}
                       </span>
                     </div>
+                  </div>
+                  
+                  {/* Project Details Grid */}
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="space-y-1">
+                      <span className="text-slate-500 font-medium">
+                        {language === 'ar' ? 'تاريخ البداية' : 'Start Date'}
+                      </span>
+                      <p className="font-semibold text-slate-800">
+                        {project.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A'}
+                      </p>
+                    </div>
                     
-                    {project.endDate && (
-                      <div className="flex items-center text-sm text-slate-500">
-                        <Calendar className="h-4 w-4 mr-1" />
-                        Due: {new Date(project.endDate).toLocaleDateString()}
-                      </div>
-                    )}
+                    <div className="space-y-1">
+                      <span className="text-slate-500 font-medium">
+                        {language === 'ar' ? 'تاريخ الانتهاء' : 'Due Date'}
+                      </span>
+                      <p className={`font-semibold ${
+                        project.endDate && new Date(project.endDate) < new Date() 
+                          ? 'text-red-600' 
+                          : 'text-slate-800'
+                      }`}>
+                        {project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Footer Actions */}
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                    <div className="flex items-center text-sm text-slate-500">
+                      <Calendar className="h-4 w-4 mr-1" />
+                      {language === 'ar' ? 'آخر تحديث:' : 'Updated:'} {new Date(project.updatedAt).toLocaleDateString()}
+                    </div>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-[#2699A6]/5 border-[#2699A6]/20 text-[#2699A6] hover:bg-[#2699A6] hover:text-white transition-all duration-200"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setLocation(`/projects/${project.id}`);
+                      }}
+                    >
+                      {language === 'ar' ? 'عرض التفاصيل' : 'View Details'}
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
