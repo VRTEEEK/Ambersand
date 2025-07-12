@@ -31,7 +31,8 @@ import {
   Trash2,
   Crown,
   Eye,
-  Clock
+  Clock,
+  Loader2
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -116,10 +117,7 @@ export default function Users() {
   // Create user mutation
   const createUserMutation = useMutation({
     mutationFn: async (data: CreateUserData) => {
-      return await apiRequest('/api/users', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
+      return await apiRequest('/api/users', 'POST', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
@@ -153,10 +151,7 @@ export default function Users() {
   // Update role mutation
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      return await apiRequest(`/api/users/${userId}/role`, {
-        method: 'PATCH',
-        body: JSON.stringify({ role }),
-      });
+      return await apiRequest(`/api/users/${userId}/role`, 'PATCH', { role });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
@@ -190,9 +185,7 @@ export default function Users() {
   // Delete user mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      return await apiRequest(`/api/users/${userId}`, {
-        method: 'DELETE',
-      });
+      return await apiRequest(`/api/users/${userId}`, 'DELETE');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
