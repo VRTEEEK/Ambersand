@@ -125,7 +125,7 @@ export default function Landing() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
-            <Button size="lg" className="hover:bg-white/95 text-lg px-8 py-4 h-auto font-semibold bg-[#60bfb6] text-[#ffffff]" asChild>
+            <Button size="lg" className="hover:bg-white/95 text-lg px-8 py-4 h-auto font-semibold bg-[#60bfb6] text-[#ffffff] rounded-2xl" asChild>
               <a href="/api/login">
                 {language === 'ar' ? 'ابدأ الآن' : 'Get Started'}
                 <ArrowRight className="ml-2 h-6 w-6" />
