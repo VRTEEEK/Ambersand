@@ -544,13 +544,15 @@ export default function ProjectDetail() {
                                  task.status === 'completed' ? (language === 'ar' ? 'مكتملة' : 'Completed') :
                                  (language === 'ar' ? 'محجوبة' : 'Blocked')}
                               </Badge>
-                              <Badge className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent hover:bg-primary/80 ${
-                                task.priority === 'urgent' 
-                                  ? 'bg-[#ea580b] text-white hover:bg-[#ea580b]/90' 
-                                  : task.priority === 'high'
-                                  ? 'bg-[#ea580b] text-white hover:bg-[#ea580b]/90'
-                                  : 'dark:bg-yellow-900 dark:text-yellow-300 bg-[#ed7f47] text-[#ffffff]'
-                              }`}>
+                              <Badge 
+                                className={`${
+                                  task.priority === 'urgent' || task.priority === 'high'
+                                    ? 'bg-[#ea580b] text-white hover:bg-[#ea580b]/90 border-[#ea580b]' 
+                                    : task.priority === 'medium'
+                                    ? 'bg-yellow-500 text-white hover:bg-yellow-600'
+                                    : 'bg-gray-500 text-white hover:bg-gray-600'
+                                }`}
+                              >
                                 {task.priority === 'low' ? (language === 'ar' ? 'منخفضة' : 'Low') :
                                  task.priority === 'medium' ? (language === 'ar' ? 'متوسطة' : 'Medium') :
                                  task.priority === 'high' ? (language === 'ar' ? 'عالية' : 'High') :

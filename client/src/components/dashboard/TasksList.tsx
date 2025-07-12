@@ -144,7 +144,9 @@ export function TasksList() {
                 <Badge 
                   variant={getPriorityBadgeVariant(task.priority)}
                   className={`text-xs ${
-                    task.priority === 'urgent' ? 'bg-[#ea580b] text-white hover:bg-[#ea580b]/90' : ''
+                    task.priority === 'urgent' || task.priority === 'high' 
+                      ? 'bg-[#ea580b] text-white hover:bg-[#ea580b]/90' 
+                      : ''
                   }`}
                 >
                   {getPriorityText(task.priority)}
