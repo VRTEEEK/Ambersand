@@ -4,6 +4,7 @@ import { useI18n } from '@/hooks/use-i18n';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
 import { isUnauthorizedError } from '@/lib/authUtils';
+import heroBackgroundPath from "@assets/image_1752308988455.png";
 import AppLayout from '@/components/layout/AppLayout';
 import { MetricsCard } from '@/components/dashboard/MetricsCard';
 import { ComplianceChart } from '@/components/dashboard/ComplianceChart';
@@ -78,7 +79,73 @@ export default function Dashboard() {
 
   return (
     <AppLayout>
-      <div className="space-y-6 animate-fade-in">
+      <div className="space-y-8 animate-fade-in">
+        {/* Hero Section with Background */}
+        <div 
+          className="relative overflow-hidden rounded-2xl"
+          style={{
+            backgroundImage: `url(${heroBackgroundPath})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+          }}
+        >
+          {/* Overlay for better text readability */}
+          <div className="absolute inset-0 bg-gradient-to-r from-teal-600/90 via-teal-700/80 to-teal-800/90"></div>
+          
+          {/* Content */}
+          <div className="relative px-8 py-16 md:py-20">
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-4 mb-6">
+                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/30">
+                  <TrendingUp className="h-8 w-8 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">
+                    {t('dashboard.welcome')}
+                  </h1>
+                  <p className="text-xl text-white/90 font-light">
+                    {t('dashboard.subtitle')}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Quick Stats Overview */}
+              <div className="flex flex-wrap items-center justify-center gap-8 text-white/90">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <Shield className="h-5 w-5" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-2xl font-bold text-white">{metrics?.overallCompliance || 0}%</div>
+                    <div className="text-sm">{t('dashboard.overallCompliance')}</div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <FolderOpen className="h-5 w-5" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-2xl font-bold text-white">{metrics?.activeProjects || 0}</div>
+                    <div className="text-sm">{t('dashboard.activeProjects')}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <Clock className="h-5 w-5" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-2xl font-bold text-white">{metrics?.pendingTasks || 0}</div>
+                    <div className="text-sm">{t('dashboard.pendingTasks')}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Key Metrics Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {metricsLoading ? (

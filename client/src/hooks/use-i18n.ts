@@ -15,6 +15,8 @@ interface TranslationStrings {
   
   // Dashboard
   'dashboard.title': string;
+  'dashboard.welcome': string;
+  'dashboard.subtitle': string;
   'dashboard.overallCompliance': string;
   'dashboard.activeProjects': string;
   'dashboard.pendingTasks': string;
@@ -88,6 +90,8 @@ const translations: Record<Language, TranslationStrings> = {
     
     // Dashboard
     'dashboard.title': 'Compliance Dashboard',
+    'dashboard.welcome': 'Welcome to Ambersand',
+    'dashboard.subtitle': 'Comprehensive Compliance Management Platform',
     'dashboard.overallCompliance': 'Overall Compliance',
     'dashboard.activeProjects': 'Active Projects',
     'dashboard.pendingTasks': 'Pending Tasks',
@@ -159,6 +163,8 @@ const translations: Record<Language, TranslationStrings> = {
     
     // Dashboard
     'dashboard.title': 'لوحة قيادة الامتثال',
+    'dashboard.welcome': 'مرحباً بك في أمبرساند',
+    'dashboard.subtitle': 'منصة إدارة الامتثال الشاملة',
     'dashboard.overallCompliance': 'الامتثال العام',
     'dashboard.activeProjects': 'المشاريع النشطة',
     'dashboard.pendingTasks': 'المهام المعلقة',

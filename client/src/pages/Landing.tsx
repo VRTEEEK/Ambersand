@@ -10,6 +10,7 @@ import {
   ArrowRight,
   Globe,
 } from 'lucide-react';
+import heroBackgroundPath from "@assets/image_1752308988455.png";
 
 export default function Landing() {
   const { t, toggleLanguage, language } = useI18n();
@@ -93,34 +94,80 @@ export default function Landing() {
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="py-20 lg:py-32">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl lg:text-6xl font-bold text-slate-800 mb-6">
+      {/* Hero Section with Background Image */}
+      <section 
+        className="relative py-32 lg:py-40 overflow-hidden"
+        style={{
+          backgroundImage: `url(${heroBackgroundPath})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      >
+        {/* Overlay for better text readability */}
+        <div className="absolute inset-0 bg-gradient-to-r from-teal-900/90 via-teal-800/85 to-teal-700/90"></div>
+        
+        {/* Content */}
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="flex items-center justify-center mb-8">
+            <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-3xl flex items-center justify-center border border-white/30">
+              <Shield className="h-10 w-10 text-white" />
+            </div>
+          </div>
+          
+          <h1 className="text-5xl lg:text-7xl font-bold text-white mb-8 leading-tight">
             {language === 'ar' 
               ? 'منصة إدارة الامتثال المتقدمة' 
               : 'Advanced Compliance Management Platform'
             }
           </h1>
           
-          <p className="text-xl text-slate-600 mb-8 max-w-3xl mx-auto">
+          <p className="text-2xl text-white/90 mb-12 max-w-4xl mx-auto font-light leading-relaxed">
             {language === 'ar'
               ? 'حلول شاملة لإدارة الامتثال للمؤسسات السعودية مع دعم متعدد اللوائح والتحليلات المتقدمة وإدارة المشاريع التفاعلية'
               : 'Comprehensive compliance management solutions for Saudi organizations with multi-regulation support, advanced analytics, and interactive project management'
             }
           </p>
           
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="bg-teal-600 hover:bg-teal-700" asChild>
+          <div className="flex flex-col sm:flex-row gap-6 justify-center">
+            <Button size="lg" className="bg-white text-teal-900 hover:bg-white/95 text-lg px-8 py-4 h-auto font-semibold" asChild>
               <a href="/api/login">
                 {language === 'ar' ? 'ابدأ الآن' : 'Get Started'}
-                <ArrowRight className="ml-2 h-5 w-5" />
+                <ArrowRight className="ml-2 h-6 w-6" />
               </a>
             </Button>
             
-            <Button size="lg" variant="outline">
+            <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10 text-lg px-8 py-4 h-auto font-semibold">
               {language === 'ar' ? 'اكتشف المزيد' : 'Learn More'}
             </Button>
+          </div>
+          
+          {/* Features highlight */}
+          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-white/30">
+                <Shield className="h-6 w-6 text-white" />
+              </div>
+              <p className="text-white/90 font-medium">
+                {language === 'ar' ? 'الضوابط الأساسية للأمن السيبراني' : 'Essential Cybersecurity Controls'}
+              </p>
+            </div>
+            <div className="text-center">
+              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-white/30">
+                <BookOpen className="h-6 w-6 text-white" />
+              </div>
+              <p className="text-white/90 font-medium">
+                {language === 'ar' ? 'نظام حماية البيانات الشخصية' : 'Personal Data Protection Law'}
+              </p>
+            </div>
+            <div className="text-center">
+              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-white/30">
+                <BarChart3 className="h-6 w-6 text-white" />
+              </div>
+              <p className="text-white/90 font-medium">
+                {language === 'ar' ? 'مكتب إدارة البيانات الوطنية' : 'National Data Management Office'}
+              </p>
+            </div>
           </div>
         </div>
       </section>
