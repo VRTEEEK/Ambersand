@@ -44,24 +44,9 @@ export function MetricsCard({
       <div className="absolute inset-0 bg-gradient-to-br from-teal-600/95 via-teal-700/90 to-teal-800/95"></div>
       
       <CardContent className="relative p-6 text-white">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex-1">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-white/90">{title}</p>
-              {trend && (
-                <span className={cn(
-                  "text-xs flex items-center px-2 py-1 rounded-full backdrop-blur-sm font-medium",
-                  trend.isPositive 
-                    ? "text-green-200 bg-green-500/30" 
-                    : "text-red-200 bg-red-500/30"
-                )}>
-                  <span className="mr-1">
-                    {trend.isPositive ? "↗" : "↘"}
-                  </span>
-                  {trend.value}
-                </span>
-              )}
-            </div>
+            <p className="text-sm font-medium text-white/90 mb-2">{title}</p>
             <p className="text-3xl font-bold text-white">{value}</p>
             
             {subtitle && (
@@ -109,6 +94,17 @@ export function MetricsCard({
             ) : null}
           </div>
         </div>
+        
+        {trend && (
+          <div className="flex items-center justify-center w-full">
+            <span className="text-xs flex items-center text-white font-medium">
+              <span className="mr-2">
+                {trend.isPositive ? "↗" : "↘"}
+              </span>
+              {trend.value}
+            </span>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

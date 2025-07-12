@@ -100,10 +100,9 @@ export function TasksList() {
           </div>
         ) : (
           upcomingTasks.map((task: any) => (
-            <div
-              key={task.id}
-              className="p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-            >
+            <Link key={task.id} href={`/tasks/${task.id}`}>
+              <div className="p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
+              
               <div className="flex items-center justify-between mb-2">
                 <p className="font-medium text-sm text-slate-800 truncate">
                   {task.title}
@@ -128,7 +127,8 @@ export function TasksList() {
                   {formatDate(task.dueDate)}
                 </p>
               </div>
-            </div>
+              </div>
+            </Link>
           ))
         )}
       </CardContent>

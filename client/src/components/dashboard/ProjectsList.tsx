@@ -98,10 +98,9 @@ export function ProjectsList() {
           </div>
         ) : (
           recentProjects.map((project: any) => (
-            <div
-              key={project.id}
-              className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-            >
+            <Link key={project.id} href={`/projects/${project.id}`}>
+              <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
+              
               <div className="flex items-center">
                 <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center mr-4">
                   <Calendar className="h-5 w-5 text-teal-600" />
@@ -125,7 +124,8 @@ export function ProjectsList() {
                   {project.progress || 0}% complete
                 </p>
               </div>
-            </div>
+              </div>
+            </Link>
           ))
         )}
       </CardContent>
