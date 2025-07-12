@@ -109,11 +109,7 @@ export default function Landing() {
         
         {/* Content */}
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="flex items-center justify-center mb-8">
-            <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-3xl flex items-center justify-center border border-white/30">
-              <Shield className="h-10 w-10 text-white" />
-            </div>
-          </div>
+          
           
           <h1 className="text-5xl lg:text-7xl font-bold text-white mb-8 leading-tight">
             {language === 'ar' 
