@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { LucideIcon } from 'lucide-react';
+import heroBackgroundPath from "@assets/image_1752308988455.png";
 
 interface MetricsCardProps {
   title: string;
@@ -27,64 +28,82 @@ export function MetricsCard({
   className,
 }: MetricsCardProps) {
   return (
-    <Card className={cn("glass-card hover-lift", className)}>
-      <CardContent className="p-6">
+    <Card className={cn("relative overflow-hidden hover-lift border-0 shadow-lg", className)}>
+      {/* Background Image */}
+      <div 
+        className="absolute inset-0"
+        style={{
+          backgroundImage: `url(${heroBackgroundPath})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      />
+      
+      {/* Overlay for better text readability */}
+      <div className="absolute inset-0 bg-gradient-to-br from-teal-600/95 via-teal-700/90 to-teal-800/95"></div>
+      
+      <CardContent className="relative p-6 text-white">
         <div className="flex items-center justify-between">
           <div className="flex-1">
-            <p className="text-sm font-medium text-slate-600">{title}</p>
-            <p className="text-3xl font-bold text-slate-800 mt-1">{value}</p>
+            <p className="text-sm font-medium text-white/90 mb-2">{title}</p>
+            <p className="text-3xl font-bold text-white mt-1">{value}</p>
             
             {subtitle && (
-              <p className="text-sm text-slate-500 mt-1">{subtitle}</p>
+              <p className="text-sm text-white/80 mt-2">{subtitle}</p>
             )}
             
             {trend && (
-              <p className={cn(
-                "text-sm flex items-center mt-1",
-                trend.isPositive ? "text-green-600" : "text-red-600"
+              <div className={cn(
+                "text-sm flex items-center mt-2 px-2 py-1 rounded-md backdrop-blur-sm",
+                trend.isPositive 
+                  ? "text-green-200 bg-green-500/20" 
+                  : "text-red-200 bg-red-500/20"
               )}>
-                <span className="mr-1">
-                  {trend.isPositive ? "↑" : "↓"}
+                <span className="mr-1 font-semibold">
+                  {trend.isPositive ? "↗" : "↘"}
                 </span>
                 {trend.value}
-              </p>
+              </div>
             )}
           </div>
           
           <div className="relative">
             {progress !== undefined ? (
               <div className="relative">
-                <svg className="w-16 h-16">
-                  <circle
-                    cx="32"
-                    cy="32"
-                    r="28"
-                    stroke="#E2E8F0"
-                    strokeWidth="4"
-                    fill="none"
-                  />
-                  <circle
-                    cx="32"
-                    cy="32"
-                    r="28"
-                    stroke="#4A9B9B"
-                    strokeWidth="4"
-                    fill="none"
-                    strokeDasharray={`${(progress / 100) * 175.9} 175.9`}
-                    strokeDashoffset="0"
-                    className="progress-ring"
-                    style={{ transformOrigin: '50% 50%', transform: 'rotate(-90deg)' }}
-                  />
-                </svg>
-                {Icon && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Icon className="h-6 w-6" style={{ color: iconColor }} />
-                  </div>
-                )}
+                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/30">
+                  <svg className="w-12 h-12">
+                    <circle
+                      cx="24"
+                      cy="24"
+                      r="20"
+                      stroke="rgba(255, 255, 255, 0.3)"
+                      strokeWidth="3"
+                      fill="none"
+                    />
+                    <circle
+                      cx="24"
+                      cy="24"
+                      r="20"
+                      stroke="white"
+                      strokeWidth="3"
+                      fill="none"
+                      strokeDasharray={`${(progress / 100) * 125.7} 125.7`}
+                      strokeDashoffset="0"
+                      className="progress-ring transition-all duration-500"
+                      style={{ transformOrigin: '50% 50%', transform: 'rotate(-90deg)' }}
+                    />
+                  </svg>
+                  {Icon && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Icon className="h-6 w-6 text-white" />
+                    </div>
+                  )}
+                </div>
               </div>
             ) : Icon ? (
-              <div className="w-12 h-12 bg-teal-50 rounded-lg flex items-center justify-center">
-                <Icon className="h-6 w-6" style={{ color: iconColor }} />
+              <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30">
+                <Icon className="h-6 w-6 text-white" />
               </div>
             ) : null}
           </div>
