@@ -228,16 +228,91 @@ export default function AppLayout({ children }: AppLayoutProps) {
               </Button>
 
               {/* Notifications */}
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5" style={{ color: '#2699A6' }} />
-                {notificationCount > 0 && (
-                  <Badge
-                    className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-[#ea580b] text-white"
-                  >
-                    {notificationCount}
-                  </Badge>
-                )}
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative">
+                    <Bell className="h-5 w-5" style={{ color: '#2699A6' }} />
+                    {notificationCount > 0 && (
+                      <Badge
+                        className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-[#ea580b] text-white"
+                      >
+                        {notificationCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80">
+                  <div className="px-4 py-3 border-b">
+                    <h3 className="font-semibold text-sm">
+                      {language === 'ar' ? 'الإشعارات' : 'Notifications'}
+                    </h3>
+                    {notificationCount > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {language === 'ar' ? `${notificationCount} إشعار جديد` : `${notificationCount} new notifications`}
+                      </p>
+                    )}
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {notificationCount > 0 ? (
+                      <>
+                        <DropdownMenuItem className="px-4 py-3 border-b">
+                          <div className="flex items-start space-x-3">
+                            <div className="w-2 h-2 bg-[#ea580b] rounded-full mt-2 flex-shrink-0"></div>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">
+                                {language === 'ar' ? 'مهمة جديدة مُسندة إليك' : 'New task assigned to you'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {language === 'ar' ? 'منذ 5 دقائق' : '5 minutes ago'}
+                              </p>
+                            </div>
+                          </div>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="px-4 py-3 border-b">
+                          <div className="flex items-start space-x-3">
+                            <div className="w-2 h-2 bg-[#ea580b] rounded-full mt-2 flex-shrink-0"></div>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">
+                                {language === 'ar' ? 'تم تحديث حالة المشروع' : 'Project status updated'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {language === 'ar' ? 'منذ ساعة واحدة' : '1 hour ago'}
+                              </p>
+                            </div>
+                          </div>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="px-4 py-3">
+                          <div className="flex items-start space-x-3">
+                            <div className="w-2 h-2 bg-[#ea580b] rounded-full mt-2 flex-shrink-0"></div>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">
+                                {language === 'ar' ? 'تقرير امتثال جديد متاح' : 'New compliance report available'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {language === 'ar' ? 'منذ 3 ساعات' : '3 hours ago'}
+                              </p>
+                            </div>
+                          </div>
+                        </DropdownMenuItem>
+                      </>
+                    ) : (
+                      <div className="px-4 py-8 text-center">
+                        <Bell className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">
+                          {language === 'ar' ? 'لا توجد إشعارات جديدة' : 'No new notifications'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {notificationCount > 0 && (
+                    <div className="px-4 py-3 border-t">
+                      <Button variant="ghost" size="sm" className="w-full text-xs">
+                        {language === 'ar' ? 'تميز الكل كمقروء' : 'Mark all as read'}
+                      </Button>
+                    </div>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               {/* User Menu */}
               <DropdownMenu>
