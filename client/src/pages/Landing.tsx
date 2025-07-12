@@ -125,7 +125,7 @@ export default function Landing() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
-            <Button size="lg" className="hover:bg-white/95 text-lg px-8 py-4 h-auto font-semibold bg-[#60bfb6] text-[#ffffff] rounded-2xl" asChild>
+            <Button size="lg" className="hover:bg-white/95 hover:text-[#2699A6] text-lg px-8 py-4 h-auto font-semibold bg-[#60bfb6] text-[#ffffff] rounded-2xl" asChild>
               <a href="/api/login">
                 {language === 'ar' ? 'ابدأ الآن' : 'Get Started'}
                 <ArrowRight className="ml-2 h-6 w-6" />
@@ -255,9 +255,7 @@ export default function Landing() {
       {/* Footer */}
       <footer className="bg-slate-800 text-slate-300 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            
-            
+          <div className="flex flex-col md:flex-row justify-center items-center">
             <p className="text-sm">
               {language === 'ar'
                 ? '© 2024 Ambersand. جميع الحقوق محفوظة.'
