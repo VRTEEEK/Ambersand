@@ -136,9 +136,15 @@ export function TasksList() {
           </div>
         ) : (
           upcomingTasks.map((task: any) => (
-            <div key={task.id} className="p-3 border border-slate-200 rounded-lg">
+            <div key={task.id} className={`p-3 border rounded-lg ${
+              task.priority === 'urgent' 
+                ? 'bg-[#ea580b] border-[#ea580b] text-white' 
+                : 'border-slate-200'
+            }`}>
               <div className="flex items-center justify-between mb-2">
-                <p className="font-medium text-sm text-slate-800 truncate">
+                <p className={`font-medium text-sm truncate ${
+                  task.priority === 'urgent' ? 'text-white' : 'text-slate-800'
+                }`}>
                   {task.title}
                 </p>
                 <Badge 
@@ -156,17 +162,23 @@ export function TasksList() {
                     {getStatusText(task.status)}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500">
+                <p className={`text-xs ${
+                  task.priority === 'urgent' ? 'text-white/80' : 'text-slate-500'
+                }`}>
                   Project: {task.projectId || 'Unassigned'}
                 </p>
               </div>
               
               <div className="flex items-center justify-between">
-                <p className="text-xs text-slate-400 flex items-center">
+                <p className={`text-xs flex items-center ${
+                  task.priority === 'urgent' ? 'text-white/70' : 'text-slate-400'
+                }`}>
                   <User className="h-3 w-3 mr-1" />
                   {t('common.assignedTo')}: {task.assigneeId || 'Unassigned'}
                 </p>
-                <p className="text-xs text-slate-500 flex items-center">
+                <p className={`text-xs flex items-center ${
+                  task.priority === 'urgent' ? 'text-white/80' : 'text-slate-500'
+                }`}>
                   <Calendar className="h-3 w-3 mr-1" />
                   {formatDate(task.dueDate)}
                 </p>
