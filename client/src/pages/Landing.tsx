@@ -132,12 +132,7 @@ export default function Landing() {
               </a>
             </Button>
             
-            <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10 text-lg px-8 py-4 h-auto font-semibold" asChild>
-              <a href="/api/login">
-                {language === 'ar' ? 'إنشاء حساب جديد' : 'Sign Up'}
-                <ArrowRight className="ml-2 h-6 w-6" />
-              </a>
-            </Button>
+            
           </div>
           
           {/* Features highlight */}
