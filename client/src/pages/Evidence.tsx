@@ -624,19 +624,7 @@ export default function Evidence() {
                 <CardContent className="space-y-4">
                   
                   
-                  {/* Evidence Details Grid */}
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div className="space-y-1">
-                      <span className="text-slate-500 font-medium">
-                        {language === 'ar' ? 'نوع الملف' : 'File Type'}
-                      </span>
-                      <p className="font-semibold text-slate-800 uppercase">
-                        {item.fileType || 'Unknown'}
-                      </p>
-                    </div>
-                    
-                    
-                  </div>
+                  
 
                   {/* Control Information */}
                   {item.eccControlId && (
