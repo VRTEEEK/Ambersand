@@ -313,12 +313,12 @@ export default function Analytics() {
                     <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
                       {language === 'ar' ? 'معدل الإنجاز في الوقت المحدد' : 'On-time Completion Rate'}
                     </span>
-                    <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">
+                    <Badge variant="secondary" className="bg-[#2699A6]/10 text-[#2699A6] border-[#2699A6]/20">
                       92%
                     </Badge>
                   </div>
                   <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3">
-                    <div className="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all duration-300" style={{ width: '92%' }}></div>
+                    <div className="bg-gradient-to-r from-[#2699A6] to-[#1e7a85] h-3 rounded-full transition-all duration-300" style={{ width: '92%' }}></div>
                   </div>
                 </div>
 
@@ -341,12 +341,12 @@ export default function Analytics() {
                     <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
                       {language === 'ar' ? 'مشاركة الفريق' : 'Team Engagement'}
                     </span>
-                    <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
+                    <Badge variant="secondary" className="bg-[#2699A6]/10 text-[#2699A6] border-[#2699A6]/20">
                       75%
                     </Badge>
                   </div>
                   <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3">
-                    <div className="bg-gradient-to-r from-purple-500 to-purple-600 h-3 rounded-full transition-all duration-300" style={{ width: '75%' }}></div>
+                    <div className="bg-gradient-to-r from-[#2699A6] to-[#1e7a85] h-3 rounded-full transition-all duration-300" style={{ width: '75%' }}></div>
                   </div>
                 </div>
               </div>
