@@ -41,12 +41,8 @@ export default function Analytics() {
           <div className="relative px-8 py-16 md:py-20">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
               <div className="text-center lg:text-left">
-                <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">
-                  {language === 'ar' ? 'التحليلات' : 'Analytics'}
-                </h1>
-                <p className="text-xl text-white/90 font-light mb-6">
-                  {language === 'ar' ? 'تحليل شامل لبيانات الامتثال والأداء' : 'Comprehensive compliance and performance insights'}
-                </p>
+                
+                
                 
                 {/* Key Stats Overview */}
                 <div className="flex flex-wrap items-center justify-center lg:justify-start gap-6 text-white/90">
