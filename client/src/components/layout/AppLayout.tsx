@@ -215,9 +215,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 </SheetContent>
               </Sheet>
 
-              <h1 className="text-2xl font-bold text-slate-800 ml-4 lg:ml-0">
-                {t('dashboard.title')}
-              </h1>
+              
             </div>
 
             <div className="flex items-center space-x-4">
