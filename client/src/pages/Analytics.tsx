@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 import { TrendingUp, TrendingDown, Activity, Target, Users, Clock, BarChart3, PieChart as PieChartIcon, LineChart as LineChartIcon, Zap } from 'lucide-react';
+import heroBackgroundPath from "@assets/image_1752308830644.png";
 
 const complianceData = [
   { month: 'Jan', compliance: 65, target: 80 },
@@ -33,17 +34,23 @@ export default function Analytics() {
   return (
     <AppLayout>
       <div className="space-y-8">
-        {/* Hero Header Section */}
-        <div className="relative bg-gradient-to-br from-[#2699A6] to-[#1e7a85] rounded-3xl overflow-hidden shadow-2xl">
-          {/* Background Pattern */}
-          <div className="absolute inset-0 bg-gradient-to-r from-[#2699A6]/90 via-[#2699A6]/80 to-[#1e7a85]/90"></div>
+        {/* Hero Section with Background */}
+        <div 
+          className="relative overflow-hidden rounded-2xl"
+          style={{
+            backgroundImage: `url(${heroBackgroundPath})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+          }}
+        >
+          {/* Overlay for better text readability */}
+          <div className="absolute inset-0 bg-gradient-to-r from-teal-600/90 via-teal-700/80 to-teal-800/90"></div>
           
+          {/* Content */}
           <div className="relative px-8 py-16 md:py-20">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
               <div className="text-center lg:text-left">
-                
-                
-                
                 {/* Key Stats Overview */}
                 <div className="flex flex-wrap items-center justify-center lg:justify-start gap-6 text-white/90">
                   <div className="flex items-center gap-2">
@@ -68,7 +75,7 @@ export default function Analytics() {
               </div>
 
               <div className="flex justify-center lg:justify-end">
-                <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6">
+                <div className="bg-white/20 hover:bg-white/30 text-white border border-white/30 backdrop-blur-sm px-8 py-6 text-lg rounded-xl transition-all duration-200 hover:scale-105">
                   <div className="text-center">
                     <div className="text-3xl font-bold text-white mb-2">92%</div>
                     <div className="text-white/80 text-sm">

@@ -46,7 +46,15 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [location] = useLocation();
   const { user } = useAuth();
   const { t, language, toggleLanguage, isRTL } = useI18n();
-  const [notificationCount] = useState(3);
+  // Mock notification data - in real app this would come from API
+  const mockNotifications = [
+    { id: '1', isRead: false, type: 'task', priority: 'high' },
+    { id: '2', isRead: false, type: 'project', priority: 'medium' },
+    { id: '3', isRead: true, type: 'user', priority: 'low' },
+    { id: '4', isRead: false, type: 'system', priority: 'urgent' },
+    { id: '5', isRead: true, type: 'task', priority: 'medium' },
+  ];
+  const notificationCount = mockNotifications.filter(n => !n.isRead).length;
 
   const navigationItems = [
     {
