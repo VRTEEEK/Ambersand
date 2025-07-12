@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/hooks/use-i18n";
@@ -89,34 +89,74 @@ export default function TaskDetail() {
   const editForm = useForm({
     resolver: zodResolver(insertTaskSchema),
     defaultValues: {
-      title: task?.title || '',
-      titleAr: task?.titleAr || '',
-      description: task?.description || '',
-      descriptionAr: task?.descriptionAr || '',
-      status: task?.status || 'pending',
-      priority: task?.priority || 'medium',
-      dueDate: task?.dueDate || '',
-      assigneeId: task?.assigneeId || '',
-      eccControlId: task?.eccControlId || undefined,
+      title: '',
+      titleAr: '',
+      description: '',
+      descriptionAr: '',
+      status: 'pending',
+      priority: 'medium',
+      dueDate: '',
+      assigneeId: '',
+      eccControlId: undefined,
     },
   });
+
+  // Reset form when task data changes
+  React.useEffect(() => {
+    if (task) {
+      editForm.reset({
+        title: task.title || '',
+        titleAr: task.titleAr || '',
+        description: task.description || '',
+        descriptionAr: task.descriptionAr || '',
+        status: task.status || 'pending',
+        priority: task.priority || 'medium',
+        dueDate: task.dueDate || '',
+        assigneeId: task.assigneeId || '',
+        eccControlId: task.eccControlId || undefined,
+      });
+    }
+  }, [task, editForm]);
 
   // Update task mutation
   const updateTaskMutation = useMutation({
     mutationFn: async (data: any) => {
+      console.log('About to call updateTaskMutation with:', data);
+      console.log('🔄 updateTaskMutation.mutationFn called with:', data);
+      
+      // Clean the data to match the expected API format
+      const taskData = {
+        title: data.title,
+        titleAr: data.titleAr || '',
+        description: data.description || '',
+        descriptionAr: data.descriptionAr || '',
+        status: data.status,
+        priority: data.priority,
+        dueDate: data.dueDate || null,
+        assigneeId: data.assigneeId || '',
+        eccControlId: data.eccControlId || null,
+      };
+      
+      console.log('🔄 Final task data being sent to API:', taskData);
+      console.log('🔄 Making PUT request to:', `/api/tasks/${id}`);
+      
       return apiRequest(`/api/tasks/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(data),
+        method: 'PUT',
+        body: JSON.stringify(taskData),
       });
     },
-    onSuccess: () => {
+    onSuccess: (result, variables) => {
+      console.log('🔄 API response received:', result);
+      console.log('✅ updateTaskMutation.onSuccess called with:', { data: result, variables });
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tasks', id] });
       setIsEditDialogOpen(false);
+      console.log('updateTaskMutation completed successfully');
       toast({
         title: language === 'ar' ? 'تم التحديث بنجاح' : 'Task Updated',
         description: language === 'ar' ? 'تم تحديث المهمة بنجاح' : 'Task has been updated successfully',
       });
+      console.log('Task updated successfully');
     },
     onError: (error: any) => {
       toast({
@@ -170,6 +210,8 @@ export default function TaskDetail() {
 
   const getPriorityText = (priority: string) => {
     switch (priority) {
+      case 'urgent':
+        return language === 'ar' ? 'عاجلة' : 'Urgent';
       case 'high':
         return language === 'ar' ? 'عالية' : 'High';
       case 'medium':
@@ -579,6 +621,7 @@ export default function TaskDetail() {
                             <SelectItem value="low">{language === 'ar' ? 'منخفضة' : 'Low'}</SelectItem>
                             <SelectItem value="medium">{language === 'ar' ? 'متوسطة' : 'Medium'}</SelectItem>
                             <SelectItem value="high">{language === 'ar' ? 'عالية' : 'High'}</SelectItem>
+                            <SelectItem value="urgent">{language === 'ar' ? 'عاجلة' : 'Urgent'}</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
