@@ -96,19 +96,7 @@ export default function Dashboard() {
           {/* Content */}
           <div className="relative px-8 py-16 md:py-20">
             <div className="text-center">
-              <div className="flex items-center justify-center gap-4 mb-6">
-                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/30">
-                  <TrendingUp className="h-8 w-8 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">
-                    {t('dashboard.welcome')}
-                  </h1>
-                  <p className="text-xl text-white/90 font-light">
-                    {t('dashboard.subtitle')}
-                  </p>
-                </div>
-              </div>
+              
               
               {/* Quick Stats Overview */}
               <div className="flex flex-wrap items-center justify-center gap-8 text-white/90">
