@@ -709,7 +709,14 @@ export default function Regulations() {
                           });
                         }
                       }}
-                      className="flex items-center gap-2 bg-[#f8f7fc] hover:bg-teal-100 text-teal-700 border-teal-200"
+                      className={(() => {
+                        const categoryControls = getFilteredControls();
+                        const categoryControlIds = categoryControls.map((control: any) => control.id);
+                        const allSelected = categoryControlIds.every((id: number) => selectedControlIds.includes(id));
+                        return allSelected 
+                          ? "flex items-center gap-2 bg-teal-50 hover:bg-teal-100 text-teal-700 border-teal-200"
+                          : "flex items-center gap-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200";
+                      })()}
                     >
                       {(() => {
                         const categoryControls = getFilteredControls();
@@ -719,7 +726,17 @@ export default function Regulations() {
                           ? (language === 'ar' ? 'إلغاء تحديد الكل' : 'Deselect All')
                           : (language === 'ar' ? 'تحديد الكل' : 'Select All');
                       })()}
-                      <Badge variant="secondary" className="bg-teal-100 text-teal-700">
+                      <Badge 
+                        variant="secondary" 
+                        className={(() => {
+                          const categoryControls = getFilteredControls();
+                          const categoryControlIds = categoryControls.map((control: any) => control.id);
+                          const allSelected = categoryControlIds.every((id: number) => selectedControlIds.includes(id));
+                          return allSelected 
+                            ? "bg-teal-100 text-teal-700"
+                            : "bg-slate-200 text-slate-600";
+                        })()}
+                      >
                         {getFilteredControls().length}
                       </Badge>
                     </Button>
