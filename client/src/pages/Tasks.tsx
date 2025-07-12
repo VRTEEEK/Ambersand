@@ -155,7 +155,8 @@ const SortableTaskCard = memo(function SortableTaskCard({ task, language, onTask
     // Don't trigger click when dragging
     if (isDragging) return;
     // Only trigger on non-drag handle areas
-    if ((e.target as HTMLElement).closest('[data-drag-handle]')) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-drag-handle]') || target.closest('.drag-handle')) return;
     e.preventDefault();
     onTaskClick(task);
   };
@@ -173,9 +174,10 @@ const SortableTaskCard = memo(function SortableTaskCard({ task, language, onTask
           <div 
             {...listeners}
             data-drag-handle
-            className="cursor-grab active:cursor-grabbing p-1 -m-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+            className="drag-handle cursor-grab active:cursor-grabbing p-1 -m-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 touch-none"
+            style={{ touchAction: 'none' }}
           >
-            <GripVertical className="h-4 w-4 text-gray-400" />
+            <GripVertical className="h-4 w-4 text-gray-400 pointer-events-none" />
           </div>
           <h3 className="font-medium text-gray-900 dark:text-white text-sm">
             {language === 'ar' && task.titleAr ? task.titleAr : task.title}
@@ -274,13 +276,12 @@ export default function Tasks() {
     },
   });
 
-  // Enhanced drag and drop sensors for better performance with many items
+  // Fixed drag and drop sensors - reduced constraints for better responsiveness
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 10, // Increased distance to prevent accidental drags
-        delay: 100, // Small delay to improve performance
-        tolerance: 5,
+        distance: 5, // Reduced distance for better responsiveness
+        // Removed delay that was preventing drag start
       },
     }),
     useSensor(KeyboardSensor, {
@@ -504,11 +505,28 @@ export default function Tasks() {
     createTaskMutation.mutate(data);
   };
 
-  // Handle edit form submission
+  // Handle edit form submission with better error handling
   const onEditSubmit = (data: TaskFormData) => {
-    if (selectedTask) {
-      updateTaskMutation.mutate({ ...data, id: selectedTask.id });
+    console.log('📝 Edit form submitted with data:', data);
+    console.log('📝 Selected task:', selectedTask);
+    
+    if (!selectedTask) {
+      console.error('❌ No selected task for update');
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'لم يتم تحديد مهمة للتحديث' : 'No task selected for update',
+        variant: 'destructive',
+      });
+      return;
     }
+    
+    // Validate form data
+    if (!data.title || data.title.trim() === '') {
+      console.error('❌ Title is required');
+      return;
+    }
+    
+    updateTaskMutation.mutate({ ...data, id: selectedTask.id });
   };
 
   // Handle task click for editing
