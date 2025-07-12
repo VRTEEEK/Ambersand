@@ -75,7 +75,7 @@ const taskSchema = z.object({
   dueDate: z.string().optional(),
   projectId: z.number().optional(),
   assigneeEmail: z.string().optional(),
-  controlId: z.number().optional(),
+  controlId: z.number().nullable().optional(),
 });
 
 type TaskFormData = z.infer<typeof taskSchema>;
