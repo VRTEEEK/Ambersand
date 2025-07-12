@@ -635,14 +635,7 @@ export default function Evidence() {
                       </p>
                     </div>
                     
-                    <div className="space-y-1">
-                      <span className="text-slate-500 font-medium">
-                        {language === 'ar' ? 'رفع بواسطة' : 'Uploaded By'}
-                      </span>
-                      <p className="font-semibold text-slate-800">
-                        {item.uploadedById || 'Unknown'}
-                      </p>
-                    </div>
+                    
                   </div>
 
                   {/* Control Information */}
