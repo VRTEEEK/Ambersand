@@ -233,9 +233,12 @@ export default function TaskDetail() {
 
   const onEditSubmit = async (data: any) => {
     try {
+      console.log('📝 Form submitted with data:', data);
+      console.log('📝 Form validation errors:', editForm.formState.errors);
       await updateTaskMutation.mutateAsync(data);
     } catch (error) {
-      console.error('Failed to update task:', error);
+      console.error('❌ Failed to update task:', error);
+      console.error('❌ Error details:', error);
     }
   };
 
