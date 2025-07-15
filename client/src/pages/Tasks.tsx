@@ -153,7 +153,7 @@ const DroppableColumn = memo(function DroppableColumn({ id, children }: { id: st
 });
 
 // Sortable Task Card Component - Memoized for performance
-const SortableTaskCard = memo(function SortableTaskCard({ task, language, onTaskClick }: { task: Task; language: string; onTaskClick: (task: Task) => void }) {
+const SortableTaskCard = memo(function SortableTaskCard({ task, language, onTaskClick, users }: { task: Task; language: string; onTaskClick: (task: Task) => void; users: any[] }) {
   const {
     attributes,
     listeners,
@@ -225,7 +225,15 @@ const SortableTaskCard = memo(function SortableTaskCard({ task, language, onTask
           <div className="flex items-center gap-1">
             <Users className="h-3 w-3" />
             <span className="truncate max-w-24">
-              {task.assigneeId.length > 20 ? `${task.assigneeId.substring(0, 20)}...` : task.assigneeId}
+              {(() => {
+                const user = users.find(u => u.id === task.assigneeId);
+                if (user) {
+                  return user.firstName && user.lastName 
+                    ? `${user.firstName} ${user.lastName}`
+                    : user.email;
+                }
+                return task.assigneeId;
+              })()}
             </span>
           </div>
         )}
@@ -294,6 +302,16 @@ export default function Tasks() {
     queryFn: async () => {
       const response = await fetch('/api/projects');
       if (!response.ok) throw new Error('Failed to fetch projects');
+      return response.json();
+    },
+  });
+
+  // Fetch users for name lookup
+  const { data: users = [] } = useQuery({
+    queryKey: ['/api/users'],
+    queryFn: async () => {
+      const response = await fetch('/api/users');
+      if (!response.ok) throw new Error('Failed to fetch users');
       return response.json();
     },
   });
@@ -713,7 +731,7 @@ export default function Tasks() {
                           ) : (
                             <>
                               {columnTasks.slice(0, 50).map((task) => (
-                                <SortableTaskCard key={task.id} task={task} language={language} onTaskClick={handleTaskClick} />
+                                <SortableTaskCard key={task.id} task={task} language={language} onTaskClick={handleTaskClick} users={users} />
                               ))}
                               {columnTasks.length > 50 && (
                                 <div className="text-center py-4 text-gray-500 dark:text-gray-400">

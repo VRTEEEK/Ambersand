@@ -119,12 +119,13 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
           const control = domainControls.find((pc: any) => pc.eccControl?.id === controlId);
           const controlTitle = language === 'ar' ? control?.eccControl?.controlAr : control?.eccControl?.controlEn;
           
-          const task = await apiRequest('/api/tasks', 'POST', {
+          const taskResponse = await apiRequest('/api/tasks', 'POST', {
             ...cleanTaskData,
             title: `${cleanTaskData.title} - ${control?.eccControl?.code}`,
             titleAr: cleanTaskData.titleAr ? `${cleanTaskData.titleAr} - ${control?.eccControl?.code}` : '',
             description: cleanTaskData.description ? `${cleanTaskData.description}\n\nControl: ${controlTitle}` : `Control: ${controlTitle}`,
           });
+          const task = await taskResponse.json();
           console.log('Created separate task:', task);
 
           // Associate single control with the task
@@ -138,7 +139,8 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
         return tasks;
       } else {
         // Create single task with multiple controls
-        const task = await apiRequest('/api/tasks', 'POST', cleanTaskData);
+        const taskResponse = await apiRequest('/api/tasks', 'POST', cleanTaskData);
+        const task = await taskResponse.json();
         console.log('Created task:', task);
 
         // Associate all controls with the task
