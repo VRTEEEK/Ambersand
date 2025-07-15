@@ -833,10 +833,7 @@ export default function Tasks() {
                             ? projects.find((p: any) => p.id === selectedTask?.projectId)?.nameAr
                             : projects.find((p: any) => p.id === selectedTask?.projectId)?.name}
                         </p>
-                        <p className="text-xs text-gray-600">
-                          {language === 'ar' ? 'رقم المشروع: ' : 'Project ID: '}
-                          {selectedTask?.projectId}
-                        </p>
+                        
                       </div>
                     ) : (
                       <p className="text-sm text-gray-500">
