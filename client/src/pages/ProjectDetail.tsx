@@ -466,163 +466,102 @@ export default function ProjectDetail() {
                   const assignedUser = users?.find((user: any) => user.id === task.assigneeId);
                   
                   return (
-                    <Card key={task.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                    <Card key={task.id} className="cursor-pointer hover:shadow-lg transition-all duration-200 border-0 shadow-sm hover:shadow-teal-100 dark:hover:shadow-teal-900/20">
                       <CardContent 
-                        className="p-6"
+                        className="p-4"
                         onClick={() => {
                           setEditingTask(task);
                           setIsTaskEditDialogOpen(true);
                         }}
                       >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h3 className="font-semibold text-gray-900 dark:text-white">
+                        <div className="space-y-3">
+                          {/* Header with title and assignee */}
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-gray-900 dark:text-white text-lg mb-1">
                                 {language === 'ar' && task.titleAr ? task.titleAr : task.title}
                               </h3>
-                              {task.controls && task.controls.length > 0 && (
-                                <Badge variant="secondary" className="text-xs">
-                                  {task.controls.length} {language === 'ar' ? 'ضابط' : 'Control(s)'}
-                                </Badge>
-                              )}
-                            </div>
-                            
-                            {/* Assigned Person */}
-                            {assignedUser && (
-                              <div className="flex items-center gap-2 mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-                                <Users className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-sm font-medium text-blue-900 dark:text-blue-100 truncate">
+                              {/* Assigned Person - Just icon and name */}
+                              {assignedUser && (
+                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                  <Users className="h-4 w-4" />
+                                  <span className="font-medium">
                                     {assignedUser.firstName} {assignedUser.lastName}
-                                  </div>
-                                  <div className="text-xs text-blue-700 dark:text-blue-300 truncate">
-                                    {assignedUser.email}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* Associated Controls */}
-                            {task.controls && task.controls.length > 0 && (
-                              <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                                <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                                  <Target className="h-4 w-4" />
-                                  {language === 'ar' ? 'الضوابط المرتبطة:' : 'Associated Controls:'}
-                                </div>
-                                <div className="flex flex-wrap gap-2 mb-2">
-                                  {task.controls.map((control: any) => (
-                                    <Badge key={control.eccControl.id} variant="outline" className="text-xs">
-                                      {control.eccControl.code}
-                                    </Badge>
-                                  ))}
-                                </div>
-                                {task.controls.length > 0 && (
-                                  <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-                                    <div>
-                                      <span className="font-medium">
-                                        {language === 'ar' ? 'المجال:' : 'Domain:'} 
-                                      </span>
-                                      <span className="ml-1">
-                                        {language === 'ar' && task.controls[0].eccControl.domainAr 
-                                          ? task.controls[0].eccControl.domainAr 
-                                          : task.controls[0].eccControl.domainEn}
-                                      </span>
-                                    </div>
-                                    <div className="line-clamp-1">
-                                      <span className="font-medium">
-                                        {language === 'ar' ? 'الوصف:' : 'Description:'}
-                                      </span>
-                                      <span className="ml-1">
-                                        {language === 'ar' && task.controls[0].eccControl.controlAr 
-                                          ? task.controls[0].eccControl.controlAr 
-                                          : task.controls[0].eccControl.controlEn}
-                                      </span>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            
-                            {/* Task Description */}
-                            {task.description && (
-                              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 mb-3 border border-gray-200 dark:border-gray-700">
-                                <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2 text-sm">
-                                  {language === 'ar' ? 'وصف المهمة:' : 'Task Description:'}
-                                </h4>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                  {language === 'ar' && task.descriptionAr ? task.descriptionAr : task.description}
-                                </p>
-                              </div>
-                            )}
-                            
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <Badge className={getStatusColor(task.status)}>
-                                {task.status === 'pending' ? (language === 'ar' ? 'لم تبدأ' : 'Not Started') : 
-                                 task.status === 'in-progress' ? (language === 'ar' ? 'قيد التنفيذ' : 'In Progress') :
-                                 task.status === 'review' ? (language === 'ar' ? 'قيد المراجعة' : 'Under Review') :
-                                 task.status === 'completed' ? (language === 'ar' ? 'مكتملة' : 'Completed') :
-                                 (language === 'ar' ? 'محجوبة' : 'Blocked')}
-                              </Badge>
-                              <Badge 
-                                className={`${
-                                  task.priority === 'urgent' || task.priority === 'high'
-                                    ? 'bg-[#ea580b] text-white hover:bg-[#ea580b]/90 border-[#ea580b]' 
-                                    : task.priority === 'medium'
-                                    ? 'bg-yellow-500 text-white hover:bg-yellow-600'
-                                    : 'bg-gray-500 text-white hover:bg-gray-600'
-                                }`}
-                              >
-                                {task.priority === 'low' ? (language === 'ar' ? 'منخفضة' : 'Low') :
-                                 task.priority === 'medium' ? (language === 'ar' ? 'متوسطة' : 'Medium') :
-                                 task.priority === 'high' ? (language === 'ar' ? 'عالية' : 'High') :
-                                 (language === 'ar' ? 'عاجلة' : 'Urgent')}
-                              </Badge>
-
-                              {task.dueDate && (
-                                <div className="flex items-center gap-1 text-sm text-gray-500">
-                                  <Calendar className="h-3 w-3" />
-                                  {new Date(task.dueDate).toLocaleDateString()}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Task Metadata */}
-                            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
-                              <div className="flex items-center justify-between text-xs text-gray-500">
-                                <div className="flex items-center gap-4">
-                                  <div className="flex items-center gap-1">
-                                    <Calendar className="h-3 w-3" />
-                                    <span>
-                                      {language === 'ar' ? 'تاريخ الإنشاء:' : 'Created:'} {' '}
-                                      {task.createdAt ? new Date(task.createdAt).toLocaleDateString() : 'N/A'}
-                                    </span>
-                                  </div>
-                                  {task.updatedAt && task.updatedAt !== task.createdAt && (
-                                    <div className="flex items-center gap-1">
-                                      <Clock className="h-3 w-3" />
-                                      <span>
-                                        {language === 'ar' ? 'آخر تحديث:' : 'Updated:'} {' '}
-                                        {new Date(task.updatedAt).toLocaleDateString()}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="text-xs text-gray-400">
-                                  ID: {task.id}
-                                </div>
-                              </div>
-                              
-                              {/* Evidence Indicator */}
-                              {task.controls && task.controls.length > 0 && (
-                                <div className="flex items-center gap-2 text-xs text-gray-500">
-                                  <FileText className="h-3 w-3" />
-                                  <span>
-                                    {language === 'ar' ? 'انقر لعرض/رفع الأدلة المطلوبة' : 'Click to view/upload required evidence'}
                                   </span>
                                 </div>
                               )}
                             </div>
+                          </div>
+                          
+                          {/* Controls as badges */}
+                          {task.controls && task.controls.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {task.controls.map((control: any) => (
+                                <Badge 
+                                  key={control.eccControl.id} 
+                                  variant="outline" 
+                                  className="text-xs font-medium bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-700 text-teal-800 dark:text-teal-300"
+                                >
+                                  {control.eccControl.code}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Task Description */}
+                          {task.description && (
+                            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                {language === 'ar' && task.descriptionAr ? task.descriptionAr : task.description}
+                              </p>
+                            </div>
+                          )}
+                          
+                          {/* Status and Priority Row */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge className={getStatusColor(task.status)}>
+                              {task.status === 'pending' ? (language === 'ar' ? 'لم تبدأ' : 'Not Started') : 
+                               task.status === 'in-progress' ? (language === 'ar' ? 'قيد التنفيذ' : 'In Progress') :
+                               task.status === 'review' ? (language === 'ar' ? 'قيد المراجعة' : 'Under Review') :
+                               task.status === 'completed' ? (language === 'ar' ? 'مكتملة' : 'Completed') :
+                               (language === 'ar' ? 'محجوبة' : 'Blocked')}
+                            </Badge>
+                            <Badge 
+                              className={`${
+                                task.priority === 'urgent' || task.priority === 'high'
+                                  ? 'bg-[#ea580b] text-white hover:bg-[#ea580b]/90 border-[#ea580b]' 
+                                  : task.priority === 'medium'
+                                  ? 'bg-yellow-500 text-white hover:bg-yellow-600'
+                                  : 'bg-gray-500 text-white hover:bg-gray-600'
+                              }`}
+                            >
+                              {task.priority === 'low' ? (language === 'ar' ? 'منخفضة' : 'Low') :
+                               task.priority === 'medium' ? (language === 'ar' ? 'متوسطة' : 'Medium') :
+                               task.priority === 'high' ? (language === 'ar' ? 'عالية' : 'High') :
+                               (language === 'ar' ? 'عاجلة' : 'Urgent')}
+                            </Badge>
+                            {task.dueDate && (
+                              <div className="flex items-center gap-1 text-sm text-gray-500">
+                                <Calendar className="h-3 w-3" />
+                                {new Date(task.dueDate).toLocaleDateString()}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Footer */}
+                          <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-100 dark:border-gray-700">
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              <span>
+                                {language === 'ar' ? 'تاريخ الإنشاء:' : 'Created:'} {' '}
+                                {task.createdAt ? new Date(task.createdAt).toLocaleDateString() : 'N/A'}
+                              </span>
+                            </div>
+                            {task.controls && task.controls.length > 0 && (
+                              <span className="text-xs text-teal-600 dark:text-teal-400">
+                                {language === 'ar' ? 'انقر لعرض/رفع الأدلة' : 'Click to view/upload evidence'}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </CardContent>
