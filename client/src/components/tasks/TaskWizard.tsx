@@ -519,27 +519,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                     ))}
                   </div>
 
-                  {/* Bulk task creation option */}
-                  {selectedControls.length > 1 && (
-                    <div className="border-t pt-4">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <Label className="text-sm font-medium">
-                            {language === 'ar' ? 'إنشاء مهمة منفصلة لكل ضابط' : 'Create separate task for each control'}
-                          </Label>
-                          <p className="text-xs text-gray-600">
-                            {language === 'ar' 
-                              ? 'إذا تم التفعيل، سيتم إنشاء مهمة منفصلة لكل ضابط. وإلا، سيتم إنشاء مهمة واحدة مرتبطة بجميع الضوابط المختارة.'
-                              : 'If enabled, a separate task will be created for each control. Otherwise, a single task will be created linked to all selected controls.'}
-                          </p>
-                        </div>
-                        <Switch
-                          checked={createSeparateTasks}
-                          onCheckedChange={setCreateSeparateTasks}
-                        />
-                      </div>
-                    </div>
-                  )}
+                  
                 </div>
               </CardContent>
             </Card>
