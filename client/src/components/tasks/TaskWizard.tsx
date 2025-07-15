@@ -207,14 +207,15 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl h-[700px] flex flex-col">
         <DialogHeader>
           <DialogTitle>
             {language === 'ar' ? 'إنشاء مهمة جديدة' : 'Create New Task'}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto space-y-6">
           {/* Step indicator */}
           <div className="flex items-center justify-center space-x-4 mb-6">
             <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
@@ -332,13 +333,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                             ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' 
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
-                        onClick={() => {
-                          setSelectedDomain(domain);
-                          // Automatically proceed to next step
-                          setTimeout(() => {
-                            handleNext();
-                          }, 100);
-                        }}
+                        onClick={() => setSelectedDomain(domain)}
                       >
                         <div className="flex items-center space-x-3">
                           <input
@@ -346,13 +341,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                             id={`domain-${domain}`}
                             name="domain"
                             checked={selectedDomain === domain}
-                            onChange={() => {
-                              setSelectedDomain(domain);
-                              // Automatically proceed to next step
-                              setTimeout(() => {
-                                handleNext();
-                              }, 100);
-                            }}
+                            onChange={() => setSelectedDomain(domain)}
                             className="h-4 w-4 text-blue-600"
                           />
                           <Label 
@@ -384,22 +373,8 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  {/* Back to domain selection */}
-                  <div className="flex justify-between items-center mb-4">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        setStep(2);
-                        setSelectedControls([]);
-                      }}
-                    >
-                      <ArrowLeft className="h-4 w-4 mr-2" />
-                      {language === 'ar' ? 'العودة للنطاقات' : 'Back to Domains'}
-                    </Button>
-                    
-                    {/* Select All Controls button */}
+                  {/* Select All Controls button */}
+                  <div className="flex justify-end items-center mb-4">
                     <Button 
                       type="button" 
                       variant="outline" 
@@ -628,19 +603,24 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
             </Card>
           )}
 
-          {/* Navigation buttons for Steps 1 and 3 */}
-          {(step === 1 || step === 3) && (
-            <div className="flex justify-between">
-              {step === 1 && (
+          {/* Navigation buttons for all steps */}
+          {step < 4 && (
+            <div className="flex justify-between mt-6">
+              {step === 1 ? (
                 <Button variant="outline" onClick={onClose}>
                   {language === 'ar' ? 'إلغاء' : 'Cancel'}
                 </Button>
+              ) : (
+                <Button variant="outline" onClick={handleBack}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  {language === 'ar' ? 'السابق' : 'Back'}
+                </Button>
               )}
-              {step === 3 && <div />} {/* Spacer for step 3 */}
               <Button 
                 onClick={handleNext}
                 disabled={
                   (step === 1 && !preselectedProjectId && !selectedProjectId) ||
+                  (step === 2 && !selectedDomain) ||
                   (step === 3 && selectedControls.length === 0)
                 }
               >
@@ -649,6 +629,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
               </Button>
             </div>
           )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
