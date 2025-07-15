@@ -9,6 +9,11 @@ import {
   controlAssessments,
   customRegulations,
   customControls,
+  taskControls,
+  evidenceVersions,
+  evidenceComments,
+  evidenceControls,
+  evidenceTasks,
   type User,
   type UpsertUser,
   type Project,
@@ -28,6 +33,16 @@ import {
   type InsertCustomRegulation,
   type CustomControl,
   type InsertCustomControl,
+  type TaskControl,
+  type InsertTaskControl,
+  type EvidenceVersion,
+  type InsertEvidenceVersion,
+  type EvidenceComment,
+  type InsertEvidenceComment,
+  type EvidenceControl,
+  type InsertEvidenceControl,
+  type EvidenceTask,
+  type InsertEvidenceTask,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, like, or, sql, count } from "drizzle-orm";
@@ -64,10 +79,35 @@ export interface IStorage {
   updateTask(id: number, task: Partial<InsertTask>): Promise<Task>;
   deleteTask(id: number): Promise<void>;
   
+  // Task Controls operations (many-to-many)
+  getTaskControls(taskId: number): Promise<(TaskControl & { eccControl: EccControl })[]>;
+  addControlsToTask(taskId: number, controlIds: number[]): Promise<void>;
+  removeControlsFromTask(taskId: number, controlIds: number[]): Promise<void>;
+  
   // Evidence operations
-  getEvidence(projectId?: number, taskId?: number): Promise<Evidence[]>;
+  getEvidence(projectId?: number): Promise<Evidence[]>;
+  getEvidenceById(id: number): Promise<Evidence | undefined>;
   createEvidence(evidence: InsertEvidence): Promise<Evidence>;
+  updateEvidence(id: number, updates: Partial<InsertEvidence>): Promise<Evidence>;
   deleteEvidence(id: number): Promise<void>;
+  
+  // Evidence Versions operations
+  getEvidenceVersions(evidenceId: number): Promise<EvidenceVersion[]>;
+  createEvidenceVersion(version: InsertEvidenceVersion): Promise<EvidenceVersion>;
+  
+  // Evidence Comments operations
+  getEvidenceComments(evidenceId: number): Promise<(EvidenceComment & { user: User })[]>;
+  createEvidenceComment(comment: InsertEvidenceComment): Promise<EvidenceComment>;
+  
+  // Evidence Controls operations (many-to-many)
+  getEvidenceControls(evidenceId: number): Promise<(EvidenceControl & { eccControl: EccControl })[]>;
+  addControlsToEvidence(evidenceId: number, controlIds: number[]): Promise<void>;
+  removeControlsFromEvidence(evidenceId: number, controlIds: number[]): Promise<void>;
+  
+  // Evidence Tasks operations (many-to-many)
+  getEvidenceTasks(evidenceId: number): Promise<(EvidenceTask & { task: Task })[]>;
+  addTasksToEvidence(evidenceId: number, taskIds: number[]): Promise<void>;
+  removeTasksFromEvidence(evidenceId: number, taskIds: number[]): Promise<void>;
   
   // ECC Controls operations
   getEccControls(search?: string): Promise<EccControl[]>;
@@ -309,11 +349,48 @@ export class DatabaseStorage implements IStorage {
     await db.delete(tasks).where(eq(tasks.id, id));
   }
 
+  // Task Controls operations (many-to-many)
+  async getTaskControls(taskId: number): Promise<(TaskControl & { eccControl: EccControl })[]> {
+    const result = await db
+      .select()
+      .from(taskControls)
+      .innerJoin(eccControls, eq(taskControls.eccControlId, eccControls.id))
+      .where(eq(taskControls.taskId, taskId));
+    
+    return result.map(row => ({
+      ...row.task_controls,
+      eccControl: row.ecc_controls,
+    }));
+  }
+
+  async addControlsToTask(taskId: number, controlIds: number[]): Promise<void> {
+    if (controlIds.length === 0) return;
+    
+    const values = controlIds.map(controlId => ({
+      taskId,
+      eccControlId: controlId,
+    }));
+    
+    await db.insert(taskControls).values(values);
+  }
+
+  async removeControlsFromTask(taskId: number, controlIds: number[]): Promise<void> {
+    if (controlIds.length === 0) return;
+    
+    await db
+      .delete(taskControls)
+      .where(
+        and(
+          eq(taskControls.taskId, taskId),
+          sql`${taskControls.eccControlId} = ANY(${controlIds})`
+        )
+      );
+  }
+
   // Evidence operations
-  async getEvidence(projectId?: number, taskId?: number): Promise<Evidence[]> {
+  async getEvidence(projectId?: number): Promise<Evidence[]> {
     const conditions = [];
     if (projectId) conditions.push(eq(evidence.projectId, projectId));
-    if (taskId) conditions.push(eq(evidence.taskId, taskId));
     
     if (conditions.length > 0) {
       return await db.select().from(evidence).where(and(...conditions)).orderBy(desc(evidence.createdAt));
@@ -322,13 +399,137 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(evidence).orderBy(desc(evidence.createdAt));
   }
 
+  async getEvidenceById(id: number): Promise<Evidence | undefined> {
+    const [result] = await db.select().from(evidence).where(eq(evidence.id, id));
+    return result;
+  }
+
   async createEvidence(evidenceData: InsertEvidence): Promise<Evidence> {
     const [newEvidence] = await db.insert(evidence).values(evidenceData).returning();
     return newEvidence;
   }
 
+  async updateEvidence(id: number, updates: Partial<InsertEvidence>): Promise<Evidence> {
+    const [updated] = await db
+      .update(evidence)
+      .set(updates)
+      .where(eq(evidence.id, id))
+      .returning();
+    return updated;
+  }
+
   async deleteEvidence(id: number): Promise<void> {
     await db.delete(evidence).where(eq(evidence.id, id));
+  }
+
+  // Evidence Versions operations
+  async getEvidenceVersions(evidenceId: number): Promise<EvidenceVersion[]> {
+    return await db
+      .select()
+      .from(evidenceVersions)
+      .where(eq(evidenceVersions.evidenceId, evidenceId))
+      .orderBy(desc(evidenceVersions.createdAt));
+  }
+
+  async createEvidenceVersion(version: InsertEvidenceVersion): Promise<EvidenceVersion> {
+    const [newVersion] = await db.insert(evidenceVersions).values(version).returning();
+    return newVersion;
+  }
+
+  // Evidence Comments operations
+  async getEvidenceComments(evidenceId: number): Promise<(EvidenceComment & { user: User })[]> {
+    const result = await db
+      .select()
+      .from(evidenceComments)
+      .innerJoin(users, eq(evidenceComments.userId, users.id))
+      .where(eq(evidenceComments.evidenceId, evidenceId))
+      .orderBy(desc(evidenceComments.createdAt));
+    
+    return result.map(row => ({
+      ...row.evidence_comments,
+      user: row.users,
+    }));
+  }
+
+  async createEvidenceComment(comment: InsertEvidenceComment): Promise<EvidenceComment> {
+    const [newComment] = await db.insert(evidenceComments).values(comment).returning();
+    return newComment;
+  }
+
+  // Evidence Controls operations (many-to-many)
+  async getEvidenceControls(evidenceId: number): Promise<(EvidenceControl & { eccControl: EccControl })[]> {
+    const result = await db
+      .select()
+      .from(evidenceControls)
+      .innerJoin(eccControls, eq(evidenceControls.eccControlId, eccControls.id))
+      .where(eq(evidenceControls.evidenceId, evidenceId));
+    
+    return result.map(row => ({
+      ...row.evidence_controls,
+      eccControl: row.ecc_controls,
+    }));
+  }
+
+  async addControlsToEvidence(evidenceId: number, controlIds: number[]): Promise<void> {
+    if (controlIds.length === 0) return;
+    
+    const values = controlIds.map(controlId => ({
+      evidenceId,
+      eccControlId: controlId,
+    }));
+    
+    await db.insert(evidenceControls).values(values);
+  }
+
+  async removeControlsFromEvidence(evidenceId: number, controlIds: number[]): Promise<void> {
+    if (controlIds.length === 0) return;
+    
+    await db
+      .delete(evidenceControls)
+      .where(
+        and(
+          eq(evidenceControls.evidenceId, evidenceId),
+          sql`${evidenceControls.eccControlId} = ANY(${controlIds})`
+        )
+      );
+  }
+
+  // Evidence Tasks operations (many-to-many)
+  async getEvidenceTasks(evidenceId: number): Promise<(EvidenceTask & { task: Task })[]> {
+    const result = await db
+      .select()
+      .from(evidenceTasks)
+      .innerJoin(tasks, eq(evidenceTasks.taskId, tasks.id))
+      .where(eq(evidenceTasks.evidenceId, evidenceId));
+    
+    return result.map(row => ({
+      ...row.evidence_tasks,
+      task: row.tasks,
+    }));
+  }
+
+  async addTasksToEvidence(evidenceId: number, taskIds: number[]): Promise<void> {
+    if (taskIds.length === 0) return;
+    
+    const values = taskIds.map(taskId => ({
+      evidenceId,
+      taskId,
+    }));
+    
+    await db.insert(evidenceTasks).values(values);
+  }
+
+  async removeTasksFromEvidence(evidenceId: number, taskIds: number[]): Promise<void> {
+    if (taskIds.length === 0) return;
+    
+    await db
+      .delete(evidenceTasks)
+      .where(
+        and(
+          eq(evidenceTasks.evidenceId, evidenceId),
+          sql`${evidenceTasks.taskId} = ANY(${taskIds})`
+        )
+      );
   }
 
   // ECC Controls operations

@@ -125,7 +125,7 @@ export const projects = pgTable("projects", {
   endDate: date("end_date"),
   progress: integer("progress").default(0), // percentage 0-100
   organizationId: varchar("organization_id"),
-  ownerId: varchar("owner_id").notNull(),
+  ownerId: varchar("owner_id").notNull(), // Project owner (required)
   regulationType: varchar("regulation_type"), // ecc, pdpl, ndmo
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -138,16 +138,23 @@ export const tasks = pgTable("tasks", {
   titleAr: varchar("title_ar"),
   description: text("description"),
   descriptionAr: text("description_ar"),
-  status: varchar("status").notNull().default("todo"), // todo, in-progress, review, completed
+  status: varchar("status").notNull().default("pending"), // pending, in-progress, review, completed, blocked
   priority: varchar("priority").notNull().default("medium"), // low, medium, high, urgent
   dueDate: date("due_date"),
   completedAt: timestamp("completed_at"),
   projectId: integer("project_id"),
   assigneeId: varchar("assignee_id"),
   createdById: varchar("created_by_id").notNull(),
-  eccControlId: integer("ecc_control_id"), // link to specific ECC control
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Task-to-Controls many-to-many relationship
+export const taskControls = pgTable("task_controls", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull(),
+  eccControlId: integer("ecc_control_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Project Controls Association table
@@ -175,10 +182,47 @@ export const evidence = pgTable("evidence", {
   fileSize: integer("file_size"),
   fileType: varchar("file_type"),
   filePath: varchar("file_path").notNull(),
-  taskId: integer("task_id"),
+  version: varchar("version").notNull().default("1.0"),
   projectId: integer("project_id"),
-  eccControlId: integer("ecc_control_id"),
   uploadedById: varchar("uploaded_by_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Evidence versions table for version history
+export const evidenceVersions = pgTable("evidence_versions", {
+  id: serial("id").primaryKey(),
+  evidenceId: integer("evidence_id").notNull(),
+  version: varchar("version").notNull(),
+  fileName: varchar("file_name").notNull(),
+  fileSize: integer("file_size"),
+  fileType: varchar("file_type"),
+  filePath: varchar("file_path").notNull(),
+  uploadedById: varchar("uploaded_by_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Evidence comments table
+export const evidenceComments = pgTable("evidence_comments", {
+  id: serial("id").primaryKey(),
+  evidenceId: integer("evidence_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  comment: text("comment").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Evidence-to-Controls many-to-many relationship
+export const evidenceControls = pgTable("evidence_controls", {
+  id: serial("id").primaryKey(),
+  evidenceId: integer("evidence_id").notNull(),
+  eccControlId: integer("ecc_control_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Evidence-to-Tasks many-to-many relationship
+export const evidenceTasks = pgTable("evidence_tasks", {
+  id: serial("id").primaryKey(),
+  evidenceId: integer("evidence_id").notNull(),
+  taskId: integer("task_id").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -257,29 +301,77 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
     fields: [tasks.createdById],
     references: [users.id],
   }),
-  eccControl: one(eccControls, {
-    fields: [tasks.eccControlId],
-    references: [eccControls.id],
-  }),
-  evidence: many(evidence),
+  taskControls: many(taskControls),
+  evidenceTasks: many(evidenceTasks),
 }));
 
-export const evidenceRelations = relations(evidence, ({ one }) => ({
+export const taskControlsRelations = relations(taskControls, ({ one }) => ({
   task: one(tasks, {
-    fields: [evidence.taskId],
+    fields: [taskControls.taskId],
     references: [tasks.id],
   }),
+  eccControl: one(eccControls, {
+    fields: [taskControls.eccControlId],
+    references: [eccControls.id],
+  }),
+}));
+
+export const evidenceRelations = relations(evidence, ({ one, many }) => ({
   project: one(projects, {
     fields: [evidence.projectId],
     references: [projects.id],
   }),
-  eccControl: one(eccControls, {
-    fields: [evidence.eccControlId],
-    references: [eccControls.id],
-  }),
   uploadedBy: one(users, {
     fields: [evidence.uploadedById],
     references: [users.id],
+  }),
+  versions: many(evidenceVersions),
+  comments: many(evidenceComments),
+  evidenceControls: many(evidenceControls),
+  evidenceTasks: many(evidenceTasks),
+}));
+
+export const evidenceVersionsRelations = relations(evidenceVersions, ({ one }) => ({
+  evidence: one(evidence, {
+    fields: [evidenceVersions.evidenceId],
+    references: [evidence.id],
+  }),
+  uploadedBy: one(users, {
+    fields: [evidenceVersions.uploadedById],
+    references: [users.id],
+  }),
+}));
+
+export const evidenceCommentsRelations = relations(evidenceComments, ({ one }) => ({
+  evidence: one(evidence, {
+    fields: [evidenceComments.evidenceId],
+    references: [evidence.id],
+  }),
+  user: one(users, {
+    fields: [evidenceComments.userId],
+    references: [users.id],
+  }),
+}));
+
+export const evidenceControlsRelations = relations(evidenceControls, ({ one }) => ({
+  evidence: one(evidence, {
+    fields: [evidenceControls.evidenceId],
+    references: [evidence.id],
+  }),
+  eccControl: one(eccControls, {
+    fields: [evidenceControls.eccControlId],
+    references: [eccControls.id],
+  }),
+}));
+
+export const evidenceTasksRelations = relations(evidenceTasks, ({ one }) => ({
+  evidence: one(evidence, {
+    fields: [evidenceTasks.evidenceId],
+    references: [evidence.id],
+  }),
+  task: one(tasks, {
+    fields: [evidenceTasks.taskId],
+    references: [tasks.id],
   }),
 }));
 
@@ -412,6 +504,32 @@ export const insertProjectControlSchema = createInsertSchema(projectControls).om
   updatedAt: true,
 });
 
+// New schemas for enhanced features
+export const insertTaskControlSchema = createInsertSchema(taskControls).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertEvidenceVersionSchema = createInsertSchema(evidenceVersions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertEvidenceCommentSchema = createInsertSchema(evidenceComments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertEvidenceControlSchema = createInsertSchema(evidenceControls).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertEvidenceTaskSchema = createInsertSchema(evidenceTasks).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -432,3 +550,15 @@ export type CustomRegulation = typeof customRegulations.$inferSelect;
 export type InsertCustomRegulation = z.infer<typeof insertCustomRegulationSchema>;
 export type CustomControl = typeof customControls.$inferSelect;
 export type InsertCustomControl = z.infer<typeof insertCustomControlSchema>;
+
+// New types for enhanced features
+export type TaskControl = typeof taskControls.$inferSelect;
+export type InsertTaskControl = z.infer<typeof insertTaskControlSchema>;
+export type EvidenceVersion = typeof evidenceVersions.$inferSelect;
+export type InsertEvidenceVersion = z.infer<typeof insertEvidenceVersionSchema>;
+export type EvidenceComment = typeof evidenceComments.$inferSelect;
+export type InsertEvidenceComment = z.infer<typeof insertEvidenceCommentSchema>;
+export type EvidenceControl = typeof evidenceControls.$inferSelect;
+export type InsertEvidenceControl = z.infer<typeof insertEvidenceControlSchema>;
+export type EvidenceTask = typeof evidenceTasks.$inferSelect;
+export type InsertEvidenceTask = z.infer<typeof insertEvidenceTaskSchema>;

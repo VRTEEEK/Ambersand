@@ -1,0 +1,70 @@
+We’re enhancing the Ambersand compliance platform with the following features. Please update the backend (FastAPI + PostgreSQL) and frontend (React + Tailwind) accordingly, following clean architecture and best practices.
+
+⸻
+
+✅ 1. Tasks Support Multiple Controls (Wizard UI Flow)
+	•	Refactor the DB: Replace task.control_id with a many-to-many relationship via a new table task_controls (task_id, control_id).
+	•	Update Task Creation Flow:
+	•	Step 1: Select multiple controls from the list already assigned to the project.
+	•	Step 2: Enter task details (title, description, due date, assignee).
+	•	Display selected controls on the task card as pills.
+
+⸻
+
+✅ 2. Project Owner Dropdown & Display
+	•	On project creation, add a required Project Owner field (dropdown of all system users).
+	•	In the projects table, add owner_id (foreign key to users).
+	•	Display the project owner’s name in each project card.
+
+⸻
+
+✅ 3. Evidence Page with Card/List Toggle
+	•	Implement a toggle to view evidence either as:
+	•	Card Grid (thumbnail + details), or
+	•	List Table (title, uploader, version, actions).
+	•	Use a state variable (viewMode = 'card' | 'list') to toggle between views.
+
+⸻
+
+✅ 4. User Assignment in Tasks with Auto-Suggestion
+	•	In task creation, use a searchable dropdown (e.g. react-select or HeadlessUI’s Combobox) for the “Assigned To” field.
+	•	Populate from the users table with auto-suggestion.
+
+⸻
+
+✅ 5. Role-Based Access for Viewers
+	•	Define two roles: admin, viewer.
+	•	Viewers should only see:
+	•	Projects where owner_id = viewer.id
+	•	Tasks where assigned_to = viewer.id
+	•	Admins can see everything.
+	•	Hide all irrelevant pages from viewers (e.g., project creation).
+
+⸻
+
+✅ 6. Evidence Versioning, Upload History & Comments
+	•	Add these new tables:
+	•	evidence_versions (evidence_id, file_url, uploaded_by, timestamp)
+	•	evidence_comments (evidence_id, user_id, comment, created_at)
+	•	When uploading evidence again, save as a new version with metadata.
+	•	Allow users to add comments on each evidence.
+	•	Show version and comment history under each evidence item.
+
+⸻
+
+✅ 7. Evidence Cards Show Related Controls & Tasks
+	•	Add many-to-many tables:
+	•	evidence_controls (evidence_id, control_id)
+	•	evidence_tasks (evidence_id, task_id)
+	•	Show all related controls and tasks on the evidence card.
+	•	Allow user to assign more controls to existing evidence from the UI.
+
+⸻
+
+📁 Suggested File Updates:
+	•	models/task_controls.py, models/evidence_versions.py
+	•	routes/tasks.py, routes/evidence.py
+	•	components/tasks/TaskWizard.tsx
+	•	components/evidence/EvidenceCard.tsx, EvidenceListRow.tsx
+	•	components/projects/ProjectOwnerSelector.tsx
+	•	utils/permissions.ts

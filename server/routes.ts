@@ -372,6 +372,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Task Controls routes
+  app.get('/api/tasks/:id/controls', isAuthenticated, async (req, res) => {
+    try {
+      const taskId = parseInt(req.params.id);
+      const controls = await storage.getTaskControls(taskId);
+      res.json(controls);
+    } catch (error) {
+      console.error("Error fetching task controls:", error);
+      res.status(500).json({ message: "Failed to fetch task controls" });
+    }
+  });
+
+  app.post('/api/tasks/:id/controls', isAuthenticated, async (req, res) => {
+    try {
+      const taskId = parseInt(req.params.id);
+      const { controlIds } = req.body;
+      
+      if (!Array.isArray(controlIds)) {
+        return res.status(400).json({ message: "controlIds must be an array" });
+      }
+      
+      await storage.addControlsToTask(taskId, controlIds);
+      res.status(201).json({ message: "Controls added to task successfully" });
+    } catch (error) {
+      console.error("Error adding controls to task:", error);
+      res.status(500).json({ message: "Failed to add controls to task" });
+    }
+  });
+
+  app.delete('/api/tasks/:id/controls', isAuthenticated, async (req, res) => {
+    try {
+      const taskId = parseInt(req.params.id);
+      const { controlIds } = req.body;
+      
+      if (!Array.isArray(controlIds)) {
+        return res.status(400).json({ message: "controlIds must be an array" });
+      }
+      
+      await storage.removeControlsFromTask(taskId, controlIds);
+      res.json({ message: "Controls removed from task successfully" });
+    } catch (error) {
+      console.error("Error removing controls from task:", error);
+      res.status(500).json({ message: "Failed to remove controls from task" });
+    }
+  });
+
   // ECC Controls routes
   app.get('/api/ecc-controls', isAuthenticated, async (req, res) => {
     try {
@@ -442,6 +488,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/evidence/:id', isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const evidence = await storage.getEvidenceById(id);
+      if (!evidence) {
+        return res.status(404).json({ message: "Evidence not found" });
+      }
+      res.json(evidence);
+    } catch (error) {
+      console.error("Error fetching evidence:", error);
+      res.status(500).json({ message: "Failed to fetch evidence" });
+    }
+  });
+
+  app.put('/api/evidence/:id', isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      const evidence = await storage.updateEvidence(id, updates);
+      res.json(evidence);
+    } catch (error) {
+      console.error("Error updating evidence:", error);
+      res.status(500).json({ message: "Failed to update evidence" });
+    }
+  });
+
   app.delete('/api/evidence/:id', isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -450,6 +522,164 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting evidence:", error);
       res.status(500).json({ message: "Failed to delete evidence" });
+    }
+  });
+
+  // Evidence Versions routes
+  app.get('/api/evidence/:id/versions', isAuthenticated, async (req, res) => {
+    try {
+      const evidenceId = parseInt(req.params.id);
+      const versions = await storage.getEvidenceVersions(evidenceId);
+      res.json(versions);
+    } catch (error) {
+      console.error("Error fetching evidence versions:", error);
+      res.status(500).json({ message: "Failed to fetch evidence versions" });
+    }
+  });
+
+  app.post('/api/evidence/:id/versions', isAuthenticated, upload.single('file'), async (req: any, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const evidenceId = parseInt(req.params.id);
+      const versionData = {
+        evidenceId,
+        version: req.body.version,
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        fileType: req.file.mimetype,
+        filePath: req.file.path,
+        uploadedById: req.user.claims.sub,
+      };
+
+      const version = await storage.createEvidenceVersion(versionData);
+      res.status(201).json(version);
+    } catch (error) {
+      console.error("Error creating evidence version:", error);
+      res.status(500).json({ message: "Failed to create evidence version" });
+    }
+  });
+
+  // Evidence Comments routes
+  app.get('/api/evidence/:id/comments', isAuthenticated, async (req, res) => {
+    try {
+      const evidenceId = parseInt(req.params.id);
+      const comments = await storage.getEvidenceComments(evidenceId);
+      res.json(comments);
+    } catch (error) {
+      console.error("Error fetching evidence comments:", error);
+      res.status(500).json({ message: "Failed to fetch evidence comments" });
+    }
+  });
+
+  app.post('/api/evidence/:id/comments', isAuthenticated, async (req: any, res) => {
+    try {
+      const evidenceId = parseInt(req.params.id);
+      const commentData = {
+        evidenceId,
+        userId: req.user.claims.sub,
+        comment: req.body.comment,
+      };
+
+      const comment = await storage.createEvidenceComment(commentData);
+      res.status(201).json(comment);
+    } catch (error) {
+      console.error("Error creating evidence comment:", error);
+      res.status(500).json({ message: "Failed to create evidence comment" });
+    }
+  });
+
+  // Evidence Controls routes
+  app.get('/api/evidence/:id/controls', isAuthenticated, async (req, res) => {
+    try {
+      const evidenceId = parseInt(req.params.id);
+      const controls = await storage.getEvidenceControls(evidenceId);
+      res.json(controls);
+    } catch (error) {
+      console.error("Error fetching evidence controls:", error);
+      res.status(500).json({ message: "Failed to fetch evidence controls" });
+    }
+  });
+
+  app.post('/api/evidence/:id/controls', isAuthenticated, async (req, res) => {
+    try {
+      const evidenceId = parseInt(req.params.id);
+      const { controlIds } = req.body;
+      
+      if (!Array.isArray(controlIds)) {
+        return res.status(400).json({ message: "controlIds must be an array" });
+      }
+      
+      await storage.addControlsToEvidence(evidenceId, controlIds);
+      res.status(201).json({ message: "Controls added to evidence successfully" });
+    } catch (error) {
+      console.error("Error adding controls to evidence:", error);
+      res.status(500).json({ message: "Failed to add controls to evidence" });
+    }
+  });
+
+  app.delete('/api/evidence/:id/controls', isAuthenticated, async (req, res) => {
+    try {
+      const evidenceId = parseInt(req.params.id);
+      const { controlIds } = req.body;
+      
+      if (!Array.isArray(controlIds)) {
+        return res.status(400).json({ message: "controlIds must be an array" });
+      }
+      
+      await storage.removeControlsFromEvidence(evidenceId, controlIds);
+      res.json({ message: "Controls removed from evidence successfully" });
+    } catch (error) {
+      console.error("Error removing controls from evidence:", error);
+      res.status(500).json({ message: "Failed to remove controls from evidence" });
+    }
+  });
+
+  // Evidence Tasks routes
+  app.get('/api/evidence/:id/tasks', isAuthenticated, async (req, res) => {
+    try {
+      const evidenceId = parseInt(req.params.id);
+      const tasks = await storage.getEvidenceTasks(evidenceId);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching evidence tasks:", error);
+      res.status(500).json({ message: "Failed to fetch evidence tasks" });
+    }
+  });
+
+  app.post('/api/evidence/:id/tasks', isAuthenticated, async (req, res) => {
+    try {
+      const evidenceId = parseInt(req.params.id);
+      const { taskIds } = req.body;
+      
+      if (!Array.isArray(taskIds)) {
+        return res.status(400).json({ message: "taskIds must be an array" });
+      }
+      
+      await storage.addTasksToEvidence(evidenceId, taskIds);
+      res.status(201).json({ message: "Tasks added to evidence successfully" });
+    } catch (error) {
+      console.error("Error adding tasks to evidence:", error);
+      res.status(500).json({ message: "Failed to add tasks to evidence" });
+    }
+  });
+
+  app.delete('/api/evidence/:id/tasks', isAuthenticated, async (req, res) => {
+    try {
+      const evidenceId = parseInt(req.params.id);
+      const { taskIds } = req.body;
+      
+      if (!Array.isArray(taskIds)) {
+        return res.status(400).json({ message: "taskIds must be an array" });
+      }
+      
+      await storage.removeTasksFromEvidence(evidenceId, taskIds);
+      res.json({ message: "Tasks removed from evidence successfully" });
+    } catch (error) {
+      console.error("Error removing tasks from evidence:", error);
+      res.status(500).json({ message: "Failed to remove tasks from evidence" });
     }
   });
 

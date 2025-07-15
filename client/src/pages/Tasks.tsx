@@ -43,6 +43,7 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import TaskWizard from '@/components/tasks/TaskWizard';
 import {
   DndContext,
   DragEndEvent,
@@ -261,6 +262,8 @@ export default function Tasks() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isTaskWizardOpen, setIsTaskWizardOpen] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
 
   // Debounce search input for performance
   useEffect(() => {
@@ -611,7 +614,15 @@ export default function Tasks() {
               </p>
             )}
           </div>
-          
+          <div className="flex items-center gap-2">
+            <Button 
+              onClick={() => setIsTaskWizardOpen(true)}
+              className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white"
+            >
+              <Plus className="h-4 w-4" />
+              {language === 'ar' ? 'إنشاء مهمة' : 'Create Task'}
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -953,6 +964,13 @@ export default function Tasks() {
             </Form>
           </DialogContent>
         </Dialog>
+
+        {/* Task Wizard */}
+        <TaskWizard 
+          isOpen={isTaskWizardOpen}
+          onClose={() => setIsTaskWizardOpen(false)}
+          projectId={selectedProjectId || undefined}
+        />
       </div>
     </AppLayout>
   );
