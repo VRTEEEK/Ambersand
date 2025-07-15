@@ -196,9 +196,20 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
       return;
     }
     
-    // Update domain control counts when proceeding from step 2 to step 3
+    // Update domain control counts when proceeding from step 2
     if (step === 2) {
       updateDomainControlCounts();
+      
+      // If controls are already selected, skip step 3 and go directly to step 4
+      if (selectedControls.length > 0) {
+        // Update form values - ensure controlIds are numbers
+        form.setValue('controlIds', selectedControls.map(id => Number(id)));
+        form.setValue('projectId', Number(selectedProjectId!));
+        form.setValue('createSeparateTasks', createSeparateTasks);
+        
+        setStep(4); // Skip to step 4
+        return;
+      }
     }
     
     // Update form values - ensure controlIds are numbers
