@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -66,6 +66,15 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
       createSeparateTasks: false,
     },
   });
+
+  // Clear selected controls when project changes
+  useEffect(() => {
+    if (selectedProjectId) {
+      setSelectedControls([]);
+      setSelectedDomain('');
+      setDomainControlCounts({});
+    }
+  }, [selectedProjectId]);
 
   // Fetch projects for selection (only if not preselected)
   const { data: projects = [] } = useQuery({
