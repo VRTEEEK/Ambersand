@@ -49,6 +49,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
   const [selectedDomain, setSelectedDomain] = useState<string>('');
   const [domainSearch, setDomainSearch] = useState('');
   const [createSeparateTasks, setCreateSeparateTasks] = useState(false);
+  const [domainControlCounts, setDomainControlCounts] = useState<Record<string, number>>({});
 
   const form = useForm<TaskFormData>({
     resolver: zodResolver(taskSchema),
@@ -165,6 +166,23 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
         ? prev.filter(id => id !== controlId)
         : [...prev, controlId]
     );
+    // Update domain control counts when controls are toggled
+    setTimeout(() => updateDomainControlCounts(), 0);
+  };
+
+  // Update domain control counts when controls are selected
+  const updateDomainControlCounts = () => {
+    if (!selectedDomain) return;
+    
+    const domainControlCount = selectedControls.filter(controlId => {
+      const control = domainControls.find((pc: any) => pc.eccControl?.id === controlId);
+      return control?.eccControl?.domainEn === selectedDomain;
+    }).length;
+    
+    setDomainControlCounts(prev => ({
+      ...prev,
+      [selectedDomain]: domainControlCount
+    }));
   };
 
   const handleNext = () => {
@@ -333,7 +351,15 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                             ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' 
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
-                        onClick={() => setSelectedDomain(domain)}
+                        onClick={() => {
+                          setSelectedDomain(domain);
+                          // Update domain control counts before proceeding
+                          updateDomainControlCounts();
+                          // Automatically proceed to next step
+                          setTimeout(() => {
+                            handleNext();
+                          }, 100);
+                        }}
                       >
                         <div className="flex items-center space-x-3">
                           <input
@@ -341,7 +367,15 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                             id={`domain-${domain}`}
                             name="domain"
                             checked={selectedDomain === domain}
-                            onChange={() => setSelectedDomain(domain)}
+                            onChange={() => {
+                              setSelectedDomain(domain);
+                              // Update domain control counts before proceeding
+                              updateDomainControlCounts();
+                              // Automatically proceed to next step
+                              setTimeout(() => {
+                                handleNext();
+                              }, 100);
+                            }}
                             className="h-4 w-4 text-blue-600"
                           />
                           <Label 
@@ -350,6 +384,11 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                           >
                             {domain}
                           </Label>
+                          {domainControlCounts[domain] > 0 && (
+                            <Badge variant="secondary" className="ml-2">
+                              {domainControlCounts[domain]}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -373,8 +412,21 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  {/* Select All Controls button */}
-                  <div className="flex justify-end items-center mb-4">
+                  {/* Back to domain selection and Select All Controls button */}
+                  <div className="flex justify-between items-center mb-4">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        // Update domain control counts before going back
+                        updateDomainControlCounts();
+                        setStep(2);
+                      }}
+                    >
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      {language === 'ar' ? 'العودة للنطاقات' : 'Back to Domains'}
+                    </Button>
                     <Button 
                       type="button" 
                       variant="outline" 
@@ -603,24 +655,20 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
             </Card>
           )}
 
-          {/* Navigation buttons for all steps */}
-          {step < 4 && (
+          {/* Navigation buttons for steps 1 and 3 */}
+          {(step === 1 || step === 3) && (
             <div className="flex justify-between mt-6">
               {step === 1 ? (
                 <Button variant="outline" onClick={onClose}>
                   {language === 'ar' ? 'إلغاء' : 'Cancel'}
                 </Button>
               ) : (
-                <Button variant="outline" onClick={handleBack}>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  {language === 'ar' ? 'السابق' : 'Back'}
-                </Button>
+                <div /> // Spacer for step 3 since it has local back button
               )}
               <Button 
                 onClick={handleNext}
                 disabled={
                   (step === 1 && !preselectedProjectId && !selectedProjectId) ||
-                  (step === 2 && !selectedDomain) ||
                   (step === 3 && selectedControls.length === 0)
                 }
               >
