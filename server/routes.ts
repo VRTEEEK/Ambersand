@@ -377,6 +377,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const taskId = parseInt(req.params.id);
       const controls = await storage.getTaskControls(taskId);
+      console.log('📋 Task controls for task', taskId, ':', JSON.stringify(controls, null, 2));
       res.json(controls);
     } catch (error) {
       console.error("Error fetching task controls:", error);

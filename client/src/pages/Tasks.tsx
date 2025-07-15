@@ -979,7 +979,7 @@ export default function Tasks() {
                     {taskControls.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {taskControls.map((control: any) => (
-                          <Badge key={control.id} variant="secondary" className="text-xs">
+                          <Badge key={control.eccControlId || control.id} variant="secondary" className="text-xs">
                             {control.eccControl?.code}: {language === 'ar' && control.eccControl?.controlAr 
                               ? control.eccControl.controlAr 
                               : control.eccControl?.controlEn}
