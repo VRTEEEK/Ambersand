@@ -482,7 +482,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                       </Label>
                       <div className="flex flex-wrap gap-2 mt-2">
                         {selectedControls.map(controlId => {
-                          const control = domainControls.find((pc: any) => pc.eccControl?.id === controlId);
+                          const control = projectControls.find((pc: any) => pc.eccControl?.id === controlId);
                           return (
                             <Badge key={controlId} variant="secondary" className="flex items-center gap-1">
                               {control?.eccControl?.code || controlId}
@@ -634,7 +634,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                     <Label>{language === 'ar' ? 'الضوابط المختارة' : 'Selected Controls'}</Label>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {selectedControls.map(controlId => {
-                        const control = domainControls.find((pc: any) => pc.eccControl?.id === controlId);
+                        const control = projectControls.find((pc: any) => pc.eccControl?.id === controlId);
                         return (
                           <Badge key={controlId} variant="secondary">
                             {control?.eccControl?.code || controlId}
