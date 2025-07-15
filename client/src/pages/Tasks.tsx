@@ -820,6 +820,32 @@ export default function Tasks() {
                   variant: 'destructive',
                 });
               })} className="space-y-4">
+                {/* Project Information (Read-only) */}
+                <div className="mb-4">
+                  <Label className="text-sm font-medium mb-2 block">
+                    {language === 'ar' ? 'معلومات المشروع' : 'Project Information'}
+                  </Label>
+                  <div className="p-3 border rounded-lg bg-gray-50 dark:bg-gray-800">
+                    {projects.find((p: any) => p.id === editingTask?.projectId) ? (
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">
+                          {language === 'ar' && projects.find((p: any) => p.id === editingTask?.projectId)?.nameAr
+                            ? projects.find((p: any) => p.id === editingTask?.projectId)?.nameAr
+                            : projects.find((p: any) => p.id === editingTask?.projectId)?.name}
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          {language === 'ar' ? 'رقم المشروع: ' : 'Project ID: '}
+                          {editingTask?.projectId}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        {language === 'ar' ? 'لم يتم العثور على معلومات المشروع' : 'Project information not found'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={editForm.control}
