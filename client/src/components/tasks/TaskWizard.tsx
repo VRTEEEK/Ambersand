@@ -111,38 +111,26 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
           const control = domainControls.find((pc: any) => pc.eccControl?.id === controlId);
           const controlTitle = language === 'ar' ? control?.eccControl?.controlAr : control?.eccControl?.controlEn;
           
-          const task = await apiRequest('/api/tasks', {
-            method: 'POST',
-            body: {
-              ...taskData,
-              title: `${taskData.title} - ${control?.eccControl?.code}`,
-              titleAr: taskData.titleAr ? `${taskData.titleAr} - ${control?.eccControl?.code}` : '',
-              description: taskData.description ? `${taskData.description}\n\nControl: ${controlTitle}` : `Control: ${controlTitle}`,
-            },
+          const task = await apiRequest('/api/tasks', 'POST', {
+            ...taskData,
+            title: `${taskData.title} - ${control?.eccControl?.code}`,
+            titleAr: taskData.titleAr ? `${taskData.titleAr} - ${control?.eccControl?.code}` : '',
+            description: taskData.description ? `${taskData.description}\n\nControl: ${controlTitle}` : `Control: ${controlTitle}`,
           });
 
           // Associate single control with the task
-          await apiRequest(`/api/tasks/${task.id}/controls`, {
-            method: 'POST',
-            body: { controlIds: [controlId] },
-          });
+          await apiRequest(`/api/tasks/${task.id}/controls`, 'POST', { controlIds: [controlId] });
           
           tasks.push(task);
         }
         return tasks;
       } else {
         // Create single task with multiple controls
-        const task = await apiRequest('/api/tasks', {
-          method: 'POST',
-          body: taskData,
-        });
+        const task = await apiRequest('/api/tasks', 'POST', taskData);
 
         // Associate all controls with the task
         if (controlIds.length > 0) {
-          await apiRequest(`/api/tasks/${task.id}/controls`, {
-            method: 'POST',
-            body: { controlIds },
-          });
+          await apiRequest(`/api/tasks/${task.id}/controls`, 'POST', { controlIds });
         }
 
         return task;
