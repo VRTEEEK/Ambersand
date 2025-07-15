@@ -371,9 +371,9 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                           setSelectedDomain(domain);
                           // Update domain control counts before proceeding
                           updateDomainControlCounts();
-                          // Automatically proceed to next step
+                          // Automatically go to step 3 (control selection) for this domain
                           setTimeout(() => {
-                            handleNext();
+                            setStep(3);
                           }, 100);
                         }}
                       >
@@ -387,9 +387,9 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                               setSelectedDomain(domain);
                               // Update domain control counts before proceeding
                               updateDomainControlCounts();
-                              // Automatically proceed to next step
+                              // Automatically go to step 3 (control selection) for this domain
                               setTimeout(() => {
-                                handleNext();
+                                setStep(3);
                               }, 100);
                             }}
                             className="h-4 w-4 text-blue-600"
