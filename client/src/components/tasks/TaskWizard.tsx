@@ -675,17 +675,24 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                   {language === 'ar' ? 'السابق' : 'Back'}
                 </Button>
               )}
-              <Button 
-                onClick={handleNext}
-                disabled={
-                  (step === 1 && !preselectedProjectId && !selectedProjectId) ||
-                  (step === 2 && !selectedDomain) ||
-                  (step === 3 && selectedControls.length === 0)
-                }
-              >
-                {language === 'ar' ? 'التالي' : 'Next'}
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
+              <div className="flex flex-col items-end">
+                <Button 
+                  onClick={handleNext}
+                  disabled={
+                    (step === 1 && !preselectedProjectId && !selectedProjectId) ||
+                    (step === 2 && !selectedDomain) ||
+                    (step === 3 && selectedControls.length === 0)
+                  }
+                >
+                  {language === 'ar' ? 'التالي' : 'Next'}
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+                {step === 3 && selectedControls.length === 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {language === 'ar' ? 'اختر ضابط واحد على الأقل للمتابعة' : 'Select at least one control to continue'}
+                  </p>
+                )}
+              </div>
             </div>
           )}
           </div>
