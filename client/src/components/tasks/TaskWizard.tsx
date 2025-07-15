@@ -196,6 +196,11 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
       return;
     }
     
+    // Update domain control counts when proceeding from step 2 to step 3
+    if (step === 2) {
+      updateDomainControlCounts();
+    }
+    
     // Update form values - ensure controlIds are numbers
     form.setValue('controlIds', selectedControls.map(id => Number(id)));
     form.setValue('projectId', Number(selectedProjectId!));
@@ -351,15 +356,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                             ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' 
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
-                        onClick={() => {
-                          setSelectedDomain(domain);
-                          // Update domain control counts before proceeding
-                          updateDomainControlCounts();
-                          // Automatically proceed to next step
-                          setTimeout(() => {
-                            handleNext();
-                          }, 100);
-                        }}
+                        onClick={() => setSelectedDomain(domain)}
                       >
                         <div className="flex items-center space-x-3">
                           <input
@@ -367,15 +364,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                             id={`domain-${domain}`}
                             name="domain"
                             checked={selectedDomain === domain}
-                            onChange={() => {
-                              setSelectedDomain(domain);
-                              // Update domain control counts before proceeding
-                              updateDomainControlCounts();
-                              // Automatically proceed to next step
-                              setTimeout(() => {
-                                handleNext();
-                              }, 100);
-                            }}
+                            onChange={() => setSelectedDomain(domain)}
                             className="h-4 w-4 text-blue-600"
                           />
                           <Label 
@@ -655,20 +644,26 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
             </Card>
           )}
 
-          {/* Navigation buttons for steps 1 and 3 */}
-          {(step === 1 || step === 3) && (
+          {/* Navigation buttons for all steps */}
+          {step < 4 && (
             <div className="flex justify-between mt-6">
               {step === 1 ? (
                 <Button variant="outline" onClick={onClose}>
                   {language === 'ar' ? 'إلغاء' : 'Cancel'}
                 </Button>
-              ) : (
+              ) : step === 3 ? (
                 <div /> // Spacer for step 3 since it has local back button
+              ) : (
+                <Button variant="outline" onClick={handleBack}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  {language === 'ar' ? 'السابق' : 'Back'}
+                </Button>
               )}
               <Button 
                 onClick={handleNext}
                 disabled={
                   (step === 1 && !preselectedProjectId && !selectedProjectId) ||
+                  (step === 2 && !selectedDomain) ||
                   (step === 3 && selectedControls.length === 0)
                 }
               >
