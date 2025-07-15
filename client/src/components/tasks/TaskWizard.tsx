@@ -356,7 +356,15 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                             ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' 
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
-                        onClick={() => setSelectedDomain(domain)}
+                        onClick={() => {
+                          setSelectedDomain(domain);
+                          // Update domain control counts before proceeding
+                          updateDomainControlCounts();
+                          // Automatically proceed to next step
+                          setTimeout(() => {
+                            handleNext();
+                          }, 100);
+                        }}
                       >
                         <div className="flex items-center space-x-3">
                           <input
@@ -364,7 +372,15 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                             id={`domain-${domain}`}
                             name="domain"
                             checked={selectedDomain === domain}
-                            onChange={() => setSelectedDomain(domain)}
+                            onChange={() => {
+                              setSelectedDomain(domain);
+                              // Update domain control counts before proceeding
+                              updateDomainControlCounts();
+                              // Automatically proceed to next step
+                              setTimeout(() => {
+                                handleNext();
+                              }, 100);
+                            }}
                             className="h-4 w-4 text-blue-600"
                           />
                           <Label 
