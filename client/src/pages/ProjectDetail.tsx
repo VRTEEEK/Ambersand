@@ -118,6 +118,39 @@ export default function ProjectDetail() {
     enabled: !!editingTask?.id,
   });
 
+  const { data: users } = useQuery({
+    queryKey: ['/api/users'],
+    queryFn: async () => {
+      const response = await fetch('/api/users');
+      if (!response.ok) throw new Error('Failed to fetch users');
+      return response.json();
+    },
+  });
+
+  const { data: tasksWithControls } = useQuery({
+    queryKey: ['/api/tasks', id, 'with-controls'],
+    queryFn: async () => {
+      if (!tasks) return [];
+      
+      const tasksWithControlsData = await Promise.all(
+        tasks.map(async (task: any) => {
+          try {
+            const response = await fetch(`/api/tasks/${task.id}/controls`);
+            if (!response.ok) return { ...task, controls: [] };
+            const controls = await response.json();
+            return { ...task, controls };
+          } catch (error) {
+            console.error(`Failed to fetch controls for task ${task.id}:`, error);
+            return { ...task, controls: [] };
+          }
+        })
+      );
+      
+      return tasksWithControlsData;
+    },
+    enabled: !!tasks && tasks.length > 0,
+  });
+
   // Task creation is now handled by TaskWizard component
 
   const createTaskMutation = useMutation({
@@ -260,8 +293,8 @@ export default function ProjectDetail() {
     );
   }
 
-  const completedTasks = tasks?.filter((task: any) => task.status === 'completed').length || 0;
-  const totalTasks = tasks?.length || 0;
+  const completedTasks = tasksWithControls?.filter((task: any) => task.status === 'completed').length || 0;
+  const totalTasks = tasksWithControls?.length || 0;
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   // Group controls by domain
@@ -428,9 +461,9 @@ export default function ProjectDetail() {
               </Card>
             ) : (
               <div className="space-y-4">
-                {tasks?.map((task: any) => {
-                  // Find the associated control
-                  const taskControl = projectControls?.find((control: any) => control.eccControl.id === task.controlId);
+                {tasksWithControls?.map((task: any) => {
+                  // Find the assigned user
+                  const assignedUser = users?.find((user: any) => user.id === task.assigneeId);
                   
                   return (
                     <Card key={task.id} className="cursor-pointer hover:shadow-md transition-shadow">
@@ -447,82 +480,69 @@ export default function ProjectDetail() {
                               <h3 className="font-semibold text-gray-900 dark:text-white">
                                 {language === 'ar' && task.titleAr ? task.titleAr : task.title}
                               </h3>
-                              {taskControl && (
+                              {task.controls && task.controls.length > 0 && (
                                 <Badge variant="secondary" className="text-xs">
-                                  {taskControl.eccControl.code}
+                                  {task.controls.length} {language === 'ar' ? 'ضابط' : 'Control(s)'}
                                 </Badge>
                               )}
                             </div>
                             
-                            {/* Control Information */}
-                            {taskControl && (
-                              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-3 text-sm border border-gray-200 dark:border-gray-700">
-                                <div className="font-medium text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
-                                  <Target className="h-4 w-4" />
-                                  {language === 'ar' ? 'الضابط المرتبط:' : 'Associated Control:'}
-                                </div>
-                                
-                                <div className="space-y-3">
-                                  {/* Control Code and Title */}
-                                  <div className="flex items-start gap-3">
-                                    <span className="bg-gray-600 text-white px-2 py-1 rounded text-xs font-medium">
-                                      {taskControl.eccControl.code}
-                                    </span>
-                                    <div className="flex-1">
-                                      <p className="font-medium text-gray-900 dark:text-gray-100 text-sm leading-tight">
-                                        {language === 'ar' && taskControl.eccControl.controlAr 
-                                          ? taskControl.eccControl.controlAr 
-                                          : taskControl.eccControl.controlEn}
-                                      </p>
-                                    </div>
+                            {/* Assigned Person */}
+                            {assignedUser && (
+                              <div className="flex items-center gap-2 mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                                <Users className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-medium text-blue-900 dark:text-blue-100 truncate">
+                                    {assignedUser.firstName} {assignedUser.lastName}
                                   </div>
-                                  
-                                  {/* Domain and Subdomain */}
-                                  <div className="grid grid-cols-1 gap-2 text-gray-700 dark:text-gray-300">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-medium">{language === 'ar' ? 'المجال:' : 'Domain:'}</span>
-                                      <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">
-                                        {language === 'ar' && taskControl.eccControl.domainAr ? taskControl.eccControl.domainAr : taskControl.eccControl.domainEn}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-medium">{language === 'ar' ? 'المجال الفرعي:' : 'Subdomain:'}</span>
-                                      <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">
-                                        {language === 'ar' && taskControl.eccControl.subdomainAr ? taskControl.eccControl.subdomainAr : taskControl.eccControl.subdomainEn}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Implementation Guidance */}
-                                  {(taskControl.eccControl.implementationGuidanceEn || taskControl.eccControl.implementationGuidanceAr) && (
-                                    <div className="bg-white dark:bg-gray-900 rounded p-3 border border-gray-200 dark:border-gray-700">
-                                      <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-2 text-xs">
-                                        {language === 'ar' ? 'إرشادات التنفيذ:' : 'Implementation Guidance:'}
-                                      </h4>
-                                      <p className="text-xs text-gray-700 dark:text-gray-300 line-clamp-3">
-                                        {language === 'ar' && taskControl.eccControl.implementationGuidanceAr 
-                                          ? taskControl.eccControl.implementationGuidanceAr 
-                                          : taskControl.eccControl.implementationGuidanceEn}
-                                      </p>
-                                    </div>
-                                  )}
-                                  
-                                  {/* Evidence Requirements */}
-                                  <div className="bg-gray-100 dark:bg-gray-700 rounded p-3 border border-gray-200 dark:border-gray-600">
-                                    <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-2 text-xs flex items-center gap-2">
-                                      <FileText className="h-3 w-3" />
-                                      {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
-                                    </h4>
-                                    <p className="text-xs text-gray-700 dark:text-gray-300 line-clamp-2">
-                                      {language === 'ar' && taskControl.eccControl.evidenceRequirementsAr 
-                                        ? taskControl.eccControl.evidenceRequirementsAr 
-                                        : taskControl.eccControl.evidenceRequirementsEn || 
-                                          (language === 'ar' ? 'وثائق، سياسات، إجراءات، وأدلة تدقيق' : 'Documentation, policies, procedures, and audit evidence')}
-                                    </p>
+                                  <div className="text-xs text-blue-700 dark:text-blue-300 truncate">
+                                    {assignedUser.email}
                                   </div>
                                 </div>
                               </div>
                             )}
+                            
+                            {/* Associated Controls */}
+                            {task.controls && task.controls.length > 0 && (
+                              <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                                <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                                  <Target className="h-4 w-4" />
+                                  {language === 'ar' ? 'الضوابط المرتبطة:' : 'Associated Controls:'}
+                                </div>
+                                <div className="flex flex-wrap gap-2 mb-2">
+                                  {task.controls.map((control: any) => (
+                                    <Badge key={control.eccControl.id} variant="outline" className="text-xs">
+                                      {control.eccControl.code}
+                                    </Badge>
+                                  ))}
+                                </div>
+                                {task.controls.length > 0 && (
+                                  <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                                    <div>
+                                      <span className="font-medium">
+                                        {language === 'ar' ? 'المجال:' : 'Domain:'} 
+                                      </span>
+                                      <span className="ml-1">
+                                        {language === 'ar' && task.controls[0].eccControl.domainAr 
+                                          ? task.controls[0].eccControl.domainAr 
+                                          : task.controls[0].eccControl.domainEn}
+                                      </span>
+                                    </div>
+                                    <div className="line-clamp-1">
+                                      <span className="font-medium">
+                                        {language === 'ar' ? 'الوصف:' : 'Description:'}
+                                      </span>
+                                      <span className="ml-1">
+                                        {language === 'ar' && task.controls[0].eccControl.controlAr 
+                                          ? task.controls[0].eccControl.controlAr 
+                                          : task.controls[0].eccControl.controlEn}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
                             
                             {/* Task Description */}
                             {task.description && (
@@ -558,22 +578,7 @@ export default function ProjectDetail() {
                                  task.priority === 'high' ? (language === 'ar' ? 'عالية' : 'High') :
                                  (language === 'ar' ? 'عاجلة' : 'Urgent')}
                               </Badge>
-                              {task.assigneeId && (
-                                <div className="flex items-center gap-1 text-sm text-gray-500">
-                                  <Users className="h-3 w-3" />
-                                  <span className="truncate max-w-40" title={task.assigneeId}>
-                                    {task.assigneeId.length > 30 
-                                      ? `${task.assigneeId.substring(0, 30)}...` 
-                                      : task.assigneeId
-                                    }
-                                  </span>
-                                  {task.assigneeId.includes(',') && (
-                                    <span className="text-xs bg-gray-200 dark:bg-gray-700 px-1 rounded">
-                                      {task.assigneeId.split(',').length} {language === 'ar' ? 'أشخاص' : 'people'}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
+
                               {task.dueDate && (
                                 <div className="flex items-center gap-1 text-sm text-gray-500">
                                   <Calendar className="h-3 w-3" />
@@ -609,7 +614,7 @@ export default function ProjectDetail() {
                               </div>
                               
                               {/* Evidence Indicator */}
-                              {taskControl && (
+                              {task.controls && task.controls.length > 0 && (
                                 <div className="flex items-center gap-2 text-xs text-gray-500">
                                   <FileText className="h-3 w-3" />
                                   <span>
@@ -695,7 +700,9 @@ export default function ProjectDetail() {
                           
                           <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
                             <Badge variant="outline" className="text-xs">
-                              {(tasks?.filter((task: any) => task.eccControlId === control.eccControl.id) || []).length} {language === 'ar' ? 'مهمة' : 'Tasks'}
+                              {(tasksWithControls?.filter((task: any) => 
+                                task.controls?.some((taskControl: any) => taskControl.eccControl.id === control.eccControl.id)
+                              ) || []).length} {language === 'ar' ? 'مهمة' : 'Tasks'}
                             </Badge>
                             <Button
                               size="sm"
