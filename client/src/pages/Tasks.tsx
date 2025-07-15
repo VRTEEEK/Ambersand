@@ -322,9 +322,12 @@ export default function Tasks() {
     queryKey: ['/api/tasks', selectedTask?.id, 'controls'],
     queryFn: async () => {
       if (!selectedTask?.id) return [];
+      console.log('🔍 Fetching controls for task:', selectedTask.id);
       const response = await fetch(`/api/tasks/${selectedTask.id}/controls`);
       if (!response.ok) throw new Error('Failed to fetch task controls');
-      return response.json();
+      const data = await response.json();
+      console.log('✅ Retrieved task controls:', data);
+      return data;
     },
     enabled: !!selectedTask?.id && isEditDialogOpen,
   });
@@ -976,7 +979,7 @@ export default function Tasks() {
                     {language === 'ar' ? 'الضوابط المُكلفة' : 'Assigned Controls'}
                   </Label>
                   <div className="min-h-[60px] p-3 border rounded-lg bg-gray-50 dark:bg-gray-800">
-                    {taskControls.length > 0 ? (
+                    {taskControls && taskControls.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {taskControls.map((control: any) => (
                           <Badge key={control.eccControlId || control.id} variant="secondary" className="text-xs">

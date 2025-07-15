@@ -372,11 +372,49 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
+                  {/* Back to domain selection */}
+                  <div className="flex justify-between items-center mb-4">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setStep(2);
+                        setSelectedControls([]);
+                      }}
+                    >
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      {language === 'ar' ? 'العودة للنطاقات' : 'Back to Domains'}
+                    </Button>
+                    
+                    {/* Select All Controls button */}
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        const allControlIds = domainControls.map((pc: any) => pc.eccControl?.id).filter(Boolean);
+                        if (selectedControls.length === allControlIds.length) {
+                          // If all are selected, unselect all
+                          setSelectedControls([]);
+                        } else {
+                          // Select all
+                          setSelectedControls(allControlIds);
+                        }
+                      }}
+                    >
+                      {selectedControls.length === domainControls.length 
+                        ? (language === 'ar' ? 'إلغاء تحديد الكل' : 'Deselect All')
+                        : (language === 'ar' ? 'تحديد الكل' : 'Select All')
+                      }
+                    </Button>
+                  </div>
+
                   {/* Selected controls display */}
                   {selectedControls.length > 0 && (
                     <div className="mb-4">
                       <Label className="text-sm font-medium">
-                        {language === 'ar' ? 'الضوابط المختارة' : 'Selected Controls'}
+                        {language === 'ar' ? 'الضوابط المختارة' : 'Selected Controls'} ({selectedControls.length})
                       </Label>
                       <div className="flex flex-wrap gap-2 mt-2">
                         {selectedControls.map(controlId => {
@@ -581,16 +619,19 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
           {/* Navigation buttons for Steps 1-3 */}
           {step < 4 && (
             <div className="flex justify-between">
-              <Button variant="outline" onClick={step === 1 ? onClose : handleBack}>
-                {step === 1 ? (
-                  language === 'ar' ? 'إلغاء' : 'Cancel'
-                ) : (
-                  <>
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    {language === 'ar' ? 'السابق' : 'Back'}
-                  </>
-                )}
-              </Button>
+              {step !== 3 && (
+                <Button variant="outline" onClick={step === 1 ? onClose : handleBack}>
+                  {step === 1 ? (
+                    language === 'ar' ? 'إلغاء' : 'Cancel'
+                  ) : (
+                    <>
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      {language === 'ar' ? 'السابق' : 'Back'}
+                    </>
+                  )}
+                </Button>
+              )}
+              {step === 3 && <div />} {/* Spacer for step 3 */}
               <Button 
                 onClick={handleNext}
                 disabled={
