@@ -24,8 +24,8 @@ const taskSchema = z.object({
   description: z.string().optional(),
   descriptionAr: z.string().optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
-  dueDate: z.string().optional(),
-  assigneeId: z.string().optional(),
+  dueDate: z.string().optional().nullable().transform(val => val || null),
+  assigneeId: z.string().optional().nullable().transform(val => val || null),
   projectId: z.number(),
   controlIds: z.array(z.number()).min(1, 'At least one control must be selected'),
   createSeparateTasks: z.boolean().default(false),
@@ -104,6 +104,14 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
     mutationFn: async (data: TaskFormData) => {
       const { controlIds, createSeparateTasks, ...taskData } = data;
       
+      // Clean up the task data - convert empty strings to null/undefined
+      const cleanTaskData = {
+        ...taskData,
+        dueDate: taskData.dueDate || null,
+        assigneeId: taskData.assigneeId || null,
+        projectId: Number(taskData.projectId),
+      };
+      
       if (createSeparateTasks && controlIds.length > 1) {
         // Create separate tasks for each control
         const tasks = [];
@@ -112,25 +120,31 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
           const controlTitle = language === 'ar' ? control?.eccControl?.controlAr : control?.eccControl?.controlEn;
           
           const task = await apiRequest('/api/tasks', 'POST', {
-            ...taskData,
-            title: `${taskData.title} - ${control?.eccControl?.code}`,
-            titleAr: taskData.titleAr ? `${taskData.titleAr} - ${control?.eccControl?.code}` : '',
-            description: taskData.description ? `${taskData.description}\n\nControl: ${controlTitle}` : `Control: ${controlTitle}`,
+            ...cleanTaskData,
+            title: `${cleanTaskData.title} - ${control?.eccControl?.code}`,
+            titleAr: cleanTaskData.titleAr ? `${cleanTaskData.titleAr} - ${control?.eccControl?.code}` : '',
+            description: cleanTaskData.description ? `${cleanTaskData.description}\n\nControl: ${controlTitle}` : `Control: ${controlTitle}`,
           });
+          console.log('Created separate task:', task);
 
           // Associate single control with the task
-          await apiRequest(`/api/tasks/${task.id}/controls`, 'POST', { controlIds: [controlId] });
+          if (task && task.id) {
+            console.log('Adding control to separate task:', task.id, [controlId]);
+            await apiRequest(`/api/tasks/${task.id}/controls`, 'POST', { controlIds: [Number(controlId)] });
+          }
           
           tasks.push(task);
         }
         return tasks;
       } else {
         // Create single task with multiple controls
-        const task = await apiRequest('/api/tasks', 'POST', taskData);
+        const task = await apiRequest('/api/tasks', 'POST', cleanTaskData);
+        console.log('Created task:', task);
 
         // Associate all controls with the task
-        if (controlIds.length > 0) {
-          await apiRequest(`/api/tasks/${task.id}/controls`, 'POST', { controlIds });
+        if (controlIds.length > 0 && task && task.id) {
+          console.log('Adding controls to task:', task.id, controlIds);
+          await apiRequest(`/api/tasks/${task.id}/controls`, 'POST', { controlIds: controlIds.map(id => Number(id)) });
         }
 
         return task;
@@ -162,9 +176,9 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
       return;
     }
     
-    // Update form values
-    form.setValue('controlIds', selectedControls);
-    form.setValue('projectId', selectedProjectId!);
+    // Update form values - ensure controlIds are numbers
+    form.setValue('controlIds', selectedControls.map(id => Number(id)));
+    form.setValue('projectId', Number(selectedProjectId!));
     form.setValue('createSeparateTasks', createSeparateTasks);
     
     setStep(step + 1);
