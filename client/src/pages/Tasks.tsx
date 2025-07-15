@@ -416,8 +416,9 @@ export default function Tasks() {
       console.log('🔄 Updating task:', data);
       const taskData = {
         ...data,
-        assigneeId: data.assigneeEmail, // Map to assigneeId
+        assigneeId: data.assigneeId === 'unassigned' ? null : data.assigneeId,
         eccControlId: data.controlId, // Map to eccControlId
+        dueDate: data.dueDate || null,
       };
       await apiRequest(`/api/tasks/${data.id}`, 'PUT', taskData);
     },
