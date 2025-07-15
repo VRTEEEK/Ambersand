@@ -43,6 +43,7 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Label } from '@/components/ui/label';
 import TaskWizard from '@/components/tasks/TaskWizard';
 import {
   DndContext,
@@ -75,7 +76,7 @@ const taskSchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
   dueDate: z.string().optional(),
   projectId: z.number().optional(),
-  assigneeEmail: z.string().optional(),
+  assigneeId: z.string().optional(),
   controlId: z.number().nullable().optional(),
 });
 
@@ -316,6 +317,18 @@ export default function Tasks() {
     },
   });
 
+  // Fetch task controls for the selected task
+  const { data: taskControls = [] } = useQuery({
+    queryKey: ['/api/tasks', selectedTask?.id, 'controls'],
+    queryFn: async () => {
+      if (!selectedTask?.id) return [];
+      const response = await fetch(`/api/tasks/${selectedTask.id}/controls`);
+      if (!response.ok) throw new Error('Failed to fetch task controls');
+      return response.json();
+    },
+    enabled: !!selectedTask?.id && isEditDialogOpen,
+  });
+
   // Simple drag and drop sensors without constraints
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -513,7 +526,7 @@ export default function Tasks() {
       priority: 'medium',
       dueDate: '',
       projectId: undefined,
-      assigneeEmail: '',
+      assigneeId: 'unassigned',
       controlId: undefined,
     },
   });
@@ -530,7 +543,7 @@ export default function Tasks() {
       priority: 'medium',
       dueDate: '',
       projectId: undefined,
-      assigneeEmail: '',
+      assigneeId: 'unassigned',
       controlId: undefined,
     },
   });
@@ -561,7 +574,15 @@ export default function Tasks() {
       return;
     }
     
-    updateTaskMutation.mutate({ ...data, id: selectedTask.id });
+    // Convert assignee field - handle "unassigned" case
+    const updateData = {
+      ...data,
+      assigneeId: data.assigneeId === 'unassigned' ? null : data.assigneeId,
+      dueDate: data.dueDate || null,
+      id: selectedTask.id,
+    };
+    
+    updateTaskMutation.mutate(updateData);
   };
 
   // Handle task click for editing
@@ -576,8 +597,7 @@ export default function Tasks() {
       status: task.status,
       priority: task.priority,
       dueDate: task.dueDate || '',
-      projectId: task.projectId,
-      assigneeEmail: task.assigneeId || '',
+      assigneeId: task.assigneeId || 'unassigned',
       controlId: task.eccControlId,
     });
     setIsEditDialogOpen(true);
@@ -919,23 +939,26 @@ export default function Tasks() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div>
                   <FormField
                     control={editForm.control}
-                    name="projectId"
+                    name="assigneeId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{language === 'ar' ? 'المشروع' : 'Project'}</FormLabel>
-                        <Select onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)} value={field.value?.toString()}>
+                        <FormLabel>{language === 'ar' ? 'المُكلف' : 'Assignee'}</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder={language === 'ar' ? 'اختر المشروع' : 'Select project'} />
+                              <SelectValue placeholder={language === 'ar' ? 'اختر المُكلف' : 'Select assignee'} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {projects.map((project: any) => (
-                              <SelectItem key={project.id} value={project.id.toString()}>
-                                {project.name}
+                            <SelectItem value="unassigned">{language === 'ar' ? 'غير مُكلف' : 'Unassigned'}</SelectItem>
+                            {users.map((user: any) => (
+                              <SelectItem key={user.id} value={user.id}>
+                                {user.firstName && user.lastName 
+                                  ? `${user.firstName} ${user.lastName} (${user.email})`
+                                  : user.email}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -944,20 +967,30 @@ export default function Tasks() {
                       </FormItem>
                     )}
                   />
+                </div>
 
-                  <FormField
-                    control={editForm.control}
-                    name="assigneeEmail"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'المُكلف' : 'Assignee'}</FormLabel>
-                        <FormControl>
-                          <Input placeholder={language === 'ar' ? 'أدخل البريد الإلكتروني أو الاسم' : 'Enter email or name'} {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                {/* Assigned Controls Section */}
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">
+                    {language === 'ar' ? 'الضوابط المُكلفة' : 'Assigned Controls'}
+                  </Label>
+                  <div className="min-h-[60px] p-3 border rounded-lg bg-gray-50 dark:bg-gray-800">
+                    {taskControls.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {taskControls.map((control: any) => (
+                          <Badge key={control.id} variant="secondary" className="text-xs">
+                            {control.eccControl?.code}: {language === 'ar' && control.eccControl?.controlAr 
+                              ? control.eccControl.controlAr 
+                              : control.eccControl?.controlEn}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {language === 'ar' ? 'لا توجد ضوابط مُكلفة' : 'No controls assigned'}
+                      </p>
                     )}
-                  />
+                  </div>
                 </div>
 
                 <div className="flex justify-end space-x-2">
