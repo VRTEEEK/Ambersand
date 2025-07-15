@@ -575,17 +575,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Evidence versions for a specific task
+  app.get('/api/evidence/versions/:taskId', isAuthenticated, async (req, res) => {
+    try {
+      const taskId = parseInt(req.params.taskId);
+      // This would fetch versions for all evidence related to the task
+      const versions = await storage.getEvidenceVersions(taskId);
+      res.json(versions);
+    } catch (error) {
+      console.error("Error fetching evidence versions for task:", error);
+      res.status(500).json({ message: "Failed to fetch evidence versions" });
+    }
+  });
+
+  // Evidence comments for a specific task
+  app.get('/api/evidence/comments/:taskId', isAuthenticated, async (req, res) => {
+    try {
+      const taskId = parseInt(req.params.taskId);
+      // This would fetch comments for all evidence related to the task
+      const comments = await storage.getEvidenceComments(taskId);
+      res.json(comments);
+    } catch (error) {
+      console.error("Error fetching evidence comments for task:", error);
+      res.status(500).json({ message: "Failed to fetch evidence comments" });
+    }
+  });
+
+  // Create evidence comment
   app.post('/api/evidence/:id/comments', isAuthenticated, async (req: any, res) => {
     try {
       const evidenceId = parseInt(req.params.id);
+      const { comment } = req.body;
+      
+      if (!comment || comment.trim() === '') {
+        return res.status(400).json({ message: "Comment content is required" });
+      }
+      
       const commentData = {
         evidenceId,
         userId: req.user.claims.sub,
-        comment: req.body.comment,
+        comment: comment.trim(),
       };
-
-      const comment = await storage.createEvidenceComment(commentData);
-      res.status(201).json(comment);
+      
+      const newComment = await storage.createEvidenceComment(commentData);
+      res.status(201).json(newComment);
     } catch (error) {
       console.error("Error creating evidence comment:", error);
       res.status(500).json({ message: "Failed to create evidence comment" });
@@ -806,6 +839,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const taskId = parseInt(req.body.taskId);
       const projectId = parseInt(req.body.projectId);
+      const controlId = req.body.controlId ? parseInt(req.body.controlId) : null;
       const files = req.files as Express.Multer.File[];
       
       if (!files || files.length === 0) {
@@ -814,23 +848,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const evidenceRecords = [];
       for (const file of files) {
-        const evidenceData = {
-          taskId,
-          projectId,
-          title: file.originalname,
-          titleAr: file.originalname,
-          fileName: file.originalname,
-          filePath: file.path,
-          fileSize: file.size,
-          fileType: file.mimetype,
-          description: `Evidence file: ${file.originalname}`,
-          descriptionAr: `ملف أدلة: ${file.originalname}`,
-          uploadedById: req.user.claims.sub,
-        };
+        // Check if evidence with same name already exists for this task/project
+        const existingEvidence = await storage.getEvidence(projectId, taskId);
+        const sameNameEvidence = existingEvidence.find(e => e.fileName === file.originalname);
         
-        console.log('Creating evidence record:', evidenceData);
-        const evidence = await storage.createEvidence(evidenceData);
-        evidenceRecords.push(evidence);
+        if (sameNameEvidence) {
+          // Create a new version instead of a new evidence record
+          const version = await storage.createEvidenceVersion({
+            evidenceId: sameNameEvidence.id,
+            version: `${parseFloat(sameNameEvidence.version) + 0.1}`,
+            fileName: file.originalname,
+            fileSize: file.size,
+            fileType: file.mimetype,
+            filePath: file.path,
+            uploadedById: req.user.claims.sub,
+          });
+          
+          // Update the main evidence record with the new version
+          await storage.updateEvidence(sameNameEvidence.id, {
+            version: version.version,
+            filePath: file.path,
+            fileSize: file.size,
+            fileType: file.mimetype,
+          });
+          
+          evidenceRecords.push({ ...sameNameEvidence, version: version.version });
+        } else {
+          // Create new evidence record
+          const evidenceData = {
+            taskId,
+            projectId,
+            title: file.originalname,
+            titleAr: file.originalname,
+            fileName: file.originalname,
+            filePath: file.path,
+            fileSize: file.size,
+            fileType: file.mimetype,
+            description: `Evidence file: ${file.originalname}`,
+            descriptionAr: `ملف أدلة: ${file.originalname}`,
+            uploadedById: req.user.claims.sub,
+          };
+          
+          console.log('Creating evidence record:', evidenceData);
+          const evidence = await storage.createEvidence(evidenceData);
+          
+          // Associate evidence with control if provided
+          if (controlId) {
+            await storage.addControlsToEvidence(evidence.id, [controlId]);
+          }
+          
+          // Associate evidence with task if provided
+          if (taskId) {
+            await storage.addTasksToEvidence(evidence.id, [taskId]);
+          }
+          
+          evidenceRecords.push(evidence);
+        }
       }
 
       console.log('Evidence upload successful:', evidenceRecords.length, 'files');
