@@ -11,7 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { X, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { X, ArrowLeft, ArrowRight, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { apiRequest } from '@/lib/queryClient';
 import { useI18n } from '@/hooks/use-i18n';
@@ -27,6 +28,7 @@ const taskSchema = z.object({
   assigneeId: z.string().optional(),
   projectId: z.number(),
   controlIds: z.array(z.number()).min(1, 'At least one control must be selected'),
+  createSeparateTasks: z.boolean().default(false),
 });
 
 type TaskFormData = z.infer<typeof taskSchema>;
@@ -35,14 +37,18 @@ interface TaskWizardProps {
   isOpen: boolean;
   onClose: () => void;
   projectId?: number;
+  preselectedProjectId?: number; // For when opened from project details
 }
 
-export default function TaskWizard({ isOpen, onClose, projectId }: TaskWizardProps) {
+export default function TaskWizard({ isOpen, onClose, projectId, preselectedProjectId }: TaskWizardProps) {
   const { language } = useI18n();
   const queryClient = useQueryClient();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(preselectedProjectId ? 2 : 1); // Skip project selection if preselected
   const [selectedControls, setSelectedControls] = useState<number[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(projectId || null);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(preselectedProjectId || projectId || null);
+  const [selectedDomain, setSelectedDomain] = useState<string>('');
+  const [domainSearch, setDomainSearch] = useState('');
+  const [createSeparateTasks, setCreateSeparateTasks] = useState(false);
 
   const form = useForm<TaskFormData>({
     resolver: zodResolver(taskSchema),
@@ -56,13 +62,14 @@ export default function TaskWizard({ isOpen, onClose, projectId }: TaskWizardPro
       assigneeId: '',
       projectId: selectedProjectId || undefined,
       controlIds: [],
+      createSeparateTasks: false,
     },
   });
 
-  // Fetch projects for selection
+  // Fetch projects for selection (only if not preselected)
   const { data: projects = [] } = useQuery({
     queryKey: ['/api/projects'],
-    enabled: isOpen,
+    enabled: isOpen && !preselectedProjectId,
   });
 
   // Fetch project controls
@@ -77,28 +84,73 @@ export default function TaskWizard({ isOpen, onClose, projectId }: TaskWizardPro
     enabled: isOpen,
   });
 
+  // Get unique domains from project controls
+  const domains = Array.from(new Set(
+    projectControls.map((pc: any) => language === 'ar' ? pc.eccControl?.domainAr : pc.eccControl?.domainEn)
+  )).filter(Boolean).sort();
+
+  // Filter domains based on search
+  const filteredDomains = domains.filter(domain => 
+    domain.toLowerCase().includes(domainSearch.toLowerCase())
+  );
+
+  // Get controls for selected domain
+  const domainControls = projectControls.filter((pc: any) => {
+    const controlDomain = language === 'ar' ? pc.eccControl?.domainAr : pc.eccControl?.domainEn;
+    return controlDomain === selectedDomain;
+  });
+
   const createTaskMutation = useMutation({
     mutationFn: async (data: TaskFormData) => {
-      const { controlIds, ...taskData } = data;
+      const { controlIds, createSeparateTasks, ...taskData } = data;
       
-      // Create task first
-      const task = await apiRequest('/api/tasks', {
-        method: 'POST',
-        body: taskData,
-      });
+      if (createSeparateTasks && controlIds.length > 1) {
+        // Create separate tasks for each control
+        const tasks = [];
+        for (const controlId of controlIds) {
+          const control = domainControls.find((pc: any) => pc.eccControl?.id === controlId);
+          const controlTitle = language === 'ar' ? control?.eccControl?.controlAr : control?.eccControl?.controlEn;
+          
+          const task = await apiRequest('/api/tasks', {
+            method: 'POST',
+            body: {
+              ...taskData,
+              title: `${taskData.title} - ${control?.eccControl?.code}`,
+              titleAr: taskData.titleAr ? `${taskData.titleAr} - ${control?.eccControl?.code}` : '',
+              description: taskData.description ? `${taskData.description}\n\nControl: ${controlTitle}` : `Control: ${controlTitle}`,
+            },
+          });
 
-      // Then associate controls with the task
-      if (controlIds.length > 0) {
-        await apiRequest(`/api/tasks/${task.id}/controls`, {
+          // Associate single control with the task
+          await apiRequest(`/api/tasks/${task.id}/controls`, {
+            method: 'POST',
+            body: { controlIds: [controlId] },
+          });
+          
+          tasks.push(task);
+        }
+        return tasks;
+      } else {
+        // Create single task with multiple controls
+        const task = await apiRequest('/api/tasks', {
           method: 'POST',
-          body: { controlIds },
+          body: taskData,
         });
-      }
 
-      return task;
+        // Associate all controls with the task
+        if (controlIds.length > 0) {
+          await apiRequest(`/api/tasks/${task.id}/controls`, {
+            method: 'POST',
+            body: { controlIds },
+          });
+        }
+
+        return task;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', selectedProjectId] });
       handleClose();
     },
   });
@@ -115,11 +167,18 @@ export default function TaskWizard({ isOpen, onClose, projectId }: TaskWizardPro
     if (step === 1 && !selectedProjectId) {
       return;
     }
-    if (step === 2 && selectedControls.length === 0) {
+    if (step === 2 && !selectedDomain) {
       return;
     }
+    if (step === 3 && selectedControls.length === 0) {
+      return;
+    }
+    
+    // Update form values
     form.setValue('controlIds', selectedControls);
     form.setValue('projectId', selectedProjectId!);
+    form.setValue('createSeparateTasks', createSeparateTasks);
+    
     setStep(step + 1);
   };
 
@@ -134,9 +193,12 @@ export default function TaskWizard({ isOpen, onClose, projectId }: TaskWizardPro
   const handleClose = () => {
     onClose();
     form.reset();
-    setStep(1);
+    setStep(preselectedProjectId ? 2 : 1);
     setSelectedControls([]);
-    setSelectedProjectId(projectId || null);
+    setSelectedProjectId(preselectedProjectId || projectId || null);
+    setSelectedDomain('');
+    setDomainSearch('');
+    setCreateSeparateTasks(false);
   };
 
   return (
@@ -164,13 +226,19 @@ export default function TaskWizard({ isOpen, onClose, projectId }: TaskWizardPro
             </div>
             <div className={`w-16 h-0.5 ${step >= 3 ? 'bg-blue-600' : 'bg-gray-200'}`} />
             <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
-              step === 3 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+              step === 3 ? 'bg-blue-600 text-white' : step > 3 ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'
             }`}>
               3
             </div>
+            <div className={`w-16 h-0.5 ${step >= 4 ? 'bg-blue-600' : 'bg-gray-200'}`} />
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
+              step === 4 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+            }`}>
+              4
+            </div>
           </div>
 
-          {step === 1 && (
+          {step === 1 && !preselectedProjectId && (
             <Card>
               <CardHeader>
                 <CardTitle>
@@ -228,16 +296,78 @@ export default function TaskWizard({ isOpen, onClose, projectId }: TaskWizardPro
             <Card>
               <CardHeader>
                 <CardTitle>
-                  {language === 'ar' ? 'الخطوة 2: اختر الضوابط' : 'Step 2: Select Controls'}
+                  {language === 'ar' ? 'الخطوة 2: اختر النطاق' : 'Step 2: Select Domain'}
                 </CardTitle>
                 <CardDescription>
                   {language === 'ar' 
-                    ? 'اختر الضوابط التي ستغطيها هذه المهمة من المشروع' 
-                    : 'Select the controls that this task will address from the project'}
+                    ? 'اختر النطاق الذي تريد إنشاء مهام له' 
+                    : 'Select the domain you want to create tasks for'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
+                  {/* Domain search */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      type="text"
+                      placeholder={language === 'ar' ? 'بحث في النطاقات...' : 'Search domains...'}
+                      value={domainSearch}
+                      onChange={(e) => setDomainSearch(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+
+                  {/* Domain selection */}
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {filteredDomains.map((domain) => (
+                      <div 
+                        key={domain}
+                        className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                          selectedDomain === domain
+                            ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' 
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                        onClick={() => setSelectedDomain(domain)}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="radio"
+                            id={`domain-${domain}`}
+                            name="domain"
+                            checked={selectedDomain === domain}
+                            onChange={() => setSelectedDomain(domain)}
+                            className="h-4 w-4 text-blue-600"
+                          />
+                          <Label 
+                            htmlFor={`domain-${domain}`}
+                            className="text-sm font-medium cursor-pointer flex-1"
+                          >
+                            {domain}
+                          </Label>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {step === 3 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  {language === 'ar' ? 'الخطوة 3: اختر الضوابط وخيارات الإنشاء' : 'Step 3: Select Controls and Creation Options'}
+                </CardTitle>
+                <CardDescription>
+                  {language === 'ar' 
+                    ? 'اختر الضوابط من النطاق المحدد وحدد خيارات إنشاء المهام' 
+                    : 'Select controls from the chosen domain and specify task creation options'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
                   {/* Selected controls display */}
                   {selectedControls.length > 0 && (
                     <div className="mb-4">
@@ -246,7 +376,7 @@ export default function TaskWizard({ isOpen, onClose, projectId }: TaskWizardPro
                       </Label>
                       <div className="flex flex-wrap gap-2 mt-2">
                         {selectedControls.map(controlId => {
-                          const control = projectControls.find((pc: any) => pc.eccControl?.id === controlId);
+                          const control = domainControls.find((pc: any) => pc.eccControl?.id === controlId);
                           return (
                             <Badge key={controlId} variant="secondary" className="flex items-center gap-1">
                               {control?.eccControl?.code || controlId}
@@ -262,8 +392,8 @@ export default function TaskWizard({ isOpen, onClose, projectId }: TaskWizardPro
                   )}
 
                   {/* Controls list */}
-                  <div className="grid gap-3 max-h-96 overflow-y-auto">
-                    {projectControls.map((projectControl: any) => (
+                  <div className="grid gap-3 max-h-64 overflow-y-auto">
+                    {domainControls.map((projectControl: any) => (
                       <div key={projectControl.id} className="flex items-start space-x-3 p-3 border rounded-lg">
                         <Checkbox
                           id={`control-${projectControl.eccControl?.id}`}
@@ -283,24 +413,46 @@ export default function TaskWizard({ isOpen, onClose, projectId }: TaskWizardPro
                           </Label>
                           <p className="text-xs text-gray-600 mt-1">
                             {language === 'ar' 
-                              ? projectControl.eccControl?.domainAr 
-                              : projectControl.eccControl?.domainEn
+                              ? projectControl.eccControl?.subdomainAr 
+                              : projectControl.eccControl?.subdomainEn
                             }
                           </p>
                         </div>
                       </div>
                     ))}
                   </div>
+
+                  {/* Bulk task creation option */}
+                  {selectedControls.length > 1 && (
+                    <div className="border-t pt-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <Label className="text-sm font-medium">
+                            {language === 'ar' ? 'إنشاء مهمة منفصلة لكل ضابط' : 'Create separate task for each control'}
+                          </Label>
+                          <p className="text-xs text-gray-600">
+                            {language === 'ar' 
+                              ? 'إذا تم التفعيل، سيتم إنشاء مهمة منفصلة لكل ضابط. وإلا، سيتم إنشاء مهمة واحدة مرتبطة بجميع الضوابط المختارة.'
+                              : 'If enabled, a separate task will be created for each control. Otherwise, a single task will be created linked to all selected controls.'}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={createSeparateTasks}
+                          onCheckedChange={setCreateSeparateTasks}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <Card>
               <CardHeader>
                 <CardTitle>
-                  {language === 'ar' ? 'الخطوة 3: تفاصيل المهمة' : 'Step 3: Task Details'}
+                  {language === 'ar' ? 'الخطوة 4: تفاصيل المهمة' : 'Step 4: Task Details'}
                 </CardTitle>
                 <CardDescription>
                   {language === 'ar' 
@@ -396,7 +548,7 @@ export default function TaskWizard({ isOpen, onClose, projectId }: TaskWizardPro
                     <Label>{language === 'ar' ? 'الضوابط المختارة' : 'Selected Controls'}</Label>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {selectedControls.map(controlId => {
-                        const control = projectControls.find((pc: any) => pc.eccControl?.id === controlId);
+                        const control = domainControls.find((pc: any) => pc.eccControl?.id === controlId);
                         return (
                           <Badge key={controlId} variant="secondary">
                             {control?.eccControl?.code || controlId}
@@ -422,30 +574,26 @@ export default function TaskWizard({ isOpen, onClose, projectId }: TaskWizardPro
             </Card>
           )}
 
-          {step === 1 && (
+          {/* Navigation buttons for Steps 1-3 */}
+          {step < 4 && (
             <div className="flex justify-between">
-              <Button variant="outline" onClick={onClose}>
-                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              <Button variant="outline" onClick={step === 1 ? onClose : handleBack}>
+                {step === 1 ? (
+                  language === 'ar' ? 'إلغاء' : 'Cancel'
+                ) : (
+                  <>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    {language === 'ar' ? 'السابق' : 'Back'}
+                  </>
+                )}
               </Button>
               <Button 
                 onClick={handleNext}
-                disabled={!selectedProjectId}
-              >
-                {language === 'ar' ? 'التالي' : 'Next'}
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={handleBack}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                {language === 'ar' ? 'السابق' : 'Back'}
-              </Button>
-              <Button 
-                onClick={handleNext}
-                disabled={selectedControls.length === 0}
+                disabled={
+                  (step === 1 && !preselectedProjectId && !selectedProjectId) ||
+                  (step === 2 && !selectedDomain) ||
+                  (step === 3 && selectedControls.length === 0)
+                }
               >
                 {language === 'ar' ? 'التالي' : 'Next'}
                 <ArrowRight className="h-4 w-4 ml-2" />
