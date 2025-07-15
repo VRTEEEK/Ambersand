@@ -332,7 +332,13 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                             ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' 
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
-                        onClick={() => setSelectedDomain(domain)}
+                        onClick={() => {
+                          setSelectedDomain(domain);
+                          // Automatically proceed to next step
+                          setTimeout(() => {
+                            handleNext();
+                          }, 100);
+                        }}
                       >
                         <div className="flex items-center space-x-3">
                           <input
@@ -340,7 +346,13 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                             id={`domain-${domain}`}
                             name="domain"
                             checked={selectedDomain === domain}
-                            onChange={() => setSelectedDomain(domain)}
+                            onChange={() => {
+                              setSelectedDomain(domain);
+                              // Automatically proceed to next step
+                              setTimeout(() => {
+                                handleNext();
+                              }, 100);
+                            }}
                             className="h-4 w-4 text-blue-600"
                           />
                           <Label 
@@ -616,19 +628,12 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
             </Card>
           )}
 
-          {/* Navigation buttons for Steps 1-3 */}
-          {step < 4 && (
+          {/* Navigation buttons for Steps 1 and 3 */}
+          {(step === 1 || step === 3) && (
             <div className="flex justify-between">
-              {step !== 3 && (
-                <Button variant="outline" onClick={step === 1 ? onClose : handleBack}>
-                  {step === 1 ? (
-                    language === 'ar' ? 'إلغاء' : 'Cancel'
-                  ) : (
-                    <>
-                      <ArrowLeft className="h-4 w-4 mr-2" />
-                      {language === 'ar' ? 'السابق' : 'Back'}
-                    </>
-                  )}
+              {step === 1 && (
+                <Button variant="outline" onClick={onClose}>
+                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
                 </Button>
               )}
               {step === 3 && <div />} {/* Spacer for step 3 */}
@@ -636,7 +641,6 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                 onClick={handleNext}
                 disabled={
                   (step === 1 && !preselectedProjectId && !selectedProjectId) ||
-                  (step === 2 && !selectedDomain) ||
                   (step === 3 && selectedControls.length === 0)
                 }
               >
