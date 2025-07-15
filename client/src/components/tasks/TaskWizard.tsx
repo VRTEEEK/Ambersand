@@ -99,6 +99,13 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
     projectControls.map((pc: any) => language === 'ar' ? pc.eccControl?.domainAr : pc.eccControl?.domainEn)
   )).filter(Boolean).sort();
 
+  // Auto-select first domain if project is preselected and only one domain exists
+  useEffect(() => {
+    if (preselectedProjectId && domains && domains.length === 1 && !selectedDomain) {
+      setSelectedDomain(domains[0]);
+    }
+  }, [preselectedProjectId, domains, selectedDomain]);
+
   // Filter domains based on search
   const filteredDomains = domains.filter(domain => 
     domain.toLowerCase().includes(domainSearch.toLowerCase())
@@ -261,28 +268,32 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
           <div className="flex-1 overflow-y-auto space-y-6">
           {/* Step indicator */}
           <div className="flex items-center justify-center space-x-4 mb-6">
-            <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
-              step === 1 ? 'bg-blue-600 text-white' : step > 1 ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'
-            }`}>
-              1
-            </div>
-            <div className={`w-16 h-0.5 ${step >= 2 ? 'bg-blue-600' : 'bg-gray-200'}`} />
+            {!preselectedProjectId && (
+              <>
+                <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
+                  step === 1 ? 'bg-blue-600 text-white' : step > 1 ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'
+                }`}>
+                  1
+                </div>
+                <div className={`w-16 h-0.5 ${step >= 2 ? 'bg-blue-600' : 'bg-gray-200'}`} />
+              </>
+            )}
             <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
               step === 2 ? 'bg-blue-600 text-white' : step > 2 ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'
             }`}>
-              2
+              {preselectedProjectId ? '1' : '2'}
             </div>
             <div className={`w-16 h-0.5 ${step >= 3 ? 'bg-blue-600' : 'bg-gray-200'}`} />
             <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
               step === 3 ? 'bg-blue-600 text-white' : step > 3 ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'
             }`}>
-              3
+              {preselectedProjectId ? '2' : '3'}
             </div>
             <div className={`w-16 h-0.5 ${step >= 4 ? 'bg-blue-600' : 'bg-gray-200'}`} />
             <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
               step === 4 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
             }`}>
-              4
+              {preselectedProjectId ? '3' : '4'}
             </div>
           </div>
 
@@ -344,12 +355,20 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
             <Card>
               <CardHeader>
                 <CardTitle>
-                  {language === 'ar' ? 'الخطوة 2: اختر النطاق' : 'Step 2: Select Domain'}
+                  {preselectedProjectId 
+                    ? (language === 'ar' ? 'الخطوة 1: اختر النطاق' : 'Step 1: Select Domain')
+                    : (language === 'ar' ? 'الخطوة 2: اختر النطاق' : 'Step 2: Select Domain')}
                 </CardTitle>
                 <CardDescription>
-                  {language === 'ar' 
-                    ? 'اختر النطاق الذي تريد إنشاء مهام له' 
-                    : 'Select the domain you want to create tasks for'}
+                  {preselectedProjectId ? (
+                    language === 'ar' 
+                      ? 'اختر النطاق الذي تريد إنشاء مهام له من المشروع المحدد' 
+                      : 'Select the domain you want to create tasks for from the selected project'
+                  ) : (
+                    language === 'ar' 
+                      ? 'اختر النطاق الذي تريد إنشاء مهام له' 
+                      : 'Select the domain you want to create tasks for'
+                  )}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -427,7 +446,9 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
             <Card>
               <CardHeader>
                 <CardTitle>
-                  {language === 'ar' ? 'الخطوة 3: اختر الضوابط وخيارات الإنشاء' : 'Step 3: Select Controls and Creation Options'}
+                  {preselectedProjectId 
+                    ? (language === 'ar' ? 'الخطوة 2: اختر الضوابط وخيارات الإنشاء' : 'Step 2: Select Controls and Creation Options')
+                    : (language === 'ar' ? 'الخطوة 3: اختر الضوابط وخيارات الإنشاء' : 'Step 3: Select Controls and Creation Options')}
                 </CardTitle>
                 <CardDescription>
                   {language === 'ar' 
@@ -538,7 +559,9 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
             <Card>
               <CardHeader>
                 <CardTitle>
-                  {language === 'ar' ? 'الخطوة 4: تفاصيل المهمة' : 'Step 4: Task Details'}
+                  {preselectedProjectId 
+                    ? (language === 'ar' ? 'الخطوة 3: تفاصيل المهمة' : 'Step 3: Task Details')
+                    : (language === 'ar' ? 'الخطوة 4: تفاصيل المهمة' : 'Step 4: Task Details')}
                 </CardTitle>
                 <CardDescription>
                   {language === 'ar' 
