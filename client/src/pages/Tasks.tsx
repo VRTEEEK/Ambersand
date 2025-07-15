@@ -38,6 +38,7 @@ import {
   FileText,
   Users,
   GripVertical,
+  FolderOpen,
 } from 'lucide-react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -154,7 +155,7 @@ const DroppableColumn = memo(function DroppableColumn({ id, children }: { id: st
 });
 
 // Sortable Task Card Component - Memoized for performance
-const SortableTaskCard = memo(function SortableTaskCard({ task, language, onTaskClick, users }: { task: Task; language: string; onTaskClick: (task: Task) => void; users: any[] }) {
+const SortableTaskCard = memo(function SortableTaskCard({ task, language, onTaskClick, users, projects }: { task: Task; language: string; onTaskClick: (task: Task) => void; users: any[]; projects: any[] }) {
   const {
     attributes,
     listeners,
@@ -222,6 +223,19 @@ const SortableTaskCard = memo(function SortableTaskCard({ task, language, onTask
       )}
       
       <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+        {/* Project name */}
+        <div className="flex items-center gap-1">
+          <FolderOpen className="h-3 w-3" />
+          <span className="truncate max-w-32">
+            {(() => {
+              const project = projects?.find((p: any) => p.id === task.projectId);
+              if (project) {
+                return language === 'ar' && project.nameAr ? project.nameAr : project.name;
+              }
+              return `Project ${task.projectId}`;
+            })()}
+          </span>
+        </div>
         {task.assigneeId && (
           <div className="flex items-center gap-1">
             <Users className="h-3 w-3" />
@@ -267,6 +281,7 @@ export default function Tasks() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [projectFilter, setProjectFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -505,10 +520,11 @@ export default function Tasks() {
                            (task.titleAr && task.titleAr.toLowerCase().includes(debouncedSearchTerm.toLowerCase()));
       const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
       const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
+      const matchesProject = projectFilter === 'all' || task.projectId === Number(projectFilter);
       
-      return matchesSearch && matchesStatus && matchesPriority;
+      return matchesSearch && matchesStatus && matchesPriority && matchesProject;
     }) || [];
-  }, [tasks, debouncedSearchTerm, statusFilter, priorityFilter]);
+  }, [tasks, debouncedSearchTerm, statusFilter, priorityFilter, projectFilter]);
 
   // Memoize grouped tasks for performance
   const filteredGroupedTasks = useMemo(() => {
@@ -705,6 +721,19 @@ export default function Tasks() {
                   <SelectItem value="low">{language === 'ar' ? 'منخفضة' : 'Low'}</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <SelectTrigger className="w-full lg:w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === 'ar' ? 'كل المشاريع' : 'All Projects'}</SelectItem>
+                  {projects.map((project: any) => (
+                    <SelectItem key={project.id} value={project.id.toString()}>
+                      {language === 'ar' && project.nameAr ? project.nameAr : project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
@@ -755,7 +784,7 @@ export default function Tasks() {
                           ) : (
                             <>
                               {columnTasks.slice(0, 50).map((task) => (
-                                <SortableTaskCard key={task.id} task={task} language={language} onTaskClick={handleTaskClick} users={users} />
+                                <SortableTaskCard key={task.id} task={task} language={language} onTaskClick={handleTaskClick} users={users} projects={projects} />
                               ))}
                               {columnTasks.length > 50 && (
                                 <div className="text-center py-4 text-gray-500 dark:text-gray-400">
