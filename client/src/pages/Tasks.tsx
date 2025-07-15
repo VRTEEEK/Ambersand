@@ -826,16 +826,16 @@ export default function Tasks() {
                     {language === 'ar' ? 'معلومات المشروع' : 'Project Information'}
                   </Label>
                   <div className="p-3 border rounded-lg bg-gray-50 dark:bg-gray-800">
-                    {projects.find((p: any) => p.id === editingTask?.projectId) ? (
+                    {projects.find((p: any) => p.id === selectedTask?.projectId) ? (
                       <div className="space-y-1">
                         <p className="text-sm font-medium">
-                          {language === 'ar' && projects.find((p: any) => p.id === editingTask?.projectId)?.nameAr
-                            ? projects.find((p: any) => p.id === editingTask?.projectId)?.nameAr
-                            : projects.find((p: any) => p.id === editingTask?.projectId)?.name}
+                          {language === 'ar' && projects.find((p: any) => p.id === selectedTask?.projectId)?.nameAr
+                            ? projects.find((p: any) => p.id === selectedTask?.projectId)?.nameAr
+                            : projects.find((p: any) => p.id === selectedTask?.projectId)?.name}
                         </p>
                         <p className="text-xs text-gray-600">
                           {language === 'ar' ? 'رقم المشروع: ' : 'Project ID: '}
-                          {editingTask?.projectId}
+                          {selectedTask?.projectId}
                         </p>
                       </div>
                     ) : (
