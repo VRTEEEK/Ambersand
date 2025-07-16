@@ -766,7 +766,7 @@ export default function Evidence() {
         {/* Enhanced Detail Dialog */}
         <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
           <DialogContent className="max-w-6xl w-[92vw] h-[88vh]" aria-describedby="evidence-dialog-description">
-            <DialogHeader className="pb-4">
+            <DialogHeader className="pb-4 flex-shrink-0">
               <DialogTitle className="flex items-center gap-3 text-xl font-semibold">
                 <div className="w-8 h-8 bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg flex items-center justify-center">
                   {getFileIcon(selectedEvidence?.fileType)}
@@ -778,8 +778,9 @@ export default function Evidence() {
               </div>
             </DialogHeader>
             {selectedEvidence && (
-              <Tabs defaultValue="details" className="flex flex-col h-full">
-                <TabsList className="grid w-full grid-cols-5 h-12 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 shrink-0 mb-4">
+              <div className="flex flex-col flex-1 min-h-0">
+                <Tabs defaultValue="details" className="flex flex-col h-full">
+                  <TabsList className="grid w-full grid-cols-5 h-12 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 flex-shrink-0 mb-4">
                   <TabsTrigger 
                     value="details" 
                     className="text-sm font-medium px-4 py-2 rounded-md transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-teal-700 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-teal-400"
@@ -812,9 +813,9 @@ export default function Evidence() {
                   </TabsTrigger>
                 </TabsList>
 
-                {/* Details Tab */}
-                <TabsContent value="details" className="flex-1 overflow-hidden">
-                  <div className="overflow-y-auto px-6 pb-4" style={{maxHeight: 'calc(88vh - 200px)'}}>
+                  {/* Details Tab */}
+                  <TabsContent value="details" className="flex-1 overflow-hidden">
+                    <div className="h-full overflow-y-auto px-6 pb-4">
                     <div className="flex items-start gap-6 mb-6">
                         <div className="w-16 h-16 bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl flex items-center justify-center shadow-sm">
                           {getFileIcon(selectedEvidence.fileType)}
@@ -1243,7 +1244,8 @@ export default function Evidence() {
                       </div>
                   </div>
                 </TabsContent>
-              </Tabs>
+                </Tabs>
+              </div>
             )}
           </DialogContent>
         </Dialog>
