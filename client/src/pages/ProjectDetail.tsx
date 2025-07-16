@@ -787,10 +787,7 @@ function EditTaskForm({
   // Mutation for adding evidence comments
   const addCommentMutation = useMutation({
     mutationFn: async ({ evidenceId, comment }: { evidenceId: number; comment: string }) => {
-      return apiRequest(`/api/evidence/${evidenceId}/comments`, {
-        method: 'POST',
-        body: { comment },
-      });
+      return apiRequest(`/api/evidence/${evidenceId}/comments`, 'POST', { comment });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/evidence', 'comments', task.id] });
@@ -811,10 +808,7 @@ function EditTaskForm({
   // Mutation for adding controls to task
   const addControlsToTaskMutation = useMutation({
     mutationFn: async (controlIds: number[]) => {
-      return apiRequest(`/api/tasks/${task.id}/controls`, {
-        method: 'POST',
-        body: { controlIds },
-      });
+      return apiRequest(`/api/tasks/${task.id}/controls`, 'POST', { controlIds });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks', task.id, 'controls'] });
@@ -828,10 +822,7 @@ function EditTaskForm({
   // Mutation for removing control from task
   const removeControlFromTaskMutation = useMutation({
     mutationFn: async (controlId: number) => {
-      return apiRequest(`/api/tasks/${task.id}/controls`, {
-        method: 'DELETE',
-        body: { controlIds: [controlId] },
-      });
+      return apiRequest(`/api/tasks/${task.id}/controls`, 'DELETE', { controlIds: [controlId] });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks', task.id, 'controls'] });
@@ -845,10 +836,7 @@ function EditTaskForm({
   // Mutation for linking evidence to task
   const linkEvidenceToTaskMutation = useMutation({
     mutationFn: async ({ evidenceId, taskId }: { evidenceId: number; taskId: number }) => {
-      return apiRequest(`/api/evidence/${evidenceId}/tasks`, {
-        method: 'POST',
-        body: { taskIds: [taskId] },
-      });
+      return apiRequest(`/api/evidence/${evidenceId}/tasks`, 'POST', { taskIds: [taskId] });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/evidence'] });
