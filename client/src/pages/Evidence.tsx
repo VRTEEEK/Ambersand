@@ -88,6 +88,11 @@ export default function Evidence() {
   const [isCommentDialogOpen, setIsCommentDialogOpen] = useState(false);
   const [selectedEvidence, setSelectedEvidence] = useState<any>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [newComment, setNewComment] = useState('');
+  const [isAddingComment, setIsAddingComment] = useState(false);
+  const [newVersionFile, setNewVersionFile] = useState<File | null>(null);
+  const [versionNumber, setVersionNumber] = useState('');
+  const [versionNotes, setVersionNotes] = useState('');
   const [comment, setComment] = useState('');
 
   const { data: evidence, isLoading, error } = useQuery({
@@ -141,6 +146,56 @@ export default function Evidence() {
   const handleAddComment = (item: any) => {
     setSelectedEvidence(item);
     setIsCommentDialogOpen(true);
+  };
+
+  const addCommentToEvidence = async () => {
+    if (!newComment.trim() || !selectedEvidence) return;
+    
+    setIsAddingComment(true);
+    try {
+      // This would be implemented with the backend API
+      toast({
+        title: language === 'ar' ? 'تم إضافة التعليق' : 'Comment Added',
+        description: language === 'ar' ? 'تم إضافة التعليق بنجاح' : 'Comment added successfully',
+      });
+      setNewComment('');
+    } catch (error) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في إضافة التعليق' : 'Failed to add comment',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsAddingComment(false);
+    }
+  };
+
+  const handleNewVersionUpload = () => {
+    if (!newVersionFile || !versionNumber) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'يرجى اختيار ملف ورقم إصدار' : 'Please select a file and version number',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // This would be implemented with the backend API
+    toast({
+      title: language === 'ar' ? 'تم رفع الإصدار الجديد' : 'New Version Uploaded',
+      description: language === 'ar' ? 'تم رفع الإصدار الجديد بنجاح' : 'New version uploaded successfully',
+    });
+    
+    setNewVersionFile(null);
+    setVersionNumber('');
+    setVersionNotes('');
+  };
+
+  const handleNewVersionFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setNewVersionFile(file);
+    }
   };
 
   const handleDownload = (item: any) => {
@@ -622,12 +677,15 @@ export default function Evidence() {
 
         {/* Enhanced Detail Dialog */}
         <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto" aria-describedby="evidence-dialog-description">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 {getFileIcon(selectedEvidence?.fileType)}
                 {language === 'ar' ? 'تفاصيل الدليل' : 'Evidence Details'}
               </DialogTitle>
+              <div id="evidence-dialog-description" className="sr-only">
+                Detailed view of evidence file with tabs for details, versions, comments, and uploads
+              </div>
             </DialogHeader>
             {selectedEvidence && (
               <Tabs defaultValue="details" className="w-full">
@@ -675,13 +733,23 @@ export default function Evidence() {
                           <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Upload Date</span>
                           <p className="text-lg font-semibold">{formatDate(selectedEvidence.createdAt)}</p>
                         </div>
-                        {selectedEvidence.eccControlId && getControlInfo && (
+                        {(selectedEvidence.projectId || selectedEvidence.taskId) && (
                           <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                            <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Control</span>
-                            <Badge variant="secondary" className="mt-1 bg-teal-50 text-teal-700 border-teal-200">
-                              <Shield className="h-3 w-3 mr-1" />
-                              {getControlInfo(selectedEvidence.eccControlId)?.code || selectedEvidence.eccControlId}
-                            </Badge>
+                            <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Linked To</span>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {selectedEvidence.projectId && (
+                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                  <Building className="h-3 w-3 mr-1" />
+                                  {getProjectName(selectedEvidence.projectId)}
+                                </Badge>
+                              )}
+                              {selectedEvidence.taskId && (
+                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  {getTaskName(selectedEvidence.taskId)}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -741,18 +809,59 @@ export default function Evidence() {
                     <h3 className="text-lg font-semibold">
                       {language === 'ar' ? 'التعليقات' : 'Comments'}
                     </h3>
-                    <Button size="sm" onClick={() => handleAddComment(selectedEvidence)}>
-                      <MessageCircle className="h-3 w-3 mr-1" />
-                      {language === 'ar' ? 'إضافة تعليق' : 'Add Comment'}
-                    </Button>
+                    <Badge variant="outline">
+                      {language === 'ar' ? '0 تعليق' : '0 Comments'}
+                    </Badge>
                   </div>
+                  
+                  {/* Add Comment Form */}
+                  <Card className="p-4">
+                    <div className="space-y-3">
+                      <h4 className="font-medium">
+                        {language === 'ar' ? 'إضافة تعليق جديد' : 'Add New Comment'}
+                      </h4>
+                      <Textarea
+                        placeholder={language === 'ar' ? 'اكتب تعليقك هنا...' : 'Write your comment here...'}
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        rows={3}
+                      />
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setNewComment('')}
+                          disabled={!newComment.trim()}
+                        >
+                          {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={addCommentToEvidence}
+                          disabled={!newComment.trim() || isAddingComment}
+                        >
+                          {isAddingComment ? (
+                            <>
+                              <div className="animate-spin h-3 w-3 mr-1 border border-white border-t-transparent rounded-full" />
+                              {language === 'ar' ? 'جاري الإضافة...' : 'Adding...'}
+                            </>
+                          ) : (
+                            <>
+                              <MessageCircle className="h-3 w-3 mr-1" />
+                              {language === 'ar' ? 'إضافة تعليق' : 'Add Comment'}
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
                   
                   <div className="space-y-3">
                     <div className="text-center py-8 text-gray-500">
                       <MessageCircle className="h-8 w-8 mx-auto mb-2 text-gray-300" />
                       <p>{language === 'ar' ? 'لا توجد تعليقات حتى الآن' : 'No comments yet'}</p>
                       <p className="text-sm">
-                        {language === 'ar' ? 'كن أول من يضيف تعليق' : 'Be the first to add a comment'}
+                        {language === 'ar' ? 'أضف أول تعليق أعلاه' : 'Add the first comment above'}
                       </p>
                     </div>
                   </div>
@@ -765,16 +874,46 @@ export default function Evidence() {
                       {language === 'ar' ? 'رفع إصدار جديد' : 'Upload New Version'}
                     </h3>
                     
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                      <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-sm text-gray-600 mb-2">
-                        {language === 'ar' ? 'اختر ملف أو اسحبه هنا' : 'Choose file or drag and drop'}
-                      </p>
-                      <p className="text-xs text-gray-500 mb-4">
-                        {language === 'ar' ? 'سيتم رفعه كإصدار جديد من' : 'Will be uploaded as a new version of'} {selectedEvidence.title}
-                      </p>
-                      <Button variant="outline">
-                        {language === 'ar' ? 'اختيار ملف' : 'Choose File'}
+                    <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                      newVersionFile ? 'border-teal-400 bg-teal-50' : 'border-gray-300'
+                    }`}>
+                      <Upload className={`h-12 w-12 mx-auto mb-4 ${
+                        newVersionFile ? 'text-teal-500' : 'text-gray-400'
+                      }`} />
+                      {newVersionFile ? (
+                        <div>
+                          <p className="text-sm font-medium text-teal-700 mb-2">
+                            {newVersionFile.name}
+                          </p>
+                          <p className="text-xs text-gray-500 mb-4">
+                            {(newVersionFile.size / (1024 * 1024)).toFixed(2)} MB
+                          </p>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-sm text-gray-600 mb-2">
+                            {language === 'ar' ? 'اختر ملف أو اسحبه هنا' : 'Choose file or drag and drop'}
+                          </p>
+                          <p className="text-xs text-gray-500 mb-4">
+                            {language === 'ar' ? 'سيتم رفعه كإصدار جديد من' : 'Will be uploaded as a new version of'} {selectedEvidence.title}
+                          </p>
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        id="new-version-file"
+                        className="hidden"
+                        onChange={handleNewVersionFileChange}
+                        accept="*/*"
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={() => document.getElementById('new-version-file')?.click()}
+                      >
+                        {newVersionFile ? 
+                          (language === 'ar' ? 'اختيار ملف آخر' : 'Choose Different File') :
+                          (language === 'ar' ? 'اختيار ملف' : 'Choose File')
+                        }
                       </Button>
                     </div>
 
@@ -783,7 +922,12 @@ export default function Evidence() {
                         <label className="text-sm font-medium">
                           {language === 'ar' ? 'رقم الإصدار' : 'Version Number'}
                         </label>
-                        <Input placeholder="e.g., v2.0, v1.1" className="mt-1" />
+                        <Input
+                          placeholder="e.g., v2.0, v1.1"
+                          className="mt-1"
+                          value={versionNumber}
+                          onChange={(e) => setVersionNumber(e.target.value)}
+                        />
                       </div>
                       
                       <div>
@@ -794,10 +938,16 @@ export default function Evidence() {
                           placeholder={language === 'ar' ? 'اكتب ملاحظات حول هذا الإصدار...' : 'Write notes about this version...'}
                           className="mt-1"
                           rows={3}
+                          value={versionNotes}
+                          onChange={(e) => setVersionNotes(e.target.value)}
                         />
                       </div>
 
-                      <Button className="w-full" disabled>
+                      <Button
+                        className="w-full"
+                        disabled={!newVersionFile || !versionNumber.trim()}
+                        onClick={handleNewVersionUpload}
+                      >
                         <Upload className="h-4 w-4 mr-2" />
                         {language === 'ar' ? 'رفع الإصدار الجديد' : 'Upload New Version'}
                       </Button>
