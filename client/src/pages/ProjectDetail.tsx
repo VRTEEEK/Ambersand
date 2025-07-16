@@ -201,8 +201,10 @@ export default function ProjectDetail() {
     },
     onSuccess: (data, variables) => {
       console.log('✅ updateTaskMutation.onSuccess called with:', { data, variables });
-      queryClient.invalidateQueries({ queryKey: ['/api/tasks', { projectId: id }] });
-      queryClient.invalidateQueries({ queryKey: ['/api/evidence', { taskId: editingTask?.id }] });
+      // Invalidate all task-related queries to refresh the UI
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/evidence'] });
       setIsTaskEditDialogOpen(false);
       setEditingTask(null);
       toast({
@@ -476,21 +478,12 @@ export default function ProjectDetail() {
                         }}
                       >
                         <div className="space-y-3">
-                          {/* Header with title and assignee */}
+                          {/* Header with title */}
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <h3 className="font-semibold text-gray-900 dark:text-white text-lg mb-1">
                                 {language === 'ar' && task.titleAr ? task.titleAr : task.title}
                               </h3>
-                              {/* Assigned Person - Just icon and name */}
-                              {assignedUser && (
-                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                  <Users className="h-4 w-4" />
-                                  <span className="font-medium">
-                                    {assignedUser.firstName} {assignedUser.lastName}
-                                  </span>
-                                </div>
-                              )}
                             </div>
                           </div>
                           
@@ -541,6 +534,13 @@ export default function ProjectDetail() {
                                task.priority === 'high' ? (language === 'ar' ? 'عالية' : 'High') :
                                (language === 'ar' ? 'عاجلة' : 'Urgent')}
                             </Badge>
+                            {/* Assigned Person Badge */}
+                            {assignedUser && (
+                              <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                <Users className="h-3 w-3 mr-1" />
+                                {assignedUser.firstName} {assignedUser.lastName}
+                              </Badge>
+                            )}
                             {task.dueDate && (
                               <div className="flex items-center gap-1 text-sm text-gray-500">
                                 <Calendar className="h-3 w-3" />
