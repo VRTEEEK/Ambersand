@@ -765,8 +765,8 @@ export default function Evidence() {
 
         {/* Enhanced Detail Dialog */}
         <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-          <DialogContent className="max-w-6xl w-[92vw] h-[88vh]" aria-describedby="evidence-dialog-description">
-            <DialogHeader className="pb-4 flex-shrink-0">
+          <DialogContent className="max-w-6xl w-[92vw] h-[88vh] p-0 flex flex-col" aria-describedby="evidence-dialog-description">
+            <DialogHeader className="px-6 pt-6 pb-2 flex-shrink-0">
               <DialogTitle className="flex items-center gap-3 text-xl font-semibold">
                 <div className="w-8 h-8 bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg flex items-center justify-center">
                   {getFileIcon(selectedEvidence?.fileType)}
@@ -778,8 +778,8 @@ export default function Evidence() {
               </div>
             </DialogHeader>
             {selectedEvidence && (
-              <Tabs defaultValue="details" className="flex flex-col h-full">
-                <TabsList className="grid w-full grid-cols-5 h-12 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 flex-shrink-0 mb-0">
+              <Tabs defaultValue="details" className="flex flex-col flex-1">
+                <TabsList className="grid w-full grid-cols-5 h-12 bg-gray-100 dark:bg-gray-800 rounded-none border-t border-b border-gray-200 dark:border-gray-700 p-1 flex-shrink-0">
                   <TabsTrigger 
                     value="details" 
                     className="text-sm font-medium px-4 py-2 rounded-md transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-teal-700 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-teal-400"
@@ -813,8 +813,8 @@ export default function Evidence() {
                 </TabsList>
 
                 {/* Details Tab */}
-                <TabsContent value="details" className="flex-1 overflow-hidden mt-6">
-                  <div className="h-full overflow-y-auto px-6 pb-4">
+                <TabsContent value="details" className="flex-1 overflow-hidden">
+                  <div className="h-full overflow-y-auto px-6 py-6">
                     <div className="flex items-start gap-6 mb-6">
                         <div className="w-16 h-16 bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl flex items-center justify-center shadow-sm">
                           {getFileIcon(selectedEvidence.fileType)}
@@ -887,8 +887,8 @@ export default function Evidence() {
                 </TabsContent>
 
                 {/* Controls Tab */}
-                <TabsContent value="controls" className="flex-1 overflow-hidden mt-6">
-                  <div className="h-full overflow-y-auto px-6 pb-4">
+                <TabsContent value="controls" className="flex-1 overflow-hidden">
+                  <div className="h-full overflow-y-auto px-6 py-6">
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                           {language === 'ar' ? 'الضوابط المرتبطة' : 'Linked Controls'}
@@ -963,8 +963,8 @@ export default function Evidence() {
                 </TabsContent>
 
                 {/* Versions Tab */}
-                <TabsContent value="versions" className="flex-1 overflow-hidden mt-6">
-                  <div className="h-full overflow-y-auto px-6 pb-4">
+                <TabsContent value="versions" className="flex-1 overflow-hidden">
+                  <div className="h-full overflow-y-auto px-6 py-6">
                       <div className="flex items-center justify-between mb-6">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                           {language === 'ar' ? 'جميع الإصدارات' : 'All Versions'}
@@ -1012,8 +1012,8 @@ export default function Evidence() {
                 </TabsContent>
 
                 {/* Comments Tab */}
-                <TabsContent value="comments" className="flex-1 overflow-hidden mt-6">
-                  <div className="h-full overflow-y-auto px-6 pb-4">
+                <TabsContent value="comments" className="flex-1 overflow-hidden">
+                  <div className="h-full overflow-y-auto px-6 py-6">
                       <div className="flex items-center justify-between mb-6">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                           {language === 'ar' ? 'التعليقات' : 'Comments'}
@@ -1143,8 +1143,8 @@ export default function Evidence() {
                 </TabsContent>
 
                 {/* Upload New Version Tab */}
-                <TabsContent value="upload" className="flex-1 overflow-hidden mt-6">
-                  <div className="h-full overflow-y-auto px-6 pb-4">
+                <TabsContent value="upload" className="flex-1 overflow-hidden">
+                  <div className="h-full overflow-y-auto px-6 py-6">
                       <div className="mb-6">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                           {language === 'ar' ? 'رفع إصدار جديد' : 'Upload New Version'}
