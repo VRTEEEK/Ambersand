@@ -44,6 +44,7 @@ const projectSchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
   startDate: z.string().min(1, 'Start date is required'),
   endDate: z.string().min(1, 'End date is required'),
+  ownerId: z.string().min(1, 'Project owner is required'),
 }).refine((data) => {
   if (data.startDate && data.endDate) {
     return new Date(data.endDate) > new Date(data.startDate);
@@ -87,6 +88,11 @@ export default function Regulations() {
     queryKey: ['/api/custom-regulations'],
   });
 
+  // Fetch users for project owner dropdown
+  const { data: users } = useQuery({
+    queryKey: ['/api/users'],
+  });
+
   const form = useForm<CustomRegulationFormData>({
     resolver: zodResolver(customRegulationSchema),
     defaultValues: {
@@ -112,6 +118,7 @@ export default function Regulations() {
       priority: 'medium',
       startDate: new Date().toISOString().split('T')[0],
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
+      ownerId: '',
     },
   });
 
@@ -910,7 +917,7 @@ export default function Regulations() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <FormField
                         control={projectForm.control}
                         name="status"
@@ -951,6 +958,35 @@ export default function Regulations() {
                                 <SelectItem value="medium">{language === 'ar' ? 'متوسطة' : 'Medium'}</SelectItem>
                                 <SelectItem value="high">{language === 'ar' ? 'عالية' : 'High'}</SelectItem>
                                 <SelectItem value="urgent">{language === 'ar' ? 'عاجلة' : 'Urgent'}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={projectForm.control}
+                        name="ownerId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{language === 'ar' ? 'مالك المشروع' : 'Project Owner'} *</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder={language === 'ar' ? 'اختر المالك...' : 'Select owner...'} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {users?.map((user: any) => (
+                                  <SelectItem key={user.id} value={user.id}>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">
+                                        {user.firstName} {user.lastName}
+                                      </span>
+                                      <span className="text-sm text-gray-500">({user.email})</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                             <FormMessage />

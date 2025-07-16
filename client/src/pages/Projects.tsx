@@ -89,18 +89,28 @@ export default function Projects() {
     retry: false,
   });
 
-  // Calculate progress for each project
+  // Fetch users for project owner display
+  const { data: users } = useQuery({
+    queryKey: ['/api/users'],
+    retry: false,
+  });
+
+  // Calculate progress for each project and add owner information
   const projectsWithProgress = projects?.map((project: any) => {
     const projectTasks = allTasks?.filter((task: any) => task.projectId === project.id) || [];
     const completedTasks = projectTasks.filter((task: any) => task.status === 'completed').length;
     const totalTasks = projectTasks.length;
     const realProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
     
+    // Find project owner
+    const owner = users?.find((user: any) => user.id === project.ownerId);
+    
     return {
       ...project,
       realProgress,
       taskCount: totalTasks,
-      completedTaskCount: completedTasks
+      completedTaskCount: completedTasks,
+      owner
     };
   }) || [];
 
@@ -582,6 +592,23 @@ export default function Projects() {
                           </Badge>
                         )}
                       </div>
+                      
+                      {/* Project Owner */}
+                      {project.owner && (
+                        <div className="flex items-center gap-2 mt-2 text-sm text-slate-600">
+                          <div className="w-6 h-6 bg-[#2699A6]/10 rounded-full flex items-center justify-center">
+                            <span className="text-xs font-medium text-[#2699A6]">
+                              {project.owner.firstName?.charAt(0)}{project.owner.lastName?.charAt(0)}
+                            </span>
+                          </div>
+                          <span className="font-medium">
+                            {project.owner.firstName} {project.owner.lastName}
+                          </span>
+                          <span className="text-xs text-slate-400">
+                            ({language === 'ar' ? 'مالك المشروع' : 'Project Owner'})
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center space-x-1 ml-4">
                       <Button
