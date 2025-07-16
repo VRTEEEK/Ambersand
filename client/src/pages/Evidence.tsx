@@ -985,9 +985,9 @@ export default function Evidence() {
 
                 {/* Comments Tab */}
                 <TabsContent value="comments" className="flex-1 overflow-hidden">
-                  <div className="h-full overflow-y-auto px-6 py-4">
-                    <div className="max-w-4xl mx-auto space-y-4">
-                      <div className="flex items-center justify-between mb-4">
+                  <div className="h-full flex flex-col px-6 py-4">
+                    <div className="flex-shrink-0 mb-4">
+                      <div className="flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                           {language === 'ar' ? 'التعليقات' : 'Comments'}
                         </h3>
@@ -995,8 +995,10 @@ export default function Evidence() {
                           {evidenceComments?.length || 0} {language === 'ar' ? 'تعليق' : 'Comments'}
                         </Badge>
                       </div>
+                    </div>
                       
-                      {/* Add Comment Form */}
+                    {/* Add Comment Form */}
+                    <div className="flex-shrink-0 mb-4">
                       <Card className="p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
                         <div className="space-y-4">
                           <div className="flex items-center gap-3">
@@ -1043,9 +1045,10 @@ export default function Evidence() {
                           </div>
                         </div>
                       </Card>
+                    </div>
                       
-                      {/* Comments List */}
-                      <div className="space-y-2 max-w-none">
+                    {/* Comments List - Scrollable */}
+                    <div className="flex-1 overflow-y-auto space-y-2">
                         {evidenceComments && evidenceComments.length > 0 ? (
                           evidenceComments.map((comment: any) => (
                             <div key={comment.id} className={`p-3 border rounded-lg transition-colors duration-200 ${
@@ -1107,7 +1110,6 @@ export default function Evidence() {
                             </p>
                           </div>
                         )}
-                      </div>
                     </div>
                   </div>
                 </TabsContent>
