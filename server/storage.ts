@@ -390,39 +390,54 @@ export class DatabaseStorage implements IStorage {
 
   // Evidence operations
   async getEvidence(projectId?: number): Promise<Evidence[]> {
-    const conditions = [];
-    if (projectId) conditions.push(eq(evidence.projectId, projectId));
-    
-    const query = db
-      .select({
-        id: evidence.id,
-        title: evidence.title,
-        titleAr: evidence.titleAr,
-        description: evidence.description,
-        descriptionAr: evidence.descriptionAr,
-        fileName: evidence.fileName,
-        fileSize: evidence.fileSize,
-        fileType: evidence.fileType,
-        filePath: evidence.filePath,
-        version: evidence.version,
-        projectId: evidence.projectId,
-        taskId: evidence.taskId,
-        eccControlId: evidence.eccControlId,
-        uploadedById: evidence.uploadedById,
-        createdAt: evidence.createdAt,
-        uploaderName: users.name,
-        uploaderEmail: users.email,
-        uploaderProfilePicture: users.profilePicture,
-      })
-      .from(evidence)
-      .leftJoin(users, eq(evidence.uploadedById, users.id))
-      .orderBy(desc(evidence.createdAt));
-    
-    if (conditions.length > 0) {
-      return await query.where(and(...conditions));
+    try {
+      const conditions = [];
+      if (projectId) conditions.push(eq(evidence.projectId, projectId));
+      
+      let query = db
+        .select({
+          id: evidence.id,
+          title: evidence.title,
+          titleAr: evidence.titleAr,
+          description: evidence.description,
+          descriptionAr: evidence.descriptionAr,
+          fileName: evidence.fileName,
+          fileSize: evidence.fileSize,
+          fileType: evidence.fileType,
+          filePath: evidence.filePath,
+          version: evidence.version,
+          projectId: evidence.projectId,
+          taskId: evidence.taskId,
+          eccControlId: evidence.eccControlId,
+          uploadedById: evidence.uploadedById,
+          createdAt: evidence.createdAt,
+          uploaderName: users.name,
+          uploaderEmail: users.email,
+          uploaderProfilePicture: users.profilePicture,
+        })
+        .from(evidence)
+        .leftJoin(users, eq(evidence.uploadedById, users.id))
+        .orderBy(desc(evidence.createdAt));
+      
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+      
+      return await query;
+    } catch (error) {
+      console.error('Error in getEvidence:', error);
+      // Fallback to simple query without user join if there's an issue
+      const conditions = [];
+      if (projectId) conditions.push(eq(evidence.projectId, projectId));
+      
+      let fallbackQuery = db.select().from(evidence).orderBy(desc(evidence.createdAt));
+      
+      if (conditions.length > 0) {
+        fallbackQuery = fallbackQuery.where(and(...conditions));
+      }
+      
+      return await fallbackQuery;
     }
-    
-    return await query;
   }
 
   async getEvidenceById(id: number): Promise<Evidence | undefined> {

@@ -921,8 +921,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const evidenceRecords = [];
       for (const file of files) {
         // Check if evidence with same name already exists for this task/project
-        const existingEvidence = await storage.getEvidence(projectId, taskId);
-        const sameNameEvidence = existingEvidence.find(e => e.fileName === file.originalname);
+        const existingEvidence = await storage.getEvidence(projectId);
+        const sameNameEvidence = existingEvidence.find(e => e.fileName === file.originalname && (e.taskId === taskId || e.projectId === projectId));
         
         if (sameNameEvidence) {
           // Create a new version instead of a new evidence record
@@ -957,8 +957,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           // Create new evidence record
           const evidenceData = {
-            taskId,
-            projectId,
+            taskId: taskId || undefined,
+            projectId: projectId || undefined,
+            eccControlId: controlId || undefined,
             title: file.originalname,
             titleAr: file.originalname,
             fileName: file.originalname,
