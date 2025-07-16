@@ -1387,11 +1387,7 @@ function EditTaskForm({
                     <div key={control.id} className="flex items-start gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg">
                       <Badge 
                         variant="secondary" 
-                        className="mt-1 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleControlClick(control.eccControl);
-                        }}
+                        className="mt-1"
                       >
                         {control.eccControl.code}
                       </Badge>
