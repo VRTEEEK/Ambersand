@@ -734,6 +734,8 @@ function EditTaskForm({
   const [uploading, setUploading] = useState(false);
   const [selectedControlId, setSelectedControlId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'evidence'>('details');
+  const [uploadComment, setUploadComment] = useState('');
+  const [selectedControlForView, setSelectedControlForView] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -752,6 +754,12 @@ function EditTaskForm({
   const { data: evidenceComments } = useQuery({
     queryKey: ['/api/evidence', 'comments', task.id],
     enabled: !!task.id,
+  });
+
+  // Fetch evidence linked to specific control
+  const { data: controlLinkedEvidence } = useQuery({
+    queryKey: ['/api/evidence', 'control', selectedControlForView],
+    enabled: !!selectedControlForView,
   });
 
   // Mutation for adding evidence comments
@@ -835,6 +843,9 @@ function EditTaskForm({
       formData.append('taskId', task.id.toString());
       formData.append('projectId', task.projectId.toString());
       formData.append('controlId', selectedControlId.toString());
+      if (uploadComment.trim()) {
+        formData.append('comment', uploadComment.trim());
+      }
 
       const response = await fetch('/api/evidence/upload', {
         method: 'POST',
@@ -848,9 +859,11 @@ function EditTaskForm({
 
       setUploadedFiles([]);
       setSelectedControlId(null);
+      setUploadComment('');
       // Invalidate evidence queries to refresh the display
       queryClient.invalidateQueries({ queryKey: ['/api/evidence'] });
       queryClient.invalidateQueries({ queryKey: ['/api/evidence', 'versions', task.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/evidence', 'comments', task.id] });
       // Show success toast
       toast({
         title: language === 'ar' ? 'تم رفع الملفات بنجاح' : 'Files Uploaded Successfully',
@@ -959,7 +972,7 @@ function EditTaskForm({
                             ? control.eccControl.controlAr 
                             : control.eccControl.controlEn}
                         </p>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-gray-500 mb-2">
                           <span className="font-medium">
                             {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
                           </span>
@@ -969,6 +982,14 @@ function EditTaskForm({
                               : (control.eccControl.evidenceEn || 'Documentation, policies, procedures, and audit evidence')}
                           </span>
                         </div>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => setSelectedControlForView(control.eccControl.id)}
+                          className="text-xs"
+                        >
+                          {language === 'ar' ? 'عرض الأدلة المرتبطة' : 'View Linked Evidence'}
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -980,6 +1001,122 @@ function EditTaskForm({
               )}
             </div>
           </div>
+
+          {/* Linked Evidence View */}
+          {selectedControlForView && (
+            <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-900/20">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-gray-900 dark:text-white">
+                  {language === 'ar' ? 'الأدلة المرتبطة بالضابط' : 'Evidence Linked to Control'}
+                </h3>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  onClick={() => setSelectedControlForView(null)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              {/* Selected Control Info */}
+              {taskControls?.find((c: any) => c.eccControl.id === selectedControlForView) && (
+                <div className="mb-4 p-3 bg-white dark:bg-gray-700 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <Badge variant="secondary" className="mt-1">
+                      {taskControls.find((c: any) => c.eccControl.id === selectedControlForView)?.eccControl.code}
+                    </Badge>
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">
+                        {language === 'ar' && taskControls.find((c: any) => c.eccControl.id === selectedControlForView)?.eccControl.subdomainAr 
+                          ? taskControls.find((c: any) => c.eccControl.id === selectedControlForView)?.eccControl.subdomainAr 
+                          : taskControls.find((c: any) => c.eccControl.id === selectedControlForView)?.eccControl.subdomainEn}
+                      </h4>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Linked Evidence */}
+              {controlLinkedEvidence && controlLinkedEvidence.length > 0 ? (
+                <div className="space-y-3">
+                  {controlLinkedEvidence.map((evidence: any) => (
+                    <div key={evidence.id} className="p-3 bg-white dark:bg-gray-700 rounded-lg">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-medium text-gray-900 dark:text-white text-sm">
+                              {evidence.title}
+                            </h4>
+                            <Badge variant="secondary" className="text-xs">
+                              v{evidence.version}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                            {evidence.description}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <span>{evidence.fileName}</span>
+                            <span>•</span>
+                            <span>{(evidence.fileSize / 1024).toFixed(1)} KB</span>
+                            <span>•</span>
+                            <span>{new Date(evidence.createdAt).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        <Button size="sm" variant="outline" className="text-xs">
+                          {language === 'ar' ? 'تحميل' : 'Download'}
+                        </Button>
+                      </div>
+
+                      {/* Version History for Control-Linked Evidence */}
+                      <div className="mt-2 pt-2 border-t">
+                        <h5 className="font-medium text-gray-800 dark:text-gray-200 mb-2 text-xs">
+                          {language === 'ar' ? 'تاريخ الإصدارات' : 'Version History'}
+                        </h5>
+                        <div className="space-y-1 max-h-20 overflow-y-auto">
+                          {evidenceVersions?.filter((v: any) => v.evidenceId === evidence.id).map((version: any) => (
+                            <div key={version.id} className="text-xs text-gray-600 dark:text-gray-400 flex items-center justify-between p-1 bg-gray-100 dark:bg-gray-600 rounded">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">v{version.version}</span>
+                                <span>•</span>
+                                <span>{new Date(version.createdAt).toLocaleDateString()}</span>
+                                <span>•</span>
+                                <span>{version.uploadedBy || 'Unknown'}</span>
+                              </div>
+                              <Button size="sm" variant="ghost" className="h-4 px-1 text-xs">
+                                {language === 'ar' ? 'تحميل' : 'Download'}
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Comments for Control-Linked Evidence */}
+                      <div className="mt-2 pt-2 border-t">
+                        <h5 className="font-medium text-gray-800 dark:text-gray-200 mb-2 text-xs">
+                          {language === 'ar' ? 'التعليقات' : 'Comments'}
+                        </h5>
+                        <div className="space-y-1 max-h-20 overflow-y-auto">
+                          {evidenceComments?.filter((c: any) => c.evidenceId === evidence.id).map((comment: any) => (
+                            <div key={comment.id} className="text-xs p-2 bg-gray-100 dark:bg-gray-600 rounded">
+                              <p className="text-gray-800 dark:text-gray-200 mb-1">{comment.comment}</p>
+                              <div className="text-gray-500 text-xs">
+                                <span>{comment.user?.firstName || 'Unknown'}</span>
+                                <span className="ml-2">{new Date(comment.createdAt).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-4">
+                  {language === 'ar' ? 'لا توجد أدلة مرتبطة بهذا الضابط' : 'No evidence linked to this control'}
+                </p>
+              )}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="evidence" className="space-y-4">
@@ -1021,6 +1158,20 @@ function EditTaskForm({
                 accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.txt"
                 onChange={(e) => e.target.files && handleFileSelection(Array.from(e.target.files))}
                 className="w-full p-2 border rounded-md"
+              />
+            </div>
+
+            {/* Upload Comment */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {language === 'ar' ? 'تعليق (اختياري)' : 'Comment (optional)'}
+              </label>
+              <Textarea
+                value={uploadComment}
+                onChange={(e) => setUploadComment(e.target.value)}
+                placeholder={language === 'ar' ? 'أضف تعليقاً عن هذه الأدلة...' : 'Add a comment about this evidence...'}
+                rows={2}
+                className="w-full"
               />
             </div>
 

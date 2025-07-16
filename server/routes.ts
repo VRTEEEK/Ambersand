@@ -575,6 +575,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Evidence linked to specific control
+  app.get('/api/evidence/control/:controlId', isAuthenticated, async (req, res) => {
+    try {
+      const controlId = parseInt(req.params.controlId);
+      const evidenceList = await storage.getEvidence();
+      
+      // Filter evidence that has this control associated
+      const linkedEvidence = [];
+      for (const evidence of evidenceList) {
+        const evidenceControls = await storage.getEvidenceControls(evidence.id);
+        if (evidenceControls.some(ec => ec.eccControl.id === controlId)) {
+          linkedEvidence.push(evidence);
+        }
+      }
+      
+      res.json(linkedEvidence);
+    } catch (error) {
+      console.error("Error fetching evidence for control:", error);
+      res.status(500).json({ message: "Failed to fetch evidence for control" });
+    }
+  });
+
   // Evidence versions for a specific task
   app.get('/api/evidence/versions/:taskId', isAuthenticated, async (req, res) => {
     try {
@@ -840,6 +862,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const taskId = parseInt(req.body.taskId);
       const projectId = parseInt(req.body.projectId);
       const controlId = req.body.controlId ? parseInt(req.body.controlId) : null;
+      const comment = req.body.comment ? req.body.comment.trim() : null;
       const files = req.files as Express.Multer.File[];
       
       if (!files || files.length === 0) {
@@ -872,6 +895,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             fileType: file.mimetype,
           });
           
+          // Add comment if provided
+          if (comment) {
+            await storage.createEvidenceComment({
+              evidenceId: sameNameEvidence.id,
+              userId: req.user.claims.sub,
+              comment: comment,
+            });
+          }
+          
           evidenceRecords.push({ ...sameNameEvidence, version: version.version });
         } else {
           // Create new evidence record
@@ -900,6 +932,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Associate evidence with task if provided
           if (taskId) {
             await storage.addTasksToEvidence(evidence.id, [taskId]);
+          }
+          
+          // Add comment if provided
+          if (comment) {
+            await storage.createEvidenceComment({
+              evidenceId: evidence.id,
+              userId: req.user.claims.sub,
+              comment: comment,
+            });
           }
           
           evidenceRecords.push(evidence);
