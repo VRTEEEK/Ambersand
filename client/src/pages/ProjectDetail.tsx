@@ -76,6 +76,7 @@ export default function ProjectDetail() {
   const [selectedControlId, setSelectedControlId] = useState<number | null>(null);
   const [isTaskEditDialogOpen, setIsTaskEditDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
+  const [refreshKey, setRefreshKey] = useState(0); // Force refresh key
 
   const { data: project, isLoading: projectLoading } = useQuery({
     queryKey: ['/api/projects', id],
@@ -97,9 +98,9 @@ export default function ProjectDetail() {
   });
 
   const { data: tasks, isLoading: tasksLoading, refetch: refetchTasks } = useQuery({
-    queryKey: ['/api/tasks', { projectId: id }],
+    queryKey: ['/api/tasks', { projectId: id }, refreshKey],
     queryFn: async () => {
-      const response = await fetch(`/api/tasks?projectId=${id}`);
+      const response = await fetch(`/api/tasks?projectId=${id}&_t=${Date.now()}`);
       if (!response.ok) throw new Error('Failed to fetch tasks');
       return response.json();
     },
@@ -122,9 +123,9 @@ export default function ProjectDetail() {
   });
 
   const { data: users, refetch: refetchUsers } = useQuery({
-    queryKey: ['/api/users'],
+    queryKey: ['/api/users', refreshKey],
     queryFn: async () => {
-      const response = await fetch('/api/users');
+      const response = await fetch(`/api/users?_t=${Date.now()}`);
       if (!response.ok) throw new Error('Failed to fetch users');
       return response.json();
     },
@@ -133,14 +134,14 @@ export default function ProjectDetail() {
   });
 
   const { data: tasksWithControls, refetch: refetchTasksWithControls } = useQuery({
-    queryKey: ['/api/tasks', id, 'with-controls'],
+    queryKey: ['/api/tasks', id, 'with-controls', refreshKey],
     queryFn: async () => {
       if (!tasks) return [];
       
       const tasksWithControlsData = await Promise.all(
         tasks.map(async (task: any) => {
           try {
-            const response = await fetch(`/api/tasks/${task.id}/controls`);
+            const response = await fetch(`/api/tasks/${task.id}/controls?_t=${Date.now()}`);
             if (!response.ok) return { ...task, controls: [] };
             const controls = await response.json();
             return { ...task, controls };
@@ -207,18 +208,8 @@ export default function ProjectDetail() {
     },
     onSuccess: async (data, variables) => {
       console.log('✅ updateTaskMutation.onSuccess called with:', { data, variables });
-      // Clear all caches and force fresh data
-      queryClient.clear();
-      // Force manual refetch of all queries
-      try {
-        await Promise.all([
-          refetchTasks(),
-          refetchUsers(),
-          refetchTasksWithControls(),
-        ]);
-      } catch (error) {
-        console.error('Error refetching data:', error);
-      }
+      // Force complete refresh by incrementing refresh key
+      setRefreshKey(prev => prev + 1);
       setIsTaskEditDialogOpen(false);
       setEditingTask(null);
       toast({
