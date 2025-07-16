@@ -730,8 +730,8 @@ export default function Evidence() {
 
         {/* Enhanced Detail Dialog */}
         <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto" aria-describedby="evidence-dialog-description">
-            <DialogHeader>
+          <DialogContent className="max-w-5xl w-[90vw] h-[85vh] flex flex-col" aria-describedby="evidence-dialog-description">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle className="flex items-center gap-2">
                 {getFileIcon(selectedEvidence?.fileType)}
                 {language === 'ar' ? 'تفاصيل الدليل' : 'Evidence Details'}
@@ -741,8 +741,8 @@ export default function Evidence() {
               </div>
             </DialogHeader>
             {selectedEvidence && (
-              <Tabs defaultValue="details" className="w-full">
-                <TabsList className="grid w-full grid-cols-5">
+              <Tabs defaultValue="details" className="flex-1 flex flex-col">
+                <TabsList className="grid w-full grid-cols-5 flex-shrink-0">
                   <TabsTrigger value="details">{language === 'ar' ? 'التفاصيل' : 'Details'}</TabsTrigger>
                   <TabsTrigger value="controls">{language === 'ar' ? 'الضوابط' : 'Controls'}</TabsTrigger>
                   <TabsTrigger value="versions">{language === 'ar' ? 'الإصدارات' : 'Versions'}</TabsTrigger>
@@ -751,7 +751,7 @@ export default function Evidence() {
                 </TabsList>
 
                 {/* Details Tab */}
-                <TabsContent value="details" className="space-y-6">
+                <TabsContent value="details" className="flex-1 overflow-y-auto p-6 space-y-6">
                   <div className="flex items-start gap-6">
                     <div className="w-16 h-16 bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl flex items-center justify-center">
                       {getFileIcon(selectedEvidence.fileType)}
@@ -819,7 +819,7 @@ export default function Evidence() {
                 </TabsContent>
 
                 {/* Controls Tab */}
-                <TabsContent value="controls" className="space-y-4">
+                <TabsContent value="controls" className="flex-1 overflow-y-auto p-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold">
                       {language === 'ar' ? 'الضوابط المرتبطة' : 'Linked Controls'}
@@ -874,7 +874,7 @@ export default function Evidence() {
                 </TabsContent>
 
                 {/* Versions Tab */}
-                <TabsContent value="versions" className="space-y-4">
+                <TabsContent value="versions" className="flex-1 overflow-y-auto p-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold">
                       {language === 'ar' ? 'جميع الإصدارات' : 'All Versions'}
@@ -909,7 +909,7 @@ export default function Evidence() {
                 </TabsContent>
 
                 {/* Comments Tab */}
-                <TabsContent value="comments" className="space-y-4">
+                <TabsContent value="comments" className="flex-1 overflow-y-auto p-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold">
                       {language === 'ar' ? 'التعليقات' : 'Comments'}
@@ -1004,7 +1004,7 @@ export default function Evidence() {
                 </TabsContent>
 
                 {/* Upload New Version Tab */}
-                <TabsContent value="upload" className="space-y-4">
+                <TabsContent value="upload" className="flex-1 overflow-y-auto p-6 space-y-4">
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold">
                       {language === 'ar' ? 'رفع إصدار جديد' : 'Upload New Version'}
