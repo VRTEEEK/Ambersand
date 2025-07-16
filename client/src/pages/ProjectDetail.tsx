@@ -1418,9 +1418,16 @@ function EditTaskForm({
                 <SelectContent>
                   {filteredTaskControls?.map((control: any) => (
                     <SelectItem key={control.id} value={control.eccControl.id.toString()}>
-                      {control.eccControl.code} - {language === 'ar' && control.eccControl.subdomainAr 
-                        ? control.eccControl.subdomainAr 
-                        : control.eccControl.subdomainEn}
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs font-medium">
+                          {control.eccControl.code}
+                        </span>
+                        <span className="text-sm">
+                          {language === 'ar' && control.eccControl.subdomainAr 
+                            ? control.eccControl.subdomainAr 
+                            : control.eccControl.subdomainEn}
+                        </span>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
