@@ -52,6 +52,7 @@ import {
   Filter,
   SortAsc,
   SortDesc,
+  Shield,
 } from 'lucide-react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -152,6 +153,17 @@ export default function Evidence() {
     document.body.removeChild(link);
   };
 
+  const getControlInfo = (controlId: number) => {
+    const control = eccControls?.find((c: any) => c.id === controlId);
+    if (!control) return null;
+    return {
+      code: control.code,
+      codeAr: control.codeAr,
+      controlEn: control.controlEn,
+      controlAr: control.controlAr,
+    };
+  };
+
   const uploadEvidenceMutation = useMutation({
     mutationFn: async (data: EvidenceFormData & { file: File }) => {
       const formData = new FormData();
@@ -231,7 +243,10 @@ export default function Evidence() {
     uploadEvidenceMutation.mutate({ ...data, file: selectedFile });
   };
 
-  const getFileIcon = (fileType: string) => {
+  const getFileIcon = (fileType?: string) => {
+    if (!fileType) {
+      return <File className="h-5 w-5 text-slate-600" />;
+    }
     if (fileType.startsWith('image/')) {
       return <Image className="h-5 w-5 text-blue-600" />;
     } else if (fileType.startsWith('video/')) {
@@ -569,6 +584,7 @@ export default function Evidence() {
                       getProjectName={getProjectName}
                       getTaskName={getTaskName}
                       getRegulationType={getRegulationType}
+                      getControlInfo={getControlInfo}
                       language={language}
                     />
                   ))}
@@ -594,6 +610,7 @@ export default function Evidence() {
                       getProjectName={getProjectName}
                       getTaskName={getTaskName}
                       getRegulationType={getRegulationType}
+                      getControlInfo={getControlInfo}
                       language={language}
                     />
                   ))}
@@ -603,58 +620,191 @@ export default function Evidence() {
           )}
         </div>
 
-        {/* Detail Dialog */}
+        {/* Enhanced Detail Dialog */}
         <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                {getFileIcon(selectedEvidence?.fileType)}
                 {language === 'ar' ? 'تفاصيل الدليل' : 'Evidence Details'}
               </DialogTitle>
             </DialogHeader>
             {selectedEvidence && (
-              <div className="space-y-6">
-                <div className="flex items-start gap-4">
-                  {getFileIcon(selectedEvidence.fileType)}
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold mb-2">
-                      {language === 'ar' && selectedEvidence.titleAr ? selectedEvidence.titleAr : selectedEvidence.title}
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-400 mb-4">
-                      {language === 'ar' && selectedEvidence.descriptionAr ? selectedEvidence.descriptionAr : selectedEvidence.description}
-                    </p>
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <span className="font-medium text-gray-600">File Size:</span>
-                        <p>{formatFileSize(selectedEvidence.fileSize)}</p>
+              <Tabs defaultValue="details" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="details">{language === 'ar' ? 'التفاصيل' : 'Details'}</TabsTrigger>
+                  <TabsTrigger value="versions">{language === 'ar' ? 'الإصدارات' : 'Versions'}</TabsTrigger>
+                  <TabsTrigger value="comments">{language === 'ar' ? 'التعليقات' : 'Comments'}</TabsTrigger>
+                  <TabsTrigger value="upload">{language === 'ar' ? 'رفع إصدار جديد' : 'Upload Version'}</TabsTrigger>
+                </TabsList>
+
+                {/* Details Tab */}
+                <TabsContent value="details" className="space-y-6">
+                  <div className="flex items-start gap-6">
+                    <div className="w-16 h-16 bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl flex items-center justify-center">
+                      {getFileIcon(selectedEvidence.fileType)}
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold mb-2">
+                        {language === 'ar' && selectedEvidence.titleAr ? selectedEvidence.titleAr : selectedEvidence.title}
+                      </h3>
+                      <p className="text-gray-600 dark:text-gray-400 mb-4">
+                        {language === 'ar' && selectedEvidence.descriptionAr ? selectedEvidence.descriptionAr : selectedEvidence.description}
+                      </p>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                        <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                          <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">File Size</span>
+                          <p className="text-lg font-semibold">{formatFileSize(selectedEvidence.fileSize)}</p>
+                        </div>
+                        <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                          <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Version</span>
+                          <p className="text-lg font-semibold">v{selectedEvidence.version}</p>
+                        </div>
+                        <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                          <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Type</span>
+                          <p className="text-lg font-semibold">{getRegulationType(selectedEvidence)}</p>
+                        </div>
+                        {selectedEvidence.uploaderName && (
+                          <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                            <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Uploaded by</span>
+                            <p className="text-lg font-semibold">{selectedEvidence.uploaderName}</p>
+                          </div>
+                        )}
+                        <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                          <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Upload Date</span>
+                          <p className="text-lg font-semibold">{formatDate(selectedEvidence.createdAt)}</p>
+                        </div>
+                        {selectedEvidence.eccControlId && getControlInfo && (
+                          <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                            <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Control</span>
+                            <Badge variant="secondary" className="mt-1 bg-teal-50 text-teal-700 border-teal-200">
+                              <Shield className="h-3 w-3 mr-1" />
+                              {getControlInfo(selectedEvidence.eccControlId)?.code || selectedEvidence.eccControlId}
+                            </Badge>
+                          </div>
+                        )}
                       </div>
-                      <div>
-                        <span className="font-medium text-gray-600">Version:</span>
-                        <p>v{selectedEvidence.version}</p>
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-600">Type:</span>
-                        <p>{getRegulationType(selectedEvidence)}</p>
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-600">Uploaded:</span>
-                        <p>{formatDate(selectedEvidence.createdAt)}</p>
+
+                      <div className="flex gap-3">
+                        <Button onClick={() => handleDownload(selectedEvidence)} className="flex-1">
+                          <Download className="h-4 w-4 mr-2" />
+                          {language === 'ar' ? 'تحميل الملف' : 'Download File'}
+                        </Button>
+                        <Button variant="outline" onClick={() => handleAddComment(selectedEvidence)} className="flex-1">
+                          <MessageCircle className="h-4 w-4 mr-2" />
+                          {language === 'ar' ? 'إضافة تعليق' : 'Add Comment'}
+                        </Button>
                       </div>
                     </div>
                   </div>
-                </div>
-                
-                <div className="flex gap-2">
-                  <Button onClick={() => handleDownload(selectedEvidence)}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </Button>
-                  <Button variant="outline" onClick={() => handleAddComment(selectedEvidence)}>
-                    <MessageCircle className="h-4 w-4 mr-2" />
-                    Add Comment
-                  </Button>
-                </div>
-              </div>
+                </TabsContent>
+
+                {/* Versions Tab */}
+                <TabsContent value="versions" className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">
+                      {language === 'ar' ? 'جميع الإصدارات' : 'All Versions'}
+                    </h3>
+                    <Badge variant="outline">
+                      {language === 'ar' ? '1 إصدار' : '1 Version'}
+                    </Badge>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <Card className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {getFileIcon(selectedEvidence.fileType)}
+                          <div>
+                            <h4 className="font-medium">{selectedEvidence.fileName}</h4>
+                            <p className="text-sm text-gray-500">
+                              v{selectedEvidence.version} • {formatFileSize(selectedEvidence.fileSize)} • {formatDate(selectedEvidence.createdAt)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary">Current</Badge>
+                          <Button size="sm" variant="outline" onClick={() => handleDownload(selectedEvidence)}>
+                            <Download className="h-3 w-3 mr-1" />
+                            Download
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
+                </TabsContent>
+
+                {/* Comments Tab */}
+                <TabsContent value="comments" className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">
+                      {language === 'ar' ? 'التعليقات' : 'Comments'}
+                    </h3>
+                    <Button size="sm" onClick={() => handleAddComment(selectedEvidence)}>
+                      <MessageCircle className="h-3 w-3 mr-1" />
+                      {language === 'ar' ? 'إضافة تعليق' : 'Add Comment'}
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="text-center py-8 text-gray-500">
+                      <MessageCircle className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                      <p>{language === 'ar' ? 'لا توجد تعليقات حتى الآن' : 'No comments yet'}</p>
+                      <p className="text-sm">
+                        {language === 'ar' ? 'كن أول من يضيف تعليق' : 'Be the first to add a comment'}
+                      </p>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* Upload New Version Tab */}
+                <TabsContent value="upload" className="space-y-4">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">
+                      {language === 'ar' ? 'رفع إصدار جديد' : 'Upload New Version'}
+                    </h3>
+                    
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                      <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-sm text-gray-600 mb-2">
+                        {language === 'ar' ? 'اختر ملف أو اسحبه هنا' : 'Choose file or drag and drop'}
+                      </p>
+                      <p className="text-xs text-gray-500 mb-4">
+                        {language === 'ar' ? 'سيتم رفعه كإصدار جديد من' : 'Will be uploaded as a new version of'} {selectedEvidence.title}
+                      </p>
+                      <Button variant="outline">
+                        {language === 'ar' ? 'اختيار ملف' : 'Choose File'}
+                      </Button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium">
+                          {language === 'ar' ? 'رقم الإصدار' : 'Version Number'}
+                        </label>
+                        <Input placeholder="e.g., v2.0, v1.1" className="mt-1" />
+                      </div>
+                      
+                      <div>
+                        <label className="text-sm font-medium">
+                          {language === 'ar' ? 'ملاحظات الإصدار' : 'Version Notes'}
+                        </label>
+                        <Textarea 
+                          placeholder={language === 'ar' ? 'اكتب ملاحظات حول هذا الإصدار...' : 'Write notes about this version...'}
+                          className="mt-1"
+                          rows={3}
+                        />
+                      </div>
+
+                      <Button className="w-full" disabled>
+                        <Upload className="h-4 w-4 mr-2" />
+                        {language === 'ar' ? 'رفع الإصدار الجديد' : 'Upload New Version'}
+                      </Button>
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
             )}
           </DialogContent>
         </Dialog>

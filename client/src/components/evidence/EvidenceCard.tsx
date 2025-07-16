@@ -3,6 +3,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { 
   FileText, 
   Download, 
   Calendar,
@@ -17,6 +23,7 @@ import {
   Tag,
   CheckCircle,
   Clock,
+  Shield,
 } from 'lucide-react';
 
 interface EvidenceCardProps {
@@ -27,6 +34,7 @@ interface EvidenceCardProps {
   getProjectName: (projectId: number) => string;
   getTaskName: (taskId: number) => string;
   getRegulationType: (evidence: any) => string;
+  getControlInfo?: (controlId: number) => { code: string; codeAr: string; controlEn: string; controlAr: string; } | null;
   language: string;
 }
 
@@ -38,6 +46,7 @@ export function EvidenceCard({
   getProjectName,
   getTaskName,
   getRegulationType,
+  getControlInfo,
   language 
 }: EvidenceCardProps) {
   const getFileIcon = (fileType: string) => {
@@ -66,26 +75,49 @@ export function EvidenceCard({
     return new Date(dateString).toLocaleDateString();
   };
 
+  const controlInfo = evidence.eccControlId && getControlInfo ? getControlInfo(evidence.eccControlId) : null;
+
   return (
-    <Card className="hover:shadow-lg transition-shadow duration-200 group">
-      <CardContent className="p-6">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center space-x-3 flex-1 min-w-0">
-            {getFileIcon(evidence.fileType)}
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-gray-900 dark:text-white truncate">
-                {language === 'ar' && evidence.titleAr ? evidence.titleAr : evidence.title}
-              </h3>
-              <p className="text-sm text-gray-500 truncate">
-                {evidence.fileName}
-              </p>
+    <TooltipProvider>
+      <Card className="hover:shadow-lg transition-shadow duration-200 group">
+        <CardContent className="p-6">
+          {/* Header */}
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center space-x-3 flex-1 min-w-0">
+              {getFileIcon(evidence.fileType)}
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+                  {language === 'ar' && evidence.titleAr ? evidence.titleAr : evidence.title}
+                </h3>
+                <p className="text-sm text-gray-500 truncate">
+                  {evidence.fileName}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 ml-2">
+              <Badge variant="outline">
+                v{evidence.version}
+              </Badge>
+              {controlInfo && (
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Badge variant="secondary" className="text-xs px-2 py-1 bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100">
+                      <Shield className="h-3 w-3 mr-1" />
+                      {language === 'ar' ? controlInfo.codeAr : controlInfo.code}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="font-medium mb-1">
+                      {language === 'ar' ? controlInfo.codeAr : controlInfo.code}
+                    </p>
+                    <p className="text-sm">
+                      {language === 'ar' ? controlInfo.controlAr : controlInfo.controlEn}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
           </div>
-          <Badge variant="outline" className="ml-2">
-            v{evidence.version}
-          </Badge>
-        </div>
 
         {/* Description */}
         {evidence.description && (
@@ -119,11 +151,20 @@ export function EvidenceCard({
             </div>
           )}
 
-          {/* Upload Date */}
+          {/* Upload Date & Uploader */}
           <div className="flex items-center gap-1 text-xs text-gray-500">
             <Calendar className="h-3 w-3" />
             <span>{formatDate(evidence.createdAt)}</span>
           </div>
+          
+          {evidence.uploaderName && (
+            <div className="flex items-center gap-1 text-xs text-gray-500">
+              <User className="h-3 w-3" />
+              <span className="truncate">
+                {language === 'ar' ? 'رفع بواسطة' : 'Uploaded by'} {evidence.uploaderName}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
@@ -155,5 +196,6 @@ export function EvidenceCard({
         </div>
       </CardContent>
     </Card>
+    </TooltipProvider>
   );
 }

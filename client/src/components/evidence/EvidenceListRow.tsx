@@ -24,6 +24,7 @@ interface EvidenceListRowProps {
   getProjectName: (projectId: number) => string;
   getTaskName: (taskId: number) => string;
   getRegulationType: (evidence: any) => string;
+  getControlInfo?: (controlId: number) => { code: string; codeAr: string; controlEn: string; controlAr: string; } | null;
   language: string;
 }
 
@@ -35,6 +36,7 @@ export function EvidenceListRow({
   getProjectName,
   getTaskName,
   getRegulationType,
+  getControlInfo,
   language 
 }: EvidenceListRowProps) {
   const getFileIcon = (fileType: string) => {
