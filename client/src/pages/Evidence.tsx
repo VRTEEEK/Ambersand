@@ -224,6 +224,37 @@ export default function Evidence() {
         throw new Error(`Upload failed: ${response.statusText}`);
       }
 
+      const result = await response.json();
+
+      // If version notes were provided, add them as a system comment
+      if (versionNotes && versionNotes.trim()) {
+        try {
+          const versionNumber = result.version || 'new';
+          const systemComment = language === 'ar' 
+            ? `رُفع إصدار جديد ${versionNumber}: ${versionNotes}`
+            : `Uploaded version ${versionNumber}: ${versionNotes}`;
+
+          await fetch(`/api/evidence/${selectedEvidence.id}/comments`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              comment: systemComment,
+              isSystemComment: true,
+              commentType: 'version_upload'
+            }),
+            credentials: 'include',
+          });
+
+          // Refresh comments
+          queryClient.invalidateQueries({ queryKey: ['/api/evidence/comments', selectedEvidence.id] });
+        } catch (commentError) {
+          console.error('Failed to add version comment:', commentError);
+          // Don't fail the upload if comment fails
+        }
+      }
+
       toast({
         title: language === 'ar' ? 'تم رفع الإصدار الجديد' : 'New Version Uploaded',
         description: language === 'ar' ? 'تم رفع الإصدار الجديد بنجاح' : 'New version uploaded successfully',
@@ -1048,26 +1079,52 @@ export default function Evidence() {
                       <div className="space-y-4">
                         {evidenceComments && evidenceComments.length > 0 ? (
                           evidenceComments.map((comment: any) => (
-                            <Card key={comment.id} className="p-5 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow duration-200">
+                            <Card key={comment.id} className={`p-5 border transition-shadow duration-200 hover:shadow-md ${
+                              comment.isSystemComment 
+                                ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950' 
+                                : 'border-gray-200 dark:border-gray-700'
+                            }`}>
                               <div className="flex items-start gap-4">
-                                <UserAvatar 
-                                  user={{
-                                    name: comment.user.name,
-                                    email: comment.user.email,
-                                    profilePicture: comment.user.profilePicture
-                                  }}
-                                  size="md"
-                                />
+                                {comment.isSystemComment ? (
+                                  <div className="w-8 h-8 bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-800 dark:to-amber-900 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <Shield className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                  </div>
+                                ) : (
+                                  <UserAvatar 
+                                    user={{
+                                      name: comment.user.name,
+                                      email: comment.user.email,
+                                      profilePicture: comment.user.profilePicture
+                                    }}
+                                    size="md"
+                                  />
+                                )}
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-3 mb-2">
                                     <span className="font-semibold text-sm text-gray-900 dark:text-white">
-                                      {comment.user.name}
+                                      {comment.isSystemComment 
+                                        ? (language === 'ar' ? 'سجل النظام' : 'System Log')
+                                        : comment.user.name
+                                      }
                                     </span>
-                                    <span className="text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full">
+                                    {comment.isSystemComment && (
+                                      <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700 text-xs">
+                                        {language === 'ar' ? 'ملاحظة إصدار' : 'Version Note'}
+                                      </Badge>
+                                    )}
+                                    <span className={`text-xs px-2 py-1 rounded-full ${
+                                      comment.isSystemComment 
+                                        ? 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900' 
+                                        : 'text-gray-500 bg-gray-100 dark:bg-gray-800'
+                                    }`}>
                                       {new Date(comment.createdAt).toLocaleDateString()} • {new Date(comment.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                     </span>
                                   </div>
-                                  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                                  <p className={`text-sm leading-relaxed p-3 rounded-lg ${
+                                    comment.isSystemComment 
+                                      ? 'text-amber-800 dark:text-amber-200 bg-amber-100 dark:bg-amber-900 border border-amber-200 dark:border-amber-800' 
+                                      : 'text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800'
+                                  }`}>
                                     {comment.comment}
                                   </p>
                                 </div>

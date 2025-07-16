@@ -209,6 +209,8 @@ export const evidenceComments = pgTable("evidence_comments", {
   evidenceId: integer("evidence_id").notNull(),
   userId: varchar("user_id").notNull(),
   comment: text("comment").notNull(),
+  isSystemComment: boolean("is_system_comment").default(false),
+  commentType: varchar("comment_type"), // 'user', 'version_upload', 'system'
   createdAt: timestamp("created_at").defaultNow(),
 });
 

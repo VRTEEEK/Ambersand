@@ -664,7 +664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/evidence/:id/comments', isAuthenticated, async (req: any, res) => {
     try {
       const evidenceId = parseInt(req.params.id);
-      const { comment } = req.body;
+      const { comment, isSystemComment, commentType } = req.body;
       
       if (!comment || comment.trim() === '') {
         return res.status(400).json({ message: "Comment content is required" });
@@ -674,6 +674,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         evidenceId,
         userId: req.user.claims.sub,
         comment: comment.trim(),
+        isSystemComment: isSystemComment || false,
+        commentType: commentType || 'user',
       };
       
       const newComment = await storage.createEvidenceComment(commentData);
