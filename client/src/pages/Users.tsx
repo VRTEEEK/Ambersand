@@ -67,8 +67,14 @@ const updateRoleSchema = z.object({
   role: z.enum(['admin', 'manager', 'viewer']),
 });
 
+const updateNameSchema = z.object({
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+});
+
 type CreateUserData = z.infer<typeof createUserSchema>;
 type UpdateRoleData = z.infer<typeof updateRoleSchema>;
+type UpdateNameData = z.infer<typeof updateNameSchema>;
 
 export default function Users() {
   const { user: currentUser, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -79,6 +85,7 @@ export default function Users() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
+  const [isNameDialogOpen, setIsNameDialogOpen] = useState(false);
 
   // Forms
   const createForm = useForm<CreateUserData>({
@@ -90,6 +97,10 @@ export default function Users() {
 
   const roleForm = useForm<UpdateRoleData>({
     resolver: zodResolver(updateRoleSchema),
+  });
+
+  const nameForm = useForm<UpdateNameData>({
+    resolver: zodResolver(updateNameSchema),
   });
 
   // Redirect to login if not authenticated
@@ -182,6 +193,40 @@ export default function Users() {
     },
   });
 
+  // Update name mutation
+  const updateNameMutation = useMutation({
+    mutationFn: async ({ userId, firstName, lastName }: { userId: string; firstName: string; lastName: string }) => {
+      return await apiRequest(`/api/users/${userId}`, 'PATCH', { firstName, lastName });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      toast({
+        title: t('common.success'),
+        description: language === 'ar' ? 'تم تحديث الاسم بنجاح' : 'Name updated successfully',
+      });
+      setIsNameDialogOpen(false);
+      setSelectedUser(null);
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: t('common.error'),
+        description: language === 'ar' ? 'فشل في تحديث الاسم' : 'Failed to update name',
+        variant: "destructive",
+      });
+    },
+  });
+
   // Delete user mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
@@ -265,10 +310,27 @@ export default function Users() {
     }
   };
 
+  const onNameSubmit = (data: UpdateNameData) => {
+    if (selectedUser) {
+      updateNameMutation.mutate({ 
+        userId: selectedUser.id, 
+        firstName: data.firstName, 
+        lastName: data.lastName 
+      });
+    }
+  };
+
   const handleEditRole = (user: User) => {
     setSelectedUser(user);
     roleForm.setValue('role', user.role as any);
     setIsRoleDialogOpen(true);
+  };
+
+  const handleEditName = (user: User) => {
+    setSelectedUser(user);
+    nameForm.setValue('firstName', user.firstName || '');
+    nameForm.setValue('lastName', user.lastName || '');
+    setIsNameDialogOpen(true);
   };
 
   const handleDeleteUser = (userId: string) => {
@@ -629,6 +691,17 @@ export default function Users() {
                           <Button
                             size="sm"
                             variant="outline"
+                            onClick={() => handleEditName(user)}
+                            disabled={updateNameMutation.isPending}
+                            className="hover:bg-[#2699A6]/10 hover:border-[#2699A6]/30 hover:text-[#2699A6] transition-all duration-200"
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            {language === 'ar' ? 'تعديل الاسم' : 'Edit Name'}
+                          </Button>
+                          
+                          <Button
+                            size="sm"
+                            variant="outline"
                             onClick={() => handleEditRole(user)}
                             disabled={updateRoleMutation.isPending}
                             className="hover:bg-[#2699A6]/10 hover:border-[#2699A6]/30 hover:text-[#2699A6] transition-all duration-200"
@@ -739,6 +812,87 @@ export default function Users() {
                         className="bg-[#2699A6] hover:bg-[#2699A6]/90"
                       >
                         {updateRoleMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {language === 'ar' ? 'حفظ' : 'Save'}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Name Edit Dialog */}
+        <Dialog open={isNameDialogOpen} onOpenChange={setIsNameDialogOpen}>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle>
+                {language === 'ar' ? 'تعديل اسم المستخدم' : 'Edit User Name'}
+              </DialogTitle>
+              <DialogDescription>
+                {language === 'ar' ? 'قم بتحديث الاسم الأول والاسم الأخير للمستخدم' : 'Update the first and last name for the user'}
+              </DialogDescription>
+            </DialogHeader>
+
+            {selectedUser && (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={selectedUser.profileImageUrl} />
+                    <AvatarFallback className="bg-[#2699A6]/10 text-[#2699A6] text-sm">
+                      {getUserInitials(selectedUser.firstName, selectedUser.lastName)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium text-slate-900 dark:text-white">
+                      {selectedUser.firstName || selectedUser.lastName 
+                        ? `${selectedUser.firstName || ''} ${selectedUser.lastName || ''}`.trim() 
+                        : 'Unknown User'}
+                    </p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">{selectedUser.email}</p>
+                  </div>
+                </div>
+
+                <Form {...nameForm}>
+                  <form onSubmit={nameForm.handleSubmit(onNameSubmit)} className="space-y-4">
+                    <FormField
+                      control={nameForm.control}
+                      name="firstName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{language === 'ar' ? 'الاسم الأول' : 'First Name'}</FormLabel>
+                          <FormControl>
+                            <Input placeholder={language === 'ar' ? 'الاسم الأول' : 'First Name'} {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={nameForm.control}
+                      name="lastName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{language === 'ar' ? 'الاسم الأخير' : 'Last Name'}</FormLabel>
+                          <FormControl>
+                            <Input placeholder={language === 'ar' ? 'الاسم الأخير' : 'Last Name'} {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="flex justify-end gap-2">
+                      <Button type="button" variant="outline" onClick={() => setIsNameDialogOpen(false)}>
+                        {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                      </Button>
+                      <Button 
+                        type="submit" 
+                        disabled={updateNameMutation.isPending}
+                        className="bg-[#2699A6] hover:bg-[#2699A6]/90"
+                      >
+                        {updateNameMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {language === 'ar' ? 'حفظ' : 'Save'}
                       </Button>
                     </div>
