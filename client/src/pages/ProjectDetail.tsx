@@ -538,7 +538,9 @@ export default function ProjectDetail() {
                             {assignedUser && (
                               <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                                 <Users className="h-3 w-3 mr-1" />
-                                {assignedUser.firstName} {assignedUser.lastName}
+                                {(assignedUser.firstName && assignedUser.lastName) 
+                                  ? `${assignedUser.firstName} ${assignedUser.lastName}`
+                                  : assignedUser.email?.split('@')[0] || 'Unknown User'}
                               </Badge>
                             )}
                             {task.dueDate && (
