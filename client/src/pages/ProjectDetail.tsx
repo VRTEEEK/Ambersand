@@ -350,22 +350,6 @@ export default function ProjectDetail() {
                 <span className="text-sm text-gray-500">
                   {language === 'ar' ? 'تم الإنشاء:' : 'Created:'} {new Date(project.createdAt).toLocaleDateString()}
                 </span>
-                {/* Project Owner */}
-                {projectOwner && (
-                  <div className="flex items-center gap-2 ml-4">
-                    <div className="w-6 h-6 bg-[#2699A6]/10 rounded-full flex items-center justify-center">
-                      <span className="text-xs font-medium text-[#2699A6]">
-                        {projectOwner.firstName?.charAt(0)}{projectOwner.lastName?.charAt(0)}
-                      </span>
-                    </div>
-                    <span className="text-sm text-gray-600 font-medium">
-                      {projectOwner.firstName} {projectOwner.lastName}
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      ({language === 'ar' ? 'مالك المشروع' : 'Project Owner'})
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
           </div>
