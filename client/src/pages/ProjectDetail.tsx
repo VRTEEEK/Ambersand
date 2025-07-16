@@ -1092,17 +1092,7 @@ function EditTaskForm({
 
   return (
     <div className="space-y-6">
-      {/* Task Info Header */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-        <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-          {language === 'ar' ? 'تعديل المهمة' : 'Edit Task'}
-        </h3>
-        <p className="text-sm text-blue-800 dark:text-blue-200">
-          {language === 'ar' 
-            ? 'يمكنك تعديل تفاصيل المهمة، إدارة الضوابط، أو إدارة الأدلة المرتبطة'
-            : 'You can edit task details, manage controls, or manage associated evidence'}
-        </p>
-      </div>
+      
 
       {/* Three-Tab Interface */}
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'details' | 'controls' | 'evidence')}>
