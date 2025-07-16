@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -768,6 +768,7 @@ function EditTaskForm({
   const [showEvidenceForControl, setShowEvidenceForControl] = useState<boolean>(false);
   const [evidenceAttachMode, setEvidenceAttachMode] = useState<'upload' | 'link' | null>(null);
   const [selectedDomain, setSelectedDomain] = useState<string>('');
+  const [hasAutoSelectedControl, setHasAutoSelectedControl] = useState(false);
   const [editedTask, setEditedTask] = useState({
     title: task.title || '',
     titleAr: task.titleAr || '',
@@ -802,6 +803,21 @@ function EditTaskForm({
     queryKey: ['/api/evidence', 'comments', task.id],
     enabled: !!task.id,
   });
+
+  // Auto-select first control when Evidence tab is accessed
+  useEffect(() => {
+    if (activeTab === 'evidence' && taskControls && taskControls.length > 0 && !hasAutoSelectedControl) {
+      const firstControl = taskControls[0];
+      if (firstControl?.eccControl?.id) {
+        setSelectedControlId(firstControl.eccControl.id);
+        setHasAutoSelectedControl(true);
+      }
+    }
+    // Reset auto-selection flag when leaving Evidence tab
+    if (activeTab !== 'evidence') {
+      setHasAutoSelectedControl(false);
+    }
+  }, [activeTab, taskControls, hasAutoSelectedControl]);
 
   // Fetch evidence linked to specific control
   const { data: controlLinkedEvidence } = useQuery({
