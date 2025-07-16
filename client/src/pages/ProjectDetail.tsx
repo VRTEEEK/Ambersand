@@ -769,6 +769,9 @@ function EditTaskForm({
   const [evidenceAttachMode, setEvidenceAttachMode] = useState<'upload' | 'link' | null>(null);
   const [selectedDomain, setSelectedDomain] = useState<string>('');
   const [hasAutoSelectedControl, setHasAutoSelectedControl] = useState(false);
+  const [selectedControlForInfo, setSelectedControlForInfo] = useState<any>(null);
+  const [isControlInfoDialogOpen, setIsControlInfoDialogOpen] = useState(false);
+  const [pendingRemovedControls, setPendingRemovedControls] = useState<number[]>([]);
   const [editedTask, setEditedTask] = useState({
     title: task.title || '',
     titleAr: task.titleAr || '',
@@ -806,8 +809,8 @@ function EditTaskForm({
 
   // Auto-select first control when Evidence tab is accessed
   useEffect(() => {
-    if (activeTab === 'evidence' && taskControls && taskControls.length > 0 && !hasAutoSelectedControl) {
-      const firstControl = taskControls[0];
+    if (activeTab === 'evidence' && filteredTaskControls && filteredTaskControls.length > 0 && !hasAutoSelectedControl) {
+      const firstControl = filteredTaskControls[0];
       if (firstControl?.eccControl?.id) {
         setSelectedControlId(firstControl.eccControl.id);
         setHasAutoSelectedControl(true);
@@ -817,7 +820,7 @@ function EditTaskForm({
     if (activeTab !== 'evidence') {
       setHasAutoSelectedControl(false);
     }
-  }, [activeTab, taskControls, hasAutoSelectedControl]);
+  }, [activeTab, filteredTaskControls, hasAutoSelectedControl]);
 
   // Fetch evidence linked to specific control
   const { data: controlLinkedEvidence } = useQuery({
@@ -921,7 +924,18 @@ function EditTaskForm({
   // Handle task form submission
   const handleTaskSubmit = async () => {
     try {
+      // First update the task details
       await onSubmit(editedTask);
+      
+      // Then handle control removals if any
+      if (pendingRemovedControls.length > 0) {
+        await removeControlFromTaskMutation.mutateAsync(pendingRemovedControls[0]);
+        // Remove all pending controls sequentially
+        for (const controlId of pendingRemovedControls.slice(1)) {
+          await removeControlFromTaskMutation.mutateAsync(controlId);
+        }
+        setPendingRemovedControls([]); // Clear pending removals after successful save
+      }
     } catch (error) {
       console.error('Failed to update task:', error);
     }
@@ -934,6 +948,21 @@ function EditTaskForm({
       setSelectedDomain(''); // Reset domain selection
     }
   };
+
+  // Handle temporary control removal
+  const handleTemporaryRemoveControl = (controlId: number) => {
+    setPendingRemovedControls(prev => [...prev, controlId]);
+  };
+
+  // Handle restoring temporarily removed control
+  const handleRestoreControl = (controlId: number) => {
+    setPendingRemovedControls(prev => prev.filter(id => id !== controlId));
+  };
+
+  // Get filtered task controls (excluding pending removed)
+  const filteredTaskControls = taskControls?.filter(
+    (control: any) => !pendingRemovedControls.includes(control.eccControl.id)
+  );
 
   const handleFileSelection = (files: File[]) => {
     const validFiles = files.filter(file => {
@@ -1222,9 +1251,9 @@ function EditTaskForm({
               {language === 'ar' ? 'الضوابط المرتبطة حالياً' : 'Currently Assigned Controls'}
             </h3>
             <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
-              {taskControls && taskControls.length > 0 ? (
+              {filteredTaskControls && filteredTaskControls.length > 0 ? (
                 <div className="space-y-3">
-                  {taskControls.map((control: any) => (
+                  {filteredTaskControls.map((control: any) => (
                     <div key={control.id} className="flex items-start gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg">
                       <Badge 
                         variant="secondary" 
@@ -1251,8 +1280,7 @@ function EditTaskForm({
                       <Button 
                         size="sm" 
                         variant="outline" 
-                        onClick={() => removeControlFromTaskMutation.mutate(control.eccControl.id)}
-                        disabled={removeControlFromTaskMutation.isPending}
+                        onClick={() => handleTemporaryRemoveControl(control.eccControl.id)}
                         className="text-red-600 hover:text-red-700"
                       >
                         {language === 'ar' ? 'حذف' : 'Remove'}
@@ -1267,6 +1295,51 @@ function EditTaskForm({
               )}
             </div>
           </div>
+
+          {/* Pending Removed Controls */}
+          {pendingRemovedControls.length > 0 && (
+            <div>
+              <h3 className="font-semibold text-red-600 dark:text-red-400 mb-3">
+                {language === 'ar' ? 'الضوابط المحذوفة مؤقتاً (سيتم حفظ التغييرات عند الحفظ)' : 'Pending Removed Controls (will be saved on Save)'}
+              </h3>
+              <div className="border border-red-200 dark:border-red-800 rounded-lg p-4 bg-red-50 dark:bg-red-900/20">
+                <div className="space-y-3">
+                  {pendingRemovedControls.map((controlId) => {
+                    const control = taskControls?.find((tc: any) => tc.eccControl.id === controlId);
+                    if (!control) return null;
+                    
+                    return (
+                      <div key={control.id} className="flex items-start gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-red-200">
+                        <Badge variant="secondary" className="mt-1 opacity-50">
+                          {control.eccControl.code}
+                        </Badge>
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1 opacity-50">
+                            {language === 'ar' && control.eccControl.subdomainAr 
+                              ? control.eccControl.subdomainAr 
+                              : control.eccControl.subdomainEn}
+                          </h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 opacity-50">
+                            {language === 'ar' && control.eccControl.controlAr 
+                              ? control.eccControl.controlAr 
+                              : control.eccControl.controlEn}
+                          </p>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => handleRestoreControl(control.eccControl.id)}
+                          className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400"
+                        >
+                          {language === 'ar' ? 'استعادة' : 'Restore'}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Add New Controls */}
           <div>
@@ -1315,6 +1388,7 @@ function EditTaskForm({
                     onAddControls={handleAddControlsToTask}
                     language={language}
                     isLoading={addControlsToTaskMutation.isPending}
+                    onControlClick={handleControlClick}
                   />
                 ) : (
                   <p className="text-sm text-gray-500 text-center py-4">
@@ -1348,7 +1422,7 @@ function EditTaskForm({
                   <SelectValue placeholder={language === 'ar' ? 'اختر ضابط...' : 'Select a control...'} />
                 </SelectTrigger>
                 <SelectContent>
-                  {taskControls?.map((control: any) => (
+                  {filteredTaskControls?.map((control: any) => (
                     <SelectItem key={control.id} value={control.eccControl.id.toString()}>
                       {control.eccControl.code} - {language === 'ar' && control.eccControl.subdomainAr 
                         ? control.eccControl.subdomainAr 
@@ -1719,6 +1793,14 @@ function EditTaskForm({
           )}
         </Button>
       </div>
+
+      {/* Control Info Dialog */}
+      <ControlInfoDialog 
+        isOpen={isControlInfoDialogOpen}
+        onClose={() => setIsControlInfoDialogOpen(false)}
+        control={selectedControlForInfo}
+        projectId={task.projectId}
+      />
     </div>
   );
 }
@@ -1728,12 +1810,14 @@ function ControlSelector({
   controls, 
   onAddControls, 
   language, 
-  isLoading 
+  isLoading,
+  onControlClick 
 }: {
   controls: any[];
   onAddControls: (controlIds: number[]) => void;
   language: string;
   isLoading: boolean;
+  onControlClick?: (control: any) => void;
 }) {
   const [selectedControls, setSelectedControls] = useState<number[]>([]);
 
@@ -1804,7 +1888,7 @@ function ControlSelector({
                   className="text-xs cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleControlClick(control.eccControl);
+                    onControlClick?.(control.eccControl);
                   }}
                 >
                   {control.eccControl.code}
