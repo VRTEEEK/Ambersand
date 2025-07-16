@@ -635,11 +635,7 @@ export default function ProjectDetail() {
                                 <Badge 
                                   key={control.eccControl.id} 
                                   variant="outline" 
-                                  className="text-xs font-medium bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-700 text-teal-800 dark:text-teal-300 cursor-pointer hover:bg-teal-100 dark:hover:bg-teal-800/30 transition-colors"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleControlClick(control.eccControl);
-                                  }}
+                                  className="text-xs font-medium bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-700 text-teal-800 dark:text-teal-300"
                                 >
                                   {control.eccControl.code}
                                 </Badge>
