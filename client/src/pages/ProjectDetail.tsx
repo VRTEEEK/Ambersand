@@ -19,6 +19,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import TaskWizard from '@/components/tasks/TaskWizard';
+import { ControlInfoDialog } from '@/components/tasks/ControlInfoDialog';
 import { 
   ArrowLeft, 
   Plus, 
@@ -77,6 +78,8 @@ export default function ProjectDetail() {
   const [isTaskEditDialogOpen, setIsTaskEditDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [refreshKey, setRefreshKey] = useState(0); // Force refresh key
+  const [isControlInfoDialogOpen, setIsControlInfoDialogOpen] = useState(false);
+  const [selectedControlForInfo, setSelectedControlForInfo] = useState<any>(null);
 
   const { data: project, isLoading: projectLoading } = useQuery({
     queryKey: ['/api/projects', id],
@@ -499,7 +502,11 @@ export default function ProjectDetail() {
                                 <Badge 
                                   key={control.eccControl.id} 
                                   variant="outline" 
-                                  className="text-xs font-medium bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-700 text-teal-800 dark:text-teal-300"
+                                  className="text-xs font-medium bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-700 text-teal-800 dark:text-teal-300 cursor-pointer hover:bg-teal-100 dark:hover:bg-teal-800/30 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleControlClick(control.eccControl);
+                                  }}
                                 >
                                   {control.eccControl.code}
                                 </Badge>
@@ -715,6 +722,17 @@ export default function ProjectDetail() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Control Information Dialog */}
+        <ControlInfoDialog
+          isOpen={isControlInfoDialogOpen}
+          onClose={() => {
+            setIsControlInfoDialogOpen(false);
+            setSelectedControlForInfo(null);
+          }}
+          control={selectedControlForInfo}
+          projectId={project?.id || 0}
+        />
       </div>
     </AppLayout>
   );
@@ -858,6 +876,11 @@ function EditTaskForm({
     if (comment.trim()) {
       addCommentMutation.mutate({ evidenceId, comment: comment.trim() });
     }
+  };
+
+  const handleControlClick = (control: any) => {
+    setSelectedControlForInfo(control);
+    setIsControlInfoDialogOpen(true);
   };
 
   // Get unique domains from project controls
@@ -1145,7 +1168,14 @@ function EditTaskForm({
                 <div className="space-y-3">
                   {taskControls.map((control: any) => (
                     <div key={control.id} className="flex items-start gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg">
-                      <Badge variant="secondary" className="mt-1">
+                      <Badge 
+                        variant="secondary" 
+                        className="mt-1 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleControlClick(control.eccControl);
+                        }}
+                      >
                         {control.eccControl.code}
                       </Badge>
                       <div className="flex-1">
@@ -1544,7 +1574,14 @@ function ControlSelector({
             />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <Badge variant="secondary" className="text-xs">
+                <Badge 
+                  variant="secondary" 
+                  className="text-xs cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleControlClick(control.eccControl);
+                  }}
+                >
                   {control.eccControl.code}
                 </Badge>
               </div>

@@ -45,7 +45,7 @@ import {
   type InsertEvidenceTask,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, like, or, sql, count } from "drizzle-orm";
+import { eq, desc, and, like, or, sql, count, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -113,6 +113,7 @@ export interface IStorage {
   getEccControls(search?: string): Promise<EccControl[]>;
   getEccControl(id: number): Promise<EccControl | undefined>;
   getEccControlByCode(code: string): Promise<EccControl | undefined>;
+  getControlLinkedEvidence(controlId: number): Promise<(Evidence & { comments: (EvidenceComment & { user: User })[], versions: EvidenceVersion[] })[]>;
   
   // Compliance Assessment operations
   getComplianceAssessments(organizationId?: string): Promise<ComplianceAssessment[]>;
@@ -382,7 +383,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(taskControls.taskId, taskId),
-          sql`${taskControls.eccControlId} = ANY(${controlIds})`
+          inArray(taskControls.eccControlId, controlIds)
         )
       );
   }
@@ -557,6 +558,36 @@ export class DatabaseStorage implements IStorage {
   async getEccControlByCode(code: string): Promise<EccControl | undefined> {
     const [control] = await db.select().from(eccControls).where(eq(eccControls.code, code));
     return control;
+  }
+
+  async getControlLinkedEvidence(controlId: number): Promise<(Evidence & { comments: (EvidenceComment & { user: User })[], versions: EvidenceVersion[] })[]> {
+    // Get evidence linked to this control through evidenceControls junction table
+    const evidenceControlsResult = await db
+      .select()
+      .from(evidenceControls)
+      .innerJoin(evidence, eq(evidenceControls.evidenceId, evidence.id))
+      .where(eq(evidenceControls.eccControlId, controlId))
+      .orderBy(desc(evidence.createdAt));
+
+    const evidenceList: (Evidence & { comments: (EvidenceComment & { user: User })[], versions: EvidenceVersion[] })[] = [];
+
+    for (const row of evidenceControlsResult) {
+      const evidenceItem = row.evidence;
+      
+      // Get comments for this evidence
+      const comments = await this.getEvidenceComments(evidenceItem.id);
+      
+      // Get versions for this evidence  
+      const versions = await this.getEvidenceVersions(evidenceItem.id);
+      
+      evidenceList.push({
+        ...evidenceItem,
+        comments,
+        versions,
+      });
+    }
+
+    return evidenceList;
   }
 
   // Compliance Assessment operations

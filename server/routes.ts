@@ -659,6 +659,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get evidence linked to a specific control
+  app.get('/api/controls/:controlId/evidence', isAuthenticated, async (req, res) => {
+    try {
+      const controlId = parseInt(req.params.controlId);
+      const evidenceList = await storage.getControlLinkedEvidence(controlId);
+      res.json(evidenceList);
+    } catch (error) {
+      console.error("Error fetching control evidence:", error);
+      res.status(500).json({ message: "Failed to fetch control evidence" });
+    }
+  });
+
   app.post('/api/evidence/:id/controls', isAuthenticated, async (req, res) => {
     try {
       const evidenceId = parseInt(req.params.id);
