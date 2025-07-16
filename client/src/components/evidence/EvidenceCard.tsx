@@ -119,13 +119,6 @@ export function EvidenceCard({
             </div>
           </div>
 
-        {/* Description */}
-        {evidence.description && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">
-            {language === 'ar' && evidence.descriptionAr ? evidence.descriptionAr : evidence.description}
-          </p>
-        )}
-
         {/* Metadata */}
         <div className="space-y-2 mb-4">
           {/* File Size & Type */}
