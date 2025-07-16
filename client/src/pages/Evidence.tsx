@@ -730,10 +730,12 @@ export default function Evidence() {
 
         {/* Enhanced Detail Dialog */}
         <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-          <DialogContent className="max-w-5xl w-[90vw] h-[85vh] flex flex-col" aria-describedby="evidence-dialog-description">
-            <DialogHeader className="flex-shrink-0">
-              <DialogTitle className="flex items-center gap-2">
-                {getFileIcon(selectedEvidence?.fileType)}
+          <DialogContent className="max-w-6xl w-[92vw] h-[88vh] flex flex-col p-0 gap-0" aria-describedby="evidence-dialog-description">
+            <DialogHeader className="flex-shrink-0 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <DialogTitle className="flex items-center gap-3 text-xl font-semibold">
+                <div className="w-8 h-8 bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg flex items-center justify-center">
+                  {getFileIcon(selectedEvidence?.fileType)}
+                </div>
                 {language === 'ar' ? 'تفاصيل الدليل' : 'Evidence Details'}
               </DialogTitle>
               <div id="evidence-dialog-description" className="sr-only">
@@ -741,80 +743,110 @@ export default function Evidence() {
               </div>
             </DialogHeader>
             {selectedEvidence && (
-              <Tabs defaultValue="details" className="flex-1 flex flex-col">
-                <TabsList className="grid w-full grid-cols-5 flex-shrink-0">
-                  <TabsTrigger value="details">{language === 'ar' ? 'التفاصيل' : 'Details'}</TabsTrigger>
-                  <TabsTrigger value="controls">{language === 'ar' ? 'الضوابط' : 'Controls'}</TabsTrigger>
-                  <TabsTrigger value="versions">{language === 'ar' ? 'الإصدارات' : 'Versions'}</TabsTrigger>
-                  <TabsTrigger value="comments">{language === 'ar' ? 'التعليقات' : 'Comments'}</TabsTrigger>
-                  <TabsTrigger value="upload">{language === 'ar' ? 'رفع إصدار جديد' : 'Upload Version'}</TabsTrigger>
+              <Tabs defaultValue="details" className="flex-1 flex flex-col min-h-0">
+                <TabsList className="grid w-full grid-cols-5 flex-shrink-0 mx-6 mt-4 mb-0 h-12 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+                  <TabsTrigger 
+                    value="details" 
+                    className="text-sm font-medium px-4 py-2 rounded-md transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-teal-700 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-teal-400"
+                  >
+                    {language === 'ar' ? 'التفاصيل' : 'Details'}
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="controls"
+                    className="text-sm font-medium px-4 py-2 rounded-md transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-teal-700 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-teal-400"
+                  >
+                    {language === 'ar' ? 'الضوابط' : 'Controls'}
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="versions"
+                    className="text-sm font-medium px-4 py-2 rounded-md transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-teal-700 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-teal-400"
+                  >
+                    {language === 'ar' ? 'الإصدارات' : 'Versions'}
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="comments"
+                    className="text-sm font-medium px-4 py-2 rounded-md transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-teal-700 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-teal-400"
+                  >
+                    {language === 'ar' ? 'التعليقات' : 'Comments'}
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="upload"
+                    className="text-sm font-medium px-4 py-2 rounded-md transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-teal-700 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-teal-400"
+                  >
+                    {language === 'ar' ? 'رفع إصدار جديد' : 'Upload Version'}
+                  </TabsTrigger>
                 </TabsList>
 
                 {/* Details Tab */}
-                <TabsContent value="details" className="flex-1 flex flex-col">
-                  <div className="flex-1 overflow-y-auto p-6">
-                    <div className="flex items-start gap-6">
-                      <div className="w-16 h-16 bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl flex items-center justify-center">
-                        {getFileIcon(selectedEvidence.fileType)}
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-xl font-semibold mb-2">
-                          {language === 'ar' && selectedEvidence.titleAr ? selectedEvidence.titleAr : selectedEvidence.title}
-                        </h3>
-                        <p className="text-gray-600 dark:text-gray-400 mb-4">
-                          {language === 'ar' && selectedEvidence.descriptionAr ? selectedEvidence.descriptionAr : selectedEvidence.description}
-                        </p>
-                        
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                          <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                            <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">File Size</span>
-                            <p className="text-lg font-semibold">{formatFileSize(selectedEvidence.fileSize)}</p>
-                          </div>
-                          <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                            <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Version</span>
-                            <p className="text-lg font-semibold">v{selectedEvidence.version}</p>
-                          </div>
-                          <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                            <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Type</span>
-                            <p className="text-lg font-semibold">{getRegulationType(selectedEvidence)}</p>
-                          </div>
-                          {selectedEvidence.uploaderName && (
-                            <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                              <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Uploaded by</span>
-                              <p className="text-lg font-semibold">{selectedEvidence.uploaderName}</p>
-                            </div>
-                          )}
-                          <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                            <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Upload Date</span>
-                            <p className="text-lg font-semibold">{formatDate(selectedEvidence.createdAt)}</p>
-                          </div>
-                          {(selectedEvidence.projectId || selectedEvidence.taskId) && (
-                            <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                              <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Linked To</span>
-                              <div className="flex flex-wrap gap-2 mt-1">
-                                {selectedEvidence.projectId && (
-                                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                    <Building className="h-3 w-3 mr-1" />
-                                    {getProjectName(selectedEvidence.projectId)}
-                                  </Badge>
-                                )}
-                                {selectedEvidence.taskId && (
-                                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                    <CheckCircle className="h-3 w-3 mr-1" />
-                                    {getTaskName(selectedEvidence.taskId)}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          )}
+                <TabsContent value="details" className="flex-1 flex flex-col min-h-0 mt-4">
+                  <div className="flex-1 overflow-y-auto px-6 pb-4">
+                    <div className="max-w-4xl mx-auto">
+                      <div className="flex items-start gap-6 mb-6">
+                        <div className="w-16 h-16 bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl flex items-center justify-center shadow-sm">
+                          {getFileIcon(selectedEvidence.fileType)}
                         </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">
+                            {language === 'ar' && selectedEvidence.titleAr ? selectedEvidence.titleAr : selectedEvidence.title}
+                          </h3>
+                          <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                            {language === 'ar' && selectedEvidence.descriptionAr ? selectedEvidence.descriptionAr : selectedEvidence.description}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <span className="font-medium text-gray-600 dark:text-gray-400 text-sm block mb-1">File Size</span>
+                          <p className="text-lg font-semibold text-gray-900 dark:text-white">{formatFileSize(selectedEvidence.fileSize)}</p>
+                        </div>
+                        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <span className="font-medium text-gray-600 dark:text-gray-400 text-sm block mb-1">Version</span>
+                          <p className="text-lg font-semibold text-gray-900 dark:text-white">v{selectedEvidence.version}</p>
+                        </div>
+                        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <span className="font-medium text-gray-600 dark:text-gray-400 text-sm block mb-1">Type</span>
+                          <p className="text-lg font-semibold text-gray-900 dark:text-white">{getRegulationType(selectedEvidence)}</p>
+                        </div>
+                        {selectedEvidence.uploaderName && (
+                          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                            <span className="font-medium text-gray-600 dark:text-gray-400 text-sm block mb-1">Uploaded by</span>
+                            <p className="text-lg font-semibold text-gray-900 dark:text-white">{selectedEvidence.uploaderName}</p>
+                          </div>
+                        )}
+                        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <span className="font-medium text-gray-600 dark:text-gray-400 text-sm block mb-1">Upload Date</span>
+                          <p className="text-lg font-semibold text-gray-900 dark:text-white">{formatDate(selectedEvidence.createdAt)}</p>
+                        </div>
+                        {(selectedEvidence.projectId || selectedEvidence.taskId) && (
+                          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                            <span className="font-medium text-gray-600 dark:text-gray-400 text-sm block mb-2">Linked To</span>
+                            <div className="flex flex-wrap gap-2">
+                              {selectedEvidence.projectId && (
+                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 transition-colors">
+                                  <Building className="h-3 w-3 mr-1" />
+                                  {getProjectName(selectedEvidence.projectId)}
+                                </Badge>
+                              )}
+                              {selectedEvidence.taskId && (
+                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100 transition-colors">
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  {getTaskName(selectedEvidence.taskId)}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
                   {/* Fixed bottom button */}
-                  <div className="flex-shrink-0 p-6 border-t border-gray-200 dark:border-gray-700">
-                    <div className="flex justify-center">
-                      <Button onClick={() => handleDownload(selectedEvidence)} className="w-64">
+                  <div className="flex-shrink-0 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                    <div className="flex justify-center max-w-4xl mx-auto">
+                      <Button 
+                        onClick={() => handleDownload(selectedEvidence)} 
+                        className="w-64 h-11 bg-teal-600 hover:bg-teal-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
+                      >
                         <Download className="h-4 w-4 mr-2" />
                         {language === 'ar' ? 'تحميل الملف' : 'Download File'}
                       </Button>
@@ -823,277 +855,341 @@ export default function Evidence() {
                 </TabsContent>
 
                 {/* Controls Tab */}
-                <TabsContent value="controls" className="flex-1 overflow-y-auto p-6 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold">
-                      {language === 'ar' ? 'الضوابط المرتبطة' : 'Linked Controls'}
-                    </h3>
-                    <Badge variant="outline">
-                      {selectedEvidence.eccControlId ? '1' : '0'} {language === 'ar' ? 'ضابط' : 'Controls'}
-                    </Badge>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    {selectedEvidence.eccControlId ? (
-                      (() => {
-                        const controlInfo = getControlInfo(selectedEvidence.eccControlId);
-                        return controlInfo ? (
-                          <Card key={selectedEvidence.eccControlId} className="p-4">
-                            <div className="flex items-start gap-3">
-                              <div className="w-10 h-10 bg-teal-50 rounded-lg flex items-center justify-center">
-                                <Shield className="h-5 w-5 text-teal-600" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Badge variant="outline" className="bg-teal-50 text-teal-700 border-teal-200">
-                                    {language === 'ar' && controlInfo.codeAr ? controlInfo.codeAr : controlInfo.code}
-                                  </Badge>
-                                </div>
-                                <h4 className="font-medium text-gray-900 dark:text-white mb-1">
-                                  {language === 'ar' && controlInfo.controlAr ? controlInfo.controlAr : controlInfo.controlEn}
-                                </h4>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                  {language === 'ar' ? 'ضابط الأمن السيبراني الأساسي' : 'Essential Cybersecurity Control'}
-                                </p>
-                              </div>
-                            </div>
-                          </Card>
-                        ) : (
-                          <div className="text-center py-8 text-gray-500">
-                            <Shield className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                            <p>{language === 'ar' ? 'معلومات الضابط غير متوفرة' : 'Control information not available'}</p>
-                          </div>
-                        );
-                      })()
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        <Shield className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                        <p>{language === 'ar' ? 'لا توجد ضوابط مرتبطة' : 'No linked controls'}</p>
-                        <p className="text-sm">
-                          {language === 'ar' ? 'لم يتم ربط هذا الدليل بأي ضوابط' : 'This evidence is not linked to any controls'}
-                        </p>
+                <TabsContent value="controls" className="flex-1 flex flex-col min-h-0 mt-4">
+                  <div className="flex-1 overflow-y-auto px-6 pb-4">
+                    <div className="max-w-4xl mx-auto">
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                          {language === 'ar' ? 'الضوابط المرتبطة' : 'Linked Controls'}
+                        </h3>
+                        <Badge variant="outline" className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                          {selectedEvidence.eccControlId ? '1' : '0'} {language === 'ar' ? 'ضابط' : 'Controls'}
+                        </Badge>
                       </div>
-                    )}
+                      
+                      <div className="space-y-4">
+                        {selectedEvidence.eccControlId ? (
+                          (() => {
+                            const controlInfo = getControlInfo(selectedEvidence.eccControlId);
+                            return controlInfo ? (
+                              <Card key={selectedEvidence.eccControlId} className="p-6 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow duration-200">
+                                <div className="flex items-start gap-4">
+                                  <div className="w-12 h-12 bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl flex items-center justify-center shadow-sm">
+                                    <Shield className="h-6 w-6 text-teal-600" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-3 mb-3">
+                                      <Badge variant="outline" className="bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100 transition-colors">
+                                        {language === 'ar' && controlInfo.codeAr ? controlInfo.codeAr : controlInfo.code}
+                                      </Badge>
+                                      <span className="text-xs text-gray-500 font-medium">
+                                        {language === 'ar' ? 'ضابط الأمن السيبراني الأساسي' : 'Essential Cybersecurity Control'}
+                                      </span>
+                                    </div>
+                                    <h4 className="font-semibold text-gray-900 dark:text-white mb-2 leading-relaxed">
+                                      {language === 'ar' && controlInfo.controlAr ? controlInfo.controlAr : controlInfo.controlEn}
+                                    </h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                      <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">Domain</span>
+                                        <p className="text-sm text-gray-900 dark:text-white">
+                                          {language === 'ar' && controlInfo.domainAr ? controlInfo.domainAr : controlInfo.domainEn}
+                                        </p>
+                                      </div>
+                                      <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">Subdomain</span>
+                                        <p className="text-sm text-gray-900 dark:text-white">
+                                          {language === 'ar' && controlInfo.subdomainAr ? controlInfo.subdomainAr : controlInfo.subdomainEn}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </Card>
+                            ) : (
+                              <div className="text-center py-12 text-gray-500">
+                                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                                  <Shield className="h-8 w-8 text-gray-400" />
+                                </div>
+                                <p className="text-lg font-medium mb-2">{language === 'ar' ? 'معلومات الضابط غير متوفرة' : 'Control information not available'}</p>
+                                <p className="text-sm text-gray-400">{language === 'ar' ? 'لا يمكن العثور على تفاصيل هذا الضابط' : 'Unable to find details for this control'}</p>
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          <div className="text-center py-12 text-gray-500">
+                            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <Shield className="h-8 w-8 text-gray-400" />
+                            </div>
+                            <p className="text-lg font-medium mb-2">{language === 'ar' ? 'لا توجد ضوابط مرتبطة' : 'No linked controls'}</p>
+                            <p className="text-sm text-gray-400">
+                              {language === 'ar' ? 'لم يتم ربط هذا الدليل بأي ضوابط أمن سيبراني' : 'This evidence is not linked to any cybersecurity controls'}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </TabsContent>
 
                 {/* Versions Tab */}
-                <TabsContent value="versions" className="flex-1 overflow-y-auto p-6 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold">
-                      {language === 'ar' ? 'جميع الإصدارات' : 'All Versions'}
-                    </h3>
-                    <Badge variant="outline">
-                      {language === 'ar' ? '1 إصدار' : '1 Version'}
-                    </Badge>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <Card className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          {getFileIcon(selectedEvidence.fileType)}
-                          <div>
-                            <h4 className="font-medium">{selectedEvidence.fileName}</h4>
-                            <p className="text-sm text-gray-500">
-                              v{selectedEvidence.version} • {formatFileSize(selectedEvidence.fileSize)} • {formatDate(selectedEvidence.createdAt)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary">Current</Badge>
-                          <Button size="sm" variant="outline" onClick={() => handleDownload(selectedEvidence)}>
-                            <Download className="h-3 w-3 mr-1" />
-                            Download
-                          </Button>
-                        </div>
+                <TabsContent value="versions" className="flex-1 flex flex-col min-h-0 mt-4">
+                  <div className="flex-1 overflow-y-auto px-6 pb-4">
+                    <div className="max-w-4xl mx-auto">
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                          {language === 'ar' ? 'جميع الإصدارات' : 'All Versions'}
+                        </h3>
+                        <Badge variant="outline" className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                          {language === 'ar' ? '1 إصدار' : '1 Version'}
+                        </Badge>
                       </div>
-                    </Card>
+                      
+                      <div className="space-y-4">
+                        <Card className="p-6 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow duration-200">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl flex items-center justify-center shadow-sm">
+                                {getFileIcon(selectedEvidence.fileType)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-gray-900 dark:text-white mb-1">{selectedEvidence.fileName}</h4>
+                                <div className="flex items-center gap-4 text-sm text-gray-500">
+                                  <span className="flex items-center gap-1">
+                                    <span className="w-2 h-2 bg-teal-500 rounded-full"></span>
+                                    v{selectedEvidence.version}
+                                  </span>
+                                  <span>{formatFileSize(selectedEvidence.fileSize)}</span>
+                                  <span>{formatDate(selectedEvidence.createdAt)}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <Badge variant="secondary" className="bg-teal-100 text-teal-700 border-teal-200">Current</Badge>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => handleDownload(selectedEvidence)}
+                                className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                              >
+                                <Download className="h-3 w-3 mr-1" />
+                                Download
+                              </Button>
+                            </div>
+                          </div>
+                        </Card>
+                      </div>
+                    </div>
                   </div>
                 </TabsContent>
 
                 {/* Comments Tab */}
-                <TabsContent value="comments" className="flex-1 overflow-y-auto p-6 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold">
-                      {language === 'ar' ? 'التعليقات' : 'Comments'}
-                    </h3>
-                    <Badge variant="outline">
-                      {evidenceComments?.length || 0} {language === 'ar' ? 'تعليق' : 'Comments'}
-                    </Badge>
-                  </div>
-                  
-                  {/* Add Comment Form */}
-                  <Card className="p-4">
-                    <div className="space-y-3">
-                      <h4 className="font-medium">
-                        {language === 'ar' ? 'إضافة تعليق جديد' : 'Add New Comment'}
-                      </h4>
-                      <Textarea
-                        placeholder={language === 'ar' ? 'اكتب تعليقك هنا...' : 'Write your comment here...'}
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        rows={3}
-                      />
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setNewComment('')}
-                          disabled={!newComment.trim()}
-                        >
-                          {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={addCommentToEvidence}
-                          disabled={!newComment.trim() || isAddingComment}
-                        >
-                          {isAddingComment ? (
-                            <>
-                              <div className="animate-spin h-3 w-3 mr-1 border border-white border-t-transparent rounded-full" />
-                              {language === 'ar' ? 'جاري الإضافة...' : 'Adding...'}
-                            </>
-                          ) : (
-                            <>
-                              <MessageCircle className="h-3 w-3 mr-1" />
-                              {language === 'ar' ? 'إضافة تعليق' : 'Add Comment'}
-                            </>
-                          )}
-                        </Button>
+                <TabsContent value="comments" className="flex-1 flex flex-col min-h-0 mt-4">
+                  <div className="flex-1 overflow-y-auto px-6 pb-4">
+                    <div className="max-w-4xl mx-auto">
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                          {language === 'ar' ? 'التعليقات' : 'Comments'}
+                        </h3>
+                        <Badge variant="outline" className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                          {evidenceComments?.length || 0} {language === 'ar' ? 'تعليق' : 'Comments'}
+                        </Badge>
+                      </div>
+                      
+                      {/* Add Comment Form */}
+                      <Card className="p-6 mb-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-3">
+                            <MessageCircle className="h-5 w-5 text-teal-600" />
+                            <h4 className="font-semibold text-gray-900 dark:text-white">
+                              {language === 'ar' ? 'إضافة تعليق جديد' : 'Add New Comment'}
+                            </h4>
+                          </div>
+                          <Textarea
+                            placeholder={language === 'ar' ? 'اكتب تعليقك هنا...' : 'Write your comment here...'}
+                            value={newComment}
+                            onChange={(e) => setNewComment(e.target.value)}
+                            rows={3}
+                            className="resize-none border-gray-200 dark:border-gray-700 focus:border-teal-400 focus:ring-teal-400"
+                          />
+                          <div className="flex justify-end gap-3">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setNewComment('')}
+                              disabled={!newComment.trim()}
+                              className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            >
+                              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={addCommentToEvidence}
+                              disabled={!newComment.trim() || isAddingComment}
+                              className="bg-teal-600 hover:bg-teal-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
+                            >
+                              {isAddingComment ? (
+                                <>
+                                  <div className="animate-spin h-3 w-3 mr-2 border border-white border-t-transparent rounded-full" />
+                                  {language === 'ar' ? 'جاري الإضافة...' : 'Adding...'}
+                                </>
+                              ) : (
+                                <>
+                                  <MessageCircle className="h-3 w-3 mr-2" />
+                                  {language === 'ar' ? 'إضافة تعليق' : 'Add Comment'}
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                      
+                      {/* Comments List */}
+                      <div className="space-y-4">
+                        {evidenceComments && evidenceComments.length > 0 ? (
+                          evidenceComments.map((comment: any) => (
+                            <Card key={comment.id} className="p-5 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow duration-200">
+                              <div className="flex items-start gap-4">
+                                <UserAvatar 
+                                  user={{
+                                    name: comment.user.name,
+                                    email: comment.user.email,
+                                    profilePicture: comment.user.profilePicture
+                                  }}
+                                  size="md"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <span className="font-semibold text-sm text-gray-900 dark:text-white">
+                                      {comment.user.name}
+                                    </span>
+                                    <span className="text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full">
+                                      {new Date(comment.createdAt).toLocaleDateString()} • {new Date(comment.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                                    {comment.comment}
+                                  </p>
+                                </div>
+                              </div>
+                            </Card>
+                          ))
+                        ) : (
+                          <div className="text-center py-12 text-gray-500">
+                            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <MessageCircle className="h-8 w-8 text-gray-400" />
+                            </div>
+                            <p className="text-lg font-medium mb-2">{language === 'ar' ? 'لا توجد تعليقات حتى الآن' : 'No comments yet'}</p>
+                            <p className="text-sm text-gray-400">
+                              {language === 'ar' ? 'أضف أول تعليق أعلاه' : 'Add the first comment above'}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </Card>
-                  
-                  {/* Comments List */}
-                  <div className="space-y-3">
-                    {evidenceComments && evidenceComments.length > 0 ? (
-                      evidenceComments.map((comment: any) => (
-                        <Card key={comment.id} className="p-4">
-                          <div className="flex items-start gap-3">
-                            <UserAvatar 
-                              user={{
-                                name: comment.user.name,
-                                email: comment.user.email,
-                                profilePicture: comment.user.profilePicture
-                              }}
-                              size="sm"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="font-medium text-sm text-gray-900 dark:text-white">
-                                  {comment.user.name}
-                                </span>
-                                <span className="text-xs text-gray-500">
-                                  {new Date(comment.createdAt).toLocaleDateString()} {new Date(comment.createdAt).toLocaleTimeString()}
-                                </span>
-                              </div>
-                              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                                {comment.comment}
-                              </p>
-                            </div>
-                          </div>
-                        </Card>
-                      ))
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        <MessageCircle className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                        <p>{language === 'ar' ? 'لا توجد تعليقات حتى الآن' : 'No comments yet'}</p>
-                        <p className="text-sm">
-                          {language === 'ar' ? 'أضف أول تعليق أعلاه' : 'Add the first comment above'}
-                        </p>
-                      </div>
-                    )}
                   </div>
                 </TabsContent>
 
                 {/* Upload New Version Tab */}
-                <TabsContent value="upload" className="flex-1 overflow-y-auto p-6 space-y-4">
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">
-                      {language === 'ar' ? 'رفع إصدار جديد' : 'Upload New Version'}
-                    </h3>
-                    
-                    <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                      newVersionFile ? 'border-teal-400 bg-teal-50' : 'border-gray-300'
-                    }`}>
-                      <Upload className={`h-12 w-12 mx-auto mb-4 ${
-                        newVersionFile ? 'text-teal-500' : 'text-gray-400'
-                      }`} />
-                      {newVersionFile ? (
-                        <div>
-                          <p className="text-sm font-medium text-teal-700 mb-2">
-                            {newVersionFile.name}
-                          </p>
-                          <p className="text-xs text-gray-500 mb-4">
-                            {(newVersionFile.size / (1024 * 1024)).toFixed(2)} MB
-                          </p>
-                        </div>
-                      ) : (
-                        <div>
-                          <p className="text-sm text-gray-600 mb-2">
-                            {language === 'ar' ? 'اختر ملف أو اسحبه هنا' : 'Choose file or drag and drop'}
-                          </p>
-                          <p className="text-xs text-gray-500 mb-4">
-                            {language === 'ar' ? 'سيتم رفعه كإصدار جديد من' : 'Will be uploaded as a new version of'} {selectedEvidence.title}
-                          </p>
-                        </div>
-                      )}
-                      <input
-                        type="file"
-                        id="new-version-file"
-                        className="hidden"
-                        onChange={handleNewVersionFileChange}
-                        accept="*/*"
-                      />
-                      <Button
-                        variant="outline"
-                        onClick={() => document.getElementById('new-version-file')?.click()}
-                      >
-                        {newVersionFile ? 
-                          (language === 'ar' ? 'اختيار ملف آخر' : 'Choose Different File') :
-                          (language === 'ar' ? 'اختيار ملف' : 'Choose File')
-                        }
-                      </Button>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Shield className="h-4 w-4 text-blue-600" />
-                          <span className="text-sm font-medium text-blue-900">
-                            {language === 'ar' ? 'الإصدار التلقائي' : 'Automatic Versioning'}
-                          </span>
-                        </div>
-                        <p className="text-sm text-blue-700">
-                          {language === 'ar' 
-                            ? 'سيتم إنشاء رقم الإصدار تلقائياً (مثال: v2.0، v3.0)' 
-                            : 'Version number will be generated automatically (e.g., v2.0, v3.0)'}
+                <TabsContent value="upload" className="flex-1 flex flex-col min-h-0 mt-4">
+                  <div className="flex-1 overflow-y-auto px-6 pb-4">
+                    <div className="max-w-4xl mx-auto">
+                      <div className="mb-6">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                          {language === 'ar' ? 'رفع إصدار جديد' : 'Upload New Version'}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {language === 'ar' ? 'رفع ملف جديد كإصدار محدث من الدليل الحالي' : 'Upload a new file as an updated version of the current evidence'}
                         </p>
                       </div>
                       
-                      <div>
-                        <label className="text-sm font-medium">
-                          {language === 'ar' ? 'ملاحظات الإصدار' : 'Version Notes'} 
-                          <span className="text-gray-500">({language === 'ar' ? 'اختياري' : 'Optional'})</span>
-                        </label>
-                        <Textarea 
-                          placeholder={language === 'ar' ? 'اكتب ملاحظات حول هذا الإصدار...' : 'Write notes about this version...'}
-                          className="mt-1"
-                          rows={3}
-                          value={versionNotes}
-                          onChange={(e) => setVersionNotes(e.target.value)}
-                        />
-                      </div>
+                      <div className="space-y-6">
+                        <div className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 ${
+                          newVersionFile ? 'border-teal-400 bg-teal-50 dark:bg-teal-950' : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+                        }`}>
+                          <Upload className={`h-16 w-16 mx-auto mb-4 transition-colors ${
+                            newVersionFile ? 'text-teal-500' : 'text-gray-400'
+                          }`} />
+                          {newVersionFile ? (
+                            <div className="space-y-2">
+                              <p className="text-lg font-semibold text-teal-700 dark:text-teal-400">
+                                {newVersionFile.name}
+                              </p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                {(newVersionFile.size / (1024 * 1024)).toFixed(2)} MB • {newVersionFile.type || 'Unknown type'}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
+                                {language === 'ar' ? 'اختر ملف أو اسحبه هنا' : 'Choose file or drag and drop'}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                {language === 'ar' ? 'سيتم رفعه كإصدار جديد من' : 'Will be uploaded as a new version of'} {selectedEvidence.title}
+                              </p>
+                            </div>
+                          )}
+                          <input
+                            type="file"
+                            id="new-version-file"
+                            className="hidden"
+                            onChange={handleNewVersionFileChange}
+                            accept="*/*"
+                          />
+                          <Button
+                            variant="outline"
+                            size="lg"
+                            onClick={() => document.getElementById('new-version-file')?.click()}
+                            className="mt-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                          >
+                            {newVersionFile ? 
+                              (language === 'ar' ? 'اختيار ملف آخر' : 'Choose Different File') :
+                              (language === 'ar' ? 'اختيار ملف' : 'Choose File')
+                            }
+                          </Button>
+                        </div>
 
-                      <Button
-                        className="w-full"
-                        disabled={!newVersionFile}
-                        onClick={handleNewVersionUpload}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        {language === 'ar' ? 'رفع الإصدار الجديد' : 'Upload New Version'}
-                      </Button>
+                        <div className="space-y-4">
+                          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border border-blue-200 dark:border-blue-800 rounded-xl p-6">
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                                <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                              </div>
+                              <span className="font-semibold text-blue-900 dark:text-blue-100">
+                                {language === 'ar' ? 'الإصدار التلقائي' : 'Automatic Versioning'}
+                              </span>
+                            </div>
+                            <p className="text-sm text-blue-700 dark:text-blue-300 leading-relaxed">
+                              {language === 'ar' 
+                                ? 'سيتم إنشاء رقم الإصدار تلقائياً بناءً على الإصدار الحالي (مثال: v1.0 → v2.0 → v3.0)' 
+                                : 'Version number will be generated automatically based on the current version (e.g., v1.0 → v2.0 → v3.0)'}
+                            </p>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 block">
+                              {language === 'ar' ? 'ملاحظات الإصدار' : 'Version Notes'} 
+                              <span className="text-gray-500 font-normal ml-1">({language === 'ar' ? 'اختياري' : 'Optional'})</span>
+                            </label>
+                            <Textarea 
+                              placeholder={language === 'ar' ? 'اكتب ملاحظات حول هذا الإصدار...' : 'Write notes about this version...'}
+                              className="resize-none border-gray-200 dark:border-gray-700 focus:border-teal-400 focus:ring-teal-400"
+                              rows={4}
+                              value={versionNotes}
+                              onChange={(e) => setVersionNotes(e.target.value)}
+                            />
+                          </div>
+
+                          <Button
+                            className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
+                            disabled={!newVersionFile}
+                            onClick={handleNewVersionUpload}
+                          >
+                            <Upload className="h-5 w-5 mr-2" />
+                            {language === 'ar' ? 'رفع الإصدار الجديد' : 'Upload New Version'}
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </TabsContent>
