@@ -1618,19 +1618,7 @@ function EditTaskForm({
                   </h3>
                 </div>
 
-                {/* Current Control Context */}
-                <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary">
-                      {taskControls?.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.code}
-                    </Badge>
-                    <h4 className="font-medium text-gray-900 dark:text-white text-sm">
-                      {language === 'ar' && taskControls?.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.subdomainAr 
-                        ? taskControls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.subdomainAr 
-                        : taskControls?.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.subdomainEn}
-                    </h4>
-                  </div>
-                </div>
+                
 
                 {/* Toggle Options */}
                 <div className="flex gap-2">
