@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import { 
   Dialog,
   DialogContent,
@@ -238,18 +239,27 @@ const SortableTaskCard = memo(function SortableTaskCard({ task, language, onTask
         </div>
         {task.assigneeId && (
           <div className="flex items-center gap-1">
-            <Users className="h-3 w-3" />
-            <span className="truncate max-w-24">
-              {(() => {
-                const user = users.find(u => u.id === task.assigneeId);
-                if (user) {
-                  return user.firstName && user.lastName 
-                    ? `${user.firstName} ${user.lastName}`
-                    : user.email;
-                }
-                return task.assigneeId;
-              })()}
-            </span>
+            {(() => {
+              const user = users.find(u => u.id === task.assigneeId);
+              if (user) {
+                return (
+                  <>
+                    <UserAvatar user={user} size="sm" className="w-4 h-4" />
+                    <span className="truncate max-w-24">
+                      {user.firstName && user.lastName 
+                        ? `${user.firstName} ${user.lastName}`
+                        : user.email}
+                    </span>
+                  </>
+                );
+              }
+              return (
+                <>
+                  <Users className="h-3 w-3" />
+                  <span className="truncate max-w-24">{task.assigneeId}</span>
+                </>
+              );
+            })()}
           </div>
         )}
         {task.dueDate && (
