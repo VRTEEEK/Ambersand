@@ -759,10 +759,6 @@ export default function Evidence() {
                           <Download className="h-4 w-4 mr-2" />
                           {language === 'ar' ? 'تحميل الملف' : 'Download File'}
                         </Button>
-                        <Button variant="outline" onClick={() => handleAddComment(selectedEvidence)} className="flex-1">
-                          <MessageCircle className="h-4 w-4 mr-2" />
-                          {language === 'ar' ? 'إضافة تعليق' : 'Add Comment'}
-                        </Button>
                       </div>
                     </div>
                   </div>
