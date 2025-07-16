@@ -135,9 +135,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
           const Icon = item.icon;
           return (
             <Link key={item.href} href={item.href}>
-              <a
+              <div
                 className={cn(
-                  "flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors",
+                  "flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors cursor-pointer",
                   item.current
                     ? "bg-teal-50 text-teal-600 border border-teal-200"
                     : "text-slate-600 hover:bg-slate-100"
@@ -148,7 +148,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   style={{ color: item.current ? '#2699A6' : undefined }}
                 />
                 <span>{item.title}</span>
-              </a>
+              </div>
             </Link>
           );
         })}
@@ -163,9 +163,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
           const Icon = item.icon;
           return (
             <Link key={item.href} href={item.href}>
-              <a
+              <div
                 className={cn(
-                  "flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors",
+                  "flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors cursor-pointer",
                   item.current
                     ? "bg-teal-50 text-teal-600 border border-teal-200"
                     : "text-slate-600 hover:bg-slate-100"
@@ -176,7 +176,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   style={{ color: item.current ? '#2699A6' : undefined }}
                 />
                 <span>{item.title}</span>
-              </a>
+              </div>
             </Link>
           );
         })}
@@ -243,18 +243,16 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
               {/* Notifications */}
               <Link href="/notifications">
-                <a>
-                  <Button variant="ghost" size="icon" className="relative">
-                    <Bell className="h-5 w-5" style={{ color: '#2699A6' }} />
-                    {notificationCount > 0 && (
-                      <Badge
-                        className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-[#ea580b] text-white"
-                      >
-                        {notificationCount}
-                      </Badge>
-                    )}
-                  </Button>
-                </a>
+                <Button variant="ghost" size="icon" className="relative">
+                  <Bell className="h-5 w-5" style={{ color: '#2699A6' }} />
+                  {notificationCount > 0 && (
+                    <Badge
+                      className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-[#ea580b] text-white"
+                    >
+                      {notificationCount}
+                    </Badge>
+                  )}
+                </Button>
               </Link>
 
               {/* User Menu */}
@@ -271,9 +269,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
                     <Link href="/profile">
-                      <a className="w-full">
+                      <div className="w-full cursor-pointer">
                         {language === 'ar' ? 'الملف الشخصي' : 'Profile'}
-                      </a>
+                      </div>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

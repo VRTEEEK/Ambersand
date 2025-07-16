@@ -84,11 +84,11 @@ export default function Landing() {
                 {language === 'en' ? 'العربية' : 'English'}
               </Button>
               
-              <Button asChild>
-                <a href="/api/login">
+              <a href="/api/login">
+                <Button>
                   {t('actions.login')}
-                </a>
-              </Button>
+                </Button>
+              </a>
             </div>
           </div>
         </div>
@@ -125,12 +125,12 @@ export default function Landing() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
-            <Button size="lg" className="hover:bg-white/95 hover:text-[#2699A6] text-lg px-8 py-4 h-auto font-semibold bg-[#60bfb6] text-[#ffffff] rounded-2xl" asChild>
-              <a href="/api/login">
+            <a href="/api/login">
+              <Button size="lg" className="hover:bg-white/95 hover:text-[#2699A6] text-lg px-8 py-4 h-auto font-semibold bg-[#60bfb6] text-[#ffffff] rounded-2xl">
                 {language === 'ar' ? 'ابدأ الآن' : 'Get Started'}
                 <ArrowRight className="ml-2 h-6 w-6" />
-              </a>
-            </Button>
+              </Button>
+            </a>
             
             
           </div>
