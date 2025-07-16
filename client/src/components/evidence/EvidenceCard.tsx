@@ -102,7 +102,7 @@ export function EvidenceCard({
               {controlInfo && (
                 <Tooltip>
                   <TooltipTrigger>
-                    <Badge variant="secondary" className="text-xs px-2 py-1 bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100">
+                    <Badge variant="outline" className="text-xs bg-teal-50 text-teal-700 border-teal-200">
                       <Shield className="h-3 w-3 mr-1" />
                       {language === 'ar' ? controlInfo.codeAr : controlInfo.code}
                     </Badge>
@@ -130,20 +130,7 @@ export function EvidenceCard({
             </Badge>
           </div>
 
-          {/* Linked Controls */}
-          {controlInfo && (
-            <div className="space-y-2">
-              <div className="text-xs font-medium text-gray-600">
-                {language === 'ar' ? 'مرتبط بالضوابط:' : 'Linked Controls:'}
-              </div>
-              <div className="flex flex-wrap gap-1">
-                <Badge variant="outline" className="text-xs bg-teal-50 text-teal-700 border-teal-200">
-                  <Shield className="h-3 w-3 mr-1" />
-                  {language === 'ar' ? controlInfo.codeAr : controlInfo.code}
-                </Badge>
-              </div>
-            </div>
-          )}
+
 
           {/* Linked Project */}
           {evidence.projectId && (
