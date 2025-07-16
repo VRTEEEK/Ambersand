@@ -184,6 +184,8 @@ export const evidence = pgTable("evidence", {
   filePath: varchar("file_path").notNull(),
   version: varchar("version").notNull().default("1.0"),
   projectId: integer("project_id"),
+  taskId: integer("task_id"),
+  eccControlId: integer("ecc_control_id"),
   uploadedById: varchar("uploaded_by_id").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
