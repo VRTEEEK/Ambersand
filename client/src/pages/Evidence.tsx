@@ -28,6 +28,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { EvidenceCard } from '@/components/evidence/EvidenceCard';
 import { EvidenceListRow } from '@/components/evidence/EvidenceListRow';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import { 
   Upload, 
   Search, 
@@ -115,6 +116,20 @@ export default function Evidence() {
     retry: false,
   });
 
+  // Evidence comments query
+  const { data: evidenceComments, refetch: refetchComments } = useQuery({
+    queryKey: ['/api/evidence/comments', selectedEvidence?.id],
+    enabled: !!selectedEvidence?.id,
+    retry: false,
+  });
+
+  // Evidence versions query  
+  const { data: evidenceVersions } = useQuery({
+    queryKey: ['/api/evidence/versions', selectedEvidence?.id],
+    enabled: !!selectedEvidence?.id,
+    retry: false,
+  });
+
   // Helper functions
   const getProjectName = (projectId: number) => {
     const project = projects?.find((p: any) => p.id === projectId);
@@ -153,12 +168,24 @@ export default function Evidence() {
     
     setIsAddingComment(true);
     try {
-      // This would be implemented with the backend API
+      await apiRequest(`/api/evidence/${selectedEvidence.id}/comments`, {
+        method: 'POST',
+        body: JSON.stringify({
+          comment: newComment.trim()
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
       toast({
         title: language === 'ar' ? 'تم إضافة التعليق' : 'Comment Added',
         description: language === 'ar' ? 'تم إضافة التعليق بنجاح' : 'Comment added successfully',
       });
       setNewComment('');
+      
+      // Refresh comments
+      refetchComments();
     } catch (error) {
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',
@@ -170,8 +197,8 @@ export default function Evidence() {
     }
   };
 
-  const handleNewVersionUpload = () => {
-    if (!newVersionFile || !versionNumber) {
+  const handleNewVersionUpload = async () => {
+    if (!newVersionFile || !versionNumber || !selectedEvidence) {
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',
         description: language === 'ar' ? 'يرجى اختيار ملف ورقم إصدار' : 'Please select a file and version number',
@@ -180,15 +207,43 @@ export default function Evidence() {
       return;
     }
 
-    // This would be implemented with the backend API
-    toast({
-      title: language === 'ar' ? 'تم رفع الإصدار الجديد' : 'New Version Uploaded',
-      description: language === 'ar' ? 'تم رفع الإصدار الجديد بنجاح' : 'New version uploaded successfully',
-    });
-    
-    setNewVersionFile(null);
-    setVersionNumber('');
-    setVersionNotes('');
+    try {
+      const formData = new FormData();
+      formData.append('files', newVersionFile);
+      formData.append('projectId', selectedEvidence.projectId?.toString() || '');
+      formData.append('taskId', selectedEvidence.taskId?.toString() || '');
+      formData.append('controlId', selectedEvidence.eccControlId?.toString() || '');
+      formData.append('isNewVersion', 'true');
+      formData.append('parentEvidenceId', selectedEvidence.id.toString());
+      formData.append('version', versionNumber);
+      if (versionNotes) {
+        formData.append('comment', versionNotes);
+      }
+
+      await apiRequest('/api/evidence/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      toast({
+        title: language === 'ar' ? 'تم رفع الإصدار الجديد' : 'New Version Uploaded',
+        description: language === 'ar' ? 'تم رفع الإصدار الجديد بنجاح' : 'New version uploaded successfully',
+      });
+      
+      setNewVersionFile(null);
+      setVersionNumber('');
+      setVersionNotes('');
+      
+      // Refresh evidence data
+      queryClient.invalidateQueries({ queryKey: ['/api/evidence'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/evidence/versions', selectedEvidence.id] });
+    } catch (error) {
+      toast({
+        title: language === 'ar' ? 'خطأ في الرفع' : 'Upload Error',
+        description: language === 'ar' ? 'فشل في رفع الملف' : 'Failed to upload file',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleNewVersionFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -689,8 +744,9 @@ export default function Evidence() {
             </DialogHeader>
             {selectedEvidence && (
               <Tabs defaultValue="details" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-5">
                   <TabsTrigger value="details">{language === 'ar' ? 'التفاصيل' : 'Details'}</TabsTrigger>
+                  <TabsTrigger value="controls">{language === 'ar' ? 'الضوابط' : 'Controls'}</TabsTrigger>
                   <TabsTrigger value="versions">{language === 'ar' ? 'الإصدارات' : 'Versions'}</TabsTrigger>
                   <TabsTrigger value="comments">{language === 'ar' ? 'التعليقات' : 'Comments'}</TabsTrigger>
                   <TabsTrigger value="upload">{language === 'ar' ? 'رفع إصدار جديد' : 'Upload Version'}</TabsTrigger>
@@ -764,6 +820,61 @@ export default function Evidence() {
                   </div>
                 </TabsContent>
 
+                {/* Controls Tab */}
+                <TabsContent value="controls" className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">
+                      {language === 'ar' ? 'الضوابط المرتبطة' : 'Linked Controls'}
+                    </h3>
+                    <Badge variant="outline">
+                      {selectedEvidence.eccControlId ? '1' : '0'} {language === 'ar' ? 'ضابط' : 'Controls'}
+                    </Badge>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {selectedEvidence.eccControlId ? (
+                      (() => {
+                        const controlInfo = getControlInfo(selectedEvidence.eccControlId);
+                        return controlInfo ? (
+                          <Card key={selectedEvidence.eccControlId} className="p-4">
+                            <div className="flex items-start gap-3">
+                              <div className="w-10 h-10 bg-teal-50 rounded-lg flex items-center justify-center">
+                                <Shield className="h-5 w-5 text-teal-600" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Badge variant="outline" className="bg-teal-50 text-teal-700 border-teal-200">
+                                    {language === 'ar' && controlInfo.codeAr ? controlInfo.codeAr : controlInfo.code}
+                                  </Badge>
+                                </div>
+                                <h4 className="font-medium text-gray-900 dark:text-white mb-1">
+                                  {language === 'ar' && controlInfo.controlAr ? controlInfo.controlAr : controlInfo.controlEn}
+                                </h4>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                  {language === 'ar' ? 'ضابط الأمن السيبراني الأساسي' : 'Essential Cybersecurity Control'}
+                                </p>
+                              </div>
+                            </div>
+                          </Card>
+                        ) : (
+                          <div className="text-center py-8 text-gray-500">
+                            <Shield className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                            <p>{language === 'ar' ? 'معلومات الضابط غير متوفرة' : 'Control information not available'}</p>
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <Shield className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                        <p>{language === 'ar' ? 'لا توجد ضوابط مرتبطة' : 'No linked controls'}</p>
+                        <p className="text-sm">
+                          {language === 'ar' ? 'لم يتم ربط هذا الدليل بأي ضوابط' : 'This evidence is not linked to any controls'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
                 {/* Versions Tab */}
                 <TabsContent value="versions" className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -806,7 +917,7 @@ export default function Evidence() {
                       {language === 'ar' ? 'التعليقات' : 'Comments'}
                     </h3>
                     <Badge variant="outline">
-                      {language === 'ar' ? '0 تعليق' : '0 Comments'}
+                      {evidenceComments?.length || 0} {language === 'ar' ? 'تعليق' : 'Comments'}
                     </Badge>
                   </div>
                   
@@ -852,14 +963,45 @@ export default function Evidence() {
                     </div>
                   </Card>
                   
+                  {/* Comments List */}
                   <div className="space-y-3">
-                    <div className="text-center py-8 text-gray-500">
-                      <MessageCircle className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                      <p>{language === 'ar' ? 'لا توجد تعليقات حتى الآن' : 'No comments yet'}</p>
-                      <p className="text-sm">
-                        {language === 'ar' ? 'أضف أول تعليق أعلاه' : 'Add the first comment above'}
-                      </p>
-                    </div>
+                    {evidenceComments && evidenceComments.length > 0 ? (
+                      evidenceComments.map((comment: any) => (
+                        <Card key={comment.id} className="p-4">
+                          <div className="flex items-start gap-3">
+                            <UserAvatar 
+                              user={{
+                                name: comment.user.name,
+                                email: comment.user.email,
+                                profilePicture: comment.user.profilePicture
+                              }}
+                              size="sm"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-medium text-sm text-gray-900 dark:text-white">
+                                  {comment.user.name}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {new Date(comment.createdAt).toLocaleDateString()} {new Date(comment.createdAt).toLocaleTimeString()}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                                {comment.comment}
+                              </p>
+                            </div>
+                          </div>
+                        </Card>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <MessageCircle className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                        <p>{language === 'ar' ? 'لا توجد تعليقات حتى الآن' : 'No comments yet'}</p>
+                        <p className="text-sm">
+                          {language === 'ar' ? 'أضف أول تعليق أعلاه' : 'Add the first comment above'}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
 
