@@ -925,10 +925,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const sameNameEvidence = existingEvidence.find(e => e.fileName === file.originalname && (e.taskId === taskId || e.projectId === projectId));
         
         if (sameNameEvidence) {
+          // Get all existing versions to determine the next version number
+          const existingVersions = await storage.getEvidenceVersions(sameNameEvidence.id);
+          const maxVersion = existingVersions.length > 0 
+            ? Math.max(...existingVersions.map(v => parseInt(v.version.split('.')[0])))
+            : parseInt(sameNameEvidence.version.split('.')[0]);
+          const nextVersion = `${maxVersion + 1}.0`;
+          
           // Create a new version instead of a new evidence record
           const version = await storage.createEvidenceVersion({
             evidenceId: sameNameEvidence.id,
-            version: `${parseFloat(sameNameEvidence.version) + 0.1}`,
+            version: nextVersion,
             fileName: file.originalname,
             fileSize: file.size,
             fileType: file.mimetype,

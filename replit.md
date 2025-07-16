@@ -10,7 +10,17 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### July 16, 2025 - Profile Picture System Implementation
+### July 16, 2025 - Evidence Repository Enhancement & Automatic Versioning
+- **ENHANCED**: Evidence cards now display user avatars and uploader names for better user identification
+- **ADDED**: Color-coded badge system for linked controls (teal with Shield icons), projects (blue with Building icons), and tasks (green with CheckCircle icons)
+- **CREATED**: New Controls tab in Evidence Details dialog showing linked ECC controls with complete information
+- **IMPLEMENTED**: Functional comments system with user avatars, names, timestamps, and backend integration
+- **AUTOMATED**: Version numbering system now automatically increments (1.0 → 2.0 → 3.0) instead of manual decimal increments
+- **FIXED**: API request formatting issues for comment submission and file uploads
+- **REMOVED**: Manual version input field - versioning is now fully automatic and user-friendly
+- **INTEGRATED**: Complete evidence workflow with proper database relationships and real-time updates
+
+### July 16, 2025 - Profile Picture System Implementation  
 - **IMPLEMENTED**: Complete profile picture upload functionality with file validation (.jpg, .png, .webp)
 - **CREATED**: UserAvatar component for consistent circular avatar display across application
 - **UPDATED**: All Avatar components replaced with UserAvatar throughout the app (Users, AppLayout, UserProfile, Projects pages)
