@@ -213,7 +213,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const projectData = insertProjectSchema.parse({
         ...projectBody,
-        ownerId: userId,
         organizationId: user?.organizationId,
       });
       console.log("Parsed project data:", projectData);
