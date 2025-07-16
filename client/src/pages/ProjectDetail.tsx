@@ -1097,14 +1097,23 @@ function EditTaskForm({
 
       {/* Three-Tab Interface */}
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'details' | 'controls' | 'evidence')}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="details">
+        <TabsList className="grid w-full grid-cols-3 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+          <TabsTrigger 
+            value="details"
+            className="data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-white font-medium transition-all duration-200"
+          >
             {language === 'ar' ? 'تفاصيل المهمة' : 'Task Details'}
           </TabsTrigger>
-          <TabsTrigger value="controls">
+          <TabsTrigger 
+            value="controls"
+            className="data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-white font-medium transition-all duration-200"
+          >
             {language === 'ar' ? 'الضوابط' : 'Controls'}
           </TabsTrigger>
-          <TabsTrigger value="evidence">
+          <TabsTrigger 
+            value="evidence"
+            className="data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-white font-medium transition-all duration-200"
+          >
             {language === 'ar' ? 'الأدلة' : 'Evidence'}
           </TabsTrigger>
         </TabsList>
