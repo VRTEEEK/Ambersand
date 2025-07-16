@@ -766,6 +766,7 @@ function EditTaskForm({
   const [uploadComment, setUploadComment] = useState('');
   const [selectedControlForView, setSelectedControlForView] = useState<number | null>(null);
   const [showEvidenceForControl, setShowEvidenceForControl] = useState<boolean>(false);
+  const [evidenceAttachMode, setEvidenceAttachMode] = useState<'upload' | 'link' | null>(null);
   const [selectedDomain, setSelectedDomain] = useState<string>('');
   const [editedTask, setEditedTask] = useState({
     title: task.title || '',
@@ -984,16 +985,17 @@ function EditTaskForm({
       }
 
       setUploadedFiles([]);
-      setSelectedControlId(null);
       setUploadComment('');
+      setEvidenceAttachMode(null); // Reset attach mode
       // Invalidate evidence queries to refresh the display
       queryClient.invalidateQueries({ queryKey: ['/api/evidence'] });
       queryClient.invalidateQueries({ queryKey: ['/api/evidence', 'versions', task.id] });
       queryClient.invalidateQueries({ queryKey: ['/api/evidence', 'comments', task.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/evidence/control', selectedControlId] });
       // Show success toast
       toast({
-        title: language === 'ar' ? 'تم رفع الملفات بنجاح' : 'Files Uploaded Successfully',
-        description: language === 'ar' ? 'تم رفع الأدلة بنجاح' : 'Evidence files uploaded successfully',
+        title: language === 'ar' ? 'تم رفع وربط الملفات بنجاح' : 'Files Uploaded & Linked Successfully',
+        description: language === 'ar' ? 'تم رفع الأدلة وربطها بالضابط بنجاح' : 'Evidence files uploaded and linked to control successfully',
       });
     } catch (error) {
       console.error('Error uploading files:', error);
@@ -1004,6 +1006,42 @@ function EditTaskForm({
       });
     } finally {
       setUploading(false);
+    }
+  };
+
+  // Handle linking existing evidence to the selected control
+  const handleLinkExistingEvidence = async (evidenceId: number) => {
+    if (!selectedControlId) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'يجب اختيار ضابط أولاً' : 'Please select a control first',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      await apiRequest(`/api/evidence/${evidenceId}/controls`, 'POST', { 
+        controlIds: [selectedControlId] 
+      });
+
+      // Refresh the control linked evidence
+      queryClient.invalidateQueries({ queryKey: ['/api/evidence/control', selectedControlId] });
+      
+      toast({
+        title: language === 'ar' ? 'تم الربط بنجاح' : 'Linked Successfully',
+        description: language === 'ar' ? 'تم ربط الدليل بالضابط بنجاح' : 'Evidence linked to control successfully',
+      });
+
+      // Reset the attach mode
+      setEvidenceAttachMode(null);
+    } catch (error) {
+      console.error('Error linking evidence:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ في الربط' : 'Link Error',
+        description: language === 'ar' ? 'فشل في ربط الدليل' : 'Failed to link evidence',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -1481,104 +1519,170 @@ function EditTaskForm({
               </div>
             )}
 
-            {/* File Upload */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {language === 'ar' ? 'اختر الملفات' : 'Select Files'}
-              </label>
-              <input
-                type="file"
-                multiple
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.txt"
-                onChange={(e) => e.target.files && handleFileSelection(Array.from(e.target.files))}
-                className="w-full p-2 border rounded-md"
-              />
-            </div>
+            {/* Unified Attach Evidence Section */}
+            {selectedControlId ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {language === 'ar' ? 'إرفاق أدلة للضابط المحدد' : 'Attach Evidence to Selected Control'}
+                  </h3>
+                </div>
 
-            {/* Upload Comment */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {language === 'ar' ? 'تعليق (اختياري)' : 'Comment (optional)'}
-              </label>
-              <Textarea
-                value={uploadComment}
-                onChange={(e) => setUploadComment(e.target.value)}
-                placeholder={language === 'ar' ? 'أضف تعليقاً عن هذه الأدلة...' : 'Add a comment about this evidence...'}
-                rows={2}
-                className="w-full"
-              />
-            </div>
+                {/* Current Control Context */}
+                <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">
+                      {taskControls?.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.code}
+                    </Badge>
+                    <h4 className="font-medium text-gray-900 dark:text-white text-sm">
+                      {language === 'ar' && taskControls?.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.subdomainAr 
+                        ? taskControls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.subdomainAr 
+                        : taskControls?.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.subdomainEn}
+                    </h4>
+                  </div>
+                </div>
 
-            {/* Selected Files List */}
-            {uploadedFiles.length > 0 && (
-              <div className="mb-4">
-                <h4 className="font-medium text-gray-900 dark:text-white mb-2">
-                  {language === 'ar' ? 'الملفات المختارة:' : 'Selected Files:'}
-                </h4>
-                <div className="space-y-2">
-                  {uploadedFiles.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
-                      <span className="text-sm truncate">{file.name}</span>
+                {/* Toggle Options */}
+                <div className="flex gap-2">
+                  <Button
+                    variant={evidenceAttachMode === 'upload' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setEvidenceAttachMode(evidenceAttachMode === 'upload' ? null : 'upload')}
+                    className="flex items-center gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    {language === 'ar' ? 'رفع ملف جديد' : 'Upload New File'}
+                  </Button>
+                  <Button
+                    variant={evidenceAttachMode === 'link' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setEvidenceAttachMode(evidenceAttachMode === 'link' ? null : 'link')}
+                    className="flex items-center gap-2"
+                  >
+                    <FileText className="h-4 w-4" />
+                    {language === 'ar' ? 'ربط ملف موجود' : 'Link Existing File'}
+                  </Button>
+                </div>
+
+                {/* Upload New File Form */}
+                {evidenceAttachMode === 'upload' && (
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          {language === 'ar' ? 'اختر الملفات' : 'Choose Files'}
+                        </label>
+                        <input
+                          type="file"
+                          multiple
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.txt"
+                          onChange={(e) => e.target.files && handleFileSelection(Array.from(e.target.files))}
+                          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          {language === 'ar' ? 'تعليق (اختياري)' : 'Comment (Optional)'}
+                        </label>
+                        <Textarea
+                          value={uploadComment}
+                          onChange={(e) => setUploadComment(e.target.value)}
+                          placeholder={language === 'ar' ? 'أضف تعليقاً عن هذه الأدلة...' : 'Add a comment about this evidence...'}
+                          rows={3}
+                          className="w-full"
+                        />
+                      </div>
+
+                      {/* Selected Files List */}
+                      {uploadedFiles.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 dark:text-white mb-2">
+                            {language === 'ar' ? 'الملفات المختارة:' : 'Selected Files:'}
+                          </h4>
+                          <div className="space-y-2">
+                            {uploadedFiles.map((file, index) => (
+                              <div key={index} className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded border">
+                                <span className="text-sm truncate">{file.name}</span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => removeFile(index)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => removeFile(index)}
+                        onClick={uploadEvidenceFiles}
+                        disabled={uploading || uploadedFiles.length === 0}
+                        className="w-full"
                       >
-                        ×
+                        {uploading 
+                          ? (language === 'ar' ? 'جاري الرفع والربط...' : 'Uploading & Linking...') 
+                          : (language === 'ar' ? 'رفع وربط' : 'Upload & Link')
+                        }
                       </Button>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
+
+                {/* Link Existing File Form */}
+                {evidenceAttachMode === 'link' && (
+                  <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
+                    <div className="space-y-4">
+                      {allEvidence && allEvidence.length > 0 ? (
+                        <div className="space-y-3 max-h-64 overflow-y-auto">
+                          {allEvidence.map((item: any) => (
+                            <div key={item.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg">
+                              <div className="flex items-center space-x-3">
+                                <FileText className="h-5 w-5 text-green-500" />
+                                <div>
+                                  <p className="font-medium text-gray-900 dark:text-white text-sm">
+                                    {item.title}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {item.fileName} • {(item.fileSize / 1024).toFixed(1)} KB • v{item.version}
+                                  </p>
+                                </div>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleLinkExistingEvidence(item.id)}
+                              >
+                                {language === 'ar' ? 'ربط' : 'Link'}
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-6">
+                          <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                          <p className="text-sm text-gray-500">
+                            {language === 'ar' ? 'لا توجد أدلة متاحة للربط' : 'No evidence available to link'}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {language === 'ar' ? 'قم برفع أدلة جديدة أولاً' : 'Upload new evidence first'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Target className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-sm text-gray-500">
+                  {language === 'ar' ? 'اختر ضابطاً لإرفاق الأدلة' : 'Select a control to attach evidence'}
+                </p>
               </div>
             )}
-
-            <Button 
-              onClick={uploadEvidenceFiles}
-              disabled={uploading || uploadedFiles.length === 0 || !selectedControlId}
-              className="w-full"
-            >
-              {uploading ? (
-                language === 'ar' ? 'جاري الرفع...' : 'Uploading...'
-              ) : (
-                language === 'ar' ? 'رفع الأدلة' : 'Upload Evidence'
-              )}
-            </Button>
-          </div>
-
-          
-          {/* Link Existing Evidence Section */}
-          <div className="border rounded-lg p-4">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
-              {language === 'ar' ? 'ربط أدلة موجودة' : 'Link Existing Evidence'}
-            </h3>
-            
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {language === 'ar' ? 'اختر الدليل' : 'Select Evidence'}
-              </label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder={language === 'ar' ? 'اختر دليل...' : 'Select evidence...'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {allEvidence.map((evidence: any) => (
-                    <SelectItem key={evidence.id} value={evidence.id.toString()}>
-                      {evidence.title} - v{evidence.version}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <Button 
-              onClick={() => {
-                // Handle linking existing evidence
-              }}
-              variant="outline"
-              className="w-full"
-            >
-              {language === 'ar' ? 'ربط الدليل' : 'Link Evidence'}
-            </Button>
           </div>
 
 
