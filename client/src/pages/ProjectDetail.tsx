@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -424,11 +425,7 @@ export default function ProjectDetail() {
                 </h3>
                 {projectOwner ? (
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-[#2699A6]/10 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-bold text-[#2699A6]">
-                        {projectOwner.firstName?.charAt(0)}{projectOwner.lastName?.charAt(0)}
-                      </span>
-                    </div>
+                    <UserAvatar user={projectOwner} size="lg" />
                     <div>
                       <p className="font-semibold text-gray-900 dark:text-white">
                         {projectOwner.firstName} {projectOwner.lastName}
@@ -700,8 +697,8 @@ export default function ProjectDetail() {
                             </Badge>
                             {/* Assigned Person Badge */}
                             {assignedUser && (
-                              <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                <Users className="h-3 w-3 mr-1" />
+                              <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 flex items-center gap-1">
+                                <UserAvatar user={assignedUser} size="sm" className="w-4 h-4" />
                                 {(assignedUser.firstName && assignedUser.lastName) 
                                   ? `${assignedUser.firstName} ${assignedUser.lastName}`
                                   : assignedUser.email?.split('@')[0] || 'Unknown User'}
