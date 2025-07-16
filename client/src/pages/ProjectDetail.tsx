@@ -818,6 +818,7 @@ function EditTaskForm({
       const firstControl = filteredTaskControls[0];
       if (firstControl?.eccControl?.id) {
         setSelectedControlId(firstControl.eccControl.id);
+        setSelectedControlForView(firstControl.eccControl.id);
         setHasAutoSelectedControl(true);
       }
     }
@@ -1402,12 +1403,15 @@ function EditTaskForm({
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 {language === 'ar' ? 'اختر الضابط' : 'Select Control'}
               </label>
-              <Select onValueChange={(value) => {
-                const controlId = parseInt(value);
-                setSelectedControlId(controlId);
-                setSelectedControlForView(controlId);
-                setShowEvidenceForControl(false); // Reset evidence display when selecting new control
-              }}>
+              <Select 
+                value={selectedControlId?.toString() || ''}
+                onValueChange={(value) => {
+                  const controlId = parseInt(value);
+                  setSelectedControlId(controlId);
+                  setSelectedControlForView(controlId);
+                  setShowEvidenceForControl(false); // Reset evidence display when selecting new control
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder={language === 'ar' ? 'اختر ضابط...' : 'Select a control...'} />
                 </SelectTrigger>
