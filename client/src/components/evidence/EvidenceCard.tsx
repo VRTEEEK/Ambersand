@@ -102,7 +102,7 @@ export function EvidenceCard({
               {controlInfo && (
                 <Tooltip>
                   <TooltipTrigger>
-                    <Badge variant="outline" className="text-xs bg-teal-50 text-teal-700 border-teal-200">
+                    <Badge variant="secondary" className="text-xs px-2 py-1 bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100">
                       <Shield className="h-3 w-3 mr-1" />
                       {language === 'ar' ? controlInfo.codeAr : controlInfo.code}
                     </Badge>
