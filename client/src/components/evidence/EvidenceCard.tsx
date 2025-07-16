@@ -178,14 +178,7 @@ export function EvidenceCard({
             <Eye className="h-3 w-3 mr-1" />
             {language === 'ar' ? 'عرض' : 'View'}
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onAddComment(evidence)}
-          >
-            <MessageCircle className="h-3 w-3 mr-1" />
-            {language === 'ar' ? 'تعليق' : 'Comment'}
-          </Button>
+          
           <Button
             size="sm"
             variant="outline"
