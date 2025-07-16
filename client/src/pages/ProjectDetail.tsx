@@ -1362,6 +1362,122 @@ function EditTaskForm({
                     </div>
                   </div>
                 </div>
+
+                {/* Evidence Display Section - Shows when evidence status is clicked */}
+                {showEvidenceForControl && (
+                  <div className="mt-4 pt-4 border-t border-blue-200 dark:border-blue-700">
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-3">
+                      {language === 'ar' ? 'الأدلة المرتبطة' : 'Linked Evidence'}
+                    </h4>
+                    
+                    {/* Enhanced Evidence List with Version History and Comments */}
+                    <div className="space-y-3">
+                      {controlLinkedEvidence && controlLinkedEvidence.length > 0 ? (
+                        controlLinkedEvidence.map((evidence: any) => (
+                          <div key={evidence.id} className="p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <FileText className="h-4 w-4 text-blue-500" />
+                                  <h5 className="font-medium text-gray-900 dark:text-white text-sm">
+                                    {evidence.title}
+                                  </h5>
+                                  <Badge variant="secondary" className="text-xs">
+                                    v{evidence.version}
+                                  </Badge>
+                                </div>
+                                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                                  {evidence.description}
+                                </p>
+                                <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
+                                  <span>{evidence.fileName}</span>
+                                  <span>•</span>
+                                  <span>{(evidence.fileSize / 1024).toFixed(1)} KB</span>
+                                  <span>•</span>
+                                  <span>{new Date(evidence.createdAt).toLocaleDateString()}</span>
+                                </div>
+
+                                {/* Version History */}
+                                {evidence.versions && evidence.versions.length > 0 && (
+                                  <div className="mb-2">
+                                    <div className="flex items-center gap-1 mb-1">
+                                      <History className="h-3 w-3 text-gray-400" />
+                                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                                        {language === 'ar' ? 'تاريخ الإصدارات' : 'Version History'}
+                                      </span>
+                                    </div>
+                                    <div className="space-y-1">
+                                      {evidence.versions.slice(0, 2).map((version: any) => (
+                                        <div key={version.id} className="flex items-center gap-2 text-xs text-gray-500">
+                                          <span>v{version.version}</span>
+                                          <span>•</span>
+                                          <span>{new Date(version.createdAt).toLocaleDateString()}</span>
+                                          {version.comment && (
+                                            <>
+                                              <span>•</span>
+                                              <span className="truncate max-w-32">{version.comment}</span>
+                                            </>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Comments */}
+                                {evidence.comments && evidence.comments.length > 0 && (
+                                  <div>
+                                    <div className="flex items-center gap-1 mb-1">
+                                      <MessageSquare className="h-3 w-3 text-gray-400" />
+                                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                                        {language === 'ar' ? 'التعليقات' : 'Comments'}
+                                      </span>
+                                      <Badge variant="outline" className="text-xs">
+                                        {evidence.comments.length}
+                                      </Badge>
+                                    </div>
+                                    <div className="space-y-1">
+                                      {evidence.comments.slice(0, 1).map((comment: any) => (
+                                        <div key={comment.id} className="p-2 bg-gray-50 dark:bg-gray-600 rounded text-xs">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <span className="font-medium text-gray-700 dark:text-gray-300">
+                                              {comment.user?.firstName} {comment.user?.lastName}
+                                            </span>
+                                            <span className="text-gray-500">
+                                              {new Date(comment.createdAt).toLocaleDateString()}
+                                            </span>
+                                          </div>
+                                          <p className="text-gray-600 dark:text-gray-400">{comment.comment}</p>
+                                        </div>
+                                      ))}
+                                      {evidence.comments.length > 1 && (
+                                        <p className="text-xs text-blue-600 dark:text-blue-400">
+                                          {language === 'ar' 
+                                            ? `+${evidence.comments.length - 1} تعليقات أخرى` 
+                                            : `+${evidence.comments.length - 1} more comments`}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              <Button size="sm" variant="outline" className="text-xs">
+                                {language === 'ar' ? 'تحميل' : 'Download'}
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-4">
+                          <FileText className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500">
+                            {language === 'ar' ? 'لا توجد أدلة مرتبطة بهذا الضابط' : 'No evidence linked to this control'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1465,161 +1581,7 @@ function EditTaskForm({
             </Button>
           </div>
 
-          {/* Evidence for Selected Control - Only show when clicked */}
-          {selectedControlForView && showEvidenceForControl && (
-            <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-900/20">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-gray-900 dark:text-white">
-                  {language === 'ar' ? 'الأدلة المرتبطة بالضابط' : 'Evidence for Selected Control'}
-                </h3>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  onClick={() => {
-                    setSelectedControlForView(null);
-                    setShowEvidenceForControl(false);
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              {/* Control Info */}
-              {taskControls?.find((c: any) => c.eccControl.id === selectedControlForView) && (
-                <div className="mb-4 p-3 bg-white dark:bg-gray-700 rounded-lg">
-                  <div className="flex items-start gap-2">
-                    <Badge variant="secondary" className="mt-1">
-                      {taskControls.find((c: any) => c.eccControl.id === selectedControlForView)?.eccControl.code}
-                    </Badge>
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">
-                        {language === 'ar' && taskControls.find((c: any) => c.eccControl.id === selectedControlForView)?.eccControl.subdomainAr 
-                          ? taskControls.find((c: any) => c.eccControl.id === selectedControlForView)?.eccControl.subdomainAr 
-                          : taskControls.find((c: any) => c.eccControl.id === selectedControlForView)?.eccControl.subdomainEn}
-                      </h4>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'} {
-                          language === 'ar' 
-                            ? (taskControls.find((c: any) => c.eccControl.id === selectedControlForView)?.eccControl.evidenceAr || 'وثائق ، سياسات ، إجراءات ، وأدلة تدقيق')
-                            : (taskControls.find((c: any) => c.eccControl.id === selectedControlForView)?.eccControl.evidenceEn || 'Documentation, policies, procedures, and audit evidence')
-                        }
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
 
-              {/* Enhanced Evidence List with Version History and Comments */}
-              <div className="space-y-4">
-                {controlLinkedEvidence && controlLinkedEvidence.length > 0 ? (
-                  controlLinkedEvidence.map((evidence: any) => (
-                    <div key={evidence.id} className="p-4 bg-white dark:bg-gray-700 rounded-lg border">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <FileText className="h-4 w-4 text-blue-500" />
-                            <h4 className="font-medium text-gray-900 dark:text-white text-sm">
-                              {evidence.title}
-                            </h4>
-                            <Badge variant="secondary" className="text-xs">
-                              v{evidence.version}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-                            {evidence.description}
-                          </p>
-                          <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
-                            <span>{evidence.fileName}</span>
-                            <span>•</span>
-                            <span>{(evidence.fileSize / 1024).toFixed(1)} KB</span>
-                            <span>•</span>
-                            <span>{new Date(evidence.createdAt).toLocaleDateString()}</span>
-                          </div>
-
-                          {/* Version History */}
-                          {evidence.versions && evidence.versions.length > 0 && (
-                            <div className="mb-3">
-                              <div className="flex items-center gap-1 mb-2">
-                                <History className="h-3 w-3 text-gray-400" />
-                                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                                  {language === 'ar' ? 'تاريخ الإصدارات' : 'Version History'}
-                                </span>
-                              </div>
-                              <div className="space-y-1">
-                                {evidence.versions.slice(0, 3).map((version: any) => (
-                                  <div key={version.id} className="flex items-center gap-2 text-xs text-gray-500">
-                                    <span>v{version.version}</span>
-                                    <span>•</span>
-                                    <span>{new Date(version.createdAt).toLocaleDateString()}</span>
-                                    {version.comment && (
-                                      <>
-                                        <span>•</span>
-                                        <span className="truncate">{version.comment}</span>
-                                      </>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Comments */}
-                          {evidence.comments && evidence.comments.length > 0 && (
-                            <div className="mb-3">
-                              <div className="flex items-center gap-1 mb-2">
-                                <MessageSquare className="h-3 w-3 text-gray-400" />
-                                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                                  {language === 'ar' ? 'التعليقات' : 'Comments'}
-                                </span>
-                                <Badge variant="outline" className="text-xs">
-                                  {evidence.comments.length}
-                                </Badge>
-                              </div>
-                              <div className="space-y-2">
-                                {evidence.comments.slice(0, 2).map((comment: any) => (
-                                  <div key={comment.id} className="p-2 bg-gray-50 dark:bg-gray-600 rounded text-xs">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <span className="font-medium text-gray-700 dark:text-gray-300">
-                                        {comment.user?.firstName} {comment.user?.lastName}
-                                      </span>
-                                      <span className="text-gray-500">
-                                        {new Date(comment.createdAt).toLocaleDateString()}
-                                      </span>
-                                    </div>
-                                    <p className="text-gray-600 dark:text-gray-400">{comment.comment}</p>
-                                  </div>
-                                ))}
-                                {evidence.comments.length > 2 && (
-                                  <p className="text-xs text-blue-600 dark:text-blue-400">
-                                    {language === 'ar' 
-                                      ? `+${evidence.comments.length - 2} تعليقات أخرى` 
-                                      : `+${evidence.comments.length - 2} more comments`}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        <Button size="sm" variant="outline" className="text-xs">
-                          {language === 'ar' ? 'تحميل' : 'Download'}
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-6">
-                    <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-sm text-gray-500">
-                      {language === 'ar' ? 'لا توجد أدلة مرتبطة بهذا الضابط' : 'No evidence linked to this control'}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {language === 'ar' ? 'قم برفع أدلة جديدة أعلاه' : 'Upload new evidence above'}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
         </TabsContent>
       </Tabs>
