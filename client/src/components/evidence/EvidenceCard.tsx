@@ -25,6 +25,7 @@ import {
   Clock,
   Shield,
 } from 'lucide-react';
+import { UserAvatar } from '@/components/ui/user-avatar';
 
 interface EvidenceCardProps {
   evidence: any;
@@ -120,7 +121,7 @@ export function EvidenceCard({
           </div>
 
         {/* Metadata */}
-        <div className="space-y-2 mb-4">
+        <div className="space-y-3 mb-4">
           {/* File Size & Type */}
           <div className="flex items-center justify-between text-xs text-gray-500">
             <span>{formatFileSize(evidence.fileSize)}</span>
@@ -129,33 +130,72 @@ export function EvidenceCard({
             </Badge>
           </div>
 
-          {/* Project & Task */}
-          {evidence.projectId && (
-            <div className="flex items-center gap-1 text-xs text-gray-600">
-              <Building className="h-3 w-3" />
-              <span className="truncate">{getProjectName(evidence.projectId)}</span>
-            </div>
-          )}
-          
-          {evidence.taskId && (
-            <div className="flex items-center gap-1 text-xs text-gray-600">
-              <CheckCircle className="h-3 w-3" />
-              <span className="truncate">{getTaskName(evidence.taskId)}</span>
+          {/* Linked Controls */}
+          {controlInfo && (
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-gray-600">
+                {language === 'ar' ? 'مرتبط بالضوابط:' : 'Linked Controls:'}
+              </div>
+              <div className="flex flex-wrap gap-1">
+                <Badge variant="outline" className="text-xs bg-teal-50 text-teal-700 border-teal-200">
+                  <Shield className="h-3 w-3 mr-1" />
+                  {language === 'ar' ? controlInfo.codeAr : controlInfo.code}
+                </Badge>
+              </div>
             </div>
           )}
 
-          {/* Upload Date & Uploader */}
+          {/* Linked Project */}
+          {evidence.projectId && (
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-gray-600">
+                {language === 'ar' ? 'المشروع:' : 'Project:'}
+              </div>
+              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                <Building className="h-3 w-3 mr-1" />
+                {getProjectName(evidence.projectId)}
+              </Badge>
+            </div>
+          )}
+          
+          {/* Linked Tasks */}
+          {evidence.taskId && (
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-gray-600">
+                {language === 'ar' ? 'المهام:' : 'Tasks:'}
+              </div>
+              <div className="flex flex-wrap gap-1">
+                <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  {getTaskName(evidence.taskId)}
+                </Badge>
+              </div>
+            </div>
+          )}
+
+          {/* Upload Date */}
           <div className="flex items-center gap-1 text-xs text-gray-500">
             <Calendar className="h-3 w-3" />
             <span>{formatDate(evidence.createdAt)}</span>
           </div>
           
+          {/* Uploader with Avatar */}
           {evidence.uploaderName && (
-            <div className="flex items-center gap-1 text-xs text-gray-500">
-              <User className="h-3 w-3" />
-              <span className="truncate">
-                {language === 'ar' ? 'رفع بواسطة' : 'Uploaded by'} {evidence.uploaderName}
-              </span>
+            <div className="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 dark:bg-gray-800 p-2 rounded-lg">
+              <UserAvatar 
+                user={{
+                  name: evidence.uploaderName,
+                  email: evidence.uploaderEmail || '',
+                  profilePicture: evidence.uploaderProfilePicture
+                }}
+                size="sm"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium truncate">{evidence.uploaderName}</div>
+                <div className="text-xs text-gray-500">
+                  {language === 'ar' ? 'رفع بواسطة' : 'Uploaded by'}
+                </div>
+              </div>
             </div>
           )}
         </div>

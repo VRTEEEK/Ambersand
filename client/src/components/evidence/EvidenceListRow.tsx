@@ -14,7 +14,9 @@ import {
   Building,
   Tag,
   CheckCircle,
+  Shield,
 } from 'lucide-react';
+import { UserAvatar } from '@/components/ui/user-avatar';
 
 interface EvidenceListRowProps {
   evidence: any;
@@ -84,45 +86,77 @@ export function EvidenceListRow({
         </div>
       </div>
 
-      {/* Project/Task Info - Hidden on mobile */}
-      <div className="hidden md:flex flex-col items-start space-y-1 w-48 px-4">
+      {/* Linked Info - Hidden on mobile */}
+      <div className="hidden md:flex flex-col items-start space-y-2 w-56 px-4">
+        {/* Linked Controls */}
+        {evidence.eccControlId && getControlInfo && (
+          <Badge variant="outline" className="text-xs bg-teal-50 text-teal-700 border-teal-200">
+            <Shield className="h-3 w-3 mr-1" />
+            {language === 'ar' ? getControlInfo(evidence.eccControlId)?.codeAr : getControlInfo(evidence.eccControlId)?.code}
+          </Badge>
+        )}
+        
+        {/* Linked Project */}
         {evidence.projectId && (
-          <div className="flex items-center gap-1 text-xs text-gray-600">
-            <Building className="h-3 w-3" />
-            <span className="truncate">{getProjectName(evidence.projectId)}</span>
-          </div>
+          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+            <Building className="h-3 w-3 mr-1" />
+            {getProjectName(evidence.projectId)}
+          </Badge>
         )}
+        
+        {/* Linked Tasks */}
         {evidence.taskId && (
-          <div className="flex items-center gap-1 text-xs text-gray-600">
-            <CheckCircle className="h-3 w-3" />
-            <span className="truncate">{getTaskName(evidence.taskId)}</span>
-          </div>
+          <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            {getTaskName(evidence.taskId)}
+          </Badge>
         )}
-        {!evidence.projectId && !evidence.taskId && (
+        
+        {!evidence.projectId && !evidence.taskId && !evidence.eccControlId && (
           <span className="text-xs text-gray-400">
             {language === 'ar' ? 'غير مرتبط' : 'Not linked'}
           </span>
         )}
       </div>
 
-      {/* Metadata - Hidden on mobile */}
-      <div className="hidden lg:flex flex-col items-center space-y-1 w-32 px-4">
-        <Badge variant="outline" className="text-xs">
-          v{evidence.version}
-        </Badge>
-        <Badge variant="secondary" className="text-xs">
-          {getRegulationType(evidence)}
-        </Badge>
+
+
+      {/* Uploader Info - Hidden on mobile */}
+      <div className="hidden lg:flex items-center space-x-2 w-40 px-4">
+        {evidence.uploaderName ? (
+          <div className="flex items-center space-x-2 min-w-0">
+            <UserAvatar 
+              user={{
+                name: evidence.uploaderName,
+                email: evidence.uploaderEmail || '',
+                profilePicture: evidence.uploaderProfilePicture
+              }}
+              size="sm"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-medium text-gray-700 truncate">
+                {evidence.uploaderName}
+              </div>
+              <div className="text-xs text-gray-500">
+                {formatDate(evidence.createdAt)}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-xs text-gray-500">
+            {formatDate(evidence.createdAt)}
+          </div>
+        )}
       </div>
 
-      {/* File Size & Date - Hidden on mobile */}
-      <div className="hidden md:flex flex-col items-end space-y-1 w-32 px-4">
+      {/* File Size - Hidden on mobile */}
+      <div className="hidden md:flex flex-col items-end space-y-1 w-24 px-4">
         <span className="text-xs text-gray-600">
           {formatFileSize(evidence.fileSize)}
         </span>
-        <span className="text-xs text-gray-500">
-          {formatDate(evidence.createdAt)}
-        </span>
+        <Badge variant="secondary" className="text-xs">
+          v{evidence.version}
+        </Badge>
       </div>
 
       {/* Actions */}
