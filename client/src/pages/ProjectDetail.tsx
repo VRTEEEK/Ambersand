@@ -34,7 +34,8 @@ import {
   Activity,
   X,
   MessageSquare,
-  History
+  History,
+  ChevronDown
 } from 'lucide-react';
 
 const taskSchema = z.object({
@@ -764,6 +765,7 @@ function EditTaskForm({
   const [activeTab, setActiveTab] = useState<'details' | 'controls' | 'evidence'>('details');
   const [uploadComment, setUploadComment] = useState('');
   const [selectedControlForView, setSelectedControlForView] = useState<number | null>(null);
+  const [showEvidenceForControl, setShowEvidenceForControl] = useState<boolean>(false);
   const [selectedDomain, setSelectedDomain] = useState<string>('');
   const [editedTask, setEditedTask] = useState({
     title: task.title || '',
@@ -1286,6 +1288,7 @@ function EditTaskForm({
                 const controlId = parseInt(value);
                 setSelectedControlId(controlId);
                 setSelectedControlForView(controlId);
+                setShowEvidenceForControl(false); // Reset evidence display when selecting new control
               }}>
                 <SelectTrigger>
                   <SelectValue placeholder={language === 'ar' ? 'اختر ضابط...' : 'Select a control...'} />
@@ -1333,16 +1336,20 @@ function EditTaskForm({
                       </p>
                     </div>
 
-                    {/* Evidence Link Status */}
+                    {/* Evidence Link Status - Clickable */}
                     <div className="flex items-center gap-2">
                       {controlLinkedEvidence && controlLinkedEvidence.length > 0 ? (
-                        <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                        <div 
+                          className="flex items-center gap-1 text-green-600 dark:text-green-400 cursor-pointer hover:text-green-700 dark:hover:text-green-300 transition-colors"
+                          onClick={() => setShowEvidenceForControl(!showEvidenceForControl)}
+                        >
                           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span className="text-xs font-medium">
+                          <span className="text-xs font-medium underline">
                             {language === 'ar' 
-                              ? `مرتبط بـ ${controlLinkedEvidence.length} دليل` 
-                              : `${controlLinkedEvidence.length} evidence linked`}
+                              ? `مرتبط بـ ${controlLinkedEvidence.length} دليل - اضغط للعرض` 
+                              : `${controlLinkedEvidence.length} evidence linked - click to view`}
                           </span>
+                          <ChevronDown className={`h-3 w-3 transition-transform ${showEvidenceForControl ? 'rotate-180' : ''}`} />
                         </div>
                       ) : (
                         <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
@@ -1458,8 +1465,8 @@ function EditTaskForm({
             </Button>
           </div>
 
-          {/* Evidence for Selected Control */}
-          {selectedControlForView && (
+          {/* Evidence for Selected Control - Only show when clicked */}
+          {selectedControlForView && showEvidenceForControl && (
             <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-900/20">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-gray-900 dark:text-white">
@@ -1468,7 +1475,10 @@ function EditTaskForm({
                 <Button 
                   size="sm" 
                   variant="ghost" 
-                  onClick={() => setSelectedControlForView(null)}
+                  onClick={() => {
+                    setSelectedControlForView(null);
+                    setShowEvidenceForControl(false);
+                  }}
                 >
                   <X className="h-4 w-4" />
                 </Button>
