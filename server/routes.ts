@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
@@ -132,6 +133,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating user:", error);
       res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  // Profile picture upload route
+  app.post('/api/users/:userId/profile-picture', isAuthenticated, upload.single('profilePicture'), async (req: any, res) => {
+    try {
+      const currentUser = await storage.getUser(req.user.claims.sub);
+      
+      // Only admins can update user profile pictures
+      if (currentUser?.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const { userId } = req.params;
+      
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      // Generate a unique filename
+      const fileExtension = path.extname(req.file.originalname);
+      const fileName = `profile_${userId}_${Date.now()}${fileExtension}`;
+      const filePath = path.join(uploadDir, fileName);
+      
+      // Move the file to the final location
+      fs.renameSync(req.file.path, filePath);
+      
+      // Create URL for the uploaded file
+      const profileImageUrl = `/uploads/${fileName}`;
+      
+      // Update user with new profile image URL
+      const updatedUser = await storage.updateUser(userId, { profileImageUrl });
+      
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error uploading profile picture:", error);
+      res.status(500).json({ message: "Failed to upload profile picture" });
     }
   });
 
@@ -986,6 +1024,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to download evidence" });
     }
   });
+
+  // Serve uploaded files (profile pictures and evidence)
+  app.use('/uploads', (req, res, next) => {
+    // Add CORS headers for uploaded files
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    next();
+  });
+  app.use('/uploads', express.static(uploadDir));
 
   const httpServer = createServer(app);
   return httpServer;

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -36,11 +36,6 @@ export default function UserProfile() {
       description: language === 'ar' ? 'تم تحديث معلومات الملف الشخصي بنجاح' : 'Profile information updated successfully',
     });
     setIsEditing(false);
-  };
-
-  const getUserInitials = (firstName?: string, lastName?: string) => {
-    if (!firstName && !lastName) return 'U';
-    return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
   };
 
   return (
@@ -81,12 +76,7 @@ export default function UserProfile() {
           <Card className="lg:col-span-1">
             <CardHeader className="text-center">
               <div className="flex justify-center mb-4">
-                <Avatar className="h-24 w-24">
-                  <AvatarImage src={user?.profileImageUrl} alt="Profile" />
-                  <AvatarFallback className="text-2xl">
-                    {getUserInitials(user?.firstName, user?.lastName)}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar user={user} size="2xl" className="h-24 w-24" />
               </div>
               <CardTitle className="text-xl">
                 {user?.firstName || user?.lastName 

@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -72,9 +72,14 @@ const updateNameSchema = z.object({
   lastName: z.string().min(1, 'Last name is required'),
 });
 
+const updateProfilePictureSchema = z.object({
+  profileImageUrl: z.string().url('Please provide a valid image URL'),
+});
+
 type CreateUserData = z.infer<typeof createUserSchema>;
 type UpdateRoleData = z.infer<typeof updateRoleSchema>;
 type UpdateNameData = z.infer<typeof updateNameSchema>;
+type UpdateProfilePictureData = z.infer<typeof updateProfilePictureSchema>;
 
 export default function Users() {
   const { user: currentUser, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -86,6 +91,8 @@ export default function Users() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
   const [isNameDialogOpen, setIsNameDialogOpen] = useState(false);
+  const [isProfilePictureDialogOpen, setIsProfilePictureDialogOpen] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   // Forms
   const createForm = useForm<CreateUserData>({
@@ -101,6 +108,10 @@ export default function Users() {
 
   const nameForm = useForm<UpdateNameData>({
     resolver: zodResolver(updateNameSchema),
+  });
+
+  const profilePictureForm = useForm<UpdateProfilePictureData>({
+    resolver: zodResolver(updateProfilePictureSchema),
   });
 
   // Redirect to login if not authenticated
@@ -227,6 +238,54 @@ export default function Users() {
     },
   });
 
+  // File upload and profile picture update mutation
+  const uploadProfilePictureMutation = useMutation({
+    mutationFn: async ({ userId, file }: { userId: string; file: File }) => {
+      const formData = new FormData();
+      formData.append('profilePicture', file);
+      
+      const response = await fetch(`/api/users/${userId}/profile-picture`, {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to upload profile picture');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      toast({
+        title: t('common.success'),
+        description: language === 'ar' ? 'تم تحديث الصورة بنجاح' : 'Profile picture updated successfully',
+      });
+      setIsProfilePictureDialogOpen(false);
+      setSelectedUser(null);
+      setUploadingFile(false);
+    },
+    onError: (error) => {
+      setUploadingFile(false);
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: t('common.error'),
+        description: language === 'ar' ? 'فشل في تحديث الصورة' : 'Failed to update profile picture',
+        variant: "destructive",
+      });
+    },
+  });
+
   // Delete user mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
@@ -291,11 +350,6 @@ export default function Users() {
     }
   };
 
-  const getUserInitials = (firstName?: string, lastName?: string) => {
-    if (!firstName && !lastName) return 'U';
-    return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US');
   };
@@ -331,6 +385,40 @@ export default function Users() {
     nameForm.setValue('firstName', user.firstName || '');
     nameForm.setValue('lastName', user.lastName || '');
     setIsNameDialogOpen(true);
+  };
+
+  const handleEditProfilePicture = (user: User) => {
+    setSelectedUser(user);
+    setIsProfilePictureDialogOpen(true);
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !selectedUser) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: t('common.error'),
+        description: language === 'ar' ? 'يرجى اختيار صورة صالحة (JPG, PNG, WEBP)' : 'Please select a valid image (JPG, PNG, WEBP)',
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: t('common.error'),
+        description: language === 'ar' ? 'حجم الملف كبير جداً (الحد الأقصى 5 ميجابايت)' : 'File size too large (max 5MB)',
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploadingFile(true);
+    uploadProfilePictureMutation.mutate({ userId: selectedUser.id, file });
   };
 
   const handleDeleteUser = (userId: string) => {
@@ -643,12 +731,11 @@ export default function Users() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-5">
                           <div className="relative">
-                            <Avatar className="h-16 w-16 ring-2 ring-white dark:ring-slate-800 shadow-lg">
-                              <AvatarImage src={user.profileImageUrl} alt={`${user.firstName} ${user.lastName}`} />
-                              <AvatarFallback className="bg-gradient-to-br from-[#2699A6] to-[#2699A6]/80 text-white font-bold text-lg">
-                                {getUserInitials(user.firstName, user.lastName)}
-                              </AvatarFallback>
-                            </Avatar>
+                            <UserAvatar 
+                              user={user} 
+                              size="2xl" 
+                              className="ring-2 ring-white dark:ring-slate-800 shadow-lg"
+                            />
                             <div className={cn(
                               "absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-white dark:border-slate-800 flex items-center justify-center",
                               user.role === 'admin' ? 'bg-red-500' : user.role === 'manager' ? 'bg-blue-500' : 'bg-gray-500'
@@ -709,6 +796,17 @@ export default function Users() {
                             <Edit className="h-4 w-4 mr-2" />
                             {language === 'ar' ? 'تعديل الدور' : 'Edit Role'}
                           </Button>
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEditProfilePicture(user)}
+                            disabled={uploadProfilePictureMutation.isPending}
+                            className="hover:bg-[#2699A6]/10 hover:border-[#2699A6]/30 hover:text-[#2699A6] transition-all duration-200"
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            {language === 'ar' ? 'تعديل الصورة' : 'Edit Picture'}
+                          </Button>
                           
                           {user.id !== currentUser?.id && (
                             <Button
@@ -746,12 +844,7 @@ export default function Users() {
             {selectedUser && (
               <div className="space-y-4">
                 <div className="flex items-center space-x-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={selectedUser.profileImageUrl} />
-                    <AvatarFallback className="bg-[#2699A6]/10 text-[#2699A6] text-sm">
-                      {getUserInitials(selectedUser.firstName, selectedUser.lastName)}
-                    </AvatarFallback>
-                  </Avatar>
+                  <UserAvatar user={selectedUser} size="md" />
                   <div>
                     <p className="font-medium text-slate-900 dark:text-white">
                       {selectedUser.firstName || selectedUser.lastName 
@@ -837,12 +930,7 @@ export default function Users() {
             {selectedUser && (
               <div className="space-y-4">
                 <div className="flex items-center space-x-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={selectedUser.profileImageUrl} />
-                    <AvatarFallback className="bg-[#2699A6]/10 text-[#2699A6] text-sm">
-                      {getUserInitials(selectedUser.firstName, selectedUser.lastName)}
-                    </AvatarFallback>
-                  </Avatar>
+                  <UserAvatar user={selectedUser} size="md" />
                   <div>
                     <p className="font-medium text-slate-900 dark:text-white">
                       {selectedUser.firstName || selectedUser.lastName 
@@ -898,6 +986,80 @@ export default function Users() {
                     </div>
                   </form>
                 </Form>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Profile Picture Edit Dialog */}
+        <Dialog open={isProfilePictureDialogOpen} onOpenChange={setIsProfilePictureDialogOpen}>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle>
+                {language === 'ar' ? 'تحديث صورة الملف الشخصي' : 'Update Profile Picture'}
+              </DialogTitle>
+              <DialogDescription>
+                {language === 'ar' ? 'اختر صورة جديدة لملف المستخدم الشخصي' : 'Select a new profile picture for the user'}
+              </DialogDescription>
+            </DialogHeader>
+
+            {selectedUser && (
+              <div className="space-y-6">
+                {/* Current Profile Picture */}
+                <div className="flex flex-col items-center space-y-4">
+                  <UserAvatar user={selectedUser} size="2xl" />
+                  <div className="text-center">
+                    <p className="font-medium text-slate-900 dark:text-white">
+                      {selectedUser.firstName || selectedUser.lastName 
+                        ? `${selectedUser.firstName || ''} ${selectedUser.lastName || ''}`.trim() 
+                        : 'Unknown User'}
+                    </p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">{selectedUser.email}</p>
+                  </div>
+                </div>
+
+                {/* File Upload */}
+                <div className="space-y-4">
+                  <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 hover:border-[#2699A6] transition-colors">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/webp"
+                      onChange={handleFileUpload}
+                      disabled={uploadingFile}
+                      className="hidden"
+                      id="profile-picture-upload"
+                    />
+                    <label
+                      htmlFor="profile-picture-upload"
+                      className={`cursor-pointer flex flex-col items-center space-y-2 ${uploadingFile ? 'pointer-events-none opacity-50' : ''}`}
+                    >
+                      {uploadingFile ? (
+                        <Loader2 className="h-8 w-8 text-[#2699A6] animate-spin" />
+                      ) : (
+                        <Edit className="h-8 w-8 text-[#2699A6]" />
+                      )}
+                      <span className="text-sm font-medium text-[#2699A6]">
+                        {uploadingFile 
+                          ? (language === 'ar' ? 'جاري الرفع...' : 'Uploading...') 
+                          : (language === 'ar' ? 'اختر صورة' : 'Choose Image')}
+                      </span>
+                      <span className="text-xs text-gray-500 text-center">
+                        {language === 'ar' ? 'JPG, PNG, WEBP حتى 5 ميجابايت' : 'JPG, PNG, WEBP up to 5MB'}
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setIsProfilePictureDialogOpen(false)}
+                    disabled={uploadingFile}
+                  >
+                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                  </Button>
+                </div>
               </div>
             )}
           </DialogContent>

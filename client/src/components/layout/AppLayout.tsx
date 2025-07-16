@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useI18n } from '@/hooks/use-i18n';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -185,12 +185,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       {/* User Profile */}
       <div className="p-4 border-t border-slate-200">
         <div className="flex items-center">
-          <Avatar className="w-10 h-10">
-            <AvatarImage src={user?.profileImageUrl || undefined} />
-            <AvatarFallback>
-              {user?.firstName?.[0]}{user?.lastName?.[0]}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar user={user} size="lg" />
           <div className={cn("flex-1", isRTL ? "mr-3" : "ml-3")}>
             <p className="text-sm font-medium text-slate-800">
               {user?.firstName} {user?.lastName}
@@ -259,9 +254,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center space-x-2 text-sm">
-                    <Avatar className="w-8 h-8">
-                      <AvatarImage src={user?.profileImageUrl || undefined} />
-                    </Avatar>
+                    <UserAvatar user={user} size="md" />
                     <span>{user?.firstName} {user?.lastName}</span>
                     <ChevronDown className="h-4 w-4" style={{ color: '#2699A6' }} />
                   </Button>
