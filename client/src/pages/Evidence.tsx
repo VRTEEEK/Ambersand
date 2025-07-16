@@ -765,7 +765,7 @@ export default function Evidence() {
 
         {/* Enhanced Detail Dialog */}
         <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-          <DialogContent className="max-w-6xl w-[92vw] h-[88vh] flex flex-col p-0 gap-0" aria-describedby="evidence-dialog-description">
+          <DialogContent className="max-w-6xl w-[92vw] h-[88vh] p-0 gap-0" aria-describedby="evidence-dialog-description">
             <DialogHeader className="flex-shrink-0 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <DialogTitle className="flex items-center gap-3 text-xl font-semibold">
                 <div className="w-8 h-8 bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg flex items-center justify-center">
@@ -778,8 +778,9 @@ export default function Evidence() {
               </div>
             </DialogHeader>
             {selectedEvidence && (
-              <Tabs defaultValue="details" className="flex-1 flex flex-col min-h-0">
-                <TabsList className="grid w-full grid-cols-5 flex-shrink-0 mx-6 mt-4 mb-0 h-12 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+              <div className="flex-1 flex flex-col min-h-0">
+                <Tabs defaultValue="details" className="flex-1 flex flex-col">
+                  <TabsList className="grid w-full grid-cols-5 flex-shrink-0 mx-6 mt-4 mb-0 h-12 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
                   <TabsTrigger 
                     value="details" 
                     className="text-sm font-medium px-4 py-2 rounded-md transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-teal-700 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-teal-400"
@@ -1254,7 +1255,8 @@ export default function Evidence() {
                     </div>
                   </div>
                 </TabsContent>
-              </Tabs>
+                </Tabs>
+              </div>
             )}
           </DialogContent>
         </Dialog>
