@@ -733,9 +733,20 @@ function EditTaskForm({
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [selectedControlId, setSelectedControlId] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<'details' | 'evidence'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'controls' | 'evidence'>('details');
   const [uploadComment, setUploadComment] = useState('');
   const [selectedControlForView, setSelectedControlForView] = useState<number | null>(null);
+  const [selectedDomain, setSelectedDomain] = useState<string>('');
+  const [editedTask, setEditedTask] = useState({
+    title: task.title || '',
+    titleAr: task.titleAr || '',
+    description: task.description || '',
+    descriptionAr: task.descriptionAr || '',
+    status: task.status || 'pending',
+    priority: task.priority || 'medium',
+    assigneeId: task.assigneeId || null,
+    dueDate: task.dueDate || null,
+  });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -743,6 +754,11 @@ function EditTaskForm({
   const { data: taskControls } = useQuery({
     queryKey: ['/api/tasks', task.id, 'controls'],
     enabled: !!task.id,
+  });
+
+  // Fetch all users for assignee dropdown
+  const { data: users = [] } = useQuery({
+    queryKey: ['/api/users'],
   });
 
   // Fetch evidence versions and comments for each evidence
@@ -760,6 +776,11 @@ function EditTaskForm({
   const { data: controlLinkedEvidence } = useQuery({
     queryKey: ['/api/evidence', 'control', selectedControlForView],
     enabled: !!selectedControlForView,
+  });
+
+  // Fetch all evidence for linking
+  const { data: allEvidence = [] } = useQuery({
+    queryKey: ['/api/evidence'],
   });
 
   // Mutation for adding evidence comments
@@ -786,9 +807,91 @@ function EditTaskForm({
     },
   });
 
+  // Mutation for adding controls to task
+  const addControlsToTaskMutation = useMutation({
+    mutationFn: async (controlIds: number[]) => {
+      return apiRequest(`/api/tasks/${task.id}/controls`, {
+        method: 'POST',
+        body: { controlIds },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks', task.id, 'controls'] });
+      toast({
+        title: language === 'ar' ? 'تم إضافة الضوابط' : 'Controls Added',
+        description: language === 'ar' ? 'تم إضافة الضوابط بنجاح' : 'Controls added successfully',
+      });
+    },
+  });
+
+  // Mutation for removing control from task
+  const removeControlFromTaskMutation = useMutation({
+    mutationFn: async (controlId: number) => {
+      return apiRequest(`/api/tasks/${task.id}/controls`, {
+        method: 'DELETE',
+        body: { controlIds: [controlId] },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks', task.id, 'controls'] });
+      toast({
+        title: language === 'ar' ? 'تم حذف الضابط' : 'Control Removed',
+        description: language === 'ar' ? 'تم حذف الضابط بنجاح' : 'Control removed successfully',
+      });
+    },
+  });
+
+  // Mutation for linking evidence to task
+  const linkEvidenceToTaskMutation = useMutation({
+    mutationFn: async ({ evidenceId, taskId }: { evidenceId: number; taskId: number }) => {
+      return apiRequest(`/api/evidence/${evidenceId}/tasks`, {
+        method: 'POST',
+        body: { taskIds: [taskId] },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/evidence'] });
+      toast({
+        title: language === 'ar' ? 'تم ربط الدليل' : 'Evidence Linked',
+        description: language === 'ar' ? 'تم ربط الدليل بالمهمة بنجاح' : 'Evidence linked to task successfully',
+      });
+    },
+  });
+
   const handleAddComment = (evidenceId: number, comment: string) => {
     if (comment.trim()) {
       addCommentMutation.mutate({ evidenceId, comment: comment.trim() });
+    }
+  };
+
+  // Get unique domains from project controls
+  const domains = Array.from(new Set(
+    projectControls.map((pc: any) => pc.eccControl?.domainEn).filter(Boolean)
+  ));
+
+  // Get controls for selected domain that are NOT already assigned to the task
+  const domainControls = selectedDomain 
+    ? projectControls.filter((pc: any) => {
+        const isInDomain = pc.eccControl?.domainEn === selectedDomain;
+        const isAlreadyAssigned = taskControls?.some((tc: any) => tc.eccControl?.id === pc.eccControl?.id);
+        return isInDomain && !isAlreadyAssigned;
+      })
+    : [];
+
+  // Handle task form submission
+  const handleTaskSubmit = async () => {
+    try {
+      await onSubmit(editedTask);
+    } catch (error) {
+      console.error('Failed to update task:', error);
+    }
+  };
+
+  // Handle adding selected controls to task
+  const handleAddControlsToTask = (controlIds: number[]) => {
+    if (controlIds.length > 0) {
+      addControlsToTaskMutation.mutate(controlIds);
+      setSelectedDomain(''); // Reset domain selection
     }
   };
 
@@ -883,46 +986,112 @@ function EditTaskForm({
 
   return (
     <div className="space-y-6">
+      {/* Task Info Header */}
       <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
         <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-          {language === 'ar' ? 'تفاصيل المهمة' : 'Task Details'}
+          {language === 'ar' ? 'تعديل المهمة' : 'Edit Task'}
         </h3>
         <p className="text-sm text-blue-800 dark:text-blue-200">
           {language === 'ar' 
-            ? 'يمكنك تعديل تفاصيل المهمة أو إدارة الأدلة المرتبطة'
-            : 'You can edit task details or manage associated evidence'}
+            ? 'يمكنك تعديل تفاصيل المهمة، إدارة الضوابط، أو إدارة الأدلة المرتبطة'
+            : 'You can edit task details, manage controls, or manage associated evidence'}
         </p>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'details' | 'evidence')}>
-        <TabsList className="grid w-full grid-cols-2">
+      {/* Three-Tab Interface */}
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'details' | 'controls' | 'evidence')}>
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="details">
             {language === 'ar' ? 'تفاصيل المهمة' : 'Task Details'}
+          </TabsTrigger>
+          <TabsTrigger value="controls">
+            {language === 'ar' ? 'الضوابط' : 'Controls'}
           </TabsTrigger>
           <TabsTrigger value="evidence">
             {language === 'ar' ? 'الأدلة' : 'Evidence'}
           </TabsTrigger>
         </TabsList>
 
+        {/* Tab 1: Task Details */}
         <TabsContent value="details" className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {language === 'ar' ? 'اسم المهمة' : 'Task Name'}
+                {language === 'ar' ? 'العنوان (إنجليزي)' : 'Title (English)'}
               </label>
               <Input
-                defaultValue={task.title}
-                placeholder={language === 'ar' ? 'أدخل اسم المهمة' : 'Enter task name'}
+                value={editedTask.title}
+                onChange={(e) => setEditedTask(prev => ({ ...prev, title: e.target.value }))}
+                placeholder={language === 'ar' ? 'أدخل العنوان بالإنجليزي' : 'Enter title in English'}
                 className="w-full"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {language === 'ar' ? 'العنوان (عربي)' : 'Title (Arabic)'}
+              </label>
+              <Input
+                value={editedTask.titleAr}
+                onChange={(e) => setEditedTask(prev => ({ ...prev, titleAr: e.target.value }))}
+                placeholder={language === 'ar' ? 'أدخل العنوان بالعربي' : 'Enter title in Arabic'}
+                className="w-full"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {language === 'ar' ? 'الوصف (إنجليزي)' : 'Description (English)'}
+              </label>
+              <Textarea
+                value={editedTask.description}
+                onChange={(e) => setEditedTask(prev => ({ ...prev, description: e.target.value }))}
+                placeholder={language === 'ar' ? 'أدخل الوصف بالإنجليزي' : 'Enter description in English'}
+                rows={3}
+                className="w-full"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {language === 'ar' ? 'الوصف (عربي)' : 'Description (Arabic)'}
+              </label>
+              <Textarea
+                value={editedTask.descriptionAr}
+                onChange={(e) => setEditedTask(prev => ({ ...prev, descriptionAr: e.target.value }))}
+                placeholder={language === 'ar' ? 'أدخل الوصف بالعربي' : 'Enter description in Arabic'}
+                rows={3}
+                className="w-full"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {language === 'ar' ? 'الحالة' : 'Status'}
+              </label>
+              <Select value={editedTask.status} onValueChange={(value) => setEditedTask(prev => ({ ...prev, status: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">{language === 'ar' ? 'قيد الانتظار' : 'Pending'}</SelectItem>
+                  <SelectItem value="in-progress">{language === 'ar' ? 'قيد التنفيذ' : 'In Progress'}</SelectItem>
+                  <SelectItem value="review">{language === 'ar' ? 'قيد المراجعة' : 'Review'}</SelectItem>
+                  <SelectItem value="completed">{language === 'ar' ? 'مكتملة' : 'Completed'}</SelectItem>
+                  <SelectItem value="blocked">{language === 'ar' ? 'محجوبة' : 'Blocked'}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 {language === 'ar' ? 'الأولوية' : 'Priority'}
               </label>
-              <Select defaultValue={task.priority}>
+              <Select value={editedTask.priority} onValueChange={(value) => setEditedTask(prev => ({ ...prev, priority: value }))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -934,25 +1103,47 @@ function EditTaskForm({
                 </SelectContent>
               </Select>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {language === 'ar' ? 'تاريخ الاستحقاق' : 'Due Date'}
+              </label>
+              <Input
+                type="date"
+                value={editedTask.dueDate || ''}
+                onChange={(e) => setEditedTask(prev => ({ ...prev, dueDate: e.target.value || null }))}
+                className="w-full"
+              />
+            </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              {language === 'ar' ? 'الوصف' : 'Description'}
+              {language === 'ar' ? 'المسؤول المعين' : 'Assigned Person'}
             </label>
-            <Textarea
-              defaultValue={task.description}
-              placeholder={language === 'ar' ? 'أدخل وصف المهمة' : 'Enter task description'}
-              rows={3}
-              className="w-full"
-            />
+            <Select value={editedTask.assigneeId || ''} onValueChange={(value) => setEditedTask(prev => ({ ...prev, assigneeId: value || null }))}>
+              <SelectTrigger>
+                <SelectValue placeholder={language === 'ar' ? 'اختر المسؤول...' : 'Select assignee...'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">{language === 'ar' ? 'غير محدد' : 'Unassigned'}</SelectItem>
+                {users.map((user: any) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.firstName} {user.lastName} ({user.email})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+        </TabsContent>
 
-          {/* Associated Controls */}
+        {/* Tab 2: Controls */}
+        <TabsContent value="controls" className="space-y-4">
+          {/* Current Controls */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              {language === 'ar' ? 'الضوابط المرتبطة' : 'Associated Controls'}
-            </label>
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
+              {language === 'ar' ? 'الضوابط المرتبطة حالياً' : 'Currently Assigned Controls'}
+            </h3>
             <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
               {taskControls && taskControls.length > 0 ? (
                 <div className="space-y-3">
@@ -967,156 +1158,88 @@ function EditTaskForm({
                             ? control.eccControl.subdomainAr 
                             : control.eccControl.subdomainEn}
                         </h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
                           {language === 'ar' && control.eccControl.controlAr 
                             ? control.eccControl.controlAr 
                             : control.eccControl.controlEn}
                         </p>
-                        <div className="text-xs text-gray-500 mb-2">
-                          <span className="font-medium">
-                            {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
-                          </span>
-                          <span className="ml-1">
-                            {language === 'ar' 
-                              ? (control.eccControl.evidenceAr || 'وثائق ، سياسات ، إجراءات ، وأدلة تدقيق')
-                              : (control.eccControl.evidenceEn || 'Documentation, policies, procedures, and audit evidence')}
-                          </span>
-                        </div>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          onClick={() => setSelectedControlForView(control.eccControl.id)}
-                          className="text-xs"
-                        >
-                          {language === 'ar' ? 'عرض الأدلة المرتبطة' : 'View Linked Evidence'}
-                        </Button>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500">
-                  {language === 'ar' ? 'لا توجد ضوابط مرتبطة' : 'No associated controls'}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Linked Evidence View */}
-          {selectedControlForView && (
-            <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-900/20">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-gray-900 dark:text-white">
-                  {language === 'ar' ? 'الأدلة المرتبطة بالضابط' : 'Evidence Linked to Control'}
-                </h3>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  onClick={() => setSelectedControlForView(null)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              {/* Selected Control Info */}
-              {taskControls?.find((c: any) => c.eccControl.id === selectedControlForView) && (
-                <div className="mb-4 p-3 bg-white dark:bg-gray-700 rounded-lg">
-                  <div className="flex items-start gap-2">
-                    <Badge variant="secondary" className="mt-1">
-                      {taskControls.find((c: any) => c.eccControl.id === selectedControlForView)?.eccControl.code}
-                    </Badge>
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">
-                        {language === 'ar' && taskControls.find((c: any) => c.eccControl.id === selectedControlForView)?.eccControl.subdomainAr 
-                          ? taskControls.find((c: any) => c.eccControl.id === selectedControlForView)?.eccControl.subdomainAr 
-                          : taskControls.find((c: any) => c.eccControl.id === selectedControlForView)?.eccControl.subdomainEn}
-                      </h4>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Linked Evidence */}
-              {controlLinkedEvidence && controlLinkedEvidence.length > 0 ? (
-                <div className="space-y-3">
-                  {controlLinkedEvidence.map((evidence: any) => (
-                    <div key={evidence.id} className="p-3 bg-white dark:bg-gray-700 rounded-lg">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-medium text-gray-900 dark:text-white text-sm">
-                              {evidence.title}
-                            </h4>
-                            <Badge variant="secondary" className="text-xs">
-                              v{evidence.version}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                            {evidence.description}
-                          </p>
-                          <div className="flex items-center gap-2 text-xs text-gray-500">
-                            <span>{evidence.fileName}</span>
-                            <span>•</span>
-                            <span>{(evidence.fileSize / 1024).toFixed(1)} KB</span>
-                            <span>•</span>
-                            <span>{new Date(evidence.createdAt).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                        <Button size="sm" variant="outline" className="text-xs">
-                          {language === 'ar' ? 'تحميل' : 'Download'}
-                        </Button>
-                      </div>
-
-                      {/* Version History for Control-Linked Evidence */}
-                      <div className="mt-2 pt-2 border-t">
-                        <h5 className="font-medium text-gray-800 dark:text-gray-200 mb-2 text-xs">
-                          {language === 'ar' ? 'تاريخ الإصدارات' : 'Version History'}
-                        </h5>
-                        <div className="space-y-1 max-h-20 overflow-y-auto">
-                          {evidenceVersions?.filter((v: any) => v.evidenceId === evidence.id).map((version: any) => (
-                            <div key={version.id} className="text-xs text-gray-600 dark:text-gray-400 flex items-center justify-between p-1 bg-gray-100 dark:bg-gray-600 rounded">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">v{version.version}</span>
-                                <span>•</span>
-                                <span>{new Date(version.createdAt).toLocaleDateString()}</span>
-                                <span>•</span>
-                                <span>{version.uploadedBy || 'Unknown'}</span>
-                              </div>
-                              <Button size="sm" variant="ghost" className="h-4 px-1 text-xs">
-                                {language === 'ar' ? 'تحميل' : 'Download'}
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Comments for Control-Linked Evidence */}
-                      <div className="mt-2 pt-2 border-t">
-                        <h5 className="font-medium text-gray-800 dark:text-gray-200 mb-2 text-xs">
-                          {language === 'ar' ? 'التعليقات' : 'Comments'}
-                        </h5>
-                        <div className="space-y-1 max-h-20 overflow-y-auto">
-                          {evidenceComments?.filter((c: any) => c.evidenceId === evidence.id).map((comment: any) => (
-                            <div key={comment.id} className="text-xs p-2 bg-gray-100 dark:bg-gray-600 rounded">
-                              <p className="text-gray-800 dark:text-gray-200 mb-1">{comment.comment}</p>
-                              <div className="text-gray-500 text-xs">
-                                <span>{comment.user?.firstName || 'Unknown'}</span>
-                                <span className="ml-2">{new Date(comment.createdAt).toLocaleDateString()}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => removeControlFromTaskMutation.mutate(control.eccControl.id)}
+                        disabled={removeControlFromTaskMutation.isPending}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        {language === 'ar' ? 'حذف' : 'Remove'}
+                      </Button>
                     </div>
                   ))}
                 </div>
               ) : (
                 <p className="text-sm text-gray-500 text-center py-4">
-                  {language === 'ar' ? 'لا توجد أدلة مرتبطة بهذا الضابط' : 'No evidence linked to this control'}
+                  {language === 'ar' ? 'لا توجد ضوابط مرتبطة' : 'No controls assigned'}
                 </p>
               )}
             </div>
-          )}
+          </div>
+
+          {/* Add New Controls */}
+          <div>
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
+              {language === 'ar' ? 'إضافة ضوابط جديدة' : 'Add New Controls'}
+            </h3>
+            
+            {!selectedDomain ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {language === 'ar' ? 'اختر النطاق' : 'Select Domain'}
+                </label>
+                <div className="grid gap-3">
+                  {domains.map((domain) => (
+                    <div 
+                      key={domain}
+                      className="p-3 border rounded-lg cursor-pointer hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                      onClick={() => setSelectedDomain(domain)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{domain}</span>
+                        <Badge variant="secondary">
+                          {projectControls.filter(pc => pc.eccControl?.domainEn === domain && !taskControls?.some(tc => tc.eccControl?.id === pc.eccControl?.id)).length} available
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-medium">{selectedDomain}</h4>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setSelectedDomain('')}
+                  >
+                    {language === 'ar' ? 'العودة للنطاقات' : 'Back to Domains'}
+                  </Button>
+                </div>
+                
+                {domainControls.length > 0 ? (
+                  <ControlSelector 
+                    controls={domainControls}
+                    onAddControls={handleAddControlsToTask}
+                    language={language}
+                    isLoading={addControlsToTaskMutation.isPending}
+                  />
+                ) : (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    {language === 'ar' ? 'جميع الضوابط في هذا النطاق مرتبطة بالفعل' : 'All controls in this domain are already assigned'}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="evidence" className="space-y-4">
@@ -1212,6 +1335,123 @@ function EditTaskForm({
           </div>
 
           
+          {/* Link Existing Evidence Section */}
+          <div className="border rounded-lg p-4">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
+              {language === 'ar' ? 'ربط أدلة موجودة' : 'Link Existing Evidence'}
+            </h3>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {language === 'ar' ? 'اختر الدليل' : 'Select Evidence'}
+              </label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder={language === 'ar' ? 'اختر دليل...' : 'Select evidence...'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {allEvidence.map((evidence: any) => (
+                    <SelectItem key={evidence.id} value={evidence.id.toString()}>
+                      {evidence.title} - v{evidence.version}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <Button 
+              onClick={() => {
+                // Handle linking existing evidence
+              }}
+              variant="outline"
+              className="w-full"
+            >
+              {language === 'ar' ? 'ربط الدليل' : 'Link Evidence'}
+            </Button>
+          </div>
+
+          {/* Evidence for Selected Control */}
+          {selectedControlForView && (
+            <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-900/20">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-gray-900 dark:text-white">
+                  {language === 'ar' ? 'الأدلة المرتبطة بالضابط' : 'Evidence for Selected Control'}
+                </h3>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  onClick={() => setSelectedControlForView(null)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              {/* Control Info */}
+              {taskControls?.find((c: any) => c.eccControl.id === selectedControlForView) && (
+                <div className="mb-4 p-3 bg-white dark:bg-gray-700 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <Badge variant="secondary" className="mt-1">
+                      {taskControls.find((c: any) => c.eccControl.id === selectedControlForView)?.eccControl.code}
+                    </Badge>
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">
+                        {language === 'ar' && taskControls.find((c: any) => c.eccControl.id === selectedControlForView)?.eccControl.subdomainAr 
+                          ? taskControls.find((c: any) => c.eccControl.id === selectedControlForView)?.eccControl.subdomainAr 
+                          : taskControls.find((c: any) => c.eccControl.id === selectedControlForView)?.eccControl.subdomainEn}
+                      </h4>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'} {
+                          language === 'ar' 
+                            ? (taskControls.find((c: any) => c.eccControl.id === selectedControlForView)?.eccControl.evidenceAr || 'وثائق ، سياسات ، إجراءات ، وأدلة تدقيق')
+                            : (taskControls.find((c: any) => c.eccControl.id === selectedControlForView)?.eccControl.evidenceEn || 'Documentation, policies, procedures, and audit evidence')
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Evidence List */}
+              <div className="space-y-3">
+                {controlLinkedEvidence && controlLinkedEvidence.length > 0 ? (
+                  controlLinkedEvidence.map((evidence: any) => (
+                    <div key={evidence.id} className="p-3 bg-white dark:bg-gray-700 rounded-lg">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-medium text-gray-900 dark:text-white text-sm">
+                              {evidence.title}
+                            </h4>
+                            <Badge variant="secondary" className="text-xs">
+                              v{evidence.version}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                            {evidence.description}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <span>{evidence.fileName}</span>
+                            <span>•</span>
+                            <span>{(evidence.fileSize / 1024).toFixed(1)} KB</span>
+                            <span>•</span>
+                            <span>{new Date(evidence.createdAt).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        <Button size="sm" variant="outline" className="text-xs">
+                          {language === 'ar' ? 'تحميل' : 'Download'}
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    {language === 'ar' ? 'لا توجد أدلة مرتبطة بهذا الضابط' : 'No evidence linked to this control'}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
         </TabsContent>
       </Tabs>
 
@@ -1220,13 +1460,111 @@ function EditTaskForm({
         <Button variant="outline" onClick={onCancel}>
           {language === 'ar' ? 'إلغاء' : 'Cancel'}
         </Button>
-        <Button onClick={() => onSubmit(task)} disabled={isLoading}>
+        <Button onClick={handleTaskSubmit} disabled={isLoading}>
           {isLoading ? (
             language === 'ar' ? 'جاري الحفظ...' : 'Saving...'
           ) : (
             language === 'ar' ? 'حفظ التغييرات' : 'Save Changes'
           )}
         </Button>
+      </div>
+    </div>
+  );
+}
+
+// Control Selector Component
+function ControlSelector({ 
+  controls, 
+  onAddControls, 
+  language, 
+  isLoading 
+}: {
+  controls: any[];
+  onAddControls: (controlIds: number[]) => void;
+  language: string;
+  isLoading: boolean;
+}) {
+  const [selectedControls, setSelectedControls] = useState<number[]>([]);
+
+  const handleControlToggle = (controlId: number) => {
+    setSelectedControls(prev => 
+      prev.includes(controlId) 
+        ? prev.filter(id => id !== controlId)
+        : [...prev, controlId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedControls.length === controls.length) {
+      setSelectedControls([]);
+    } else {
+      setSelectedControls(controls.map(c => c.eccControl.id));
+    }
+  };
+
+  const handleAddSelected = () => {
+    if (selectedControls.length > 0) {
+      onAddControls(selectedControls);
+      setSelectedControls([]);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium">
+          {language === 'ar' ? 'اختر الضوابط' : 'Select Controls'} ({selectedControls.length}/{controls.length})
+        </span>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleSelectAll}
+          >
+            {selectedControls.length === controls.length 
+              ? (language === 'ar' ? 'إلغاء تحديد الكل' : 'Deselect All')
+              : (language === 'ar' ? 'تحديد الكل' : 'Select All')
+            }
+          </Button>
+          <Button 
+            size="sm"
+            onClick={handleAddSelected}
+            disabled={selectedControls.length === 0 || isLoading}
+          >
+            {isLoading 
+              ? (language === 'ar' ? 'جاري الإضافة...' : 'Adding...')
+              : (language === 'ar' ? 'إضافة المحددة' : 'Add Selected')
+            }
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-2 max-h-64 overflow-y-auto">
+        {controls.map((control: any) => (
+          <div key={control.id} className="flex items-start space-x-3 p-3 border rounded-lg">
+            <Checkbox
+              checked={selectedControls.includes(control.eccControl.id)}
+              onCheckedChange={() => handleControlToggle(control.eccControl.id)}
+            />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <Badge variant="secondary" className="text-xs">
+                  {control.eccControl.code}
+                </Badge>
+              </div>
+              <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">
+                {language === 'ar' && control.eccControl.subdomainAr 
+                  ? control.eccControl.subdomainAr 
+                  : control.eccControl.subdomainEn}
+              </h4>
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                {language === 'ar' && control.eccControl.controlAr 
+                  ? control.eccControl.controlAr 
+                  : control.eccControl.controlEn}
+              </p>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
