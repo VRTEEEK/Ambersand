@@ -751,69 +751,73 @@ export default function Evidence() {
                 </TabsList>
 
                 {/* Details Tab */}
-                <TabsContent value="details" className="flex-1 overflow-y-auto p-6 space-y-6">
-                  <div className="flex items-start gap-6">
-                    <div className="w-16 h-16 bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl flex items-center justify-center">
-                      {getFileIcon(selectedEvidence.fileType)}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-xl font-semibold mb-2">
-                        {language === 'ar' && selectedEvidence.titleAr ? selectedEvidence.titleAr : selectedEvidence.title}
-                      </h3>
-                      <p className="text-gray-600 dark:text-gray-400 mb-4">
-                        {language === 'ar' && selectedEvidence.descriptionAr ? selectedEvidence.descriptionAr : selectedEvidence.description}
-                      </p>
-                      
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-                        <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                          <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">File Size</span>
-                          <p className="text-lg font-semibold">{formatFileSize(selectedEvidence.fileSize)}</p>
-                        </div>
-                        <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                          <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Version</span>
-                          <p className="text-lg font-semibold">v{selectedEvidence.version}</p>
-                        </div>
-                        <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                          <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Type</span>
-                          <p className="text-lg font-semibold">{getRegulationType(selectedEvidence)}</p>
-                        </div>
-                        {selectedEvidence.uploaderName && (
+                <TabsContent value="details" className="flex-1 flex flex-col">
+                  <div className="flex-1 overflow-y-auto p-6">
+                    <div className="flex items-start gap-6">
+                      <div className="w-16 h-16 bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl flex items-center justify-center">
+                        {getFileIcon(selectedEvidence.fileType)}
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-xl font-semibold mb-2">
+                          {language === 'ar' && selectedEvidence.titleAr ? selectedEvidence.titleAr : selectedEvidence.title}
+                        </h3>
+                        <p className="text-gray-600 dark:text-gray-400 mb-4">
+                          {language === 'ar' && selectedEvidence.descriptionAr ? selectedEvidence.descriptionAr : selectedEvidence.description}
+                        </p>
+                        
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                           <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                            <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Uploaded by</span>
-                            <p className="text-lg font-semibold">{selectedEvidence.uploaderName}</p>
+                            <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">File Size</span>
+                            <p className="text-lg font-semibold">{formatFileSize(selectedEvidence.fileSize)}</p>
                           </div>
-                        )}
-                        <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                          <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Upload Date</span>
-                          <p className="text-lg font-semibold">{formatDate(selectedEvidence.createdAt)}</p>
-                        </div>
-                        {(selectedEvidence.projectId || selectedEvidence.taskId) && (
                           <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                            <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Linked To</span>
-                            <div className="flex flex-wrap gap-2 mt-1">
-                              {selectedEvidence.projectId && (
-                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                  <Building className="h-3 w-3 mr-1" />
-                                  {getProjectName(selectedEvidence.projectId)}
-                                </Badge>
-                              )}
-                              {selectedEvidence.taskId && (
-                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                  {getTaskName(selectedEvidence.taskId)}
-                                </Badge>
-                              )}
+                            <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Version</span>
+                            <p className="text-lg font-semibold">v{selectedEvidence.version}</p>
+                          </div>
+                          <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                            <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Type</span>
+                            <p className="text-lg font-semibold">{getRegulationType(selectedEvidence)}</p>
+                          </div>
+                          {selectedEvidence.uploaderName && (
+                            <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                              <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Uploaded by</span>
+                              <p className="text-lg font-semibold">{selectedEvidence.uploaderName}</p>
                             </div>
+                          )}
+                          <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                            <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Upload Date</span>
+                            <p className="text-lg font-semibold">{formatDate(selectedEvidence.createdAt)}</p>
                           </div>
-                        )}
+                          {(selectedEvidence.projectId || selectedEvidence.taskId) && (
+                            <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                              <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">Linked To</span>
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                {selectedEvidence.projectId && (
+                                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                    <Building className="h-3 w-3 mr-1" />
+                                    {getProjectName(selectedEvidence.projectId)}
+                                  </Badge>
+                                )}
+                                {selectedEvidence.taskId && (
+                                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    {getTaskName(selectedEvidence.taskId)}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-
-                      <div className="flex gap-3">
-                        <Button onClick={() => handleDownload(selectedEvidence)} className="flex-1">
-                          <Download className="h-4 w-4 mr-2" />
-                          {language === 'ar' ? 'تحميل الملف' : 'Download File'}
-                        </Button>
-                      </div>
+                    </div>
+                  </div>
+                  {/* Fixed bottom button */}
+                  <div className="flex-shrink-0 p-6 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex justify-center">
+                      <Button onClick={() => handleDownload(selectedEvidence)} className="w-64">
+                        <Download className="h-4 w-4 mr-2" />
+                        {language === 'ar' ? 'تحميل الملف' : 'Download File'}
+                      </Button>
                     </div>
                   </div>
                 </TabsContent>
