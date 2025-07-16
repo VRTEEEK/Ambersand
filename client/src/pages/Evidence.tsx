@@ -942,11 +942,12 @@ export default function Evidence() {
                           {language === 'ar' ? 'جميع الإصدارات' : 'All Versions'}
                         </h3>
                         <Badge variant="outline" className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
-                          {language === 'ar' ? '1 إصدار' : '1 Version'}
+                          {evidenceVersions ? evidenceVersions.length + 1 : 1} {language === 'ar' ? 'إصدار' : 'Versions'}
                         </Badge>
                       </div>
                       
                       <div className="space-y-4">
+                        {/* Current Version */}
                         <Card className="p-6 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow duration-200">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
@@ -979,6 +980,80 @@ export default function Evidence() {
                             </div>
                           </div>
                         </Card>
+
+                        {/* Previous Versions */}
+                        {evidenceVersions && evidenceVersions.length > 0 && (
+                          <>
+                            <div className="flex items-center gap-2 mt-6 mb-4">
+                              <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+                              <span className="text-sm text-gray-500 font-medium px-3">
+                                {language === 'ar' ? 'الإصدارات السابقة' : 'Previous Versions'}
+                              </span>
+                              <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+                            </div>
+                            
+                            {evidenceVersions
+                              .sort((a, b) => {
+                                // Sort by version number (descending)
+                                const aVersion = parseFloat(a.version);
+                                const bVersion = parseFloat(b.version);
+                                return bVersion - aVersion;
+                              })
+                              .map((version) => (
+                                <Card key={version.id} className="p-6 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow duration-200">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                      <div className="w-12 h-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center shadow-sm">
+                                        {getFileIcon(version.fileType)}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <h4 className="font-semibold text-gray-900 dark:text-white mb-1">{version.fileName}</h4>
+                                        <div className="flex items-center gap-4 text-sm text-gray-500">
+                                          <span className="flex items-center gap-1">
+                                            <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
+                                            v{version.version}
+                                          </span>
+                                          <span>{formatFileSize(version.fileSize)}</span>
+                                          <span>{formatDate(version.createdAt)}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      <Badge variant="outline" className="bg-gray-100 text-gray-600 border-gray-300">Previous</Badge>
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        onClick={() => {
+                                          // Download specific version
+                                          const link = document.createElement('a');
+                                          link.href = `/uploads/${version.filePath.split('/').pop()}`;
+                                          link.download = version.fileName;
+                                          document.body.appendChild(link);
+                                          link.click();
+                                          document.body.removeChild(link);
+                                        }}
+                                        className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                      >
+                                        <Download className="h-3 w-3 mr-1" />
+                                        Download
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </Card>
+                              ))}
+                          </>
+                        )}
+                        
+                        {(!evidenceVersions || evidenceVersions.length === 0) && (
+                          <div className="text-center py-8 text-gray-500">
+                            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <FileText className="h-8 w-8 text-gray-400" />
+                            </div>
+                            <p className="text-sm text-gray-400">
+                              {language === 'ar' ? 'لا توجد إصدارات سابقة' : 'No previous versions available'}
+                            </p>
+                          </div>
+                        )}
                       </div>
                   </div>
                 </TabsContent>
