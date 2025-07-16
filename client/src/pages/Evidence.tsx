@@ -300,6 +300,10 @@ export default function Evidence() {
       codeAr: control.codeAr,
       controlEn: control.controlEn,
       controlAr: control.controlAr,
+      domainEn: control.domainEn,
+      domainAr: control.domainAr,
+      subdomainEn: control.subdomainEn,
+      subdomainAr: control.subdomainAr,
     };
   };
 
