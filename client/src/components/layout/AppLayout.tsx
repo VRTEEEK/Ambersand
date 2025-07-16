@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-import Logo from "@assets/Logo.png";
+import Logo from "@assets/newlogo_1752633275960.png";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -123,7 +123,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         <div className="flex items-center">
           <img 
             src={Logo} 
-            alt="Ambersand Logo" 
+            alt="Ambersand Compliance Platform Logo" 
             className="h-8 w-auto"
           />
         </div>
