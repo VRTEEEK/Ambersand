@@ -10,17 +10,17 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### July 16, 2025 - Evidence Dialog Modern Redesign & Professional Styling
-- **REDESIGNED**: Complete Evidence Details dialog with modern, professional styling and consistent layout across all 5 tabs
-- **ENHANCED**: Dialog now uses fixed dimensions (92% width, 88% height) with beautiful header design featuring gradient icon backgrounds
+### July 16, 2025 - Evidence Version Notes Integration & Dialog Optimization
+- **IMPLEMENTED**: Complete version notes integration with comment system for comprehensive audit trail
+- **ENHANCED**: Version uploads with notes automatically create system comments with amber styling and distinct visual treatment
+- **AUTOMATED**: Backend automatically formats version notes as "Uploaded version X.X: [note]" with system comment metadata
+- **REDESIGNED**: Evidence Details dialog with tabs positioned at top of window and compressed Upload Version tab content
+- **OPTIMIZED**: Upload Version tab layout to fit within dialog bounds with reduced spacing and compact form elements
 - **MODERNIZED**: Tab styling with active state highlighting, smooth transitions, and teal accent colors for professional appearance
-- **STANDARDIZED**: All tab content areas now use consistent max-width containers (4xl), proper padding, and unified scrolling behavior
+- **STANDARDIZED**: All tab content areas use consistent padding and unified scrolling behavior throughout dialog
 - **IMPROVED**: Download File button repositioned to center bottom of Details tab with enhanced styling and hover effects
-- **UPGRADED**: Information cards with proper borders, shadows, hover states, and responsive grid layouts
-- **ENHANCED**: Comment system with larger user avatars, timestamp badges, and improved visual hierarchy
-- **POLISHED**: Upload area with larger drag-and-drop zone, gradient backgrounds, and enhanced file information display
-- **UNIFIED**: All buttons, badges, and interactive elements now follow consistent design patterns with proper transitions
-- **OPTIMIZED**: Better use of screen space with centered content containers and improved visual balance throughout
+- **ENHANCED**: Comment system with visual distinction between user comments and system-generated version logs
+- **UNIFIED**: All buttons, badges, and interactive elements follow consistent design patterns with proper transitions
 
 ### July 16, 2025 - Profile Picture System Implementation  
 - **IMPLEMENTED**: Complete profile picture upload functionality with file validation (.jpg, .png, .webp)

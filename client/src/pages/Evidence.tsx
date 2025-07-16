@@ -226,35 +226,6 @@ export default function Evidence() {
 
       const result = await response.json();
 
-      // If version notes were provided, add them as a system comment
-      if (versionNotes && versionNotes.trim()) {
-        try {
-          const versionNumber = result.version || 'new';
-          const systemComment = language === 'ar' 
-            ? `رُفع إصدار جديد ${versionNumber}: ${versionNotes}`
-            : `Uploaded version ${versionNumber}: ${versionNotes}`;
-
-          await fetch(`/api/evidence/${selectedEvidence.id}/comments`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              comment: systemComment,
-              isSystemComment: true,
-              commentType: 'version_upload'
-            }),
-            credentials: 'include',
-          });
-
-          // Refresh comments
-          queryClient.invalidateQueries({ queryKey: ['/api/evidence/comments', selectedEvidence.id] });
-        } catch (commentError) {
-          console.error('Failed to add version comment:', commentError);
-          // Don't fail the upload if comment fails
-        }
-      }
-
       toast({
         title: language === 'ar' ? 'تم رفع الإصدار الجديد' : 'New Version Uploaded',
         description: language === 'ar' ? 'تم رفع الإصدار الجديد بنجاح' : 'New version uploaded successfully',
@@ -263,9 +234,10 @@ export default function Evidence() {
       setNewVersionFile(null);
       setVersionNotes('');
       
-      // Refresh evidence data
+      // Refresh evidence data and comments
       queryClient.invalidateQueries({ queryKey: ['/api/evidence'] });
       queryClient.invalidateQueries({ queryKey: ['/api/evidence/versions', selectedEvidence.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/evidence/comments', selectedEvidence.id] });
     } catch (error) {
       toast({
         title: language === 'ar' ? 'خطأ في الرفع' : 'Upload Error',

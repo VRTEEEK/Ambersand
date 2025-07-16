@@ -953,12 +953,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             fileType: file.mimetype,
           });
           
-          // Add comment if provided
+          // Add version note as system comment if provided
           if (comment) {
+            const systemComment = `Uploaded version ${version.version}: ${comment}`;
             await storage.createEvidenceComment({
               evidenceId: sameNameEvidence.id,
               userId: req.user.claims.sub,
-              comment: comment,
+              comment: systemComment,
+              isSystemComment: true,
+              commentType: 'version_upload'
             });
           }
           
