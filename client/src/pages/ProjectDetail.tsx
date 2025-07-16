@@ -1121,12 +1121,12 @@ function EditTaskForm({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               {language === 'ar' ? 'المسؤول المعين' : 'Assigned Person'}
             </label>
-            <Select value={editedTask.assigneeId || ''} onValueChange={(value) => setEditedTask(prev => ({ ...prev, assigneeId: value || null }))}>
+            <Select value={editedTask.assigneeId || 'unassigned'} onValueChange={(value) => setEditedTask(prev => ({ ...prev, assigneeId: value === 'unassigned' ? null : value }))}>
               <SelectTrigger>
                 <SelectValue placeholder={language === 'ar' ? 'اختر المسؤول...' : 'Select assignee...'} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">{language === 'ar' ? 'غير محدد' : 'Unassigned'}</SelectItem>
+                <SelectItem value="unassigned">{language === 'ar' ? 'غير محدد' : 'Unassigned'}</SelectItem>
                 {users.map((user: any) => (
                   <SelectItem key={user.id} value={user.id}>
                     {user.firstName} {user.lastName} ({user.email})
