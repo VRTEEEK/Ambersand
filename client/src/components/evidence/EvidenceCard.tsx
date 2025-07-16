@@ -130,32 +130,58 @@ export function EvidenceCard({
             </Badge>
           </div>
 
-
-
-          {/* Linked Project */}
-          {evidence.projectId && (
-            <div className="space-y-2">
-              <div className="text-xs font-medium text-gray-600">
-                {language === 'ar' ? 'المشروع:' : 'Project:'}
+          {/* Linked Items Grid */}
+          {(evidence.projectId || evidence.taskId || controlInfo) && (
+            <div className="grid grid-cols-3 gap-4">
+              {/* Control Column */}
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-gray-600">
+                  {language === 'ar' ? 'الضابط:' : 'Control:'}
+                </div>
+                {controlInfo ? (
+                  <Badge variant="outline" className="text-xs bg-teal-50 text-teal-700 border-teal-200 w-full justify-start">
+                    <Shield className="h-3 w-3 mr-1" />
+                    <span className="truncate">{language === 'ar' ? controlInfo.codeAr : controlInfo.code}</span>
+                  </Badge>
+                ) : (
+                  <div className="text-xs text-gray-400">
+                    {language === 'ar' ? 'غير محدد' : 'Not set'}
+                  </div>
+                )}
               </div>
-              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                <Building className="h-3 w-3 mr-1" />
-                {getProjectName(evidence.projectId)}
-              </Badge>
-            </div>
-          )}
-          
-          {/* Linked Tasks */}
-          {evidence.taskId && (
-            <div className="space-y-2">
-              <div className="text-xs font-medium text-gray-600">
-                {language === 'ar' ? 'المهام:' : 'Tasks:'}
+
+              {/* Project Column */}
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-gray-600">
+                  {language === 'ar' ? 'المشروع:' : 'Project:'}
+                </div>
+                {evidence.projectId ? (
+                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 w-full justify-start">
+                    <Building className="h-3 w-3 mr-1" />
+                    <span className="truncate">{getProjectName(evidence.projectId)}</span>
+                  </Badge>
+                ) : (
+                  <div className="text-xs text-gray-400">
+                    {language === 'ar' ? 'غير محدد' : 'Not set'}
+                  </div>
+                )}
               </div>
-              <div className="flex flex-wrap gap-1">
-                <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  {getTaskName(evidence.taskId)}
-                </Badge>
+
+              {/* Task Column */}
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-gray-600">
+                  {language === 'ar' ? 'المهمة:' : 'Task:'}
+                </div>
+                {evidence.taskId ? (
+                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 w-full justify-start">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    <span className="truncate">{getTaskName(evidence.taskId)}</span>
+                  </Badge>
+                ) : (
+                  <div className="text-xs text-gray-400">
+                    {language === 'ar' ? 'غير محدد' : 'Not set'}
+                  </div>
+                )}
               </div>
             </div>
           )}
