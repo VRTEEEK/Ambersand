@@ -168,14 +168,8 @@ export default function Evidence() {
     
     setIsAddingComment(true);
     try {
-      await apiRequest(`/api/evidence/${selectedEvidence.id}/comments`, {
-        method: 'POST',
-        body: JSON.stringify({
-          comment: newComment.trim()
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      await apiRequest(`/api/evidence/${selectedEvidence.id}/comments`, 'POST', {
+        comment: newComment.trim()
       });
       
       toast({
@@ -220,10 +214,15 @@ export default function Evidence() {
         formData.append('comment', versionNotes);
       }
 
-      await apiRequest('/api/evidence/upload', {
+      const response = await fetch('/api/evidence/upload', {
         method: 'POST',
         body: formData,
+        credentials: 'include',
       });
+      
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
 
       toast({
         title: language === 'ar' ? 'تم رفع الإصدار الجديد' : 'New Version Uploaded',
