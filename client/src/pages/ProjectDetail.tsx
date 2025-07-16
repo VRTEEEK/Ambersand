@@ -189,7 +189,7 @@ export default function ProjectDetail() {
       console.log('🔄 updateTaskMutation.mutationFn called with:', data);
       const taskData = {
         ...data,
-        assigneeId: data.assigneeEmail,
+        // Keep the assigneeId as is - don't map it to assigneeEmail for updates
         // Map controlId to eccControlId for database compatibility
         eccControlId: data.controlId,
       };
