@@ -311,6 +311,9 @@ export default function ProjectDetail() {
   const totalTasks = tasksWithControls?.length || 0;
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
+  // Find project owner
+  const projectOwner = users?.find((user: any) => user.id === project?.ownerId);
+
   // Group controls by domain
   const groupedControls = projectControls?.reduce((acc: any, control: any) => {
     const domain = language === 'ar' ? control.eccControl.domainAr : control.eccControl.domainEn;
@@ -346,6 +349,22 @@ export default function ProjectDetail() {
                 <span className="text-sm text-gray-500">
                   {language === 'ar' ? 'تم الإنشاء:' : 'Created:'} {new Date(project.createdAt).toLocaleDateString()}
                 </span>
+                {/* Project Owner */}
+                {projectOwner && (
+                  <div className="flex items-center gap-2 ml-4">
+                    <div className="w-6 h-6 bg-[#2699A6]/10 rounded-full flex items-center justify-center">
+                      <span className="text-xs font-medium text-[#2699A6]">
+                        {projectOwner.firstName?.charAt(0)}{projectOwner.lastName?.charAt(0)}
+                      </span>
+                    </div>
+                    <span className="text-sm text-gray-600 font-medium">
+                      {projectOwner.firstName} {projectOwner.lastName}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      ({language === 'ar' ? 'مالك المشروع' : 'Project Owner'})
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -356,6 +375,136 @@ export default function ProjectDetail() {
             </Button>
           </div>
         </div>
+
+        {/* Project Information Card */}
+        <Card className="bg-gradient-to-r from-[#2699A6]/5 to-transparent border-l-4 border-l-[#2699A6]">
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Project Status & Priority */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                  {language === 'ar' ? 'حالة المشروع' : 'Project Status'}
+                </h3>
+                <div className="space-y-2">
+                  <Badge 
+                    className={`${
+                      project.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                      project.status === 'active' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                      project.status === 'on-hold' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                      project.status === 'planning' ? 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200' :
+                      'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                    } font-semibold px-3 py-1`}
+                  >
+                    {project.status === 'planning' ? (language === 'ar' ? 'تخطيط' : 'Planning') :
+                     project.status === 'active' ? (language === 'ar' ? 'نشط' : 'Active') :
+                     project.status === 'completed' ? (language === 'ar' ? 'مكتمل' : 'Completed') :
+                     project.status === 'on-hold' ? (language === 'ar' ? 'معلق' : 'On Hold') :
+                     (language === 'ar' ? 'متأخر' : 'Overdue')}
+                  </Badge>
+                  <Badge 
+                    className={`${
+                      project.priority === 'urgent' ? 'bg-red-500 text-white' :
+                      project.priority === 'high' ? 'bg-orange-500 text-white' :
+                      project.priority === 'medium' ? 'bg-yellow-500 text-white' :
+                      'bg-gray-500 text-white'
+                    } font-semibold px-3 py-1 ml-2`}
+                  >
+                    {project.priority === 'low' ? (language === 'ar' ? 'منخفضة' : 'Low') :
+                     project.priority === 'medium' ? (language === 'ar' ? 'متوسطة' : 'Medium') :
+                     project.priority === 'high' ? (language === 'ar' ? 'عالية' : 'High') :
+                     (language === 'ar' ? 'عاجلة' : 'Urgent')} Priority
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Project Owner */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                  {language === 'ar' ? 'مالك المشروع' : 'Project Owner'}
+                </h3>
+                {projectOwner ? (
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-[#2699A6]/10 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-bold text-[#2699A6]">
+                        {projectOwner.firstName?.charAt(0)}{projectOwner.lastName?.charAt(0)}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {projectOwner.firstName} {projectOwner.lastName}
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {projectOwner.email}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {language === 'ar' ? 'غير محدد' : 'Not assigned'}
+                  </p>
+                )}
+              </div>
+
+              {/* Project Dates */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                  {language === 'ar' ? 'التواريخ' : 'Timeline'}
+                </h3>
+                <div className="space-y-2">
+                  <div className="flex items-center text-sm">
+                    <Calendar className="h-4 w-4 mr-2 text-[#2699A6]" />
+                    <span className="text-gray-600 dark:text-gray-400 mr-2">
+                      {language === 'ar' ? 'البداية:' : 'Start:'}
+                    </span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {project.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="flex items-center text-sm">
+                    <Calendar className="h-4 w-4 mr-2 text-[#2699A6]" />
+                    <span className="text-gray-600 dark:text-gray-400 mr-2">
+                      {language === 'ar' ? 'النهاية:' : 'End:'}
+                    </span>
+                    <span className={`font-medium ${
+                      project.endDate && new Date(project.endDate) < new Date() 
+                        ? 'text-red-600' 
+                        : 'text-gray-900 dark:text-white'
+                    }`}>
+                      {project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Progress Summary */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                  {language === 'ar' ? 'ملخص التقدم' : 'Progress Summary'}
+                </h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      {language === 'ar' ? 'اكتمال المهام' : 'Task Completion'}
+                    </span>
+                    <span className="text-lg font-bold text-[#2699A6]">
+                      {completionRate}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
+                    <div 
+                      className="bg-gradient-to-r from-[#2699A6] to-[#34d399] h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${completionRate}%` }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>{completedTasks} {language === 'ar' ? 'مكتملة' : 'completed'}</span>
+                    <span>{totalTasks} {language === 'ar' ? 'إجمالي' : 'total'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
