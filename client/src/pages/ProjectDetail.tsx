@@ -96,7 +96,7 @@ export default function ProjectDetail() {
     enabled: !!id,
   });
 
-  const { data: tasks, isLoading: tasksLoading } = useQuery({
+  const { data: tasks, isLoading: tasksLoading, refetch: refetchTasks } = useQuery({
     queryKey: ['/api/tasks', { projectId: id }],
     queryFn: async () => {
       const response = await fetch(`/api/tasks?projectId=${id}`);
@@ -104,6 +104,8 @@ export default function ProjectDetail() {
       return response.json();
     },
     enabled: !!id,
+    staleTime: 0, // Force fresh data
+    cacheTime: 0, // Don't cache
   });
 
   const { data: taskEvidence, refetch: refetchEvidence } = useQuery({
@@ -119,16 +121,18 @@ export default function ProjectDetail() {
     enabled: !!editingTask?.id,
   });
 
-  const { data: users } = useQuery({
+  const { data: users, refetch: refetchUsers } = useQuery({
     queryKey: ['/api/users'],
     queryFn: async () => {
       const response = await fetch('/api/users');
       if (!response.ok) throw new Error('Failed to fetch users');
       return response.json();
     },
+    staleTime: 0, // Force fresh data
+    cacheTime: 0, // Don't cache
   });
 
-  const { data: tasksWithControls } = useQuery({
+  const { data: tasksWithControls, refetch: refetchTasksWithControls } = useQuery({
     queryKey: ['/api/tasks', id, 'with-controls'],
     queryFn: async () => {
       if (!tasks) return [];
@@ -150,6 +154,8 @@ export default function ProjectDetail() {
       return tasksWithControlsData;
     },
     enabled: !!tasks && tasks.length > 0,
+    staleTime: 0, // Force fresh data
+    cacheTime: 0, // Don't cache
   });
 
   // Task creation is now handled by TaskWizard component
@@ -199,12 +205,20 @@ export default function ProjectDetail() {
       console.log('🔄 API response received:', result);
       return result;
     },
-    onSuccess: (data, variables) => {
+    onSuccess: async (data, variables) => {
       console.log('✅ updateTaskMutation.onSuccess called with:', { data, variables });
-      // Invalidate all task-related queries to refresh the UI
-      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', id] });
-      queryClient.invalidateQueries({ queryKey: ['/api/evidence'] });
+      // Clear all caches and force fresh data
+      queryClient.clear();
+      // Force manual refetch of all queries
+      try {
+        await Promise.all([
+          refetchTasks(),
+          refetchUsers(),
+          refetchTasksWithControls(),
+        ]);
+      } catch (error) {
+        console.error('Error refetching data:', error);
+      }
       setIsTaskEditDialogOpen(false);
       setEditingTask(null);
       toast({
