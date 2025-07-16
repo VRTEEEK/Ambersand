@@ -873,18 +873,17 @@ export default function Evidence() {
                           </div>
                         )}
                       </div>
-                    </div>
-                  </div>
-                  {/* Fixed bottom button */}
-                  <div className="flex-shrink-0 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                    <div className="flex justify-center max-w-4xl mx-auto">
-                      <Button 
-                        onClick={() => handleDownload(selectedEvidence)} 
-                        className="w-64 h-11 bg-teal-600 hover:bg-teal-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        {language === 'ar' ? 'تحميل الملف' : 'Download File'}
-                      </Button>
+
+                      {/* Download Button - now part of scrollable content */}
+                      <div className="mt-8 flex justify-center">
+                        <Button 
+                          onClick={() => handleDownload(selectedEvidence)} 
+                          className="w-64 h-11 bg-teal-600 hover:bg-teal-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          {language === 'ar' ? 'تحميل الملف' : 'Download File'}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </TabsContent>
