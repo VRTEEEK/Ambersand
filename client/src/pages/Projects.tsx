@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { 
   Dialog,
@@ -596,11 +597,7 @@ export default function Projects() {
                       {/* Project Owner */}
                       {project.owner && (
                         <div className="flex items-center gap-2 mt-2 text-sm text-slate-600">
-                          <div className="w-6 h-6 bg-[#2699A6]/10 rounded-full flex items-center justify-center">
-                            <span className="text-xs font-medium text-[#2699A6]">
-                              {project.owner.firstName?.charAt(0)}{project.owner.lastName?.charAt(0)}
-                            </span>
-                          </div>
+                          <UserAvatar user={project.owner} size="sm" />
                           <span className="font-medium">
                             {project.owner.firstName} {project.owner.lastName}
                           </span>
