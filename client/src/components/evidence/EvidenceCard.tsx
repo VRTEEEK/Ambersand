@@ -99,24 +99,6 @@ export function EvidenceCard({
               <Badge variant="outline">
                 v{evidence.version}
               </Badge>
-              {controlInfo && (
-                <Tooltip>
-                  <TooltipTrigger>
-                    <Badge variant="secondary" className="text-xs px-2 py-1 bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100">
-                      <Shield className="h-3 w-3 mr-1" />
-                      {language === 'ar' ? controlInfo.codeAr : controlInfo.code}
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
-                    <p className="font-medium mb-1">
-                      {language === 'ar' ? controlInfo.codeAr : controlInfo.code}
-                    </p>
-                    <p className="text-sm">
-                      {language === 'ar' ? controlInfo.controlAr : controlInfo.controlEn}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
             </div>
           </div>
 
