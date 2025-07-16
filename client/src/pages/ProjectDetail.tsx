@@ -807,6 +807,11 @@ function EditTaskForm({
     enabled: !!task.id,
   });
 
+  // Get filtered task controls (excluding pending removed)
+  const filteredTaskControls = taskControls?.filter(
+    (control: any) => !pendingRemovedControls.includes(control.eccControl.id)
+  );
+
   // Auto-select first control when Evidence tab is accessed
   useEffect(() => {
     if (activeTab === 'evidence' && filteredTaskControls && filteredTaskControls.length > 0 && !hasAutoSelectedControl) {
@@ -958,11 +963,6 @@ function EditTaskForm({
   const handleRestoreControl = (controlId: number) => {
     setPendingRemovedControls(prev => prev.filter(id => id !== controlId));
   };
-
-  // Get filtered task controls (excluding pending removed)
-  const filteredTaskControls = taskControls?.filter(
-    (control: any) => !pendingRemovedControls.includes(control.eccControl.id)
-  );
 
   const handleFileSelection = (files: File[]) => {
     const validFiles = files.filter(file => {
