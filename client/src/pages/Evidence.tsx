@@ -985,8 +985,9 @@ export default function Evidence() {
 
                 {/* Comments Tab */}
                 <TabsContent value="comments" className="flex-1 overflow-hidden">
-                  <div className="h-full overflow-y-auto px-6 py-6">
-                      <div className="flex items-center justify-between mb-6">
+                  <div className="h-full overflow-y-auto px-6 py-4">
+                    <div className="max-w-4xl mx-auto space-y-4">
+                      <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                           {language === 'ar' ? 'التعليقات' : 'Comments'}
                         </h3>
@@ -996,7 +997,7 @@ export default function Evidence() {
                       </div>
                       
                       {/* Add Comment Form */}
-                      <Card className="p-6 mb-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+                      <Card className="p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
                         <div className="space-y-4">
                           <div className="flex items-center gap-3">
                             <MessageCircle className="h-5 w-5 text-teal-600" />
@@ -1044,18 +1045,18 @@ export default function Evidence() {
                       </Card>
                       
                       {/* Comments List */}
-                      <div className="space-y-4">
+                      <div className="space-y-2 max-w-none">
                         {evidenceComments && evidenceComments.length > 0 ? (
                           evidenceComments.map((comment: any) => (
-                            <Card key={comment.id} className={`p-5 border transition-shadow duration-200 hover:shadow-md ${
+                            <div key={comment.id} className={`p-3 border rounded-lg transition-colors duration-200 ${
                               comment.isSystemComment 
                                 ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950' 
-                                : 'border-gray-200 dark:border-gray-700'
+                                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
                             }`}>
-                              <div className="flex items-start gap-4">
+                              <div className="flex items-start gap-3">
                                 {comment.isSystemComment ? (
-                                  <div className="w-8 h-8 bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-800 dark:to-amber-900 rounded-full flex items-center justify-center flex-shrink-0">
-                                    <Shield className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                  <div className="w-6 h-6 bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-800 dark:to-amber-900 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <Shield className="h-3 w-3 text-amber-600 dark:text-amber-400" />
                                   </div>
                                 ) : (
                                   <UserAvatar 
@@ -1064,40 +1065,36 @@ export default function Evidence() {
                                       email: comment.user.email,
                                       profilePicture: comment.user.profilePicture
                                     }}
-                                    size="md"
+                                    size="sm"
                                   />
                                 )}
                                 <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-3 mb-2">
-                                    <span className="font-semibold text-sm text-gray-900 dark:text-white">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-medium text-xs text-gray-900 dark:text-white">
                                       {comment.isSystemComment 
                                         ? (language === 'ar' ? 'سجل النظام' : 'System Log')
                                         : comment.user.name
                                       }
                                     </span>
                                     {comment.isSystemComment && (
-                                      <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700 text-xs">
+                                      <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700 text-xs h-4 px-1.5">
                                         {language === 'ar' ? 'ملاحظة إصدار' : 'Version Note'}
                                       </Badge>
                                     )}
-                                    <span className={`text-xs px-2 py-1 rounded-full ${
-                                      comment.isSystemComment 
-                                        ? 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900' 
-                                        : 'text-gray-500 bg-gray-100 dark:bg-gray-800'
-                                    }`}>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto">
                                       {new Date(comment.createdAt).toLocaleDateString()} • {new Date(comment.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                     </span>
                                   </div>
-                                  <p className={`text-sm leading-relaxed p-3 rounded-lg ${
+                                  <p className={`text-xs leading-relaxed break-words ${
                                     comment.isSystemComment 
-                                      ? 'text-amber-800 dark:text-amber-200 bg-amber-100 dark:bg-amber-900 border border-amber-200 dark:border-amber-800' 
-                                      : 'text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800'
+                                      ? 'text-amber-800 dark:text-amber-200' 
+                                      : 'text-gray-700 dark:text-gray-300'
                                   }`}>
                                     {comment.comment}
                                   </p>
                                 </div>
                               </div>
-                            </Card>
+                            </div>
                           ))
                         ) : (
                           <div className="text-center py-12 text-gray-500">
@@ -1111,6 +1108,7 @@ export default function Evidence() {
                           </div>
                         )}
                       </div>
+                    </div>
                   </div>
                 </TabsContent>
 
