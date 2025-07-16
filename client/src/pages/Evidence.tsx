@@ -815,8 +815,7 @@ export default function Evidence() {
                 {/* Details Tab */}
                 <TabsContent value="details" className="mt-4">
                   <div className="overflow-y-auto px-6 pb-4" style={{maxHeight: 'calc(88vh - 200px)'}}>
-                    <div className="max-w-4xl mx-auto">
-                      <div className="flex items-start gap-6 mb-6">
+                    <div className="flex items-start gap-6 mb-6">
                         <div className="w-16 h-16 bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl flex items-center justify-center shadow-sm">
                           {getFileIcon(selectedEvidence.fileType)}
                         </div>
@@ -874,16 +873,15 @@ export default function Evidence() {
                         )}
                       </div>
 
-                      {/* Download Button - now part of scrollable content */}
-                      <div className="mt-8 flex justify-center">
-                        <Button 
-                          onClick={() => handleDownload(selectedEvidence)} 
-                          className="w-64 h-11 bg-teal-600 hover:bg-teal-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          {language === 'ar' ? 'تحميل الملف' : 'Download File'}
-                        </Button>
-                      </div>
+                    {/* Download Button - now part of scrollable content */}
+                    <div className="mt-8 flex justify-center">
+                      <Button 
+                        onClick={() => handleDownload(selectedEvidence)} 
+                        className="w-64 h-11 bg-teal-600 hover:bg-teal-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        {language === 'ar' ? 'تحميل الملف' : 'Download File'}
+                      </Button>
                     </div>
                   </div>
                 </TabsContent>
@@ -891,8 +889,7 @@ export default function Evidence() {
                 {/* Controls Tab */}
                 <TabsContent value="controls" className="mt-4">
                   <div className="overflow-y-auto px-6 pb-4" style={{maxHeight: 'calc(88vh - 200px)'}}>
-                    <div className="max-w-4xl mx-auto">
-                      <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center justify-between mb-6">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                           {language === 'ar' ? 'الضوابط المرتبطة' : 'Linked Controls'}
                         </h3>
@@ -962,14 +959,12 @@ export default function Evidence() {
                           </div>
                         )}
                       </div>
-                    </div>
                   </div>
                 </TabsContent>
 
                 {/* Versions Tab */}
                 <TabsContent value="versions" className="mt-4">
                   <div className="overflow-y-auto px-6 pb-4" style={{maxHeight: 'calc(88vh - 200px)'}}>
-                    <div className="max-w-4xl mx-auto">
                       <div className="flex items-center justify-between mb-6">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                           {language === 'ar' ? 'جميع الإصدارات' : 'All Versions'}
@@ -1013,14 +1008,12 @@ export default function Evidence() {
                           </div>
                         </Card>
                       </div>
-                    </div>
                   </div>
                 </TabsContent>
 
                 {/* Comments Tab */}
                 <TabsContent value="comments" className="mt-4">
                   <div className="overflow-y-auto px-6 pb-4" style={{maxHeight: 'calc(88vh - 200px)'}}>
-                    <div className="max-w-4xl mx-auto">
                       <div className="flex items-center justify-between mb-6">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                           {language === 'ar' ? 'التعليقات' : 'Comments'}
@@ -1146,14 +1139,12 @@ export default function Evidence() {
                           </div>
                         )}
                       </div>
-                    </div>
                   </div>
                 </TabsContent>
 
                 {/* Upload New Version Tab */}
                 <TabsContent value="upload" className="mt-4">
                   <div className="overflow-y-auto px-6 pb-4" style={{maxHeight: 'calc(88vh - 200px)'}}>
-                    <div className="max-w-4xl mx-auto">
                       <div className="mb-6">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                           {language === 'ar' ? 'رفع إصدار جديد' : 'Upload New Version'}
@@ -1250,7 +1241,6 @@ export default function Evidence() {
                           </Button>
                         </div>
                       </div>
-                    </div>
                   </div>
                 </TabsContent>
               </Tabs>
