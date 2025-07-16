@@ -1145,20 +1145,20 @@ export default function Evidence() {
                 {/* Upload New Version Tab */}
                 <TabsContent value="upload" className="flex-1 overflow-hidden">
                   <div className="h-full overflow-y-auto px-6 py-6">
-                      <div className="mb-6">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                      <div className="mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
                           {language === 'ar' ? 'رفع إصدار جديد' : 'Upload New Version'}
                         </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
                           {language === 'ar' ? 'رفع ملف جديد كإصدار محدث من الدليل الحالي' : 'Upload a new file as an updated version of the current evidence'}
                         </p>
                       </div>
                       
-                      <div className="space-y-6">
-                        <div className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 ${
+                      <div className="space-y-4">
+                        <div className={`border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 ${
                           newVersionFile ? 'border-teal-400 bg-teal-50 dark:bg-teal-950' : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
                         }`}>
-                          <Upload className={`h-16 w-16 mx-auto mb-4 transition-colors ${
+                          <Upload className={`h-12 w-12 mx-auto mb-3 transition-colors ${
                             newVersionFile ? 'text-teal-500' : 'text-gray-400'
                           }`} />
                           {newVersionFile ? (
@@ -1171,11 +1171,11 @@ export default function Evidence() {
                               </p>
                             </div>
                           ) : (
-                            <div className="space-y-2">
-                              <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
+                            <div className="space-y-1">
+                              <p className="text-base font-medium text-gray-700 dark:text-gray-300">
                                 {language === 'ar' ? 'اختر ملف أو اسحبه هنا' : 'Choose file or drag and drop'}
                               </p>
-                              <p className="text-sm text-gray-500">
+                              <p className="text-xs text-gray-500">
                                 {language === 'ar' ? 'سيتم رفعه كإصدار جديد من' : 'Will be uploaded as a new version of'} {selectedEvidence.title}
                               </p>
                             </div>
@@ -1189,9 +1189,9 @@ export default function Evidence() {
                           />
                           <Button
                             variant="outline"
-                            size="lg"
+                            size="sm"
                             onClick={() => document.getElementById('new-version-file')?.click()}
-                            className="mt-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            className="mt-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                           >
                             {newVersionFile ? 
                               (language === 'ar' ? 'اختيار ملف آخر' : 'Choose Different File') :
@@ -1200,17 +1200,17 @@ export default function Evidence() {
                           </Button>
                         </div>
 
-                        <div className="space-y-4">
-                          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border border-blue-200 dark:border-blue-800 rounded-xl p-6">
-                            <div className="flex items-center gap-3 mb-3">
-                              <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                                <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        <div className="space-y-3">
+                          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                                <Shield className="h-3 w-3 text-blue-600 dark:text-blue-400" />
                               </div>
-                              <span className="font-semibold text-blue-900 dark:text-blue-100">
+                              <span className="font-medium text-blue-900 dark:text-blue-100 text-sm">
                                 {language === 'ar' ? 'الإصدار التلقائي' : 'Automatic Versioning'}
                               </span>
                             </div>
-                            <p className="text-sm text-blue-700 dark:text-blue-300 leading-relaxed">
+                            <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
                               {language === 'ar' 
                                 ? 'سيتم إنشاء رقم الإصدار تلقائياً بناءً على الإصدار الحالي (مثال: v1.0 → v2.0 → v3.0)' 
                                 : 'Version number will be generated automatically based on the current version (e.g., v1.0 → v2.0 → v3.0)'}
@@ -1218,25 +1218,25 @@ export default function Evidence() {
                           </div>
                           
                           <div className="space-y-2">
-                            <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 block">
+                            <label className="text-xs font-medium text-gray-700 dark:text-gray-300 block">
                               {language === 'ar' ? 'ملاحظات الإصدار' : 'Version Notes'} 
                               <span className="text-gray-500 font-normal ml-1">({language === 'ar' ? 'اختياري' : 'Optional'})</span>
                             </label>
                             <Textarea 
                               placeholder={language === 'ar' ? 'اكتب ملاحظات حول هذا الإصدار...' : 'Write notes about this version...'}
-                              className="resize-none border-gray-200 dark:border-gray-700 focus:border-teal-400 focus:ring-teal-400"
-                              rows={4}
+                              className="resize-none border-gray-200 dark:border-gray-700 focus:border-teal-400 focus:ring-teal-400 text-sm"
+                              rows={3}
                               value={versionNotes}
                               onChange={(e) => setVersionNotes(e.target.value)}
                             />
                           </div>
 
                           <Button
-                            className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
+                            className="w-full h-10 bg-teal-600 hover:bg-teal-700 text-white shadow-md hover:shadow-lg transition-all duration-200 text-sm"
                             disabled={!newVersionFile}
                             onClick={handleNewVersionUpload}
                           >
-                            <Upload className="h-5 w-5 mr-2" />
+                            <Upload className="h-4 w-4 mr-2" />
                             {language === 'ar' ? 'رفع الإصدار الجديد' : 'Upload New Version'}
                           </Button>
                         </div>
