@@ -47,6 +47,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Label } from '@/components/ui/label';
 import TaskWizard from '@/components/tasks/TaskWizard';
+import EditTaskForm from '@/components/tasks/EditTaskForm';
 import {
   DndContext,
   DragEndEvent,
@@ -357,6 +358,19 @@ export default function Tasks() {
     enabled: !!selectedTask?.id && isEditDialogOpen,
   });
 
+  // Fetch project controls for the task's project
+  const selectedTaskProject = selectedTask ? projects.find((p: any) => p.id === selectedTask.projectId) : null;
+  const { data: projectControls = [] } = useQuery({
+    queryKey: ['/api/projects', selectedTaskProject?.id, 'controls'],
+    queryFn: async () => {
+      if (!selectedTaskProject?.id) return [];
+      const response = await fetch(`/api/projects/${selectedTaskProject.id}/controls`);
+      if (!response.ok) throw new Error('Failed to fetch project controls');
+      return response.json();
+    },
+    enabled: !!selectedTaskProject?.id && isEditDialogOpen,
+  });
+
   // Simple drag and drop sensors without constraints
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -404,7 +418,7 @@ export default function Tasks() {
       console.log('🔄 Creating task:', data);
       const taskData = {
         ...data,
-        assigneeId: data.assigneeEmail, // Map to assigneeId
+        assigneeId: data.assigneeId, // Map to assigneeId
         eccControlId: data.controlId, // Map to eccControlId
       };
       await apiRequest('/api/tasks', 'POST', taskData);
@@ -455,7 +469,6 @@ export default function Tasks() {
       refetch(); // Force refetch
       setIsEditDialogOpen(false);
       setSelectedTask(null);
-      editForm.reset();
       toast({
         title: language === 'ar' ? 'تم تحديث المهمة' : 'Task Updated',
         description: language === 'ar' ? 'تم تحديث المهمة بنجاح' : 'Task updated successfully',
@@ -561,75 +574,18 @@ export default function Tasks() {
     },
   });
 
-  // Form for editing tasks
-  const editForm = useForm<TaskFormData>({
-    resolver: zodResolver(taskSchema),
-    defaultValues: {
-      title: '',
-      titleAr: '',
-      description: '',
-      descriptionAr: '',
-      status: 'pending',
-      priority: 'medium',
-      dueDate: '',
-      projectId: undefined,
-      assigneeId: 'unassigned',
-      controlId: undefined,
-    },
-  });
+  // Note: EditTaskForm component handles its own form state now
 
   // Handle form submission
   const onSubmit = (data: TaskFormData) => {
     createTaskMutation.mutate(data);
   };
 
-  // Handle edit form submission with better error handling
-  const onEditSubmit = (data: TaskFormData) => {
-    console.log('📝 Edit form submitted with data:', data);
-    console.log('📝 Selected task:', selectedTask);
-    
-    if (!selectedTask) {
-      console.error('❌ No selected task for update');
-      toast({
-        title: language === 'ar' ? 'خطأ' : 'Error',
-        description: language === 'ar' ? 'لم يتم تحديد مهمة للتحديث' : 'No task selected for update',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
-    // Validate form data
-    if (!data.title || data.title.trim() === '') {
-      console.error('❌ Title is required');
-      return;
-    }
-    
-    // Convert assignee field - handle "unassigned" case
-    const updateData = {
-      ...data,
-      assigneeId: data.assigneeId === 'unassigned' ? null : data.assigneeId,
-      dueDate: data.dueDate || null,
-      id: selectedTask.id,
-    };
-    
-    updateTaskMutation.mutate(updateData);
-  };
+  // Note: EditTaskForm component handles form submission now
 
   // Handle task click for editing
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
-    // Populate edit form with task data
-    editForm.reset({
-      title: task.title,
-      titleAr: task.titleAr || '',
-      description: task.description || '',
-      descriptionAr: task.descriptionAr || '',
-      status: task.status,
-      priority: task.priority,
-      dueDate: task.dueDate || '',
-      assigneeId: task.assigneeId || 'unassigned',
-      controlId: task.eccControlId,
-    });
     setIsEditDialogOpen(true);
   };
 
@@ -844,241 +800,41 @@ export default function Tasks() {
 
         {/* Edit Task Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {language === 'ar' ? 'تعديل المهمة' : 'Edit Task'}
               </DialogTitle>
             </DialogHeader>
-            <Form {...editForm}>
-              <form onSubmit={editForm.handleSubmit(onEditSubmit, (errors) => {
-                console.error('❌ Form validation errors:', errors);
-                toast({
-                  title: language === 'ar' ? 'خطأ في النموذج' : 'Form Error',
-                  description: language === 'ar' ? 'يرجى التحقق من البيانات المدخلة' : 'Please check the form data',
-                  variant: 'destructive',
-                });
-              })} className="space-y-4">
-                {/* Project Information (Read-only) */}
-                <div className="mb-4">
-                  <Label className="text-sm font-medium mb-2 block">
-                    {language === 'ar' ? 'معلومات المشروع' : 'Project Information'}
-                  </Label>
-                  <div className="p-3 border rounded-lg bg-gray-50 dark:bg-gray-800">
-                    {projects.find((p: any) => p.id === selectedTask?.projectId) ? (
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium">
-                          {language === 'ar' && projects.find((p: any) => p.id === selectedTask?.projectId)?.nameAr
-                            ? projects.find((p: any) => p.id === selectedTask?.projectId)?.nameAr
-                            : projects.find((p: any) => p.id === selectedTask?.projectId)?.name}
-                        </p>
-                        
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-500">
-                        {language === 'ar' ? 'لم يتم العثور على معلومات المشروع' : 'Project information not found'}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={editForm.control}
-                    name="title"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'العنوان (إنجليزي)' : 'Title (English)'}</FormLabel>
-                        <FormControl>
-                          <Input placeholder={language === 'ar' ? 'أدخل العنوان' : 'Enter title'} {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={editForm.control}
-                    name="titleAr"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'العنوان (عربي)' : 'Title (Arabic)'}</FormLabel>
-                        <FormControl>
-                          <Input placeholder={language === 'ar' ? 'أدخل العنوان بالعربية' : 'Enter title in Arabic'} {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={editForm.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'الوصف (إنجليزي)' : 'Description (English)'}</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder={language === 'ar' ? 'أدخل الوصف' : 'Enter description'} {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={editForm.control}
-                    name="descriptionAr"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'الوصف (عربي)' : 'Description (Arabic)'}</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder={language === 'ar' ? 'أدخل الوصف بالعربية' : 'Enter description in Arabic'} {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <FormField
-                    control={editForm.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'الحالة' : 'Status'}</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder={language === 'ar' ? 'اختر الحالة' : 'Select status'} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="pending">{language === 'ar' ? 'لم تبدأ' : 'To Do'}</SelectItem>
-                            <SelectItem value="in-progress">{language === 'ar' ? 'قيد التنفيذ' : 'In Progress'}</SelectItem>
-                            <SelectItem value="review">{language === 'ar' ? 'للمراجعة' : 'Review'}</SelectItem>
-                            <SelectItem value="completed">{language === 'ar' ? 'مكتملة' : 'Completed'}</SelectItem>
-                            <SelectItem value="blocked">{language === 'ar' ? 'محجوبة' : 'Blocked'}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editForm.control}
-                    name="priority"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'الأولوية' : 'Priority'}</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder={language === 'ar' ? 'اختر الأولوية' : 'Select priority'} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="low">{language === 'ar' ? 'منخفضة' : 'Low'}</SelectItem>
-                            <SelectItem value="medium">{language === 'ar' ? 'متوسطة' : 'Medium'}</SelectItem>
-                            <SelectItem value="high">{language === 'ar' ? 'عالية' : 'High'}</SelectItem>
-                            <SelectItem value="urgent">{language === 'ar' ? 'عاجلة' : 'Urgent'}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editForm.control}
-                    name="dueDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'تاريخ الاستحقاق' : 'Due Date'}</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div>
-                  <FormField
-                    control={editForm.control}
-                    name="assigneeId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'المُكلف' : 'Assignee'}</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder={language === 'ar' ? 'اختر المُكلف' : 'Select assignee'} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="unassigned">{language === 'ar' ? 'غير مُكلف' : 'Unassigned'}</SelectItem>
-                            {users.map((user: any) => (
-                              <SelectItem key={user.id} value={user.id}>
-                                {user.firstName && user.lastName 
-                                  ? `${user.firstName} ${user.lastName} (${user.email})`
-                                  : user.email}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {/* Assigned Controls Section */}
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">
-                    {language === 'ar' ? 'الضوابط المُكلفة' : 'Assigned Controls'}
-                  </Label>
-                  <div className="min-h-[60px] p-3 border rounded-lg bg-gray-50 dark:bg-gray-800">
-                    {taskControls && taskControls.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {taskControls.map((control: any) => (
-                          <Badge key={control.eccControlId || control.id} variant="secondary" className="text-xs">
-                            {control.eccControl?.code}: {language === 'ar' && control.eccControl?.controlAr 
-                              ? control.eccControl.controlAr 
-                              : control.eccControl?.controlEn}
-                          </Badge>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {language === 'ar' ? 'لا توجد ضوابط مُكلفة' : 'No controls assigned'}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                  </Button>
-                  <Button 
-                    type="submit" 
-                    disabled={updateTaskMutation.isPending}
-                    onClick={(e) => {
-                      console.log('🔘 Update button clicked');
-                      e.preventDefault();
-                      editForm.handleSubmit(onEditSubmit, (errors) => {
-                        console.error('❌ Form validation errors:', errors);
-                      })();
-                    }}
-                  >
-                    {updateTaskMutation.isPending ? (language === 'ar' ? 'جاري التحديث...' : 'Updating...') : (language === 'ar' ? 'تحديث' : 'Update')}
-                  </Button>
-                </div>
-              </form>
-            </Form>
+            {selectedTask && (
+              <EditTaskForm 
+                task={selectedTask}
+                projectControls={projectControls}
+                taskEvidence={[]} // Task evidence not needed for basic editing
+                onSubmit={async (data) => {
+                  console.log('Edit form onSubmit called with:', data);
+                  const updateData = {
+                    title: data.title,
+                    titleAr: data.titleAr,
+                    description: data.description,
+                    descriptionAr: data.descriptionAr,
+                    status: data.status,
+                    priority: data.priority,
+                    assigneeId: data.assigneeId === 'unassigned' ? null : data.assigneeId,
+                    dueDate: data.dueDate,
+                  };
+                  
+                  console.log('About to call updateTaskMutation with:', updateData);
+                  await updateTaskMutation.mutateAsync({ ...updateData, id: selectedTask.id });
+                }}
+                onCancel={() => {
+                  setIsEditDialogOpen(false);
+                  setSelectedTask(null);
+                }}
+                isLoading={updateTaskMutation.isPending}
+                language={language}
+              />
+            )}
           </DialogContent>
         </Dialog>
 
