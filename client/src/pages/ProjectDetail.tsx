@@ -36,7 +36,8 @@ import {
   X,
   MessageSquare,
   History,
-  ChevronDown
+  ChevronDown,
+  Search
 } from 'lucide-react';
 
 const taskSchema = z.object({
@@ -84,6 +85,9 @@ export default function ProjectDetail() {
   const [refreshKey, setRefreshKey] = useState(0); // Force refresh key
   const [isControlInfoDialogOpen, setIsControlInfoDialogOpen] = useState(false);
   const [selectedControlForInfo, setSelectedControlForInfo] = useState<any>(null);
+  const [taskSearchTerm, setTaskSearchTerm] = useState('');
+  const [taskStatusFilter, setTaskStatusFilter] = useState('all');
+  const [taskPriorityFilter, setTaskPriorityFilter] = useState('all');
 
   const { data: project, isLoading: projectLoading } = useQuery({
     queryKey: ['/api/projects', id],
@@ -311,6 +315,20 @@ export default function ProjectDetail() {
   const completedTasks = tasksWithControls?.filter((task: any) => task.status === 'completed').length || 0;
   const totalTasks = tasksWithControls?.length || 0;
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+  // Filter tasks based on search and filters
+  const filteredTasks = tasksWithControls?.filter((task: any) => {
+    const matchesSearch = !taskSearchTerm || 
+      task.title.toLowerCase().includes(taskSearchTerm.toLowerCase()) ||
+      (task.titleAr && task.titleAr.toLowerCase().includes(taskSearchTerm.toLowerCase())) ||
+      (task.description && task.description.toLowerCase().includes(taskSearchTerm.toLowerCase())) ||
+      (task.descriptionAr && task.descriptionAr.toLowerCase().includes(taskSearchTerm.toLowerCase()));
+    
+    const matchesStatus = taskStatusFilter === 'all' || task.status === taskStatusFilter;
+    const matchesPriority = taskPriorityFilter === 'all' || task.priority === taskPriorityFilter;
+    
+    return matchesSearch && matchesStatus && matchesPriority;
+  }) || [];
 
   // Find project owner
   const projectOwner = users?.find((user: any) => user.id === project?.ownerId);
@@ -587,6 +605,85 @@ export default function ProjectDetail() {
           </TabsList>
 
           <TabsContent value="tasks" className="space-y-4">
+            {/* Task Search and Filters */}
+            {totalTasks > 0 && (
+              <Card className="glass-card">
+                <CardContent className="p-6">
+                  <div className="flex flex-col lg:flex-row gap-4">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                      <Input
+                        type="search"
+                        placeholder={language === 'ar' ? 'البحث في المهام...' : 'Search tasks...'}
+                        value={taskSearchTerm}
+                        onChange={(e) => setTaskSearchTerm(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                    
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <Select value={taskStatusFilter} onValueChange={setTaskStatusFilter}>
+                        <SelectTrigger className="w-full sm:w-[160px]">
+                          <SelectValue placeholder={language === 'ar' ? 'الحالة' : 'Status'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{language === 'ar' ? 'جميع الحالات' : 'All Status'}</SelectItem>
+                          <SelectItem value="pending">{language === 'ar' ? 'لم تبدأ' : 'Not Started'}</SelectItem>
+                          <SelectItem value="in-progress">{language === 'ar' ? 'قيد التنفيذ' : 'In Progress'}</SelectItem>
+                          <SelectItem value="review">{language === 'ar' ? 'قيد المراجعة' : 'Under Review'}</SelectItem>
+                          <SelectItem value="completed">{language === 'ar' ? 'مكتملة' : 'Completed'}</SelectItem>
+                          <SelectItem value="blocked">{language === 'ar' ? 'محجوبة' : 'Blocked'}</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <Select value={taskPriorityFilter} onValueChange={setTaskPriorityFilter}>
+                        <SelectTrigger className="w-full sm:w-[160px]">
+                          <SelectValue placeholder={language === 'ar' ? 'الأولوية' : 'Priority'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{language === 'ar' ? 'جميع الأولويات' : 'All Priorities'}</SelectItem>
+                          <SelectItem value="low">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <span>{language === 'ar' ? 'منخفضة' : 'Low Priority'}</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="medium">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                              <span>{language === 'ar' ? 'متوسطة' : 'Medium Priority'}</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="high">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                              <span>{language === 'ar' ? 'عالية' : 'High Priority'}</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="urgent">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                              <span>{language === 'ar' ? 'عاجلة' : 'Urgent Priority'}</span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  {/* Filter Results Info */}
+                  {(taskSearchTerm || taskStatusFilter !== 'all' || taskPriorityFilter !== 'all') && (
+                    <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
+                      {language === 'ar' 
+                        ? `عرض ${filteredTasks.length} من ${totalTasks} مهمة`
+                        : `Showing ${filteredTasks.length} of ${totalTasks} tasks`
+                      }
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {totalTasks === 0 ? (
               <Card>
                 <CardContent className="p-8 text-center">
@@ -603,9 +700,21 @@ export default function ProjectDetail() {
                   </Button>
                 </CardContent>
               </Card>
+            ) : filteredTasks.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Activity className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                    {language === 'ar' ? 'لم يتم العثور على مهام' : 'No tasks found'}
+                  </h3>
+                  <p className="text-gray-500 dark:text-gray-400 mb-4">
+                    {language === 'ar' ? 'جرب تغيير مرشحات البحث أو الحالة أو الأولوية' : 'Try adjusting your search, status, or priority filters'}
+                  </p>
+                </CardContent>
+              </Card>
             ) : (
               <div className="space-y-4">
-                {tasksWithControls?.map((task: any) => {
+                {filteredTasks?.map((task: any) => {
                   // Find the assigned user
                   const assignedUser = users?.find((user: any) => user.id === task.assigneeId);
                   
