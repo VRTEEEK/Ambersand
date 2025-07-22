@@ -155,7 +155,7 @@ export default function EditTaskForm({
   const queryClient = useQueryClient();
 
   // Fetch task controls
-  const { data: taskControls } = useQuery({
+  const { data: taskControls = [] } = useQuery({
     queryKey: ['/api/tasks', task.id, 'controls'],
     enabled: !!task.id,
   });
@@ -166,23 +166,23 @@ export default function EditTaskForm({
   });
 
   // Fetch evidence versions and comments for each evidence
-  const { data: evidenceVersions } = useQuery({
+  const { data: evidenceVersions = [] } = useQuery({
     queryKey: ['/api/evidence', 'versions', task.id],
     enabled: !!task.id,
   });
 
-  const { data: evidenceComments } = useQuery({
+  const { data: evidenceComments = [] } = useQuery({
     queryKey: ['/api/evidence', 'comments', task.id],
     enabled: !!task.id,
   });
 
   // Get filtered task controls (excluding pending removed)
-  const filteredTaskControls = taskControls?.filter(
+  const filteredTaskControls = Array.isArray(taskControls) ? taskControls.filter(
     (control: any) => !pendingRemovedControls.includes(control.eccControl.id)
-  );
+  ) : [];
 
   // Fetch evidence linked to specific control
-  const { data: controlLinkedEvidence } = useQuery({
+  const { data: controlLinkedEvidence = [] } = useQuery({
     queryKey: ['/api/evidence', 'control', selectedControlForView],
     enabled: !!selectedControlForView,
   });
@@ -229,7 +229,7 @@ export default function EditTaskForm({
   const domainControls = selectedDomain 
     ? projectControls.filter((pc: any) => {
         const isInDomain = pc.eccControl?.domainEn === selectedDomain;
-        const isAlreadyAssigned = taskControls?.some((tc: any) => tc.eccControl?.id === pc.eccControl?.id);
+        const isAlreadyAssigned = Array.isArray(taskControls) && taskControls.some((tc: any) => tc.eccControl?.id === pc.eccControl?.id);
         return isInDomain && !isAlreadyAssigned;
       })
     : [];
@@ -270,6 +270,156 @@ export default function EditTaskForm({
   // Handle restoring temporarily removed control
   const handleRestoreControl = (controlId: number) => {
     setPendingRemovedControls(prev => prev.filter(id => id !== controlId));
+  };
+
+  // Fetch all evidence for linking
+  const { data: allEvidence = [] } = useQuery({
+    queryKey: ['/api/evidence'],
+  });
+
+  // Auto-select first control when Evidence tab is accessed
+  useEffect(() => {
+    if (activeTab === 'evidence' && filteredTaskControls && filteredTaskControls.length > 0 && !hasAutoSelectedControl) {
+      const firstControl = filteredTaskControls[0];
+      if (firstControl?.eccControl?.id) {
+        setSelectedControlId(firstControl.eccControl.id);
+        setSelectedControlForView(firstControl.eccControl.id);
+        setHasAutoSelectedControl(true);
+      }
+    }
+    // Reset auto-selection flag when leaving Evidence tab
+    if (activeTab !== 'evidence') {
+      setHasAutoSelectedControl(false);
+    }
+  }, [activeTab, filteredTaskControls, hasAutoSelectedControl]);
+
+  // File selection handler
+  const handleFileSelection = (files: File[]) => {
+    const validFiles = files.filter(file => {
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      const allowedTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'image/jpeg',
+        'image/png',
+        'image/jpg',
+        'text/plain'
+      ];
+      
+      return file.size <= maxSize && allowedTypes.includes(file.type);
+    });
+
+    if (validFiles.length !== files.length) {
+      console.warn('Some files were rejected due to size or type restrictions');
+    }
+
+    setUploadedFiles(prev => [...prev, ...validFiles].slice(0, 10)); // Limit to 10 files
+  };
+
+  // Remove file from upload list
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Upload evidence files
+  const uploadEvidenceFiles = async () => {
+    if (uploadedFiles.length === 0) return;
+    if (!selectedControlId) {
+      toast({
+        title: language === 'ar' ? 'يرجى اختيار ضابط' : 'Please select a control',
+        description: language === 'ar' ? 'يجب اختيار ضابط لربط الأدلة به' : 'You must select a control to associate evidence with',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      uploadedFiles.forEach(file => {
+        formData.append('files', file);
+      });
+      formData.append('taskId', task.id.toString());
+      formData.append('projectId', task.projectId.toString());
+      formData.append('controlId', selectedControlId.toString());
+      if (uploadComment.trim()) {
+        formData.append('comment', uploadComment.trim());
+      }
+
+      const response = await fetch('/api/evidence/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      setUploadedFiles([]);
+      setUploadComment('');
+      setEvidenceAttachMode(null); // Reset attach mode
+      // Invalidate evidence queries to refresh the display
+      queryClient.invalidateQueries({ queryKey: ['/api/evidence'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/evidence', 'versions', task.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/evidence', 'comments', task.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/evidence/control', selectedControlId] });
+      // Show success toast
+      toast({
+        title: language === 'ar' ? 'تم رفع وربط الملفات بنجاح' : 'Files Uploaded & Linked Successfully',
+        description: language === 'ar' ? 'تم رفع الأدلة وربطها بالضابط بنجاح' : 'Evidence files uploaded and linked to control successfully',
+      });
+    } catch (error) {
+      console.error('Error uploading files:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ في رفع الملفات' : 'Upload Error',
+        description: language === 'ar' ? 'فشل رفع الملفات' : 'Failed to upload files',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Handle linking existing evidence to the selected control
+  const handleLinkExistingEvidence = async (evidenceId: number) => {
+    if (!selectedControlId) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'يجب اختيار ضابط أولاً' : 'Please select a control first',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      await apiRequest(`/api/evidence/${evidenceId}/controls`, 'POST', { 
+        controlIds: [selectedControlId] 
+      });
+
+      // Refresh the control linked evidence
+      queryClient.invalidateQueries({ queryKey: ['/api/evidence/control', selectedControlId] });
+      
+      toast({
+        title: language === 'ar' ? 'تم الربط بنجاح' : 'Linked Successfully',
+        description: language === 'ar' ? 'تم ربط الدليل بالضابط بنجاح' : 'Evidence linked to control successfully',
+      });
+
+      // Reset the attach mode
+      setEvidenceAttachMode(null);
+    } catch (error) {
+      console.error('Error linking evidence:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ في الربط' : 'Link Error',
+        description: language === 'ar' ? 'فشل في ربط الدليل' : 'Failed to link evidence',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -412,7 +562,7 @@ export default function EditTaskForm({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="unassigned">{language === 'ar' ? 'غير محدد' : 'Unassigned'}</SelectItem>
-                {users.map((user: any) => (
+                {Array.isArray(users) && users.map((user: any) => (
                   <SelectItem key={user.id} value={user.id}>
                     {user.firstName} {user.lastName} ({user.email})
                   </SelectItem>
@@ -532,10 +682,374 @@ export default function EditTaskForm({
 
         {/* Tab 3: Evidence */}
         <TabsContent value="evidence" className="space-y-4">
-          <div className="text-center py-8 text-gray-500">
-            <p className="text-sm">
-              {language === 'ar' ? 'إدارة الأدلة متاحة في صفحة تفاصيل المشروع' : 'Evidence management available in project detail page'}
-            </p>
+          {/* Evidence Upload Section */}
+          <div className="border rounded-lg p-4">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
+              {language === 'ar' ? 'رفع أدلة جديدة' : 'Upload New Evidence'}
+            </h3>
+            
+            {/* Control Selection */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {language === 'ar' ? 'اختر الضابط' : 'Select Control'}
+              </label>
+              <Select 
+                value={selectedControlId?.toString() || ''}
+                onValueChange={(value) => {
+                  const controlId = parseInt(value);
+                  setSelectedControlId(controlId);
+                  setSelectedControlForView(controlId);
+                  setShowEvidenceForControl(false); // Reset evidence display when selecting new control
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={language === 'ar' ? 'اختر ضابط...' : 'Select a control...'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredTaskControls?.map((control: any) => (
+                    <SelectItem key={control.id} value={control.eccControl.id.toString()}>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs font-medium">
+                          {control.eccControl.code}
+                        </span>
+                        <span className="text-sm">
+                          {language === 'ar' && control.eccControl.subdomainAr 
+                            ? control.eccControl.subdomainAr 
+                            : control.eccControl.subdomainEn}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Control Information Display */}
+            {selectedControlId && Array.isArray(taskControls) && taskControls.find((c: any) => c.eccControl.id === selectedControlId) && (
+              <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-start gap-3 mb-3">
+                  <Badge variant="secondary" className="mt-1">
+                    {Array.isArray(taskControls) && taskControls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.code}
+                  </Badge>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">
+                      {language === 'ar' 
+                        ? Array.isArray(taskControls) && taskControls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.subdomainAr
+                        : Array.isArray(taskControls) && taskControls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.subdomainEn}
+                    </h4>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                      {language === 'ar'
+                        ? Array.isArray(taskControls) && taskControls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.controlAr
+                        : Array.isArray(taskControls) && taskControls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.controlEn}
+                    </p>
+                    
+                    {/* Required Evidence */}
+                    <div className="mb-3">
+                      <h5 className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                        {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
+                      </h5>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        {language === 'ar' 
+                          ? (Array.isArray(taskControls) && taskControls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.evidenceAr || 'وثائق، سياسات، إجراءات، وأدلة تدقيق')
+                          : (Array.isArray(taskControls) && taskControls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.evidenceEn || 'Documentation, policies, procedures, and audit evidence')}
+                      </p>
+                    </div>
+
+                    {/* Evidence Link Status - Clickable */}
+                    <div className="flex items-center gap-2">
+                      {Array.isArray(controlLinkedEvidence) && controlLinkedEvidence.length > 0 ? (
+                        <div 
+                          className="flex items-center gap-1 text-green-600 dark:text-green-400 cursor-pointer hover:text-green-700 dark:hover:text-green-300 transition-colors"
+                          onClick={() => setShowEvidenceForControl(!showEvidenceForControl)}
+                        >
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="text-xs font-medium underline">
+                            {language === 'ar' 
+                              ? `مرتبط بـ ${controlLinkedEvidence.length} دليل - اضغط للعرض` 
+                              : `${controlLinkedEvidence.length} evidence linked - click to view`}
+                          </span>
+                          <ChevronDown className={`h-3 w-3 transition-transform ${showEvidenceForControl ? 'rotate-180' : ''}`} />
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                          <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                          <span className="text-xs font-medium">
+                            {language === 'ar' ? 'لا توجد أدلة مرتبطة' : 'No evidence linked'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Evidence Display Section - Shows when evidence status is clicked */}
+                {showEvidenceForControl && (
+                  <div className="mt-4 pt-4 border-t border-blue-200 dark:border-blue-700">
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-3">
+                      {language === 'ar' ? 'الأدلة المرتبطة' : 'Linked Evidence'}
+                    </h4>
+                    
+                    {/* Enhanced Evidence List with Version History and Comments */}
+                    <div className="space-y-3">
+                      {Array.isArray(controlLinkedEvidence) && controlLinkedEvidence.length > 0 ? (
+                        controlLinkedEvidence.map((evidence: any) => (
+                          <div key={evidence.id} className="p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <FileText className="h-4 w-4 text-blue-500" />
+                                  <h5 className="font-medium text-gray-900 dark:text-white text-sm">
+                                    {evidence.title}
+                                  </h5>
+                                  <Badge variant="secondary" className="text-xs">
+                                    v{evidence.version}
+                                  </Badge>
+                                </div>
+                                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                                  {evidence.description}
+                                </p>
+                                <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
+                                  <span>{evidence.fileName}</span>
+                                  <span>•</span>
+                                  <span>{(evidence.fileSize / 1024).toFixed(1)} KB</span>
+                                  <span>•</span>
+                                  <span>{new Date(evidence.createdAt).toLocaleDateString()}</span>
+                                </div>
+
+                                {/* Version History */}
+                                {evidence.versions && evidence.versions.length > 0 && (
+                                  <div className="mb-2">
+                                    <div className="flex items-center gap-1 mb-1">
+                                      <History className="h-3 w-3 text-gray-400" />
+                                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                                        {language === 'ar' ? 'تاريخ الإصدارات' : 'Version History'}
+                                      </span>
+                                    </div>
+                                    <div className="space-y-1">
+                                      {evidence.versions.slice(0, 2).map((version: any) => (
+                                        <div key={version.id} className="flex items-center gap-2 text-xs text-gray-500">
+                                          <span>v{version.version}</span>
+                                          <span>•</span>
+                                          <span>{new Date(version.createdAt).toLocaleDateString()}</span>
+                                          {version.comment && (
+                                            <>
+                                              <span>•</span>
+                                              <span className="truncate max-w-32">{version.comment}</span>
+                                            </>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Comments */}
+                                {evidence.comments && evidence.comments.length > 0 && (
+                                  <div>
+                                    <div className="flex items-center gap-1 mb-1">
+                                      <MessageSquare className="h-3 w-3 text-gray-400" />
+                                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                                        {language === 'ar' ? 'التعليقات' : 'Comments'}
+                                      </span>
+                                      <Badge variant="outline" className="text-xs">
+                                        {evidence.comments.length}
+                                      </Badge>
+                                    </div>
+                                    <div className="space-y-1">
+                                      {evidence.comments.slice(0, 1).map((comment: any) => (
+                                        <div key={comment.id} className="p-2 bg-gray-50 dark:bg-gray-600 rounded text-xs">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <span className="font-medium text-gray-700 dark:text-gray-300">
+                                              {comment.user?.firstName} {comment.user?.lastName}
+                                            </span>
+                                            <span className="text-gray-500">
+                                              {new Date(comment.createdAt).toLocaleDateString()}
+                                            </span>
+                                          </div>
+                                          <p className="text-gray-600 dark:text-gray-400">{comment.comment}</p>
+                                        </div>
+                                      ))}
+                                      {evidence.comments.length > 1 && (
+                                        <p className="text-xs text-blue-600 dark:text-blue-400">
+                                          {language === 'ar' 
+                                            ? `+${evidence.comments.length - 1} تعليقات أخرى` 
+                                            : `+${evidence.comments.length - 1} more comments`}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              <Button size="sm" variant="outline" className="text-xs">
+                                {language === 'ar' ? 'تحميل' : 'Download'}
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-4">
+                          <FileText className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500">
+                            {language === 'ar' ? 'لا توجد أدلة مرتبطة بهذا الضابط' : 'No evidence linked to this control'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Unified Attach Evidence Section */}
+            {selectedControlId ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {language === 'ar' ? 'إرفاق أدلة للضابط المحدد' : 'Attach Evidence to Selected Control'}
+                  </h3>
+                </div>
+
+                {/* Toggle Options */}
+                <div className="flex gap-2">
+                  <Button
+                    variant={evidenceAttachMode === 'upload' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setEvidenceAttachMode(evidenceAttachMode === 'upload' ? null : 'upload')}
+                    className="flex items-center gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    {language === 'ar' ? 'رفع ملف جديد' : 'Upload New File'}
+                  </Button>
+                  <Button
+                    variant={evidenceAttachMode === 'link' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setEvidenceAttachMode(evidenceAttachMode === 'link' ? null : 'link')}
+                    className="flex items-center gap-2"
+                  >
+                    <FileText className="h-4 w-4" />
+                    {language === 'ar' ? 'ربط ملف موجود' : 'Link Existing File'}
+                  </Button>
+                </div>
+
+                {/* Upload New File Form */}
+                {evidenceAttachMode === 'upload' && (
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          {language === 'ar' ? 'اختر الملفات' : 'Choose Files'}
+                        </label>
+                        <input
+                          type="file"
+                          multiple
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.txt"
+                          onChange={(e) => e.target.files && handleFileSelection(Array.from(e.target.files))}
+                          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          {language === 'ar' ? 'تعليق (اختياري)' : 'Comment (Optional)'}
+                        </label>
+                        <Textarea
+                          value={uploadComment}
+                          onChange={(e) => setUploadComment(e.target.value)}
+                          placeholder={language === 'ar' ? 'أضف تعليقاً عن هذه الأدلة...' : 'Add a comment about this evidence...'}
+                          rows={3}
+                          className="w-full"
+                        />
+                      </div>
+
+                      {/* Selected Files List */}
+                      {uploadedFiles.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 dark:text-white mb-2">
+                            {language === 'ar' ? 'الملفات المختارة:' : 'Selected Files:'}
+                          </h4>
+                          <div className="space-y-2">
+                            {uploadedFiles.map((file, index) => (
+                              <div key={index} className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded border">
+                                <span className="text-sm truncate">{file.name}</span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => removeFile(index)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <Button
+                        onClick={uploadEvidenceFiles}
+                        disabled={uploading || uploadedFiles.length === 0}
+                        className="w-full"
+                      >
+                        {uploading 
+                          ? (language === 'ar' ? 'جاري الرفع والربط...' : 'Uploading & Linking...') 
+                          : (language === 'ar' ? 'رفع وربط' : 'Upload & Link')
+                        }
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Link Existing File Form */}
+                {evidenceAttachMode === 'link' && (
+                  <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
+                    <div className="space-y-4">
+                      {Array.isArray(allEvidence) && allEvidence.length > 0 ? (
+                        <div className="space-y-3 max-h-64 overflow-y-auto">
+                          {allEvidence.map((item: any) => (
+                            <div key={item.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg">
+                              <div className="flex items-center space-x-3">
+                                <FileText className="h-5 w-5 text-green-500" />
+                                <div>
+                                  <p className="font-medium text-gray-900 dark:text-white text-sm">
+                                    {item.title}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {item.fileName} • {(item.fileSize / 1024).toFixed(1)} KB • v{item.version}
+                                  </p>
+                                </div>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleLinkExistingEvidence(item.id)}
+                              >
+                                {language === 'ar' ? 'ربط' : 'Link'}
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-6">
+                          <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                          <p className="text-sm text-gray-500">
+                            {language === 'ar' ? 'لا توجد أدلة متاحة للربط' : 'No evidence available to link'}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {language === 'ar' ? 'قم برفع أدلة جديدة أولاً' : 'Upload new evidence first'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Target className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-sm text-gray-500">
+                  {language === 'ar' ? 'اختر ضابطاً لإرفاق الأدلة' : 'Select a control to attach evidence'}
+                </p>
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>
