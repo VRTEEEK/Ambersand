@@ -14,7 +14,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ChevronDown } from 'lucide-react';
+import { 
+  ChevronDown,
+  FileText,
+  Target,
+  X,
+  MessageSquare,
+  History,
+  Plus
+} from 'lucide-react';
 
 interface EditTaskFormProps {
   task: any;
