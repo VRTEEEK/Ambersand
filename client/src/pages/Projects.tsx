@@ -76,6 +76,8 @@ export default function Projects() {
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [regulationFilter, setRegulationFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<any>(null);
 
@@ -268,7 +270,9 @@ export default function Projects() {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          project.description?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesRegulation = regulationFilter === 'all' || project.regulationType === regulationFilter;
+    const matchesPriority = priorityFilter === 'all' || project.priority === priorityFilter;
+    return matchesSearch && matchesStatus && matchesRegulation && matchesPriority;
   }) || [];
 
   if (error && isUnauthorizedError(error as Error)) {
@@ -492,7 +496,7 @@ export default function Projects() {
         {/* Filters */}
         <Card className="glass-card">
           <CardContent className="p-6">
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col lg:flex-row gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
                 <Input
@@ -503,19 +507,82 @@ export default function Projects() {
                   className="pl-10"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="planning">Planning</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="on-hold">On Hold</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                </SelectContent>
-              </Select>
+              
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full sm:w-[160px]">
+                    <SelectValue placeholder={language === 'ar' ? 'الحالة' : 'Status'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{language === 'ar' ? 'جميع الحالات' : 'All Status'}</SelectItem>
+                    <SelectItem value="planning">{language === 'ar' ? 'تخطيط' : 'Planning'}</SelectItem>
+                    <SelectItem value="active">{language === 'ar' ? 'نشط' : 'Active'}</SelectItem>
+                    <SelectItem value="completed">{language === 'ar' ? 'مكتمل' : 'Completed'}</SelectItem>
+                    <SelectItem value="on-hold">{language === 'ar' ? 'معلق' : 'On Hold'}</SelectItem>
+                    <SelectItem value="overdue">{language === 'ar' ? 'متأخر' : 'Overdue'}</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={regulationFilter} onValueChange={setRegulationFilter}>
+                  <SelectTrigger className="w-full sm:w-[160px]">
+                    <SelectValue placeholder={language === 'ar' ? 'النظام' : 'Regulation'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{language === 'ar' ? 'جميع الأنظمة' : 'All Regulations'}</SelectItem>
+                    <SelectItem value="ecc">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">ECC</Badge>
+                        <span>{language === 'ar' ? 'الضوابط الأساسية' : 'Essential Controls'}</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="pdpl">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">PDPL</Badge>
+                        <span>{language === 'ar' ? 'حماية البيانات' : 'Data Protection'}</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="ndmo">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700">NDMO</Badge>
+                        <span>{language === 'ar' ? 'إدارة البيانات' : 'Data Management'}</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                  <SelectTrigger className="w-full sm:w-[160px]">
+                    <SelectValue placeholder={language === 'ar' ? 'الأولوية' : 'Priority'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{language === 'ar' ? 'جميع الأولويات' : 'All Priorities'}</SelectItem>
+                    <SelectItem value="low">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span>{language === 'ar' ? 'منخفضة' : 'Low Priority'}</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="medium">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                        <span>{language === 'ar' ? 'متوسطة' : 'Medium Priority'}</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="high">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                        <span>{language === 'ar' ? 'عالية' : 'High Priority'}</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="urgent">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                        <span>{language === 'ar' ? 'عاجلة' : 'Urgent Priority'}</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -546,14 +613,14 @@ export default function Projects() {
             <div className="col-span-full text-center py-12">
               <Calendar className="h-16 w-16 text-slate-300 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-slate-600 mb-2">
-                {searchTerm || statusFilter !== 'all' 
+                {searchTerm || statusFilter !== 'all' || regulationFilter !== 'all' || priorityFilter !== 'all'
                   ? (language === 'ar' ? 'لم يتم العثور على مشاريع' : 'No projects found')
                   : (language === 'ar' ? 'لا توجد مشاريع' : 'No projects yet')
                 }
               </h3>
               <p className="text-slate-500 mb-4">
-                {searchTerm || statusFilter !== 'all'
-                  ? (language === 'ar' ? 'جرب تغيير مرشحات البحث' : 'Try adjusting your search filters')
+                {searchTerm || statusFilter !== 'all' || regulationFilter !== 'all' || priorityFilter !== 'all'
+                  ? (language === 'ar' ? 'جرب تغيير مرشحات البحث أو الحالة أو النظام أو الأولوية' : 'Try adjusting your search, status, regulation, or priority filters')
                   : (language === 'ar' ? 'يمكنك إنشاء مشروع من صفحة الأنظمة' : 'You can create projects from the Regulations page')
                 }
               </p>
