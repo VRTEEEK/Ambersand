@@ -718,6 +718,7 @@ export default function Projects() {
                         size="icon"
                         className="h-8 w-8 rounded-full bg-white/70 hover:bg-white shadow-sm hover:shadow-md transition-all duration-200"
                         onClick={(e) => {
+                          console.log('View button clicked for project:', project.id);
                           e.stopPropagation();
                           setLocation(`/projects/${project.id}`);
                         }}
@@ -739,6 +740,7 @@ export default function Projects() {
                         <DropdownMenuContent align="end" className="w-48">
                           <DropdownMenuItem 
                             onClick={(e) => {
+                              console.log('Edit button clicked for project:', project.id);
                               e.stopPropagation();
                               handleEdit(project);
                             }}
