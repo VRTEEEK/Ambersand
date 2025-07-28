@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import AppLayout from '@/components/layout/AppLayout';
@@ -214,28 +214,34 @@ export default function Projects() {
     }
   };
 
-  const handleEdit = (project: any) => {
-    setEditingProject(project);
-    form.reset({
-      name: project.name || '',
-      nameAr: project.nameAr || '',
-      description: project.description || '',
-      descriptionAr: project.descriptionAr || '',
-      status: project.status || 'planning',
-      priority: project.priority || 'medium',
-      startDate: project.startDate || '',
-      endDate: project.endDate || '',
-      regulationType: project.regulationType || 'ecc',
-      ownerId: project.ownerId || '',
-    });
-    setIsEditDialogOpen(true);
-  };
+  const handleEdit = useCallback((project: any) => {
+    console.log('handleEdit called with project:', project);
+    try {
+      setEditingProject(project);
+      form.reset({
+        name: project.name || '',
+        nameAr: project.nameAr || '',
+        description: project.description || '',
+        descriptionAr: project.descriptionAr || '',
+        status: project.status || 'planning',
+        priority: project.priority || 'medium',
+        startDate: project.startDate || '',
+        endDate: project.endDate || '',
+        regulationType: project.regulationType || 'ecc',
+        ownerId: project.ownerId || '',
+      });
+      setIsEditDialogOpen(true);
+    } catch (error) {
+      console.error('Error in handleEdit:', error);
+    }
+  }, [form]);
 
-  const handleDelete = (project: any) => {
+  const handleDelete = useCallback((project: any) => {
+    console.log('handleDelete called with project:', project);
     if (confirm(language === 'ar' ? 'هل أنت متأكد من حذف هذا المشروع؟' : 'Are you sure you want to delete this project?')) {
       deleteProjectMutation.mutate(project.id);
     }
-  };
+  }, [language, deleteProjectMutation]);
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -666,7 +672,7 @@ export default function Projects() {
           ) : (
             filteredProjects.map((project: any) => (
               <Card 
-                key={project.id} 
+                key={`project-${project.id}-${project.updatedAt}`} 
                 className="hover:shadow-xl transition-all duration-300 cursor-pointer group border-l-4 border-l-[#2699A6] bg-gradient-to-br from-white to-slate-50 overflow-hidden"
                 onClick={() => setLocation(`/projects/${project.id}`)}
               >
