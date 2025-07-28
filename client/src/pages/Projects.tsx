@@ -100,14 +100,14 @@ export default function Projects() {
   });
 
   // Calculate progress for each project and add owner information
-  const projectsWithProgress = projects?.map((project: any) => {
-    const projectTasks = allTasks?.filter((task: any) => task.projectId === project.id) || [];
+  const projectsWithProgress = (projects && Array.isArray(projects)) ? projects.map((project: any) => {
+    const projectTasks = (allTasks && Array.isArray(allTasks)) ? allTasks.filter((task: any) => task.projectId === project.id) : [];
     const completedTasks = projectTasks.filter((task: any) => task.status === 'completed').length;
     const totalTasks = projectTasks.length;
     const realProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
     
     // Find project owner
-    const owner = users?.find((user: any) => user.id === project.ownerId);
+    const owner = (users && Array.isArray(users)) ? users.find((user: any) => user.id === project.ownerId) : null;
     
     return {
       ...project,
@@ -116,7 +116,7 @@ export default function Projects() {
       completedTaskCount: completedTasks,
       owner
     };
-  }) || [];
+  }) : [];
 
   const form = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema),
@@ -140,7 +140,10 @@ export default function Projects() {
       return await apiRequest(`/api/projects/${id}`, 'PUT', projectData);
     },
     onSuccess: () => {
+      // Invalidate all related queries to ensure proper refresh
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       setIsEditDialogOpen(false);
       setEditingProject(null);
       form.reset();
@@ -487,7 +490,7 @@ export default function Projects() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {users?.map((user: any) => (
+                          {(users && Array.isArray(users)) ? users.map((user: any) => (
                             <SelectItem key={user.id} value={user.id}>
                               <div className="flex items-center gap-2">
                                 <UserAvatar user={user} size="sm" />
@@ -495,7 +498,7 @@ export default function Projects() {
                                 <span className="text-xs text-slate-500">({user.email})</span>
                               </div>
                             </SelectItem>
-                          ))}
+                          )) : null}
                         </SelectContent>
                       </Select>
                       <FormMessage />
