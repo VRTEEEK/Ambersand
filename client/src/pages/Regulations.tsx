@@ -149,6 +149,7 @@ export default function Regulations() {
       const projectData = {
         ...data,
         controlIds: selectedControlIds,
+        regulationType: 'ecc', // Since we're creating from ECC regulations page
       };
       return await apiRequest('/api/projects', 'POST', projectData);
     },
