@@ -57,6 +57,7 @@ const projectSchema = z.object({
   startDate: z.string().min(1, 'Start date is required'),
   endDate: z.string().min(1, 'End date is required'),
   regulationType: z.enum(['ecc', 'pdpl', 'ndmo']).optional(),
+  ownerId: z.string().min(1, 'Project owner is required'),
 }).refine((data) => {
   if (data.startDate && data.endDate) {
     return new Date(data.endDate) > new Date(data.startDate);
@@ -129,6 +130,7 @@ export default function Projects() {
       startDate: new Date().toISOString().split('T')[0],
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
       regulationType: 'ecc',
+      ownerId: '',
     },
   });
 
@@ -221,6 +223,7 @@ export default function Projects() {
       startDate: project.startDate || '',
       endDate: project.endDate || '',
       regulationType: project.regulationType || 'ecc',
+      ownerId: project.ownerId || '',
     });
     setIsEditDialogOpen(true);
   };
@@ -467,6 +470,38 @@ export default function Projects() {
                     )}
                   />
                 </div>
+
+                {/* Project Owner Selection */}
+                <FormField
+                  control={form.control}
+                  name="ownerId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {language === 'ar' ? 'مالك المشروع' : 'Project Owner'}
+                      </FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={language === 'ar' ? 'اختر مالك المشروع' : 'Select project owner'} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {users?.map((user: any) => (
+                            <SelectItem key={user.id} value={user.id}>
+                              <div className="flex items-center gap-2">
+                                <UserAvatar user={user} size="sm" />
+                                <span>{user.firstName} {user.lastName}</span>
+                                <span className="text-xs text-slate-500">({user.email})</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <div className="flex justify-end space-x-2">
                   <Button 
