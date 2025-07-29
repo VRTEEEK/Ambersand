@@ -42,13 +42,13 @@ export default function MyTasks() {
 
   // Get my tasks (assigned to current user)
   const { data: myTasks = [], isLoading } = useQuery<TaskWithDetails[]>({
-    queryKey: ["/api/tasks", { assigneeId: user?.id }],
+    queryKey: ["/api/tasks", { assigneeId: (user as any)?.id }],
     queryFn: async () => {
-      const response = await fetch(`/api/tasks?assigneeId=${user?.id}`);
+      const response = await fetch(`/api/tasks?assigneeId=${(user as any)?.id}`);
       if (!response.ok) throw new Error('Failed to fetch my tasks');
       return response.json();
     },
-    enabled: !!user?.id
+    enabled: !!(user as any)?.id
   });
 
   // Filter tasks based on search and filters
@@ -290,60 +290,60 @@ export default function MyTasks() {
                 <CardContent className="p-0">
                   <div className="divide-y">
                     {filteredTasks.map((task) => (
-                      <div key={task.id} className="p-4 hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-3 mb-2">
-                              <div className="flex items-center gap-1">
-                                {getPriorityIcon(task.priority)}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h3 className="font-medium text-sm truncate">
-                                  {task.title}
-                                </h3>
-                                {task.titleAr && (
-                                  <p className="text-xs text-muted-foreground truncate" dir="rtl">
-                                    {task.titleAr}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                              <div className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                <span>Due: {task.dueDate ? format(new Date(task.dueDate), "MMM d") : "Not set"}</span>
-                              </div>
-                              
-                              {task.project && (
+                      <Link key={task.id} href={`/tasks/${task.id}`}>
+                        <div className="p-4 hover:bg-muted/50 transition-colors cursor-pointer">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 mb-2">
                                 <div className="flex items-center gap-1">
-                                  <div className="h-3 w-3 bg-teal-600 rounded-sm" />
-                                  <span className="truncate max-w-32">{task.project.name}</span>
+                                  {getPriorityIcon(task.priority)}
                                 </div>
-                              )}
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="font-medium text-sm truncate">
+                                    {task.title}
+                                  </h3>
+                                  {task.titleAr && (
+                                    <p className="text-xs text-muted-foreground truncate" dir="rtl">
+                                      {task.titleAr}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
                               
-                              <span>Created {task.createdAt ? format(new Date(task.createdAt), "MMM d") : "Unknown"}</span>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-3 ml-4">
-                            <div className="flex gap-2">
-                              <Badge className={`${getStatusColor(task.status)} text-xs px-2 py-1`} variant="secondary">
-                                {task.status}
-                              </Badge>
-                              <Badge className={`${getPriorityColor(task.priority)} text-xs px-2 py-1`} variant="secondary">
-                                {task.priority}
-                              </Badge>
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  <span>Due: {task.dueDate ? format(new Date(task.dueDate), "MMM d") : "Not set"}</span>
+                                </div>
+                                
+                                {task.project && (
+                                  <div className="flex items-center gap-1">
+                                    <div className="h-3 w-3 bg-teal-600 rounded-sm" />
+                                    <span className="truncate max-w-32">{task.project.name}</span>
+                                  </div>
+                                )}
+                                
+                                <span>Created {task.createdAt ? format(new Date(task.createdAt), "MMM d") : "Unknown"}</span>
+                              </div>
                             </div>
                             
-                            <Link href={`/tasks/${task.id}`}>
-                              <Button size="sm" variant="ghost">
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </Link>
+                            <div className="flex items-center gap-3 ml-4">
+                              <div className="flex gap-2">
+                                <Badge className={`${getStatusColor(task.status)} text-xs px-2 py-1`} variant="secondary">
+                                  {task.status}
+                                </Badge>
+                                <Badge className={`${getPriorityColor(task.priority)} text-xs px-2 py-1`} variant="secondary">
+                                  {task.priority}
+                                </Badge>
+                              </div>
+                              
+                              <div className="flex items-center">
+                                <Eye className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 </CardContent>
