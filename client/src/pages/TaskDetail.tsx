@@ -267,7 +267,7 @@ export default function TaskDetail() {
       <div className="mb-6">
         <Button
           variant="outline"
-          onClick={() => setLocation("/tasks")}
+          onClick={() => setLocation("/my-tasks")}
           className="mb-4"
         >
 {language === 'ar' ? 'العودة للمهام ←' : '← Back to Tasks'}
