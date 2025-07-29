@@ -316,31 +316,7 @@ export default function TaskDetail() {
               <div>
                 <div className="flex items-center gap-3 mb-4">
                   <h2 className="text-2xl font-bold">{task.title}</h2>
-                  <div className="flex gap-2">
-                    <Badge 
-                      variant="secondary" 
-                      className={
-                        task.status === "completed" ? "bg-green-100 text-green-800" :
-                        task.status === "in-progress" ? "bg-blue-100 text-blue-800" :
-                        task.status === "pending" ? "bg-yellow-100 text-yellow-800" :
-                        "bg-gray-100 text-gray-800"
-                      }
-                    >
-                      {task.status}
-                    </Badge>
-                    <Badge 
-                      variant="outline"
-                      className={
-                        task.priority === "urgent" ? "border-red-500 text-red-700" :
-                        task.priority === "high" ? "border-orange-500 text-orange-700" :
-                        task.priority === "medium" ? "border-yellow-500 text-yellow-700" :
-                        "border-green-500 text-green-700"
-                      }
-                    >
-                      <Flag className="h-3 w-3 mr-1" />
-                      {task.priority}
-                    </Badge>
-                  </div>
+                  
                 </div>
                 {task.titleAr && (
                   <h3 className="text-lg text-muted-foreground mb-4" dir="rtl">{task.titleAr}</h3>
