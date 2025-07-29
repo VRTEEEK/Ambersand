@@ -1057,7 +1057,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             'Test User',
             'Sample Task with Deadline',
             '2025-08-01',
-            'en'
+            'en',
+            456 // Sample task ID for testing
           );
           break;
         case 'status-update':
@@ -1066,7 +1067,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             'Sample Task Status Change',
             'in-progress',
             'completed',
-            'en'
+            'en',
+            789 // Sample task ID for testing
           );
           break;
         default:

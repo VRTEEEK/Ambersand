@@ -21,6 +21,7 @@ Preferred communication style: Simple, everyday language.
 - **DEBUGGING**: Added comprehensive logging system to track email notification triggers and delivery status
 - **FIXED**: Email task links to use BASE_URL environment variable for correct production domain (https://ambersand-v1.replit.app)
 - **UPDATED**: All email templates now dynamically generate links based on deployment environment instead of hardcoded localhost URLs
+- **CORRECTED**: Email task links now use proper route format `/tasks/{id}` instead of query parameter format for direct task detail navigation
 
 ### July 16, 2025 - Evidence Version Notes Integration & Dialog Optimization
 - **IMPLEMENTED**: Complete version notes integration with comment system for comprehensive audit trail
