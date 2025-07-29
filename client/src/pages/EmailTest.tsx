@@ -25,10 +25,21 @@ export default function EmailTest() {
 
   const sendTestEmailMutation = useMutation({
     mutationFn: async (data: { to: string; type: string }) => {
-      return await apiRequest('/api/test-email', {
+      const response = await fetch('/api/test-email', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(data),
+        credentials: 'include',
       });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to send email');
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       toast({
