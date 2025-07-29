@@ -22,7 +22,7 @@ interface TaskWithDetails extends Task {
 }
 
 export default function TaskDetail() {
-  const { taskId } = useParams<{ taskId: string }>();
+  const { id: taskId } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
