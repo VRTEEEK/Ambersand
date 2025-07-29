@@ -1,6 +1,6 @@
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -87,6 +87,22 @@ export default function TaskDetail() {
     queryKey: ["/api/evidence/control", selectedControlForView],
     enabled: !!selectedControlForView
   });
+
+  // Get all evidence for linking
+  const { data: allEvidence = [] } = useQuery<Evidence[]>({
+    queryKey: ["/api/evidence"]
+  });
+
+  // Auto-select first control when controls are loaded
+  useEffect(() => {
+    if (controls.length > 0 && !selectedControlId) {
+      const firstControl = controls[0];
+      if (firstControl?.eccControl?.id) {
+        setSelectedControlId(firstControl.eccControl.id);
+        setSelectedControlForView(firstControl.eccControl.id);
+      }
+    }
+  }, [controls, selectedControlId]);
 
   // Calculate derived data
   const taskProject = projects.find((p: any) => p.id === task?.projectId);
@@ -186,6 +202,42 @@ export default function TaskDetail() {
     formData.append("projectId", task.projectId?.toString() || "");
 
     uploadMutation.mutate(formData);
+  };
+
+  // Handle linking existing evidence to the selected control
+  const handleLinkExistingEvidence = async (evidenceId: number) => {
+    if (!selectedControlId) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'يجب اختيار ضابط أولاً' : 'Please select a control first',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      await apiRequest(`/api/evidence/${evidenceId}/controls`, 'POST', { 
+        controlIds: [selectedControlId] 
+      });
+
+      // Refresh the control linked evidence
+      queryClient.invalidateQueries({ queryKey: ['/api/evidence/control', selectedControlId] });
+      
+      toast({
+        title: language === 'ar' ? 'تم الربط بنجاح' : 'Linked Successfully',
+        description: language === 'ar' ? 'تم ربط الدليل بالضابط بنجاح' : 'Evidence linked to control successfully',
+      });
+
+      // Close the dialog
+      setLinkExistingDialogOpen(false);
+    } catch (error) {
+      console.error('Error linking evidence:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ في الربط' : 'Link Error',
+        description: language === 'ar' ? 'فشل في ربط الدليل' : 'Failed to link evidence',
+        variant: 'destructive',
+      });
+    }
   };
 
   const getPriorityColor = (priority: string) => {
@@ -596,6 +648,35 @@ export default function TaskDetail() {
                 </div>
               </div>
             )}
+
+            {/* Display linked evidence for selected control */}
+            {showEvidenceForControl && controlLinkedEvidence && controlLinkedEvidence.length > 0 && (
+              <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                <h4 className="font-medium text-green-800 dark:text-green-200 mb-3">
+                  {language === 'ar' ? 'الأدلة المرتبطة بهذا الضابط' : 'Evidence Linked to This Control'}
+                </h4>
+                <div className="space-y-2">
+                  {controlLinkedEvidence.map((evidence: any) => (
+                    <div key={evidence.id} className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded border">
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{evidence.title}</p>
+                        {evidence.description && (
+                          <p className="text-xs text-muted-foreground">{evidence.description}</p>
+                        )}
+                      </div>
+                      {evidence.fileName && (
+                        <Button size="sm" variant="outline" asChild>
+                          <a href={`/uploads/${evidence.fileName}`} download>
+                            <Download className="h-3 w-3 mr-1" />
+                            {language === 'ar' ? 'تحميل' : 'Download'}
+                          </a>
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Upload Dialog */}
@@ -647,6 +728,58 @@ export default function TaskDetail() {
                     disabled={uploadMutation.isPending}
                   >
                     {uploadMutation.isPending ? "Uploading..." : "Upload"}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Link Existing Evidence Dialog */}
+          <Dialog open={linkExistingDialogOpen} onOpenChange={setLinkExistingDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>
+                  {language === 'ar' ? 'ربط دليل موجود' : 'Link Existing Evidence'}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                {allEvidence.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-4">
+                    {language === 'ar' ? 'لا توجد أدلة متاحة للربط' : 'No evidence available to link'}
+                  </p>
+                ) : (
+                  <div className="max-h-60 overflow-y-auto space-y-2">
+                    {allEvidence
+                      .filter((evidence: any) => !controlLinkedEvidence.some((linked: any) => linked.id === evidence.id))
+                      .map((evidence: any) => (
+                        <div
+                          key={evidence.id}
+                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                          onClick={() => handleLinkExistingEvidence(evidence.id)}
+                        >
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">{evidence.title}</p>
+                            {evidence.description && (
+                              <p className="text-xs text-muted-foreground">{evidence.description}</p>
+                            )}
+                            {evidence.fileName && (
+                              <p className="text-xs text-blue-600">{evidence.fileName}</p>
+                            )}
+                          </div>
+                          <Button size="sm" variant="outline">
+                            {language === 'ar' ? 'ربط' : 'Link'}
+                          </Button>
+                        </div>
+                      ))}
+                  </div>
+                )}
+                
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => setLinkExistingDialogOpen(false)}
+                  >
+                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
                   </Button>
                 </div>
               </div>
