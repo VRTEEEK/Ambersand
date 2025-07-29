@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import AppLayout from "@/components/layout/AppLayout";
 import type { Task, User as UserType, ProjectControl, Evidence, EvidenceVersion } from "@shared/schema";
 
 interface TaskWithDetails extends Task {
@@ -44,8 +45,20 @@ export default function TaskDetail() {
     enabled: !!taskId
   });
 
-  // Get task controls
-  const { data: controls = [] } = useQuery<ProjectControl[]>({
+  // Get all projects to find the task's project
+  const { data: projects = [] } = useQuery<any[]>({
+    queryKey: ["/api/projects"],
+    enabled: !!task?.projectId
+  });
+
+  // Get all users to find assignee and creator
+  const { data: users = [] } = useQuery<UserType[]>({
+    queryKey: ["/api/users"],
+    enabled: !!task
+  });
+
+  // Get task controls with ECC control details
+  const { data: controls = [] } = useQuery<any[]>({
     queryKey: ["/api/tasks", taskId, "controls"],
     enabled: !!taskId
   });
@@ -61,6 +74,11 @@ export default function TaskDetail() {
     queryKey: ["/api/evidence/versions", taskId],
     enabled: !!taskId
   });
+
+  // Calculate derived data
+  const taskProject = projects.find((p: any) => p.id === task?.projectId);
+  const assignedUser = users.find((u: any) => u.id === task?.assigneeId);
+  const createdByUser = users.find((u: any) => u.id === task?.createdById);
 
 
 
@@ -178,7 +196,8 @@ export default function TaskDetail() {
   };
 
   return (
-    <div className="container mx-auto p-6">
+    <AppLayout>
+      <div className="container mx-auto p-6">
       <div className="mb-6">
         <Button
           variant="outline"
@@ -228,56 +247,120 @@ export default function TaskDetail() {
               <CardTitle>Task Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Task Title */}
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <h2 className="text-2xl font-bold">{task.title}</h2>
+                  <div className="flex gap-2">
+                    <Badge 
+                      variant="secondary" 
+                      className={
+                        task.status === "completed" ? "bg-green-100 text-green-800" :
+                        task.status === "in-progress" ? "bg-blue-100 text-blue-800" :
+                        task.status === "pending" ? "bg-yellow-100 text-yellow-800" :
+                        "bg-gray-100 text-gray-800"
+                      }
+                    >
+                      {task.status}
+                    </Badge>
+                    <Badge 
+                      variant="outline"
+                      className={
+                        task.priority === "urgent" ? "border-red-500 text-red-700" :
+                        task.priority === "high" ? "border-orange-500 text-orange-700" :
+                        task.priority === "medium" ? "border-yellow-500 text-yellow-700" :
+                        "border-green-500 text-green-700"
+                      }
+                    >
+                      <Flag className="h-3 w-3 mr-1" />
+                      {task.priority}
+                    </Badge>
+                  </div>
+                </div>
+                {task.titleAr && (
+                  <h3 className="text-lg text-muted-foreground mb-4" dir="rtl">{task.titleAr}</h3>
+                )}
+              </div>
+
+              {/* Task Information Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">Due Date:</span>
-                    <span>{task.dueDate ? format(new Date(task.dueDate), "PPP") : "Not set"}</span>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Project</label>
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-4 bg-teal-600 rounded-sm" />
+                      <span className="font-medium">{taskProject?.name || "Unknown Project"}</span>
+                    </div>
+                    {taskProject?.nameAr && (
+                      <p className="text-sm text-muted-foreground" dir="rtl">{taskProject.nameAr}</p>
+                    )}
                   </div>
                   
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">Assigned to:</span>
-                    <span>{task.assignee?.email || "Unassigned"}</span>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Assigned to</label>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <span>{assignedUser ? `${assignedUser.firstName || ''} ${assignedUser.lastName || ''}`.trim() || assignedUser.email : "Unassigned"}</span>
+                    </div>
+                    {assignedUser?.email && (
+                      <p className="text-xs text-muted-foreground">{assignedUser.email}</p>
+                    )}
                   </div>
                   
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">Created:</span>
-                    <span>{task.createdAt ? format(new Date(task.createdAt), "PPP") : "Unknown"}</span>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Due Date</label>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span>{task.dueDate ? format(new Date(task.dueDate), "PPP") : "Not set"}</span>
+                    </div>
                   </div>
                 </div>
                 
                 <div className="space-y-4">
-                  <div>
-                    <span className="font-medium">Project:</span>
-                    <span className="ml-2">{task.project?.name || "Unknown Project"}</span>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Created by</label>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <span>{createdByUser ? `${createdByUser.firstName || ''} ${createdByUser.lastName || ''}`.trim() || createdByUser.email : "Unknown"}</span>
+                    </div>
+                    {createdByUser?.email && (
+                      <p className="text-xs text-muted-foreground">{createdByUser.email}</p>
+                    )}
                   </div>
                   
-                  <div>
-                    <span className="font-medium">Created by:</span>
-                    <span className="ml-2">{task.createdBy?.email || "Unknown"}</span>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Created</label>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span>{task.createdAt ? format(new Date(task.createdAt), "PPP") : "Unknown"}</span>
+                    </div>
                   </div>
                   
                   {task.completedAt && (
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-green-600" />
-                      <span className="font-medium">Completed:</span>
-                      <span>{task.completedAt ? format(new Date(task.completedAt), "PPP") : "Unknown"}</span>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-muted-foreground">Completed</label>
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-green-600" />
+                        <span>{format(new Date(task.completedAt), "PPP")}</span>
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
               
+              {/* Description */}
               {(task.description || task.descriptionAr) && (
                 <div className="space-y-3">
-                  <h3 className="font-medium">Description</h3>
+                  <label className="text-sm font-medium text-muted-foreground">Description</label>
                   {task.description && (
-                    <p className="text-muted-foreground">{task.description}</p>
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <p className="text-sm">{task.description}</p>
+                    </div>
                   )}
                   {task.descriptionAr && (
-                    <p className="text-muted-foreground" dir="rtl">{task.descriptionAr}</p>
+                    <div className="p-4 bg-muted/50 rounded-lg" dir="rtl">
+                      <p className="text-sm">{task.descriptionAr}</p>
+                    </div>
                   )}
                 </div>
               )}
@@ -298,24 +381,73 @@ export default function TaskDetail() {
               ) : (
                 <div className="space-y-4">
                   {controls.map((control) => (
-                    <Card key={control.id} className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge variant="secondary">
-                              Control ID: {control.eccControlId}
-                            </Badge>
-                            <span className="font-medium">
-                              ECC Control
-                            </span>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            Control details will be loaded separately
-                          </p>
-                          <p className="text-sm">
-                            This task is associated with control ID {control.eccControlId}
-                          </p>
+                    <Card key={control.id} className="p-6 border-l-4 border-l-teal-500">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <Badge variant="secondary" className="bg-teal-100 text-teal-800">
+                            {control.eccControl?.code || `ID: ${control.eccControlId}`}
+                          </Badge>
+                          <Badge variant="outline">
+                            ECC Control
+                          </Badge>
                         </div>
+                        
+                        {control.eccControl && (
+                          <>
+                            <div>
+                              <h4 className="font-semibold text-lg mb-2">
+                                {control.eccControl.domainEn}
+                              </h4>
+                              {control.eccControl.domainAr && (
+                                <p className="text-muted-foreground mb-2" dir="rtl">
+                                  {control.eccControl.domainAr}
+                                </p>
+                              )}
+                              <p className="text-sm text-muted-foreground">
+                                {control.eccControl.subdomainEn}
+                              </p>
+                              {control.eccControl.subdomainAr && (
+                                <p className="text-sm text-muted-foreground" dir="rtl">
+                                  {control.eccControl.subdomainAr}
+                                </p>
+                              )}
+                            </div>
+
+                            <div>
+                              <h5 className="font-medium mb-2">Control Description</h5>
+                              <p className="text-sm mb-2">
+                                {control.eccControl.controlEn}
+                              </p>
+                              {control.eccControl.controlAr && (
+                                <p className="text-sm text-muted-foreground" dir="rtl">
+                                  {control.eccControl.controlAr}
+                                </p>
+                              )}
+                            </div>
+
+                            {control.eccControl.requirementAr && (
+                              <div>
+                                <h5 className="font-medium mb-2">Requirements</h5>
+                                <div className="p-3 bg-muted/50 rounded-lg">
+                                  <p className="text-sm" dir="rtl">
+                                    {control.eccControl.requirementAr}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+
+                            {control.eccControl.evidenceAr && (
+                              <div>
+                                <h5 className="font-medium mb-2">Evidence Required</h5>
+                                <div className="p-3 bg-orange-50 rounded-lg">
+                                  <p className="text-sm" dir="rtl">
+                                    {control.eccControl.evidenceAr}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
                     </Card>
                   ))}
@@ -436,6 +568,7 @@ export default function TaskDetail() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </AppLayout>
   );
 }
