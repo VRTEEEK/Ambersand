@@ -42,6 +42,9 @@ export const emailService = {
   // Email templates
   templates: {
     taskAssignment: (userName: string, taskTitle: string, dueDate: string, projectName: string, language: 'en' | 'ar' = 'en', taskId?: number) => {
+      const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+      const taskLink = taskId ? `${baseUrl}/my-tasks?task=${taskId}` : `${baseUrl}/my-tasks`;
+      
       if (language === 'ar') {
         return {
           subject: `مهمة جديدة: ${taskTitle}`,
@@ -56,7 +59,7 @@ export const emailService = {
                 <li><strong>تاريخ الاستحقاق:</strong> ${dueDate}</li>
               </ul>
               <p>يرجى تسجيل الدخول إلى منصة Ambersand لعرض التفاصيل.</p>
-              <a href="${process.env.APP_URL || 'http://localhost:5000'}/tasks${taskId ? `?task=${taskId}` : ''}" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">عرض المهمة</a>
+              <a href="${taskLink}" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">عرض المهمة</a>
             </div>
           `
         };
@@ -74,13 +77,15 @@ export const emailService = {
               <li><strong>Due Date:</strong> ${dueDate}</li>
             </ul>
             <p>Please log in to Ambersand platform to view details.</p>
-            <a href="${process.env.APP_URL || 'http://localhost:5000'}/tasks${taskId ? `?task=${taskId}` : ''}" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View Task</a>
+            <a href="${taskLink}" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View Task</a>
           </div>
         `
       };
     },
 
     deadlineReminder: (userName: string, taskTitle: string, dueDate: string, language: 'en' | 'ar' = 'en') => {
+      const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+      
       if (language === 'ar') {
         return {
           subject: `تذكير: موعد تسليم المهمة "${taskTitle}" يقترب`,
@@ -91,7 +96,7 @@ export const emailService = {
               <p>هذا تذكير بأن موعد تسليم المهمة التالية يقترب:</p>
               <p><strong>${taskTitle}</strong></p>
               <p>موعد التسليم: <strong>${dueDate}</strong></p>
-              <a href="${process.env.APP_URL}/tasks" style="background-color: #ea580c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">عرض المهمة</a>
+              <a href="${baseUrl}/my-tasks" style="background-color: #ea580c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">عرض المهمة</a>
             </div>
           `
         };
@@ -105,13 +110,15 @@ export const emailService = {
             <p>This is a reminder that the following task is due soon:</p>
             <p><strong>${taskTitle}</strong></p>
             <p>Due Date: <strong>${dueDate}</strong></p>
-            <a href="${process.env.APP_URL}/tasks" style="background-color: #ea580c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View Task</a>
+            <a href="${baseUrl}/my-tasks" style="background-color: #ea580c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View Task</a>
           </div>
         `
       };
     },
 
     statusUpdate: (userName: string, taskTitle: string, oldStatus: string, newStatus: string, language: 'en' | 'ar' = 'en') => {
+      const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+      
       if (language === 'ar') {
         return {
           subject: `تحديث حالة المهمة: ${taskTitle}`,
@@ -122,7 +129,7 @@ export const emailService = {
               <p>تم تحديث حالة المهمة "${taskTitle}":</p>
               <p>من: <span style="color: #6b7280;">${oldStatus}</span></p>
               <p>إلى: <span style="color: #2699A6; font-weight: bold;">${newStatus}</span></p>
-              <a href="${process.env.APP_URL}/tasks" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">عرض التفاصيل</a>
+              <a href="${baseUrl}/my-tasks" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">عرض التفاصيل</a>
             </div>
           `
         };
@@ -136,7 +143,7 @@ export const emailService = {
             <p>The status of task "${taskTitle}" has been updated:</p>
             <p>From: <span style="color: #6b7280;">${oldStatus}</span></p>
             <p>To: <span style="color: #2699A6; font-weight: bold;">${newStatus}</span></p>
-            <a href="${process.env.APP_URL}/tasks" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View Details</a>
+            <a href="${baseUrl}/my-tasks" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View Details</a>
           </div>
         `
       };

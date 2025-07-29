@@ -10,7 +10,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### July 29, 2025 - Complete Email Notification System Implementation
+### July 29, 2025 - Complete Email Notification System Implementation & Production URL Fix
 - **IMPLEMENTED**: Automatic email notifications for task assignments with bilingual templates supporting Arabic RTL text
 - **CONFIGURED**: Resend email service with proper domain verification (noreply@resend.dev) and RESEND_API_KEY integration
 - **CREATED**: Comprehensive email templates for task assignment, deadline reminders, and status updates in both Arabic and English
@@ -19,6 +19,8 @@ Preferred communication style: Simple, everyday language.
 - **BUILT**: Email testing interface at `/email-test` for testing all email template types
 - **INTEGRATED**: Email link handling in Tasks page to automatically open specific tasks from email notifications
 - **DEBUGGING**: Added comprehensive logging system to track email notification triggers and delivery status
+- **FIXED**: Email task links to use BASE_URL environment variable for correct production domain (https://ambersand-v1.replit.app)
+- **UPDATED**: All email templates now dynamically generate links based on deployment environment instead of hardcoded localhost URLs
 
 ### July 16, 2025 - Evidence Version Notes Integration & Dialog Optimization
 - **IMPLEMENTED**: Complete version notes integration with comment system for comprehensive audit trail
