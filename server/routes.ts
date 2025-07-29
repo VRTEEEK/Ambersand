@@ -535,6 +535,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get evidence for a specific task
+  app.get('/api/evidence/task/:taskId', isAuthenticated, async (req, res) => {
+    try {
+      const taskId = parseInt(req.params.taskId);
+      const evidence = await storage.getEvidenceByTaskId(taskId);
+      res.json(evidence);
+    } catch (error) {
+      console.error("Error fetching task evidence:", error);
+      res.status(500).json({ message: "Failed to fetch task evidence" });
+    }
+  });
+
   app.post('/api/tasks/:id/controls', isAuthenticated, async (req, res) => {
     try {
       const taskId = parseInt(req.params.id);

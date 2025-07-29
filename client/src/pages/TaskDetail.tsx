@@ -1,685 +1,441 @@
-import React, { useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useI18n } from "@/hooks/use-i18n";
-import { useToast } from "@/hooks/use-toast";
-import AppLayout from "@/components/layout/AppLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { UserAvatar } from "@/components/ui/user-avatar";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Calendar, User, Flag, Clock, FileText, Upload, Download, MessageSquare, X } from "lucide-react";
+import { format } from "date-fns";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { insertTaskSchema, type Task } from "@shared/schema";
-import { 
-  ArrowLeft, 
-  Calendar, 
-  User, 
-  AlertCircle, 
-  CheckCircle2, 
-  Clock, 
-  Edit3,
-  FileText,
-  Target,
-  Upload,
-  Download,
-  Trash2
-} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import type { Task, User as UserType, ProjectControl, Evidence, EvidenceVersion } from "@shared/schema";
+
+interface TaskWithDetails extends Task {
+  project?: { id: number; name: string; nameAr: string };
+  assignee?: UserType;
+  createdBy?: UserType;
+}
 
 export default function TaskDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { taskId } = useParams<{ taskId: string }>();
   const [, setLocation] = useLocation();
-  const { t, language } = useI18n();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-
-  // Fetch task details
-  const { data: task, isLoading: taskLoading } = useQuery({
-    queryKey: ['/api/tasks', id],
-    queryFn: async () => {
-      const response = await fetch(`/api/tasks/${id}`);
-      if (!response.ok) throw new Error('Failed to fetch task');
-      return response.json();
-    },
-    enabled: !!id,
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploadForm, setUploadForm] = useState({
+    title: "",
+    description: "",
+    file: null as File | null
   });
 
-  // Fetch project details if task has a project
-  const { data: project, isLoading: projectLoading } = useQuery({
-    queryKey: ['/api/projects', task?.projectId],
-    queryFn: async () => {
-      const response = await fetch(`/api/projects/${task.projectId}`);
-      if (!response.ok) throw new Error('Failed to fetch project');
-      return response.json();
-    },
-    enabled: !!task?.projectId,
+  // Get current user
+  const { data: currentUser } = useQuery<UserType>({
+    queryKey: ["/api/auth/user"]
   });
 
-  // Fetch ECC control details if task is associated with one
-  const { data: eccControl, isLoading: controlLoading } = useQuery({
-    queryKey: ['/api/ecc-controls', task?.eccControlId],
-    queryFn: async () => {
-      const response = await fetch(`/api/ecc-controls/${task.eccControlId}`);
-      if (!response.ok) throw new Error('Failed to fetch ECC control');
-      return response.json();
-    },
-    enabled: !!task?.eccControlId,
+  // Get task details
+  const { data: task, isLoading: taskLoading } = useQuery<TaskWithDetails>({
+    queryKey: ["/api/tasks", taskId],
+    enabled: !!taskId
   });
 
-  // Fetch task evidence
-  const { data: taskEvidence = [], isLoading: evidenceLoading } = useQuery({
-    queryKey: ['/api/evidence', { taskId: id }],
-    queryFn: async () => {
-      const response = await fetch(`/api/evidence?taskId=${id}`);
-      if (!response.ok) throw new Error('Failed to fetch evidence');
-      return response.json();
-    },
-    enabled: !!id,
+  // Get task controls
+  const { data: controls = [] } = useQuery<ProjectControl[]>({
+    queryKey: ["/api/tasks", taskId, "controls"],
+    enabled: !!taskId
   });
 
-  // Edit form
-  const editForm = useForm({
-    resolver: zodResolver(insertTaskSchema),
-    defaultValues: {
-      title: '',
-      titleAr: '',
-      description: '',
-      descriptionAr: '',
-      status: 'pending',
-      priority: 'medium',
-      dueDate: '',
-      assigneeId: '',
-      eccControlId: undefined,
-    },
+  // Get evidence for this task
+  const { data: evidence = [] } = useQuery<Evidence[]>({
+    queryKey: ["/api/evidence/task", taskId],
+    enabled: !!taskId
   });
 
-  // Reset form when task data changes
-  React.useEffect(() => {
-    if (task) {
-      editForm.reset({
-        title: task.title || '',
-        titleAr: task.titleAr || '',
-        description: task.description || '',
-        descriptionAr: task.descriptionAr || '',
-        status: task.status || 'pending',
-        priority: task.priority || 'medium',
-        dueDate: task.dueDate || '',
-        assigneeId: task.assigneeId || '',
-        eccControlId: task.eccControlId || undefined,
+  // Get evidence versions
+  const { data: versions = [] } = useQuery<EvidenceVersion[]>({
+    queryKey: ["/api/evidence/versions", taskId],
+    enabled: !!taskId
+  });
+
+
+
+  // Upload evidence mutation
+  const uploadMutation = useMutation({
+    mutationFn: async (formData: FormData) => {
+      const response = await fetch(`/api/evidence`, {
+        method: "POST",
+        body: formData
       });
-    }
-  }, [task, editForm]);
-
-  // Update task mutation
-  const updateTaskMutation = useMutation({
-    mutationFn: async (data: any) => {
-      console.log('About to call updateTaskMutation with:', data);
-      console.log('🔄 updateTaskMutation.mutationFn called with:', data);
-      
-      // Clean the data to match the expected API format
-      const taskData = {
-        title: data.title,
-        titleAr: data.titleAr || '',
-        description: data.description || '',
-        descriptionAr: data.descriptionAr || '',
-        status: data.status,
-        priority: data.priority,
-        dueDate: data.dueDate || null,
-        assigneeId: data.assigneeId || '',
-        eccControlId: data.eccControlId || null,
-      };
-      
-      console.log('🔄 Final task data being sent to API:', taskData);
-      console.log('🔄 Making PUT request to:', `/api/tasks/${id}`);
-      
-      return apiRequest(`/api/tasks/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(taskData),
-      });
+      if (!response.ok) {
+        throw new Error('Failed to upload evidence');
+      }
+      return response.json();
     },
-    onSuccess: (result, variables) => {
-      console.log('🔄 API response received:', result);
-      console.log('✅ updateTaskMutation.onSuccess called with:', { data: result, variables });
-      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tasks', id] });
-      setIsEditDialogOpen(false);
-      console.log('updateTaskMutation completed successfully');
+    onSuccess: () => {
       toast({
-        title: language === 'ar' ? 'تم التحديث بنجاح' : 'Task Updated',
-        description: language === 'ar' ? 'تم تحديث المهمة بنجاح' : 'Task has been updated successfully',
+        title: "Success",
+        description: "Evidence uploaded successfully"
       });
-      console.log('Task updated successfully');
+      setUploadDialogOpen(false);
+      setUploadForm({ title: "", description: "", file: null });
+      queryClient.invalidateQueries({ queryKey: ["/api/evidence/task", taskId] });
     },
     onError: (error: any) => {
       toast({
-        title: language === 'ar' ? 'خطأ' : 'Error',
-        description: error.message || (language === 'ar' ? 'فشل في تحديث المهمة' : 'Failed to update task'),
-        variant: 'destructive',
+        title: "Error",
+        description: error.message || "Failed to upload evidence",
+        variant: "destructive"
       });
-    },
+    }
   });
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle2 className="h-4 w-4" style={{ color: '#16a34a' }} />;
-      case 'in-progress':
-        return <Clock className="h-4 w-4" style={{ color: '#ea580b' }} />;
-      case 'pending':
-        return <AlertCircle className="h-4 w-4" style={{ color: '#eab308' }} />;
-      default:
-        return <Clock className="h-4 w-4" style={{ color: '#6b7280' }} />;
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return language === 'ar' ? 'مكتملة' : 'Completed';
-      case 'in-progress':
-        return language === 'ar' ? 'قيد التنفيذ' : 'In Progress';
-      case 'pending':
-        return language === 'ar' ? 'لم تبدأ' : 'Pending';
-      default:
-        return status;
-    }
-  };
-
-  const getPriorityBadgeVariant = (priority: string) => {
-    switch (priority) {
-      case 'urgent':
-        return 'destructive';
-      case 'high':
-        return 'destructive';
-      case 'medium':
-        return 'default';
-      case 'low':
-        return 'secondary';
-      default:
-        return 'default';
-    }
-  };
-
-  const getPriorityText = (priority: string) => {
-    switch (priority) {
-      case 'urgent':
-        return language === 'ar' ? 'عاجلة' : 'Urgent';
-      case 'high':
-        return language === 'ar' ? 'عالية' : 'High';
-      case 'medium':
-        return language === 'ar' ? 'متوسطة' : 'Medium';
-      case 'low':
-        return language === 'ar' ? 'منخفضة' : 'Low';
-      default:
-        return priority;
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
-
-  const onEditSubmit = async (data: any) => {
-    try {
-      console.log('📝 Form submitted with data:', data);
-      console.log('📝 Form validation errors:', editForm.formState.errors);
-      await updateTaskMutation.mutateAsync(data);
-    } catch (error) {
-      console.error('❌ Failed to update task:', error);
-      console.error('❌ Error details:', error);
-    }
-  };
+  if (!taskId) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-center text-muted-foreground">Invalid task ID</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (taskLoading) {
     return (
-      <AppLayout>
-        <div className="space-y-6">
-          <Skeleton className="h-8 w-64" />
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              <Card>
-                <CardHeader>
-                  <Skeleton className="h-6 w-48" />
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                </CardContent>
-              </Card>
-            </div>
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <Skeleton className="h-6 w-32" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-20 w-full" />
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
-      </AppLayout>
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-center text-muted-foreground">Loading task details...</p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   if (!task) {
     return (
-      <AppLayout>
-        <div className="flex flex-col items-center justify-center h-64">
-          <AlertCircle className="h-12 w-12 text-slate-400 mb-4" />
-          <h2 className="text-xl font-semibold text-slate-600 mb-2">
-            {language === 'ar' ? 'المهمة غير موجودة' : 'Task Not Found'}
-          </h2>
-          <p className="text-slate-500 mb-4">
-            {language === 'ar' ? 'لم يتم العثور على المهمة المطلوبة' : 'The requested task could not be found.'}
-          </p>
-          <Button onClick={() => setLocation('/tasks')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            {language === 'ar' ? 'العودة للمهام' : 'Back to Tasks'}
-          </Button>
-        </div>
-      </AppLayout>
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-center text-muted-foreground">Task not found</p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
+  // Check if user can upload evidence (assigned to task or admin/manager)
+  const canUploadEvidence = currentUser && (
+    task.assigneeId === currentUser.id ||
+    currentUser.role === "admin" ||
+    currentUser.role === "manager"
+  );
+
+  const handleFileUpload = async () => {
+    if (!uploadForm.file || !uploadForm.title.trim()) {
+      toast({
+        title: "Error",
+        description: "Please provide a title and select a file",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("title", uploadForm.title);
+    formData.append("description", uploadForm.description);
+    formData.append("file", uploadForm.file);
+    formData.append("taskId", taskId);
+    formData.append("projectId", task.projectId?.toString() || "");
+
+    uploadMutation.mutate(formData);
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "urgent": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
+      case "high": return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200";
+      case "medium": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
+      case "low": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+      default: return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "completed": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+      case "in-progress": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
+      case "pending": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
+      case "cancelled": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
+      default: return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
+    }
+  };
+
   return (
-    <AppLayout>
-      <div className="space-y-6">
-        {/* Header */}
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <Button
+          variant="outline"
+          onClick={() => setLocation("/tasks")}
+          className="mb-4"
+        >
+          ← Back to Tasks
+        </Button>
+        
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" onClick={() => setLocation('/tasks')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              {language === 'ar' ? 'العودة للمهام' : 'Back to Tasks'}
-            </Button>
-            <h1 className="text-2xl font-bold text-slate-800">
-              {language === 'ar' && task.titleAr ? task.titleAr : task.title}
-            </h1>
+          <div>
+            <h1 className="text-3xl font-bold">{task.title}</h1>
+            {task.titleAr && (
+              <h2 className="text-xl text-muted-foreground mt-1" dir="rtl">{task.titleAr}</h2>
+            )}
           </div>
-          <Button onClick={() => setIsEditDialogOpen(true)}>
-            <Edit3 className="h-4 w-4 mr-2" />
-            {language === 'ar' ? 'تعديل' : 'Edit'}
-          </Button>
+          <div className="flex gap-2">
+            <Badge className={getPriorityColor(task.priority)}>
+              {task.priority}
+            </Badge>
+            <Badge className={getStatusColor(task.status)}>
+              {task.status}
+            </Badge>
+          </div>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Task Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  {language === 'ar' ? 'تفاصيل المهمة' : 'Task Details'}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Status and Priority */}
-                <div className="flex items-center gap-4">
+      <Tabs defaultValue="details" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsTrigger value="details" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Task Details
+          </TabsTrigger>
+          <TabsTrigger value="controls" className="flex items-center gap-2">
+            <Flag className="h-4 w-4" />
+            Controls ({controls.length})
+          </TabsTrigger>
+          <TabsTrigger value="evidence" className="flex items-center gap-2">
+            <Upload className="h-4 w-4" />
+            Evidence ({evidence.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="details">
+          <Card>
+            <CardHeader>
+              <CardTitle>Task Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
                   <div className="flex items-center gap-2">
-                    {getStatusIcon(task.status)}
-                    <span className="font-medium">{getStatusText(task.status)}</span>
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">Due Date:</span>
+                    <span>{task.dueDate ? format(new Date(task.dueDate), "PPP") : "Not set"}</span>
                   </div>
-                  <Badge variant={getPriorityBadgeVariant(task.priority)}>
-                    {getPriorityText(task.priority)}
-                  </Badge>
+                  
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">Assigned to:</span>
+                    <span>{task.assignee?.email || "Unassigned"}</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">Created:</span>
+                    <span>{task.createdAt ? format(new Date(task.createdAt), "PPP") : "Unknown"}</span>
+                  </div>
                 </div>
-
-                {/* Description */}
-                {(task.description || task.descriptionAr) && (
+                
+                <div className="space-y-4">
                   <div>
-                    <h4 className="font-medium mb-2">
-                      {language === 'ar' ? 'الوصف' : 'Description'}
-                    </h4>
-                    <p className="text-slate-600">
-                      {language === 'ar' && task.descriptionAr ? task.descriptionAr : task.description}
-                    </p>
+                    <span className="font-medium">Project:</span>
+                    <span className="ml-2">{task.project?.name || "Unknown Project"}</span>
                   </div>
-                )}
-
-                {/* Due Date */}
-                {task.dueDate && (
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-slate-500" />
-                    <span className="text-sm text-slate-600">
-                      {language === 'ar' ? 'تاريخ الاستحقاق:' : 'Due Date:'} {formatDate(task.dueDate)}
-                    </span>
+                  
+                  <div>
+                    <span className="font-medium">Created by:</span>
+                    <span className="ml-2">{task.createdBy?.email || "Unknown"}</span>
                   </div>
-                )}
+                  
+                  {task.completedAt && (
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-green-600" />
+                      <span className="font-medium">Completed:</span>
+                      <span>{task.completedAt ? format(new Date(task.completedAt), "PPP") : "Unknown"}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {(task.description || task.descriptionAr) && (
+                <div className="space-y-3">
+                  <h3 className="font-medium">Description</h3>
+                  {task.description && (
+                    <p className="text-muted-foreground">{task.description}</p>
+                  )}
+                  {task.descriptionAr && (
+                    <p className="text-muted-foreground" dir="rtl">{task.descriptionAr}</p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-                {/* Assignee */}
-                {task.assigneeId && (
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-slate-500" />
-                    <span className="text-sm text-slate-600">
-                      {language === 'ar' ? 'المسؤول:' : 'Assignee:'} {task.assigneeId}
-                    </span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Associated Control */}
-            {eccControl && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Target className="h-5 w-5" />
-                    {language === 'ar' ? 'الضابط المرتبط' : 'Associated Control'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="bg-teal-50 rounded-lg p-4 border border-teal-200">
-                    <div className="flex items-start gap-3">
-                      <Badge className="bg-teal-600 text-white">
-                        {eccControl.code}
-                      </Badge>
-                      <div className="flex-1">
-                        <h4 className="font-medium text-teal-900 mb-2">
-                          {language === 'ar' && eccControl.controlAr 
-                            ? eccControl.controlAr 
-                            : eccControl.controlEn}
-                        </h4>
-                        {eccControl.domain && (
-                          <p className="text-sm text-teal-700">
-                            {language === 'ar' ? 'المجال:' : 'Domain:'} {eccControl.domain}
-                            {eccControl.subdomain && ` > ${eccControl.subdomain}`}
+        <TabsContent value="controls">
+          <Card>
+            <CardHeader>
+              <CardTitle>Associated Controls ({controls.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {controls.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  No controls associated with this task
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {controls.map((control) => (
+                    <Card key={control.id} className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant="secondary">
+                              Control ID: {control.eccControlId}
+                            </Badge>
+                            <span className="font-medium">
+                              ECC Control
+                            </span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Control details will be loaded separately
                           </p>
-                        )}
+                          <p className="text-sm">
+                            This task is associated with control ID {control.eccControlId}
+                          </p>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="evidence">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Evidence ({evidence.length})</CardTitle>
+              {canUploadEvidence && (
+                <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm">
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload Evidence
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Upload Evidence</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="title">Title *</Label>
+                        <Input
+                          id="title"
+                          value={uploadForm.title}
+                          onChange={(e) => setUploadForm(prev => ({ ...prev, title: e.target.value }))}
+                          placeholder="Evidence title"
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea
+                          id="description"
+                          value={uploadForm.description}
+                          onChange={(e) => setUploadForm(prev => ({ ...prev, description: e.target.value }))}
+                          placeholder="Evidence description"
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="file">File *</Label>
+                        <Input
+                          id="file"
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.txt"
+                          onChange={(e) => setUploadForm(prev => ({ ...prev, file: e.target.files?.[0] || null }))}
+                        />
+                      </div>
+                      
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setUploadDialogOpen(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleFileUpload}
+                          disabled={uploadMutation.isPending}
+                        >
+                          {uploadMutation.isPending ? "Uploading..." : "Upload"}
+                        </Button>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Evidence */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  {language === 'ar' ? 'الأدلة المرفقة' : 'Attached Evidence'}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {evidenceLoading ? (
-                  <div className="space-y-2">
-                    {[1, 2, 3].map((i) => (
-                      <Skeleton key={i} className="h-12 w-full" />
-                    ))}
-                  </div>
-                ) : taskEvidence.length > 0 ? (
-                  <div className="space-y-3">
-                    {taskEvidence.map((evidence: any) => (
-                      <div key={evidence.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <FileText className="h-4 w-4 text-slate-500" />
-                          <div>
-                            <p className="font-medium text-sm">{evidence.title}</p>
-                            <p className="text-xs text-slate-500">
-                              {language === 'ar' ? 'تاريخ الرفع:' : 'Uploaded:'} {formatDate(evidence.createdAt)}
-                            </p>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </CardHeader>
+            <CardContent>
+              {evidence.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground mb-4">No evidence uploaded yet</p>
+                  {canUploadEvidence && (
+                    <Button onClick={() => setUploadDialogOpen(true)}>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload First Evidence
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {evidence.map((item) => (
+                    <Card key={item.id} className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-medium">{item.title}</h4>
+                          {item.description && (
+                            <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
+                          )}
+                          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                            <span>Uploaded: {item.createdAt ? format(new Date(item.createdAt), "PPP") : "Unknown"}</span>
+                            {item.fileName && (
+                              <span>File: {item.fileName}</span>
+                            )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm">
-                            <Download className="h-4 w-4" />
+                        {item.fileName && (
+                          <Button size="sm" variant="outline" asChild>
+                            <a href={`/uploads/${item.fileName}`} download>
+                              <Download className="h-4 w-4 mr-2" />
+                              Download
+                            </a>
                           </Button>
-                        </div>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-6 text-slate-500">
-                    <FileText className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                    <p>{language === 'ar' ? 'لا توجد أدلة مرفقة' : 'No evidence attached'}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Project Info */}
-            {project && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">
-                    {language === 'ar' ? 'المشروع' : 'Project'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <h4 className="font-medium">
-                      {language === 'ar' && project.nameAr ? project.nameAr : project.name}
-                    </h4>
-                    <p className="text-sm text-slate-600">
-                      {language === 'ar' && project.descriptionAr ? project.descriptionAr : project.description}
-                    </p>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => setLocation(`/projects/${project.id}`)}
-                      className="w-full"
-                    >
-                      {language === 'ar' ? 'عرض المشروع' : 'View Project'}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">
-                  {language === 'ar' ? 'إجراءات سريعة' : 'Quick Actions'}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start"
-                  onClick={() => setIsEditDialogOpen(true)}
-                >
-                  <Edit3 className="h-4 w-4 mr-2" />
-                  {language === 'ar' ? 'تعديل المهمة' : 'Edit Task'}
-                </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <Upload className="h-4 w-4 mr-2" />
-                  {language === 'ar' ? 'رفع دليل' : 'Upload Evidence'}
-                </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <FileText className="h-4 w-4 mr-2" />
-                  {language === 'ar' ? 'إنشاء تقرير' : 'Generate Report'}
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Edit Dialog */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>
-                {language === 'ar' ? 'تعديل المهمة' : 'Edit Task'}
-              </DialogTitle>
-              <DialogDescription>
-                {language === 'ar' ? 'تعديل تفاصيل المهمة' : 'Edit task details and information'}
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...editForm}>
-              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={editForm.control}
-                    name="title"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'العنوان (إنجليزي)' : 'Title (English)'}</FormLabel>
-                        <FormControl>
-                          <Input placeholder={language === 'ar' ? 'أدخل العنوان' : 'Enter title'} {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={editForm.control}
-                    name="titleAr"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'العنوان (عربي)' : 'Title (Arabic)'}</FormLabel>
-                        <FormControl>
-                          <Input placeholder={language === 'ar' ? 'أدخل العنوان بالعربية' : 'Enter title in Arabic'} {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                    </Card>
+                  ))}
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={editForm.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'الوصف (إنجليزي)' : 'Description (English)'}</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder={language === 'ar' ? 'أدخل الوصف' : 'Enter description'} {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={editForm.control}
-                    name="descriptionAr"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'الوصف (عربي)' : 'Description (Arabic)'}</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder={language === 'ar' ? 'أدخل الوصف بالعربية' : 'Enter description in Arabic'} {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <FormField
-                    control={editForm.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'الحالة' : 'Status'}</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder={language === 'ar' ? 'اختر الحالة' : 'Select status'} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="pending">{language === 'ar' ? 'لم تبدأ' : 'Pending'}</SelectItem>
-                            <SelectItem value="in-progress">{language === 'ar' ? 'قيد التنفيذ' : 'In Progress'}</SelectItem>
-                            <SelectItem value="completed">{language === 'ar' ? 'مكتملة' : 'Completed'}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editForm.control}
-                    name="priority"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'الأولوية' : 'Priority'}</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder={language === 'ar' ? 'اختر الأولوية' : 'Select priority'} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="low">{language === 'ar' ? 'منخفضة' : 'Low'}</SelectItem>
-                            <SelectItem value="medium">{language === 'ar' ? 'متوسطة' : 'Medium'}</SelectItem>
-                            <SelectItem value="high">{language === 'ar' ? 'عالية' : 'High'}</SelectItem>
-                            <SelectItem value="urgent">{language === 'ar' ? 'عاجلة' : 'Urgent'}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editForm.control}
-                    name="dueDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'تاريخ الاستحقاق' : 'Due Date'}</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={editForm.control}
-                  name="assigneeId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{language === 'ar' ? 'المسؤول' : 'Assignee'}</FormLabel>
-                      <FormControl>
-                        <Input 
-                          placeholder={language === 'ar' ? 'أدخل معرف المسؤول' : 'Enter assignee ID'} 
-                          {...field} 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                  </Button>
-                  <Button type="submit" disabled={updateTaskMutation.isPending}>
-                    {updateTaskMutation.isPending 
-                      ? (language === 'ar' ? 'جارٍ الحفظ...' : 'Saving...') 
-                      : (language === 'ar' ? 'حفظ التغييرات' : 'Save Changes')
-                    }
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </AppLayout>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

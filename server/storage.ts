@@ -87,6 +87,7 @@ export interface IStorage {
   // Evidence operations
   getEvidence(projectId?: number): Promise<Evidence[]>;
   getEvidenceById(id: number): Promise<Evidence | undefined>;
+  getEvidenceByTaskId(taskId: number): Promise<Evidence[]>;
   createEvidence(evidence: InsertEvidence): Promise<Evidence>;
   updateEvidence(id: number, updates: Partial<InsertEvidence>): Promise<Evidence>;
   deleteEvidence(id: number): Promise<void>;
@@ -443,6 +444,46 @@ export class DatabaseStorage implements IStorage {
   async getEvidenceById(id: number): Promise<Evidence | undefined> {
     const [result] = await db.select().from(evidence).where(eq(evidence.id, id));
     return result;
+  }
+
+  async getEvidenceByTaskId(taskId: number): Promise<Evidence[]> {
+    try {
+      const evidenceList = await db
+        .select({
+          id: evidence.id,
+          title: evidence.title,
+          titleAr: evidence.titleAr,
+          description: evidence.description,
+          descriptionAr: evidence.descriptionAr,
+          fileName: evidence.fileName,
+          fileSize: evidence.fileSize,
+          fileType: evidence.fileType,
+          filePath: evidence.filePath,
+          version: evidence.version,
+          projectId: evidence.projectId,
+          taskId: evidence.taskId,
+          eccControlId: evidence.eccControlId,
+          uploadedById: evidence.uploadedById,
+          createdAt: evidence.createdAt,
+          uploaderName: users.name,
+          uploaderEmail: users.email,
+          uploaderProfilePicture: users.profilePicture,
+        })
+        .from(evidence)
+        .leftJoin(users, eq(evidence.uploadedById, users.id))
+        .where(eq(evidence.taskId, taskId))
+        .orderBy(desc(evidence.createdAt));
+      
+      return evidenceList;
+    } catch (error) {
+      console.error('Error in getEvidenceByTaskId:', error);
+      // Fallback to simple query without user join if there's an issue
+      return await db
+        .select()
+        .from(evidence)
+        .where(eq(evidence.taskId, taskId))
+        .orderBy(desc(evidence.createdAt));
+    }
   }
 
   async createEvidence(evidenceData: InsertEvidence): Promise<Evidence> {
