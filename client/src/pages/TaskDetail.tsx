@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, User, Flag, Clock, FileText, Upload, Download, MessageSquare, X, Plus } from "lucide-react";
+import { Calendar, User, Flag, Clock, FileText, Upload, Download, MessageSquare, X, Plus, Grid, List } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -35,6 +35,7 @@ export default function TaskDetail() {
   const [selectedControlId, setSelectedControlId] = useState<number | null>(null);
   const [selectedControlForView, setSelectedControlForView] = useState<number | null>(null);
   const [showEvidenceForControl, setShowEvidenceForControl] = useState(false);
+  const [controlsViewMode, setControlsViewMode] = useState<'cards' | 'list'>('cards');
   const [uploadForm, setUploadForm] = useState({
     title: "",
     description: "",
@@ -408,9 +409,27 @@ export default function TaskDetail() {
         <TabsContent value="controls">
           <Card>
             <CardHeader>
-              <CardTitle>
-                {language === 'ar' ? `الضوابط المرتبطة (${controls.length})` : `Associated Controls (${controls.length})`}
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>
+                  {language === 'ar' ? `الضوابط المرتبطة (${controls.length})` : `Associated Controls (${controls.length})`}
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={controlsViewMode === 'cards' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setControlsViewMode('cards')}
+                  >
+                    <Grid className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={controlsViewMode === 'list' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setControlsViewMode('list')}
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {controls.length === 0 ? (
@@ -418,70 +437,108 @@ export default function TaskDetail() {
                   {language === 'ar' ? 'لا توجد ضوابط مرتبطة بهذه المهمة' : 'No controls associated with this task'}
                 </p>
               ) : (
-                <div className="space-y-4">
-                  {controls.map((control) => (
-                    <Card key={control.id} className="p-6 border-l-4 border-l-teal-500">
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <Badge variant="secondary" className="bg-teal-100 text-teal-800">
-                            {language === 'ar' ? control.eccControl?.codeAr : control.eccControl?.code} {!control.eccControl?.code && `ID: ${control.eccControlId}`}
-                          </Badge>
-                          <Badge variant="outline">
-                            {language === 'ar' ? 'ضابط ECC' : 'ECC Control'}
-                          </Badge>
+                <>
+                  {/* Card View */}
+                  {controlsViewMode === 'cards' && (
+                    <div className="space-y-4">
+                      {controls.map((control) => (
+                        <Card key={control.id} className="p-6 border-l-4 border-l-teal-500">
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-3">
+                              <Badge variant="secondary" className="bg-teal-100 text-teal-800">
+                                {language === 'ar' ? control.eccControl?.codeAr : control.eccControl?.code} {!control.eccControl?.code && `ID: ${control.eccControlId}`}
+                              </Badge>
+                              <Badge variant="outline">
+                                {language === 'ar' ? 'ضابط ECC' : 'ECC Control'}
+                              </Badge>
+                            </div>
+                            
+                            {control.eccControl && (
+                              <>
+                                <div>
+                                  <h4 className={`font-semibold text-lg mb-2 ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                                    {language === 'ar' ? control.eccControl.domainAr : control.eccControl.domainEn}
+                                  </h4>
+                                  <p className={`text-sm text-muted-foreground ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                                    {language === 'ar' ? control.eccControl.subdomainAr : control.eccControl.subdomainEn}
+                                  </p>
+                                </div>
+
+                                <div>
+                                  <h5 className="font-medium mb-2">
+                                    {language === 'ar' ? 'وصف الضابط' : 'Control Description'}
+                                  </h5>
+                                  <p className={`text-sm ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                                    {language === 'ar' ? control.eccControl.controlAr : control.eccControl.controlEn}
+                                  </p>
+                                </div>
+
+                                {((language === 'ar' && control.eccControl.requirementAr) || (language === 'en' && control.eccControl.requirementEn)) && (
+                                  <div>
+                                    <h5 className="font-medium mb-2">
+                                      {language === 'ar' ? 'المتطلبات' : 'Requirements'}
+                                    </h5>
+                                    <div className="p-3 bg-muted/50 rounded-lg">
+                                      <p className={`text-sm ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                                        {language === 'ar' ? control.eccControl.requirementAr : control.eccControl.requirementEn}
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {((language === 'ar' && control.eccControl.evidenceAr) || (language === 'en' && control.eccControl.evidenceEn)) && (
+                                  <div>
+                                    <h5 className="font-medium mb-2">
+                                      {language === 'ar' ? 'الأدلة المطلوبة' : 'Evidence Required'}
+                                    </h5>
+                                    <div className="p-3 bg-orange-50 rounded-lg">
+                                      <p className={`text-sm ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                                        {language === 'ar' ? control.eccControl.evidenceAr : control.eccControl.evidenceEn}
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* List View */}
+                  {controlsViewMode === 'list' && (
+                    <div className="space-y-2">
+                      {controls.map((control) => (
+                        <div key={control.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <Badge variant="secondary" className="bg-teal-100 text-teal-800">
+                                {language === 'ar' ? control.eccControl?.codeAr : control.eccControl?.code} {!control.eccControl?.code && `ID: ${control.eccControlId}`}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {language === 'ar' ? 'ضابط ECC' : 'ECC Control'}
+                              </Badge>
+                            </div>
+                            {control.eccControl && (
+                              <div>
+                                <h4 className={`font-medium text-sm ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                                  {language === 'ar' ? control.eccControl.domainAr : control.eccControl.domainEn}
+                                </h4>
+                                <p className={`text-xs text-muted-foreground ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                                  {language === 'ar' ? control.eccControl.subdomainAr : control.eccControl.subdomainEn}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                          <Button size="sm" variant="ghost">
+                            <FileText className="h-4 w-4" />
+                          </Button>
                         </div>
-                        
-                        {control.eccControl && (
-                          <>
-                            <div>
-                              <h4 className={`font-semibold text-lg mb-2 ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
-                                {language === 'ar' ? control.eccControl.domainAr : control.eccControl.domainEn}
-                              </h4>
-                              <p className={`text-sm text-muted-foreground ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
-                                {language === 'ar' ? control.eccControl.subdomainAr : control.eccControl.subdomainEn}
-                              </p>
-                            </div>
-
-                            <div>
-                              <h5 className="font-medium mb-2">
-                                {language === 'ar' ? 'وصف الضابط' : 'Control Description'}
-                              </h5>
-                              <p className={`text-sm ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
-                                {language === 'ar' ? control.eccControl.controlAr : control.eccControl.controlEn}
-                              </p>
-                            </div>
-
-                            {((language === 'ar' && control.eccControl.requirementAr) || (language === 'en' && control.eccControl.requirementEn)) && (
-                              <div>
-                                <h5 className="font-medium mb-2">
-                                  {language === 'ar' ? 'المتطلبات' : 'Requirements'}
-                                </h5>
-                                <div className="p-3 bg-muted/50 rounded-lg">
-                                  <p className={`text-sm ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
-                                    {language === 'ar' ? control.eccControl.requirementAr : control.eccControl.requirementEn}
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-
-                            {((language === 'ar' && control.eccControl.evidenceAr) || (language === 'en' && control.eccControl.evidenceEn)) && (
-                              <div>
-                                <h5 className="font-medium mb-2">
-                                  {language === 'ar' ? 'الأدلة المطلوبة' : 'Evidence Required'}
-                                </h5>
-                                <div className="p-3 bg-orange-50 rounded-lg">
-                                  <p className={`text-sm ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
-                                    {language === 'ar' ? control.eccControl.evidenceAr : control.eccControl.evidenceEn}
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </Card>
-                  ))}
-                </div>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
