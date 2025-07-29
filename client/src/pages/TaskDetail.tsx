@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useI18n } from "@/hooks/use-i18n";
 import { apiRequest } from "@/lib/queryClient";
 import AppLayout from "@/components/layout/AppLayout";
 import type { Task, User as UserType, ProjectControl, Evidence, EvidenceVersion } from "@shared/schema";
@@ -27,6 +28,7 @@ export default function TaskDetail() {
   const { id: taskId } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { language } = useI18n();
   const queryClient = useQueryClient();
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [linkExistingDialogOpen, setLinkExistingDialogOpen] = useState(false);
@@ -215,7 +217,7 @@ export default function TaskDetail() {
           onClick={() => setLocation("/tasks")}
           className="mb-4"
         >
-          ← Back to Tasks
+{language === 'ar' ? 'العودة للمهام ←' : '← Back to Tasks'}
         </Button>
         
         <div className="flex items-center justify-between">
@@ -240,22 +242,22 @@ export default function TaskDetail() {
         <TabsList className="grid w-full grid-cols-3 mb-6">
           <TabsTrigger value="details" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            Task Details
+            {language === 'ar' ? 'تفاصيل المهمة' : 'Task Details'}
           </TabsTrigger>
           <TabsTrigger value="controls" className="flex items-center gap-2">
             <Flag className="h-4 w-4" />
-            Controls ({controls.length})
+            {language === 'ar' ? `الضوابط (${controls.length})` : `Controls (${controls.length})`}
           </TabsTrigger>
           <TabsTrigger value="evidence" className="flex items-center gap-2">
             <Upload className="h-4 w-4" />
-            Evidence ({evidence.length})
+            {language === 'ar' ? `الأدلة (${evidence.length})` : `Evidence (${evidence.length})`}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="details">
           <Card>
             <CardHeader>
-              <CardTitle>Task Information</CardTitle>
+              <CardTitle>{language === 'ar' ? 'معلومات المهمة' : 'Task Information'}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Task Title */}
@@ -362,16 +364,21 @@ export default function TaskDetail() {
               {/* Description */}
               {(task.description || task.descriptionAr) && (
                 <div className="space-y-3">
-                  <label className="text-sm font-medium text-muted-foreground">Description</label>
-                  {task.description && (
-                    <div className="p-4 bg-muted/50 rounded-lg">
-                      <p className="text-sm">{task.description}</p>
-                    </div>
-                  )}
-                  {task.descriptionAr && (
-                    <div className="p-4 bg-muted/50 rounded-lg" dir="rtl">
-                      <p className="text-sm">{task.descriptionAr}</p>
-                    </div>
+                  <label className="text-sm font-medium text-muted-foreground">
+                    {language === 'ar' ? 'الوصف' : 'Description'}
+                  </label>
+                  {language === 'ar' ? (
+                    task.descriptionAr && (
+                      <div className="p-4 bg-muted/50 rounded-lg" dir="rtl">
+                        <p className="text-sm">{task.descriptionAr}</p>
+                      </div>
+                    )
+                  ) : (
+                    task.description && (
+                      <div className="p-4 bg-muted/50 rounded-lg">
+                        <p className="text-sm">{task.description}</p>
+                      </div>
+                    )
                   )}
                 </div>
               )}
@@ -382,12 +389,14 @@ export default function TaskDetail() {
         <TabsContent value="controls">
           <Card>
             <CardHeader>
-              <CardTitle>Associated Controls ({controls.length})</CardTitle>
+              <CardTitle>
+                {language === 'ar' ? `الضوابط المرتبطة (${controls.length})` : `Associated Controls (${controls.length})`}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {controls.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">
-                  No controls associated with this task
+                  {language === 'ar' ? 'لا توجد ضوابط مرتبطة بهذه المهمة' : 'No controls associated with this task'}
                 </p>
               ) : (
                 <div className="space-y-4">
@@ -396,63 +405,54 @@ export default function TaskDetail() {
                       <div className="space-y-4">
                         <div className="flex items-center gap-3">
                           <Badge variant="secondary" className="bg-teal-100 text-teal-800">
-                            {control.eccControl?.code || `ID: ${control.eccControlId}`}
+                            {language === 'ar' ? control.eccControl?.codeAr : control.eccControl?.code} {!control.eccControl?.code && `ID: ${control.eccControlId}`}
                           </Badge>
                           <Badge variant="outline">
-                            ECC Control
+                            {language === 'ar' ? 'ضابط ECC' : 'ECC Control'}
                           </Badge>
                         </div>
                         
                         {control.eccControl && (
                           <>
                             <div>
-                              <h4 className="font-semibold text-lg mb-2">
-                                {control.eccControl.domainEn}
+                              <h4 className={`font-semibold text-lg mb-2 ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                                {language === 'ar' ? control.eccControl.domainAr : control.eccControl.domainEn}
                               </h4>
-                              {control.eccControl.domainAr && (
-                                <p className="text-muted-foreground mb-2" dir="rtl">
-                                  {control.eccControl.domainAr}
-                                </p>
-                              )}
-                              <p className="text-sm text-muted-foreground">
-                                {control.eccControl.subdomainEn}
+                              <p className={`text-sm text-muted-foreground ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                                {language === 'ar' ? control.eccControl.subdomainAr : control.eccControl.subdomainEn}
                               </p>
-                              {control.eccControl.subdomainAr && (
-                                <p className="text-sm text-muted-foreground" dir="rtl">
-                                  {control.eccControl.subdomainAr}
-                                </p>
-                              )}
                             </div>
 
                             <div>
-                              <h5 className="font-medium mb-2">Control Description</h5>
-                              <p className="text-sm mb-2">
-                                {control.eccControl.controlEn}
+                              <h5 className="font-medium mb-2">
+                                {language === 'ar' ? 'وصف الضابط' : 'Control Description'}
+                              </h5>
+                              <p className={`text-sm ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                                {language === 'ar' ? control.eccControl.controlAr : control.eccControl.controlEn}
                               </p>
-                              {control.eccControl.controlAr && (
-                                <p className="text-sm text-muted-foreground" dir="rtl">
-                                  {control.eccControl.controlAr}
-                                </p>
-                              )}
                             </div>
 
-                            {control.eccControl.requirementAr && (
+                            {((language === 'ar' && control.eccControl.requirementAr) || (language === 'en' && control.eccControl.requirementEn)) && (
                               <div>
-                                <h5 className="font-medium mb-2">Requirements</h5>
+                                <h5 className="font-medium mb-2">
+                                  {language === 'ar' ? 'المتطلبات' : 'Requirements'}
+                                </h5>
                                 <div className="p-3 bg-muted/50 rounded-lg">
-                                  <p className="text-sm" dir="rtl">
-                                    {control.eccControl.requirementAr}
+                                  <p className={`text-sm ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                                    {language === 'ar' ? control.eccControl.requirementAr : control.eccControl.requirementEn}
                                   </p>
                                 </div>
                               </div>
                             )}
 
-                            {control.eccControl.evidenceAr && (
+                            {((language === 'ar' && control.eccControl.evidenceAr) || (language === 'en' && control.eccControl.evidenceEn)) && (
                               <div>
-                                <h5 className="font-medium mb-2">Evidence Required</h5>
+                                <h5 className="font-medium mb-2">
+                                  {language === 'ar' ? 'الأدلة المطلوبة' : 'Evidence Required'}
+                                </h5>
                                 <div className="p-3 bg-orange-50 rounded-lg">
-                                  <p className="text-sm" dir="rtl">
-                                    {control.eccControl.evidenceAr}
+                                  <p className={`text-sm ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                                    {language === 'ar' ? control.eccControl.evidenceAr : control.eccControl.evidenceEn}
                                   </p>
                                 </div>
                               </div>
@@ -472,13 +472,13 @@ export default function TaskDetail() {
           {/* Evidence Upload Section */}
           <div className="border rounded-lg p-4">
             <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
-              Upload New Evidence
+              {language === 'ar' ? 'رفع أدلة جديدة' : 'Upload New Evidence'}
             </h3>
             
             {/* Control Selection */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Select Control
+                {language === 'ar' ? 'اختر الضابط' : 'Select Control'}
               </label>
               <Select 
                 value={selectedControlId?.toString() || ''}
@@ -489,15 +489,15 @@ export default function TaskDetail() {
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose a control to attach evidence..." />
+                  <SelectValue placeholder={language === 'ar' ? 'اختر ضابط لربط الأدلة...' : 'Choose a control to attach evidence...'} />
                 </SelectTrigger>
                 <SelectContent>
                   {controls.map((control: any) => (
                     <SelectItem key={control.id} value={control.eccControlId.toString()}>
                       <div className="flex items-center gap-2">
-                        <span className="font-medium">{control.eccControl?.code}</span>
+                        <span className="font-medium">{language === 'ar' ? control.eccControl?.codeAr : control.eccControl?.code}</span>
                         <span className="text-sm text-muted-foreground">
-                          {control.eccControl?.subdomainEn}
+                          {language === 'ar' ? control.eccControl?.subdomainAr : control.eccControl?.subdomainEn}
                         </span>
                       </div>
                     </SelectItem>
@@ -514,20 +514,26 @@ export default function TaskDetail() {
                     {controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.code}
                   </Badge>
                   <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">
-                      {controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.subdomainEn}
+                    <h4 className={`font-semibold text-gray-900 dark:text-white text-sm mb-2 ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                      {language === 'ar' 
+                        ? controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.subdomainAr
+                        : controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.subdomainEn}
                     </h4>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
-                      {controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.controlEn}
+                    <p className={`text-sm text-gray-700 dark:text-gray-300 mb-3 ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                      {language === 'ar'
+                        ? controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.controlAr
+                        : controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.controlEn}
                     </p>
                     
                     {/* Required Evidence */}
                     <div className="mb-3">
                       <h5 className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                        Required Evidence:
+                        {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
                       </h5>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.evidenceEn || 'Documentation, policies, procedures, and audit evidence'}
+                      <p className={`text-xs text-gray-600 dark:text-gray-400 ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                        {language === 'ar' 
+                          ? (controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.evidenceAr || 'وثائق، سياسات، إجراءات، وأدلة تدقيق')
+                          : (controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.evidenceEn || 'Documentation, policies, procedures, and audit evidence')}
                       </p>
                     </div>
 
@@ -540,13 +546,17 @@ export default function TaskDetail() {
                         >
                           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                           <span className="text-xs font-medium underline">
-                            {controlLinkedEvidence.length} evidence linked - click to view
+                            {language === 'ar' 
+                              ? `${controlLinkedEvidence.length} أدلة مرتبطة - انقر للعرض`
+                              : `${controlLinkedEvidence.length} evidence linked - click to view`}
                           </span>
                         </div>
                       ) : (
                         <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
                           <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                          <span className="text-xs">No evidence linked</span>
+                          <span className="text-xs">
+                            {language === 'ar' ? 'لا توجد أدلة مرتبطة' : 'No evidence linked'}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -559,7 +569,7 @@ export default function TaskDetail() {
             {selectedControlId && (
               <div className="space-y-3">
                 <h4 className="font-medium text-gray-900 dark:text-white">
-                  Attach Evidence to Selected Control
+                  {language === 'ar' ? 'ربط الأدلة بالضابط المحدد' : 'Attach Evidence to Selected Control'}
                 </h4>
                 
                 <div className="flex gap-2">
@@ -570,7 +580,7 @@ export default function TaskDetail() {
                     className="flex-1"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Upload New File
+                    {language === 'ar' ? 'رفع ملف جديد' : 'Upload New File'}
                   </Button>
                   
                   <Button
@@ -581,7 +591,7 @@ export default function TaskDetail() {
                     className="flex-1"
                   >
                     <FileText className="h-4 w-4 mr-2" />
-                    Link Existing File
+                    {language === 'ar' ? 'ربط ملف موجود' : 'Link Existing File'}
                   </Button>
                 </div>
               </div>
