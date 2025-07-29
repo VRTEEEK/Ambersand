@@ -382,16 +382,7 @@ export default function TaskDetail() {
                 </div>
                 
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Created by</label>
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <span>{createdByUser ? `${createdByUser.firstName || ''} ${createdByUser.lastName || ''}`.trim() || createdByUser.email : "Unknown"}</span>
-                    </div>
-                    {createdByUser?.email && (
-                      <p className="text-xs text-muted-foreground">{createdByUser.email}</p>
-                    )}
-                  </div>
+                  
                   
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-muted-foreground">Created</label>
