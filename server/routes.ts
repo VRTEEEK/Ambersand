@@ -378,14 +378,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const task = await storage.createTask(taskData);
       
-      // Send email notification if task is assigned to someone
+      // Send email notification if task is assigned to someone (including self)
       console.log('📧 Email check:', { 
         taskAssigneeId: task.assigneeId, 
         currentUserId: req.user.claims.sub,
-        shouldSendEmail: task.assigneeId && task.assigneeId !== req.user.claims.sub
+        shouldSendEmail: !!task.assigneeId
       });
       
-      if (task.assigneeId && task.assigneeId !== req.user.claims.sub) {
+      if (task.assigneeId) {
         console.log('📧 Attempting to send task assignment email...');
         try {
           const assignedUser = await storage.getUser(task.assigneeId);
@@ -418,7 +418,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Don't fail the task creation if email fails
         }
       } else {
-        console.log('🔄 No email sent: Task not assigned to different user');
+        console.log('🔄 No email sent: Task not assigned to any user');
       }
       
       res.status(201).json(task);
@@ -464,15 +464,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
-        // Check for new assignment
+        // Check for new assignment (including self-assignment)
         console.log('📧 Assignment check:', { 
           newAssigneeId: taskData.assigneeId, 
           oldAssigneeId: oldTask?.assigneeId,
           currentUserId: req.user.claims.sub,
-          isNewAssignment: taskData.assigneeId && oldTask?.assigneeId !== taskData.assigneeId && taskData.assigneeId !== req.user.claims.sub
+          isNewAssignment: taskData.assigneeId && oldTask?.assigneeId !== taskData.assigneeId
         });
         
-        if (taskData.assigneeId && oldTask?.assigneeId !== taskData.assigneeId && taskData.assigneeId !== req.user.claims.sub) {
+        if (taskData.assigneeId && oldTask?.assigneeId !== taskData.assigneeId) {
           console.log('📧 Attempting to send task reassignment email...');
           const assignedUser = await storage.getUser(taskData.assigneeId);
           const project = task.projectId ? await storage.getProject(task.projectId) : null;
