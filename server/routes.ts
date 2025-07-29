@@ -392,7 +392,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               task.title,
               dueDate,
               projectName,
-              (assignedUser.language as 'en' | 'ar') || 'en'
+              (assignedUser.language as 'en' | 'ar') || 'en',
+              task.id
             );
             
             await emailService.sendEmail({
@@ -465,7 +466,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               task.title,
               dueDate,
               projectName,
-              (assignedUser.language as 'en' | 'ar') || 'en'
+              (assignedUser.language as 'en' | 'ar') || 'en',
+              task.id
             );
             
             await emailService.sendEmail({
@@ -1013,7 +1015,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             'Sample Task Assignment',
             '2025-08-01',
             'Sample Project',
-            'en'
+            'en',
+            123 // Sample task ID for testing
           );
           break;
         case 'deadline-reminder':

@@ -343,6 +343,24 @@ export default function Tasks() {
     },
   });
 
+  // Handle email link task selection - after tasks are loaded
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const taskIdParam = urlParams.get('task');
+    if (taskIdParam && tasks && tasks.length > 0) {
+      const taskId = parseInt(taskIdParam);
+      const targetTask = tasks.find((task: Task) => task.id === taskId);
+      if (targetTask) {
+        setSelectedTask(targetTask);
+        setIsEditDialogOpen(true);
+        // Clean up URL parameter after opening
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('task');
+        window.history.replaceState({}, '', newUrl.toString());
+      }
+    }
+  }, [tasks]); // Run when tasks data is loaded
+
   // Fetch task controls for the selected task
   const { data: taskControls = [] } = useQuery({
     queryKey: ['/api/tasks', selectedTask?.id, 'controls'],

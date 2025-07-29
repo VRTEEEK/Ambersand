@@ -41,7 +41,7 @@ export const emailService = {
 
   // Email templates
   templates: {
-    taskAssignment: (userName: string, taskTitle: string, dueDate: string, projectName: string, language: 'en' | 'ar' = 'en') => {
+    taskAssignment: (userName: string, taskTitle: string, dueDate: string, projectName: string, language: 'en' | 'ar' = 'en', taskId?: number) => {
       if (language === 'ar') {
         return {
           subject: `مهمة جديدة: ${taskTitle}`,
@@ -56,7 +56,7 @@ export const emailService = {
                 <li><strong>تاريخ الاستحقاق:</strong> ${dueDate}</li>
               </ul>
               <p>يرجى تسجيل الدخول إلى منصة Ambersand لعرض التفاصيل.</p>
-              <a href="${process.env.APP_URL}/tasks" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">عرض المهمة</a>
+              <a href="${process.env.APP_URL || 'http://localhost:5000'}/tasks${taskId ? `?task=${taskId}` : ''}" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">عرض المهمة</a>
             </div>
           `
         };
@@ -74,7 +74,7 @@ export const emailService = {
               <li><strong>Due Date:</strong> ${dueDate}</li>
             </ul>
             <p>Please log in to Ambersand platform to view details.</p>
-            <a href="${process.env.APP_URL}/tasks" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View Task</a>
+            <a href="${process.env.APP_URL || 'http://localhost:5000'}/tasks${taskId ? `?task=${taskId}` : ''}" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View Task</a>
           </div>
         `
       };
