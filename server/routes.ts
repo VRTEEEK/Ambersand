@@ -994,10 +994,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Email testing endpoint
   app.post('/api/test-email', isAuthenticated, async (req: any, res) => {
     try {
+      console.log('Test email request received:', req.body);
       const { to, type } = req.body;
       
       if (!to) {
         return res.status(400).json({ message: "Recipient email is required" });
+      }
+
+      if (!process.env.RESEND_API_KEY) {
+        return res.status(500).json({ message: "Email service not configured. RESEND_API_KEY is missing." });
       }
 
       let template;
@@ -1029,19 +1034,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
           break;
         default:
-          return res.status(400).json({ message: "Invalid email type" });
+          return res.status(400).json({ message: "Invalid email type. Use: task-assignment, deadline-reminder, or status-update" });
       }
 
+      console.log('Sending test email with template:', { to, subject: template.subject });
       await emailService.sendEmail({
         to,
         subject: template.subject,
         html: template.html,
       });
 
-      res.json({ message: "Test email sent successfully" });
+      res.json({ message: "Test email sent successfully", to, subject: template.subject });
     } catch (error) {
       console.error("Error sending test email:", error);
-      res.status(500).json({ message: "Failed to send test email", error: (error as Error)?.message || 'Unknown error' });
+      const errorMessage = (error as Error)?.message || 'Unknown error';
+      res.status(500).json({ 
+        message: "Failed to send test email", 
+        error: errorMessage,
+        details: error
+      });
     }
   });
 

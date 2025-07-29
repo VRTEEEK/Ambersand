@@ -12,8 +12,14 @@ interface EmailOptions {
 export const emailService = {
   async sendEmail({ to, subject, html, text }: EmailOptions) {
     try {
+      console.log('Attempting to send email:', { to, subject, from: 'Ambersand <noreply@resend.dev>' });
+      
+      if (!process.env.RESEND_API_KEY) {
+        throw new Error('RESEND_API_KEY is not configured');
+      }
+
       const { data, error } = await resend.emails.send({
-        from: 'Ambersand <noreply@yourdomain.com>',
+        from: 'Ambersand <noreply@resend.dev>',
         to: Array.isArray(to) ? to : [to],
         subject,
         html,
@@ -21,10 +27,11 @@ export const emailService = {
       });
 
       if (error) {
-        console.error('Email send error:', error);
-        throw error;
+        console.error('Resend API error:', error);
+        throw new Error(`Email service error: ${error.message || JSON.stringify(error)}`);
       }
 
+      console.log('Email sent successfully:', data);
       return data;
     } catch (error) {
       console.error('Failed to send email:', error);
