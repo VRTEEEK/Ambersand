@@ -22,6 +22,7 @@ Preferred communication style: Simple, everyday language.
 - **FIXED**: Email task links to use BASE_URL environment variable for correct production domain (https://ambersand-v1.replit.app)
 - **UPDATED**: All email templates now dynamically generate links based on deployment environment instead of hardcoded localhost URLs
 - **CORRECTED**: Email task links now use proper route format `/tasks/{id}` instead of query parameter format for direct task detail navigation
+- **IMPLEMENTED**: Automatic production domain detection using REPLIT_CLUSTER environment variable for seamless deployment without manual configuration
 
 ### July 16, 2025 - Evidence Version Notes Integration & Dialog Optimization
 - **IMPLEMENTED**: Complete version notes integration with comment system for comprehensive audit trail

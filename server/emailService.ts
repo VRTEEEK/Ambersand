@@ -42,7 +42,9 @@ export const emailService = {
   // Email templates
   templates: {
     taskAssignment: (userName: string, taskTitle: string, dueDate: string, projectName: string, language: 'en' | 'ar' = 'en', taskId?: number) => {
-      const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+      // Auto-detect production URL based on environment
+      const baseUrl = process.env.BASE_URL || 
+                     (process.env.REPLIT_CLUSTER ? 'https://ambersand-v1.replit.app' : 'http://localhost:5000');
       const taskLink = taskId ? `${baseUrl}/tasks/${taskId}` : `${baseUrl}/my-tasks`;
       
       if (language === 'ar') {
@@ -84,7 +86,9 @@ export const emailService = {
     },
 
     deadlineReminder: (userName: string, taskTitle: string, dueDate: string, language: 'en' | 'ar' = 'en', taskId?: number) => {
-      const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+      // Auto-detect production URL based on environment
+      const baseUrl = process.env.BASE_URL || 
+                     (process.env.REPLIT_CLUSTER ? 'https://ambersand-v1.replit.app' : 'http://localhost:5000');
       const taskLink = taskId ? `${baseUrl}/tasks/${taskId}` : `${baseUrl}/my-tasks`;
       
       if (language === 'ar') {
@@ -118,7 +122,9 @@ export const emailService = {
     },
 
     statusUpdate: (userName: string, taskTitle: string, oldStatus: string, newStatus: string, language: 'en' | 'ar' = 'en', taskId?: number) => {
-      const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+      // Auto-detect production URL based on environment
+      const baseUrl = process.env.BASE_URL || 
+                     (process.env.REPLIT_CLUSTER ? 'https://ambersand-v1.replit.app' : 'http://localhost:5000');
       const taskLink = taskId ? `${baseUrl}/tasks/${taskId}` : `${baseUrl}/my-tasks`;
       
       if (language === 'ar') {
