@@ -16,7 +16,9 @@ import {
   Eye,
   CheckSquare,
   AlertCircle,
-  Clock3
+  Clock3,
+  Grid,
+  List
 } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
@@ -36,6 +38,7 @@ export default function MyTasks() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
 
   // Get my tasks (assigned to current user)
   const { data: myTasks = [], isLoading } = useQuery<TaskWithDetails[]>({
@@ -123,6 +126,24 @@ export default function MyTasks() {
               </p>
             </div>
           </div>
+          
+          {/* View Toggle */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant={viewMode === 'cards' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('cards')}
+            >
+              <Grid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -170,7 +191,7 @@ export default function MyTasks() {
           </CardContent>
         </Card>
 
-        {/* Tasks Grid */}
+        {/* Tasks Display */}
         {filteredTasks.length === 0 ? (
           <Card>
             <CardContent className="pt-8 pb-8">
@@ -187,77 +208,148 @@ export default function MyTasks() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredTasks.map((task) => (
-              <Card key={task.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg line-clamp-2 mb-2">
-                        {task.title}
-                      </CardTitle>
-                      {task.titleAr && (
-                        <p className="text-sm text-muted-foreground mb-2" dir="rtl">
-                          {task.titleAr}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 ml-2">
-                      {getPriorityIcon(task.priority)}
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <Badge className={getStatusColor(task.status)} variant="secondary">
-                      {task.status}
-                    </Badge>
-                    <Badge className={getPriorityColor(task.priority)} variant="secondary">
-                      {task.priority}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="pt-0">
-                  <div className="space-y-3">
-                    {task.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {task.description}
-                      </p>
-                    )}
-                    
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span>Due: {task.dueDate ? format(new Date(task.dueDate), "MMM d, yyyy") : "Not set"}</span>
-                      </div>
-                      
-                      {task.project && (
-                        <div className="flex items-center gap-2">
-                          <div className="h-4 w-4 bg-teal-600 rounded-sm flex-shrink-0" />
-                          <span className="truncate">{task.project.name}</span>
+          <>
+            {/* Card View */}
+            {viewMode === 'cards' && (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {filteredTasks.map((task) => (
+                  <Card key={task.id} className="hover:shadow-md transition-shadow">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <CardTitle className="text-lg line-clamp-2 mb-2">
+                            {task.title}
+                          </CardTitle>
+                          {task.titleAr && (
+                            <p className="text-sm text-muted-foreground mb-2" dir="rtl">
+                              {task.titleAr}
+                            </p>
+                          )}
                         </div>
-                      )}
-                    </div>
-                    
-                    <Separator />
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs text-muted-foreground">
-                        Created {task.createdAt ? format(new Date(task.createdAt), "MMM d") : "Unknown"}
+                        <div className="flex items-center gap-1 ml-2">
+                          {getPriorityIcon(task.priority)}
+                        </div>
                       </div>
                       
-                      <Link href={`/tasks/${task.id}`}>
-                        <Button size="sm" variant="outline">
-                          <Eye className="h-4 w-4 mr-2" />
-                          View Details
-                        </Button>
-                      </Link>
-                    </div>
+                      <div className="flex gap-2">
+                        <Badge className={getStatusColor(task.status)} variant="secondary">
+                          {task.status}
+                        </Badge>
+                        <Badge className={getPriorityColor(task.priority)} variant="secondary">
+                          {task.priority}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    
+                    <CardContent className="pt-0">
+                      <div className="space-y-3">
+                        {task.description && (
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {task.description}
+                          </p>
+                        )}
+                        
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <span>Due: {task.dueDate ? format(new Date(task.dueDate), "MMM d, yyyy") : "Not set"}</span>
+                          </div>
+                          
+                          {task.project && (
+                            <div className="flex items-center gap-2">
+                              <div className="h-4 w-4 bg-teal-600 rounded-sm flex-shrink-0" />
+                              <span className="truncate">{task.project.name}</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <Separator />
+                        
+                        <div className="flex items-center justify-between">
+                          <div className="text-xs text-muted-foreground">
+                            Created {task.createdAt ? format(new Date(task.createdAt), "MMM d") : "Unknown"}
+                          </div>
+                          
+                          <Link href={`/tasks/${task.id}`}>
+                            <Button size="sm" variant="outline">
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {/* List View */}
+            {viewMode === 'list' && (
+              <Card>
+                <CardContent className="p-0">
+                  <div className="divide-y">
+                    {filteredTasks.map((task) => (
+                      <div key={task.id} className="p-4 hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className="flex items-center gap-1">
+                                {getPriorityIcon(task.priority)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-medium text-sm truncate">
+                                  {task.title}
+                                </h3>
+                                {task.titleAr && (
+                                  <p className="text-xs text-muted-foreground truncate" dir="rtl">
+                                    {task.titleAr}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                <span>Due: {task.dueDate ? format(new Date(task.dueDate), "MMM d") : "Not set"}</span>
+                              </div>
+                              
+                              {task.project && (
+                                <div className="flex items-center gap-1">
+                                  <div className="h-3 w-3 bg-teal-600 rounded-sm" />
+                                  <span className="truncate max-w-32">{task.project.name}</span>
+                                </div>
+                              )}
+                              
+                              <span>Created {task.createdAt ? format(new Date(task.createdAt), "MMM d") : "Unknown"}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-3 ml-4">
+                            <div className="flex gap-2">
+                              <Badge className={`${getStatusColor(task.status)} text-xs px-2 py-1`} variant="secondary">
+                                {task.status}
+                              </Badge>
+                              <Badge className={`${getPriorityColor(task.priority)} text-xs px-2 py-1`} variant="secondary">
+                                {task.priority}
+                              </Badge>
+                            </div>
+                            
+                            <Link href={`/tasks/${task.id}`}>
+                              <Button size="sm" variant="ghost">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
+            )}
+          </>
         )}
 
         {/* Summary Stats */}
