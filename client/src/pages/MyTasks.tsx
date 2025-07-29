@@ -38,6 +38,7 @@ export default function MyTasks() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [regulationFilter, setRegulationFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
 
   // Get my tasks (assigned to current user)
@@ -60,8 +61,10 @@ export default function MyTasks() {
     
     const matchesStatus = statusFilter === "all" || task.status === statusFilter;
     const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
+    const matchesRegulation = regulationFilter === "all" || 
+      (task.project && task.project.regulationType === regulationFilter);
     
-    return matchesSearch && matchesStatus && matchesPriority;
+    return matchesSearch && matchesStatus && matchesPriority && matchesRegulation;
   });
 
   const getPriorityColor = (priority: string) => {
@@ -185,6 +188,18 @@ export default function MyTasks() {
                   <SelectItem value="high">High</SelectItem>
                   <SelectItem value="medium">Medium</SelectItem>
                   <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select value={regulationFilter} onValueChange={setRegulationFilter}>
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue placeholder="Regulation" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Regulations</SelectItem>
+                  <SelectItem value="ecc">ECC</SelectItem>
+                  <SelectItem value="pdpl">PDPL</SelectItem>
+                  <SelectItem value="ndmo">NDMO</SelectItem>
                 </SelectContent>
               </Select>
             </div>
