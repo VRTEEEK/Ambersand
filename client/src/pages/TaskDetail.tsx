@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, User, Flag, Clock, FileText, Upload, Download, MessageSquare, X } from "lucide-react";
+import { Calendar, User, Flag, Clock, FileText, Upload, Download, MessageSquare, X, Plus } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -28,6 +29,10 @@ export default function TaskDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [linkExistingDialogOpen, setLinkExistingDialogOpen] = useState(false);
+  const [selectedControlId, setSelectedControlId] = useState<number | null>(null);
+  const [selectedControlForView, setSelectedControlForView] = useState<number | null>(null);
+  const [showEvidenceForControl, setShowEvidenceForControl] = useState(false);
   const [uploadForm, setUploadForm] = useState({
     title: "",
     description: "",
@@ -73,6 +78,12 @@ export default function TaskDetail() {
   const { data: versions = [] } = useQuery<EvidenceVersion[]>({
     queryKey: ["/api/evidence/versions", taskId],
     enabled: !!taskId
+  });
+
+  // Get evidence linked to specific control
+  const { data: controlLinkedEvidence = [] } = useQuery<Evidence[]>({
+    queryKey: ["/api/evidence/control", selectedControlForView],
+    enabled: !!selectedControlForView
   });
 
   // Calculate derived data
@@ -457,115 +468,180 @@ export default function TaskDetail() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="evidence">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Evidence ({evidence.length})</CardTitle>
-              {canUploadEvidence && (
-                <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm">
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload Evidence
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Upload Evidence</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="title">Title *</Label>
-                        <Input
-                          id="title"
-                          value={uploadForm.title}
-                          onChange={(e) => setUploadForm(prev => ({ ...prev, title: e.target.value }))}
-                          placeholder="Evidence title"
-                        />
+        <TabsContent value="evidence" className="space-y-4">
+          {/* Evidence Upload Section */}
+          <div className="border rounded-lg p-4">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
+              Upload New Evidence
+            </h3>
+            
+            {/* Control Selection */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Select Control
+              </label>
+              <Select 
+                value={selectedControlId?.toString() || ''}
+                onValueChange={(value) => {
+                  const controlId = parseInt(value);
+                  setSelectedControlId(controlId);
+                  setSelectedControlForView(controlId);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a control to attach evidence..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {controls.map((control: any) => (
+                    <SelectItem key={control.id} value={control.eccControlId.toString()}>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{control.eccControl?.code}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {control.eccControl?.subdomainEn}
+                        </span>
                       </div>
-                      
-                      <div>
-                        <Label htmlFor="description">Description</Label>
-                        <Textarea
-                          id="description"
-                          value={uploadForm.description}
-                          onChange={(e) => setUploadForm(prev => ({ ...prev, description: e.target.value }))}
-                          placeholder="Evidence description"
-                        />
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="file">File *</Label>
-                        <Input
-                          id="file"
-                          type="file"
-                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.txt"
-                          onChange={(e) => setUploadForm(prev => ({ ...prev, file: e.target.files?.[0] || null }))}
-                        />
-                      </div>
-                      
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => setUploadDialogOpen(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          onClick={handleFileUpload}
-                          disabled={uploadMutation.isPending}
-                        >
-                          {uploadMutation.isPending ? "Uploading..." : "Upload"}
-                        </Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              )}
-            </CardHeader>
-            <CardContent>
-              {evidence.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground mb-4">No evidence uploaded yet</p>
-                  {canUploadEvidence && (
-                    <Button onClick={() => setUploadDialogOpen(true)}>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload First Evidence
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {evidence.map((item) => (
-                    <Card key={item.id} className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-medium">{item.title}</h4>
-                          {item.description && (
-                            <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
-                          )}
-                          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                            <span>Uploaded: {item.createdAt ? format(new Date(item.createdAt), "PPP") : "Unknown"}</span>
-                            {item.fileName && (
-                              <span>File: {item.fileName}</span>
-                            )}
-                          </div>
-                        </div>
-                        {item.fileName && (
-                          <Button size="sm" variant="outline" asChild>
-                            <a href={`/uploads/${item.fileName}`} download>
-                              <Download className="h-4 w-4 mr-2" />
-                              Download
-                            </a>
-                          </Button>
-                        )}
-                      </div>
-                    </Card>
+                    </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Control Information Display */}
+            {selectedControlId && controls.find((c: any) => c.eccControl.id === selectedControlId) && (
+              <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-start gap-3 mb-3">
+                  <Badge variant="secondary" className="mt-1">
+                    {controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.code}
+                  </Badge>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">
+                      {controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.subdomainEn}
+                    </h4>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                      {controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.controlEn}
+                    </p>
+                    
+                    {/* Required Evidence */}
+                    <div className="mb-3">
+                      <h5 className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                        Required Evidence:
+                      </h5>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        {controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.evidenceEn || 'Documentation, policies, procedures, and audit evidence'}
+                      </p>
+                    </div>
+
+                    {/* Evidence Link Status */}
+                    <div className="flex items-center gap-2">
+                      {controlLinkedEvidence && controlLinkedEvidence.length > 0 ? (
+                        <div 
+                          className="flex items-center gap-1 text-green-600 dark:text-green-400 cursor-pointer hover:text-green-700 dark:hover:text-green-300 transition-colors"
+                          onClick={() => setShowEvidenceForControl(!showEvidenceForControl)}
+                        >
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="text-xs font-medium underline">
+                            {controlLinkedEvidence.length} evidence linked - click to view
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                          <span className="text-xs">No evidence linked</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </div>
+            )}
+
+            {/* Evidence attachment section */}
+            {selectedControlId && (
+              <div className="space-y-3">
+                <h4 className="font-medium text-gray-900 dark:text-white">
+                  Attach Evidence to Selected Control
+                </h4>
+                
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setUploadDialogOpen(true)}
+                    disabled={!selectedControlId}
+                    size="sm"
+                    className="flex-1"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Upload New File
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    onClick={() => setLinkExistingDialogOpen(true)}
+                    disabled={!selectedControlId}
+                    size="sm"
+                    className="flex-1"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Link Existing File
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Upload Dialog */}
+          <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Upload Evidence</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="title">Title *</Label>
+                  <Input
+                    id="title"
+                    value={uploadForm.title}
+                    onChange={(e) => setUploadForm(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Evidence title"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={uploadForm.description}
+                    onChange={(e) => setUploadForm(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Evidence description"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="file">File *</Label>
+                  <Input
+                    id="file"
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.txt"
+                    onChange={(e) => setUploadForm(prev => ({ ...prev, file: e.target.files?.[0] || null }))}
+                  />
+                </div>
+                
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setUploadDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleFileUpload}
+                    disabled={uploadMutation.isPending}
+                  >
+                    {uploadMutation.isPending ? "Uploading..." : "Upload"}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
       </Tabs>
       </div>
