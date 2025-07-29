@@ -73,7 +73,7 @@ export interface IStorage {
   removeControlFromProject(projectId: number, controlId: number): Promise<void>;
   
   // Task operations
-  getTasks(projectId?: number, assigneeId?: string): Promise<Task[]>;
+  getTasks(projectId?: number, assigneeId?: string): Promise<(Task & { project?: Project })[]>;
   getTask(id: number): Promise<Task | undefined>;
   createTask(task: InsertTask): Promise<Task>;
   updateTask(id: number, task: Partial<InsertTask>): Promise<Task>;
@@ -316,16 +316,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Task operations
-  async getTasks(projectId?: number, assigneeId?: string): Promise<Task[]> {
+  async getTasks(projectId?: number, assigneeId?: string): Promise<(Task & { project?: Project })[]> {
     const conditions = [];
     if (projectId) conditions.push(eq(tasks.projectId, projectId));
     if (assigneeId) conditions.push(eq(tasks.assigneeId, assigneeId));
     
+    let query = db.select().from(tasks).leftJoin(projects, eq(tasks.projectId, projects.id));
+    
     if (conditions.length > 0) {
-      return await db.select().from(tasks).where(and(...conditions)).orderBy(desc(tasks.updatedAt));
+      query = query.where(and(...conditions));
     }
     
-    return await db.select().from(tasks).orderBy(desc(tasks.updatedAt));
+    const results = await query.orderBy(desc(tasks.updatedAt));
+    
+    // Transform the results to include project information
+    return results.map(result => ({
+      ...result.tasks,
+      project: result.projects || undefined
+    }));
   }
 
   async getTask(id: number): Promise<Task | undefined> {
