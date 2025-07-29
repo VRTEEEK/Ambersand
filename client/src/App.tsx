@@ -10,6 +10,7 @@ import Landing from "@/pages/Landing";
 import Regulations from "@/pages/Regulations";
 import Projects from "@/pages/Projects";
 import Tasks from "@/pages/Tasks";
+import MyTasks from "@/pages/MyTasks";
 import Evidence from "@/pages/Evidence";
 import ProjectDetail from "@/pages/ProjectDetail";
 import TaskDetail from "@/pages/TaskDetail";
@@ -33,6 +34,7 @@ function Router() {
           <Route path="/regulations" component={Regulations} />
           <Route path="/projects" component={Projects} />
           <Route path="/projects/:id" component={ProjectDetail} />
+          <Route path="/my-tasks" component={MyTasks} />
           <Route path="/tasks" component={Tasks} />
           <Route path="/tasks/:id" component={TaskDetail} />
           <Route path="/evidence" component={Evidence} />

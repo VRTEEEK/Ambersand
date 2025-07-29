@@ -7,6 +7,7 @@ interface TranslationStrings {
   'nav.dashboard': string;
   'nav.regulations': string;
   'nav.projects': string;
+  'nav.my-tasks': string;
   'nav.tasks': string;
   'nav.evidence': string;
   'nav.analytics': string;
@@ -83,6 +84,7 @@ const translations: Record<Language, TranslationStrings> = {
     'nav.dashboard': 'Dashboard',
     'nav.regulations': 'Regulation Library',
     'nav.projects': 'Projects',
+    'nav.my-tasks': 'My Tasks',
     'nav.tasks': 'Task Management',
     'nav.evidence': 'Evidence Repository',
     'nav.analytics': 'Analytics & Reports',
@@ -157,6 +159,7 @@ const translations: Record<Language, TranslationStrings> = {
     'nav.dashboard': 'لوحة القيادة',
     'nav.regulations': 'مكتبة اللوائح',
     'nav.projects': 'المشاريع',
+    'nav.my-tasks': 'مهامي',
     'nav.tasks': 'إدارة المهام',
     'nav.evidence': 'مستودع الأدلة',
     'nav.analytics': 'التحليلات والتقارير',

@@ -33,6 +33,7 @@ import {
   Users,
   Bell,
   LayoutDashboard,
+  CheckSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -74,6 +75,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
       href: '/projects',
       icon: FolderOpen,
       current: location === '/projects',
+    },
+    {
+      title: t('nav.my-tasks'),
+      href: '/my-tasks',
+      icon: CheckSquare,
+      current: location === '/my-tasks',
     },
     {
       title: t('nav.tasks'),
