@@ -6,6 +6,9 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Set APP_URL for email links
+process.env.APP_URL = process.env.APP_URL || `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;

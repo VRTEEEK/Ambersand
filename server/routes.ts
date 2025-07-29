@@ -13,6 +13,7 @@ import {
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { emailService } from "./emailService";
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -376,6 +377,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const task = await storage.createTask(taskData);
+      
+      // Send email notification if task is assigned to someone
+      if (task.assigneeId && task.assigneeId !== req.user.claims.sub) {
+        try {
+          const assignedUser = await storage.getUser(task.assigneeId);
+          const project = task.projectId ? await storage.getProject(task.projectId) : null;
+          
+          if (assignedUser && assignedUser.email) {
+            const dueDate = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'Not set';
+            const projectName = project?.name || 'Untitled Project';
+            const template = emailService.templates.taskAssignment(
+              assignedUser.firstName || assignedUser.name || 'User',
+              task.title,
+              dueDate,
+              projectName,
+              (assignedUser.language as 'en' | 'ar') || 'en'
+            );
+            
+            await emailService.sendEmail({
+              to: assignedUser.email,
+              subject: template.subject,
+              html: template.html,
+            });
+            
+            console.log(`Task assignment email sent to ${assignedUser.email}`);
+          }
+        } catch (emailError) {
+          console.error('Failed to send task assignment email:', emailError);
+          // Don't fail the task creation if email fails
+        }
+      }
+      
       res.status(201).json(task);
     } catch (error) {
       console.error("Error creating task:", error);
@@ -389,8 +422,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const taskData = insertTaskSchema.partial().parse(req.body);
       console.log('Parsed task data:', taskData);
+      
+      // Get the old task for status comparison
+      const oldTask = await storage.getTask(id);
       const task = await storage.updateTask(id, taskData);
       console.log('Task updated successfully:', task);
+      
+      // Send email notifications for status changes and new assignments
+      try {
+        // Check for status update
+        if (oldTask && taskData.status && oldTask.status !== taskData.status && task.assigneeId) {
+          const assignedUser = await storage.getUser(task.assigneeId);
+          if (assignedUser && assignedUser.email) {
+            const template = emailService.templates.statusUpdate(
+              assignedUser.firstName || assignedUser.name || 'User',
+              task.title,
+              oldTask.status,
+              taskData.status,
+              (assignedUser.language as 'en' | 'ar') || 'en'
+            );
+            
+            await emailService.sendEmail({
+              to: assignedUser.email,
+              subject: template.subject,
+              html: template.html,
+            });
+            
+            console.log(`Task status update email sent to ${assignedUser.email}`);
+          }
+        }
+        
+        // Check for new assignment
+        if (taskData.assigneeId && oldTask?.assigneeId !== taskData.assigneeId && taskData.assigneeId !== req.user.claims.sub) {
+          const assignedUser = await storage.getUser(taskData.assigneeId);
+          const project = task.projectId ? await storage.getProject(task.projectId) : null;
+          
+          if (assignedUser && assignedUser.email) {
+            const dueDate = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'Not set';
+            const projectName = project?.name || 'Untitled Project';
+            const template = emailService.templates.taskAssignment(
+              assignedUser.firstName || assignedUser.name || 'User',
+              task.title,
+              dueDate,
+              projectName,
+              (assignedUser.language as 'en' | 'ar') || 'en'
+            );
+            
+            await emailService.sendEmail({
+              to: assignedUser.email,
+              subject: template.subject,
+              html: template.html,
+            });
+            
+            console.log(`Task assignment email sent to ${assignedUser.email}`);
+          }
+        }
+      } catch (emailError) {
+        console.error('Failed to send task update email:', emailError);
+      }
+      
       res.json(task);
     } catch (error) {
       console.error("Error updating task:", error);
@@ -488,7 +578,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const projectId = req.query.projectId ? parseInt(req.query.projectId as string) : undefined;
       const taskId = req.query.taskId ? parseInt(req.query.taskId as string) : undefined;
       console.log('Evidence query - projectId:', projectId, 'taskId:', taskId);
-      const evidence = await storage.getEvidence(projectId, taskId);
+      const evidence = await storage.getEvidence(projectId);
       console.log('Evidence query result:', evidence.length, 'items found');
       res.json(evidence);
     } catch (error) {
@@ -898,6 +988,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting custom control:", error);
       res.status(500).json({ message: "Failed to delete custom control" });
+    }
+  });
+
+  // Email testing endpoint
+  app.post('/api/test-email', isAuthenticated, async (req: any, res) => {
+    try {
+      const { to, type } = req.body;
+      
+      if (!to) {
+        return res.status(400).json({ message: "Recipient email is required" });
+      }
+
+      let template;
+      switch (type) {
+        case 'task-assignment':
+          template = emailService.templates.taskAssignment(
+            'Test User',
+            'Sample Task Assignment',
+            '2025-08-01',
+            'Sample Project',
+            'en'
+          );
+          break;
+        case 'deadline-reminder':
+          template = emailService.templates.deadlineReminder(
+            'Test User',
+            'Sample Task with Deadline',
+            '2025-08-01',
+            'en'
+          );
+          break;
+        case 'status-update':
+          template = emailService.templates.statusUpdate(
+            'Test User',
+            'Sample Task Status Change',
+            'in-progress',
+            'completed',
+            'en'
+          );
+          break;
+        default:
+          return res.status(400).json({ message: "Invalid email type" });
+      }
+
+      await emailService.sendEmail({
+        to,
+        subject: template.subject,
+        html: template.html,
+      });
+
+      res.json({ message: "Test email sent successfully" });
+    } catch (error) {
+      console.error("Error sending test email:", error);
+      res.status(500).json({ message: "Failed to send test email", error: (error as Error)?.message || 'Unknown error' });
     }
   });
 

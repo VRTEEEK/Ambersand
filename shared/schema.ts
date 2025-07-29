@@ -32,7 +32,10 @@ export const users = pgTable("users", {
   email: varchar("email").unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
+  name: varchar("name"), // Full name for display
   profileImageUrl: varchar("profile_image_url"),
+  profilePicture: varchar("profile_picture"), // Alternative field name
+  language: varchar("language").default("en"), // For email localization
   role: varchar("role").notNull().default("viewer"), // admin, manager, viewer
   organizationId: varchar("organization_id"),
   createdAt: timestamp("created_at").defaultNow(),
