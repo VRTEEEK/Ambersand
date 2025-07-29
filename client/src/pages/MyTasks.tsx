@@ -263,65 +263,83 @@ export default function MyTasks() {
             {viewMode === 'cards' && (
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {filteredTasks.map((task) => (
-                  <Card key={task.id} className="hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-lg line-clamp-2 mb-2">
-                            {task.title}
-                          </CardTitle>
-                          {task.titleAr && (
-                            <p className="text-sm text-muted-foreground mb-2" dir="rtl">
-                              {task.titleAr}
-                            </p>
-                          )}
+                  <Card key={task.id} className="group hover:shadow-xl hover:shadow-teal-100/50 transition-all duration-300 border-0 shadow-lg overflow-hidden">
+                    {/* Priority Color Bar */}
+                    <div className={`h-1 w-full ${
+                      task.priority === 'urgent' ? 'bg-red-500' :
+                      task.priority === 'high' ? 'bg-orange-500' :
+                      task.priority === 'medium' ? 'bg-yellow-500' :
+                      'bg-green-500'
+                    }`} />
+                    
+                    <CardHeader className="pb-4 bg-gradient-to-br from-slate-50 to-white">
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <CardTitle className="text-lg font-semibold text-slate-900 line-clamp-2 mb-1 group-hover:text-teal-700 transition-colors">
+                              {task.title}
+                            </CardTitle>
+                            {task.titleAr && (
+                              <p className="text-sm text-slate-500 mb-2" dir="rtl">
+                                {task.titleAr}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1 ml-2">
-                          {getPriorityIcon(task.priority)}
+                        
+                        <div className="flex gap-2 flex-wrap">
+                          <Badge 
+                            className={`${getStatusColor(task.status)} border-0 font-medium`} 
+                            variant="secondary"
+                          >
+                            {task.status}
+                          </Badge>
+                          <Badge 
+                            className={`${getPriorityColor(task.priority)} border-0 font-medium`} 
+                            variant="secondary"
+                          >
+                            {task.priority}
+                          </Badge>
                         </div>
-                      </div>
-                      
-                      <div className="flex gap-2">
-                        <Badge className={getStatusColor(task.status)} variant="secondary">
-                          {task.status}
-                        </Badge>
-                        <Badge className={getPriorityColor(task.priority)} variant="secondary">
-                          {task.priority}
-                        </Badge>
                       </div>
                     </CardHeader>
                     
-                    <CardContent className="pt-0">
-                      <div className="space-y-3">
+                    <CardContent className="pt-0 pb-6">
+                      <div className="space-y-4">
                         {task.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-2">
+                          <p className="text-sm text-slate-600 line-clamp-2 leading-relaxed">
                             {task.description}
                           </p>
                         )}
                         
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <span>Due: {task.dueDate ? format(new Date(task.dueDate), "MMM d, yyyy") : "Not set"}</span>
+                        <div className="space-y-3 text-sm">
+                          <div className="flex items-center gap-2 text-slate-600">
+                            <Calendar className="h-4 w-4 text-teal-500" />
+                            <span className="font-medium">Due:</span>
+                            <span>{task.dueDate ? format(new Date(task.dueDate), "MMM d, yyyy") : "Not set"}</span>
                           </div>
                           
                           {task.project && (
-                            <div className="flex items-center gap-2">
-                              <div className="h-4 w-4 bg-teal-600 rounded-sm flex-shrink-0" />
+                            <div className="flex items-center gap-2 text-slate-600">
+                              <div className="h-4 w-4 bg-gradient-to-br from-teal-500 to-teal-600 rounded-sm flex-shrink-0" />
+                              <span className="font-medium">Project:</span>
                               <span className="truncate">{task.project.name}</span>
                             </div>
                           )}
                         </div>
                         
-                        <Separator />
+                        <Separator className="my-4" />
                         
                         <div className="flex items-center justify-between">
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-xs text-slate-400">
                             Created {task.createdAt ? format(new Date(task.createdAt), "MMM d") : "Unknown"}
                           </div>
                           
                           <Link href={`/tasks/${task.id}`}>
-                            <Button size="sm" variant="outline">
+                            <Button 
+                              size="sm" 
+                              className="bg-teal-600 hover:bg-teal-700 text-white border-0 shadow-md hover:shadow-lg transition-all duration-200"
+                            >
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </Button>
