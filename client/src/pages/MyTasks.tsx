@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { Separator } from "@/components/ui/separator";
+import { MetricsCard } from "@/components/dashboard/MetricsCard";
 import { 
   Calendar, 
   Clock, 
@@ -18,7 +19,11 @@ import {
   AlertCircle,
   Clock3,
   Grid,
-  List
+  List,
+  CheckCircle,
+  Play,
+  AlertTriangle,
+  Zap
 } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
@@ -148,6 +153,36 @@ export default function MyTasks() {
             </Button>
           </div>
         </div>
+
+        {/* Summary Stats */}
+        {myTasks.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <MetricsCard
+              title="Pending Tasks"
+              value={myTasks.filter(t => t.status === "pending").length}
+              icon={Clock}
+              iconColor="#f59e0b"
+            />
+            <MetricsCard
+              title="In Progress"
+              value={myTasks.filter(t => t.status === "in-progress").length}
+              icon={Play}
+              iconColor="#3b82f6"
+            />
+            <MetricsCard
+              title="Completed"
+              value={myTasks.filter(t => t.status === "completed").length}
+              icon={CheckCircle}
+              iconColor="#10b981"
+            />
+            <MetricsCard
+              title="Urgent Priority"
+              value={myTasks.filter(t => t.priority === "urgent").length}
+              icon={Zap}
+              iconColor="#ef4444"
+            />
+          </div>
+        )}
 
         {/* Filters */}
         <Card>
@@ -367,39 +402,7 @@ export default function MyTasks() {
           </>
         )}
 
-        {/* Summary Stats */}
-        {myTasks.length > 0 && (
-          <Card>
-            <CardContent className="p-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                <div>
-                  <div className="text-2xl font-bold text-blue-600">
-                    {myTasks.filter(t => t.status === "pending").length}
-                  </div>
-                  <div className="text-sm text-muted-foreground">Pending</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-orange-600">
-                    {myTasks.filter(t => t.status === "in-progress").length}
-                  </div>
-                  <div className="text-sm text-muted-foreground">In Progress</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-green-600">
-                    {myTasks.filter(t => t.status === "completed").length}
-                  </div>
-                  <div className="text-sm text-muted-foreground">Completed</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-red-600">
-                    {myTasks.filter(t => t.priority === "urgent").length}
-                  </div>
-                  <div className="text-sm text-muted-foreground">Urgent</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+
       </div>
     </AppLayout>
   );
