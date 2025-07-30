@@ -68,11 +68,6 @@ export default function Regulations() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedControlIds, setSelectedControlIds] = useState<number[]>([]);
   
-  // Debug: Log state changes
-  useEffect(() => {
-    console.log('🔄 selectedControlIds changed:', selectedControlIds.length, 'controls selected');
-  }, [selectedControlIds]);
-
   // Reset selected controls when switching frameworks
   useEffect(() => {
     if (selectedFramework !== 'ecc') {
@@ -240,59 +235,42 @@ export default function Regulations() {
   };
 
   const toggleDomainSelection = (domain: string) => {
-    console.log('🔘 Toggle domain selection for:', domain);
-    console.log('📋 Available controls:', controls?.length || 0);
+    if (!controls) return;
     
-    const domainControls = controls?.filter((control: any) => control.domainEn === domain) || [];
+    const domainControls = controls.filter((control: any) => control.domainEn === domain);
     const domainControlIds = domainControls.map((control: any) => control.id);
     
-    // Use the same logic as isDomainSelected
-    const selectedFromDomain = domainControlIds.filter(id => selectedControlIds.includes(id));
-    const allSelected = domainControlIds.length > 0 && selectedFromDomain.length === domainControlIds.length;
+    if (domainControlIds.length === 0) return;
     
-    console.log('🎯 Domain controls:', domainControlIds.length);
-    console.log('🆔 Domain control IDs:', domainControlIds.slice(0, 5), '...');
-    console.log('✅ Selected from domain:', selectedFromDomain.length, '/', domainControlIds.length);
-    console.log('🔍 All selected:', allSelected);
-    console.log('📝 Currently selected total:', selectedControlIds.length);
-    console.log('🔍 isDomainSelected result:', isDomainSelected(domain));
+    // Check if ALL controls in this domain are currently selected
+    const allDomainControlsSelected = domainControlIds.every(id => selectedControlIds.includes(id));
     
-    if (allSelected) {
-      // Deselect all domain controls
-      console.log('❌ Deselecting all domain controls');
-      setSelectedControlIds(prev => {
-        const filtered = prev.filter(id => !domainControlIds.includes(id));
-        console.log('🔄 After deselection:', filtered.length, 'total controls');
-        return filtered;
-      });
+    if (allDomainControlsSelected) {
+      // Remove all domain controls from selection
+      setSelectedControlIds(prev => prev.filter(id => !domainControlIds.includes(id)));
     } else {
-      // Select all domain controls (add missing ones)
-      console.log('✅ Selecting all domain controls');
+      // Add all missing domain controls to selection
       setSelectedControlIds(prev => {
-        const newIds = [...prev];
-        domainControlIds.forEach(id => {
-          if (!newIds.includes(id)) {
-            newIds.push(id);
-          }
-        });
-        console.log('🔄 After selection:', newIds.length, 'total controls');
-        return newIds;
+        const uniqueIds = new Set([...prev, ...domainControlIds]);
+        return Array.from(uniqueIds);
       });
     }
   };
 
   const isDomainSelected = (domain: string) => {
-    const domainControls = controls?.filter((control: any) => control.domainEn === domain) || [];
+    if (!controls) return false;
+    const domainControls = controls.filter((control: any) => control.domainEn === domain);
     const domainControlIds = domainControls.map((control: any) => control.id);
-    const selectedFromDomain = domainControlIds.filter(id => selectedControlIds.includes(id));
-    const result = domainControlIds.length > 0 && selectedFromDomain.length === domainControlIds.length;
-    return result;
+    return domainControlIds.length > 0 && domainControlIds.every(id => selectedControlIds.includes(id));
   };
 
   const isDomainPartiallySelected = (domain: string) => {
-    const domainControls = controls?.filter((control: any) => control.domainEn === domain) || [];
+    if (!controls) return false;
+    const domainControls = controls.filter((control: any) => control.domainEn === domain);
     const domainControlIds = domainControls.map((control: any) => control.id);
-    return domainControlIds.some((id: number) => selectedControlIds.includes(id)) && !isDomainSelected(domain);
+    const someSelected = domainControlIds.some(id => selectedControlIds.includes(id));
+    const allSelected = domainControlIds.every(id => selectedControlIds.includes(id));
+    return someSelected && !allSelected;
   };
 
   // Group controls by domain
