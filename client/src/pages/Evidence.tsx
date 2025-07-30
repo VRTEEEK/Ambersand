@@ -947,91 +947,48 @@ export default function Evidence() {
                         </Badge>
                       </div>
                       
-                      <div className="space-y-4">
-                        {/* All Versions - Current at top, then chronological order */}
-                        {(() => {
-                          // Combine current version with all previous versions
-                          const allVersions = [
-                            // Current version
-                            {
-                              id: selectedEvidence.id,
-                              version: selectedEvidence.version,
-                              fileName: selectedEvidence.fileName,
-                              fileSize: selectedEvidence.fileSize,
-                              fileType: selectedEvidence.fileType,
-                              filePath: selectedEvidence.filePath,
-                              createdAt: selectedEvidence.createdAt,
-                              isCurrent: true
-                            },
-                            // Previous versions
-                            ...(Array.isArray(evidenceVersions) ? evidenceVersions : []).map(v => ({
-                              ...v,
-                              isCurrent: false
-                            }))
-                          ];
-
-                          // Sort all versions by version number (descending) - current version will naturally be at top
-                          const sortedVersions = allVersions.sort((a, b) => {
-                            const aVersion = parseFloat(a.version);
-                            const bVersion = parseFloat(b.version);
-                            return bVersion - aVersion;
-                          });
-
-                          return sortedVersions.map((version, index) => (
-                            <Card key={`version-${version.id}-${version.isCurrent}`} className="p-6 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow duration-200">
+                      <div className="space-y-6">
+                        {/* Current Version Section */}
+                        {selectedEvidence && (
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="w-5 h-5 bg-teal-500 rounded-full flex items-center justify-center">
+                                <Shield className="h-3 w-3 text-white" />
+                              </div>
+                              <h4 className="font-semibold text-gray-900 dark:text-white">
+                                {language === 'ar' ? 'الإصدار الحالي' : 'Current Version'}
+                              </h4>
+                            </div>
+                            
+                            <Card className="p-6 border-2 border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-950 shadow-sm">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-4">
-                                  <div className={`w-12 h-12 bg-gradient-to-br rounded-xl flex items-center justify-center shadow-sm ${
-                                    version.isCurrent 
-                                      ? 'from-teal-50 to-teal-100' 
-                                      : 'from-gray-50 to-gray-100'
-                                  }`}>
-                                    {getFileIcon(version.fileType)}
+                                  <div className="w-12 h-12 bg-gradient-to-br from-teal-100 to-teal-200 dark:from-teal-800 dark:to-teal-900 rounded-xl flex items-center justify-center shadow-sm">
+                                    {getFileIcon(selectedEvidence.fileType)}
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <h4 className="font-semibold text-gray-900 dark:text-white mb-1">{version.fileName}</h4>
-                                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                                    <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
+                                      {selectedEvidence.fileName}
+                                    </h4>
+                                    <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
                                       <span className="flex items-center gap-1">
-                                        <span className={`w-2 h-2 rounded-full ${
-                                          version.isCurrent ? 'bg-teal-500' : 'bg-gray-400'
-                                        }`}></span>
-                                        v{version.version}
+                                        <span className="w-2 h-2 rounded-full bg-teal-500"></span>
+                                        v{selectedEvidence.version}
                                       </span>
-                                      <span>{formatFileSize(version.fileSize)}</span>
-                                      <span>{formatDate(version.createdAt)}</span>
+                                      <span>{formatFileSize(selectedEvidence.fileSize)}</span>
+                                      <span>{formatDate(selectedEvidence.createdAt)}</span>
                                     </div>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                  <Badge 
-                                    variant={version.isCurrent ? "secondary" : "outline"} 
-                                    className={version.isCurrent 
-                                      ? "bg-teal-100 text-teal-700 border-teal-200" 
-                                      : "bg-gray-100 text-gray-600 border-gray-300"
-                                    }
-                                  >
-                                    {version.isCurrent 
-                                      ? (language === 'ar' ? 'الحالي' : 'Current')
-                                      : (language === 'ar' ? 'سابق' : 'Previous')
-                                    }
+                                  <Badge className="bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-900 dark:text-teal-300 dark:border-teal-700">
+                                    {language === 'ar' ? 'الحالي' : 'Current'}
                                   </Badge>
                                   <Button 
                                     size="sm" 
                                     variant="outline" 
-                                    onClick={() => {
-                                      if (version.isCurrent) {
-                                        handleDownload(selectedEvidence);
-                                      } else {
-                                        // Download specific version
-                                        const link = document.createElement('a');
-                                        link.href = `/uploads/${version.filePath.split('/').pop()}`;
-                                        link.download = version.fileName;
-                                        document.body.appendChild(link);
-                                        link.click();
-                                        document.body.removeChild(link);
-                                      }
-                                    }}
-                                    className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                    onClick={() => handleDownload(selectedEvidence)}
+                                    className="hover:bg-teal-100 dark:hover:bg-teal-900 transition-colors border-teal-200 dark:border-teal-700"
                                   >
                                     <Download className="h-3 w-3 mr-1" />
                                     {language === 'ar' ? 'تحميل' : 'Download'}
@@ -1039,8 +996,93 @@ export default function Evidence() {
                                 </div>
                               </div>
                             </Card>
-                          ));
-                        })()}
+                          </div>
+                        )}
+
+                        {/* Previous Versions Section */}
+                        {Array.isArray(evidenceVersions) && evidenceVersions.length > 0 ? (
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-2 mb-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                              <div className="w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
+                                <Clock className="h-3 w-3 text-white" />
+                              </div>
+                              <h4 className="font-semibold text-gray-900 dark:text-white">
+                                {language === 'ar' ? 'الإصدارات السابقة' : 'Previous Versions'}
+                              </h4>
+                              <Badge variant="outline" className="ml-auto bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                                {evidenceVersions.length} {language === 'ar' ? 'إصدار' : 'Versions'}
+                              </Badge>
+                            </div>
+                            
+                            {(() => {
+                              // Sort versions by version number (highest first, excluding current)
+                              const sortedVersions = evidenceVersions.sort((a, b) => {
+                                const aVersion = parseFloat(a.version);
+                                const bVersion = parseFloat(b.version);
+                                return bVersion - aVersion;
+                              });
+
+                              return sortedVersions.map((version) => (
+                                <Card key={version.id} className="p-6 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow duration-200">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                      <div className="w-12 h-12 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl flex items-center justify-center shadow-sm">
+                                        {getFileIcon(version.fileType)}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <h4 className="font-semibold text-gray-900 dark:text-white mb-1">{version.fileName}</h4>
+                                        <div className="flex items-center gap-4 text-sm text-gray-500">
+                                          <span className="flex items-center gap-1">
+                                            <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                                            v{version.version}
+                                          </span>
+                                          <span>{formatFileSize(version.fileSize)}</span>
+                                          <span>{formatDate(version.createdAt)}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      <Badge variant="outline" className="bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600">
+                                        {language === 'ar' ? 'سابق' : 'Previous'}
+                                      </Badge>
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        onClick={() => {
+                                          // Download specific version
+                                          const link = document.createElement('a');
+                                          link.href = `/uploads/${version.filePath.split('/').pop()}`;
+                                          link.download = version.fileName;
+                                          document.body.appendChild(link);
+                                          link.click();
+                                          document.body.removeChild(link);
+                                        }}
+                                        className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                      >
+                                        <Download className="h-3 w-3 mr-1" />
+                                        {language === 'ar' ? 'تحميل' : 'Download'}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </Card>
+                              ));
+                            })()}
+                          </div>
+                        ) : (
+                          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                            <div className="text-center py-8 text-gray-500">
+                              <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <Clock className="h-6 w-6 text-gray-400" />
+                              </div>
+                              <p className="text-sm text-gray-400 font-medium">
+                                {language === 'ar' ? 'لا توجد إصدارات سابقة' : 'No previous versions'}
+                              </p>
+                              <p className="text-xs text-gray-400 mt-1">
+                                {language === 'ar' ? 'هذا هو الإصدار الأول من هذا الدليل' : 'This is the first version of this evidence'}
+                              </p>
+                            </div>
+                          </div>
+                        )}
                         
                         {(!Array.isArray(evidenceVersions) || evidenceVersions.length === 0) && (
                           <div className="text-center py-6 text-gray-500 mt-4">
