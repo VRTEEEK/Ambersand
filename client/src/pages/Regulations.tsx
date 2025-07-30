@@ -242,12 +242,12 @@ export default function Regulations() {
     
     if (domainControlIds.length === 0) return;
     
-    // Check if ALL controls in this domain are currently selected
-    const allDomainControlsSelected = domainControlIds.every(id => selectedControlIds.includes(id));
-    
-    console.log(`Toggling ${domain}: ${domainControlIds.length} controls, all selected: ${allDomainControlsSelected}`);
-    
     setSelectedControlIds(prev => {
+      // Check if ALL controls in this domain are currently selected using the current state
+      const allDomainControlsSelected = domainControlIds.every(id => prev.includes(id));
+      
+      console.log(`Toggling ${domain}: ${domainControlIds.length} controls, current state has ${prev.length}, all selected: ${allDomainControlsSelected}`);
+      
       let newSelection;
       if (allDomainControlsSelected) {
         // Remove all domain controls from selection
