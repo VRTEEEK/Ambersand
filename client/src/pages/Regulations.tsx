@@ -245,16 +245,22 @@ export default function Regulations() {
     // Check if ALL controls in this domain are currently selected
     const allDomainControlsSelected = domainControlIds.every(id => selectedControlIds.includes(id));
     
-    if (allDomainControlsSelected) {
-      // Remove all domain controls from selection
-      setSelectedControlIds(prev => prev.filter(id => !domainControlIds.includes(id)));
-    } else {
-      // Add all missing domain controls to selection
-      setSelectedControlIds(prev => {
+    console.log(`Toggling ${domain}: ${domainControlIds.length} controls, all selected: ${allDomainControlsSelected}`);
+    
+    setSelectedControlIds(prev => {
+      let newSelection;
+      if (allDomainControlsSelected) {
+        // Remove all domain controls from selection
+        newSelection = prev.filter(id => !domainControlIds.includes(id));
+        console.log(`DESELECTED ${domain}: ${prev.length} -> ${newSelection.length}`);
+      } else {
+        // Add all missing domain controls to selection
         const uniqueIds = new Set([...prev, ...domainControlIds]);
-        return Array.from(uniqueIds);
-      });
-    }
+        newSelection = Array.from(uniqueIds);
+        console.log(`SELECTED ${domain}: ${prev.length} -> ${newSelection.length}`);
+      }
+      return newSelection;
+    });
   };
 
   const isDomainSelected = (domain: string) => {
