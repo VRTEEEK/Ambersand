@@ -189,46 +189,48 @@ const SortableTaskCard = memo(function SortableTaskCard({ task, language, onTask
       style={style}
       {...attributes}
       onClick={handleClick}
-      className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-all cursor-pointer"
+      className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-all cursor-pointer space-y-3"
     >
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-2">
+      {/* Header with drag handle and priority */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-2 flex-1 min-w-0">
           <button 
             {...listeners}
             type="button"
-            className="drag-handle cursor-grab active:cursor-grabbing p-1 -m-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 touch-none"
+            className="drag-handle cursor-grab active:cursor-grabbing p-1 -m-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 touch-none flex-shrink-0 mt-0.5"
             style={{ touchAction: 'none' }}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >
-            <GripVertical className="h-4 w-4 text-gray-400" />
+            <GripVertical className="h-3 w-3 text-gray-400" />
           </button>
-          <h3 className="font-medium text-gray-900 dark:text-white text-sm">
+          <h3 className="font-medium text-gray-900 dark:text-white text-sm leading-5 break-words">
             {language === 'ar' && task.titleAr ? task.titleAr : task.title}
           </h3>
         </div>
         <Badge 
-          className={getPriorityColor(task.priority)}
+          className={`${getPriorityColor(task.priority)} text-xs px-2 py-1 flex-shrink-0`}
           style={{ backgroundColor: task.priority === 'urgent' ? '#eab308' : undefined }}
         >
           {task.priority === 'low' ? (language === 'ar' ? 'منخفضة' : 'Low') :
-           task.priority === 'medium' ? (language === 'ar' ? 'متوسطة' : 'Medium') :
+           task.priority === 'medium' ? (language === 'ar' ? 'متوسطة' : 'Med') :
            task.priority === 'high' ? (language === 'ar' ? 'عالية' : 'High') :
            (language === 'ar' ? 'عاجلة' : 'Urgent')}
         </Badge>
       </div>
       
+      {/* Description */}
       {task.description && (
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
+        <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 leading-4">
           {language === 'ar' && task.descriptionAr ? task.descriptionAr : task.description}
         </p>
       )}
       
-      <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-        {/* Project name */}
-        <div className="flex items-center gap-1">
-          <FolderOpen className="h-3 w-3" />
-          <span className="truncate max-w-32">
+      {/* Project Info */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-1.5">
+          <FolderOpen className="h-3 w-3 text-gray-400 flex-shrink-0" />
+          <span className="text-xs text-gray-600 dark:text-gray-400 break-words leading-4">
             {(() => {
               const project = projects?.find((p: any) => p.id === task.projectId);
               if (project) {
@@ -238,44 +240,52 @@ const SortableTaskCard = memo(function SortableTaskCard({ task, language, onTask
             })()}
           </span>
         </div>
-        {task.assigneeId && (
-          <div className="flex items-center gap-1">
-            {(() => {
-              const user = users.find(u => u.id === task.assigneeId);
-              if (user) {
+        
+        {/* Assignee and Due Date Row */}
+        <div className="flex items-center justify-between gap-2">
+          {/* Assignee */}
+          {task.assigneeId && (
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              {(() => {
+                const user = users.find(u => u.id === task.assigneeId);
+                if (user) {
+                  return (
+                    <>
+                      <UserAvatar user={user} size="sm" className="w-4 h-4 flex-shrink-0" />
+                      <span className="text-xs text-gray-600 dark:text-gray-400 break-words">
+                        {user.firstName && user.lastName 
+                          ? `${user.firstName} ${user.lastName}`
+                          : user.email}
+                      </span>
+                    </>
+                  );
+                }
                 return (
                   <>
-                    <UserAvatar user={user} size="sm" className="w-4 h-4" />
-                    <span className="truncate max-w-24">
-                      {user.firstName && user.lastName 
-                        ? `${user.firstName} ${user.lastName}`
-                        : user.email}
-                    </span>
+                    <Users className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                    <span className="text-xs text-gray-600 dark:text-gray-400">{task.assigneeId}</span>
                   </>
                 );
-              }
-              return (
-                <>
-                  <Users className="h-3 w-3" />
-                  <span className="truncate max-w-24">{task.assigneeId}</span>
-                </>
-              );
-            })()}
-          </div>
-        )}
-        {task.dueDate && (
-          <div className="flex items-center gap-1">
-            <Calendar className="h-3 w-3" />
-            <span>{new Date(task.dueDate).toLocaleDateString()}</span>
-          </div>
-        )}
+              })()}
+            </div>
+          )}
+          
+          {/* Due Date */}
+          {task.dueDate && (
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <Calendar className="h-3 w-3 text-gray-400" />
+              <span className="text-xs text-gray-500">{new Date(task.dueDate).toLocaleDateString()}</span>
+            </div>
+          )}
+        </div>
       </div>
       
-      <div className="flex items-center justify-between">
-        <div className="text-xs text-gray-400">
-          ID: {task.id}
+      {/* Footer with ID and update time */}
+      <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700">
+        <div className="text-xs text-gray-400 font-mono">
+          #{task.id}
         </div>
-        <div className="flex items-center gap-1 text-xs text-gray-500">
+        <div className="flex items-center gap-1 text-xs text-gray-400">
           <Clock className="h-3 w-3" />
           <span>{new Date(task.updatedAt).toLocaleDateString()}</span>
         </div>
