@@ -745,12 +745,7 @@ export default function Regulations() {
                             </CardTitle>
                           </CardHeader>
                           <CardContent className="relative z-10">
-                            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                              {language === 'ar' 
-                                ? 'انقر لعرض الضوابط في هذا المجال'
-                                : 'Click to view controls in this domain'
-                              }
-                            </p>
+                            
                             <div className="mt-4 h-1 bg-gradient-to-r from-teal-500/30 to-transparent rounded-full"></div>
                           </CardContent>
                         </Card>
