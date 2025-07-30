@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TaskSearchInput } from '@/components/ui/TaskSearchInput';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { 
@@ -35,7 +36,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { 
-  Search, 
   Calendar, 
   MoreHorizontal,
   Trash2,
@@ -541,14 +541,11 @@ export default function Projects() {
         <Card className="glass-card">
           <CardContent className="p-6">
             <div className="flex flex-col lg:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
-                <Input
-                  type="search"
-                  placeholder={t('actions.search')}
+              <div className="flex-1">
+                <TaskSearchInput
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  onChange={setSearchTerm}
+                  placeholder={language === 'ar' ? 'البحث في المشاريع...' : 'Search projects...'}
                 />
               </div>
               
