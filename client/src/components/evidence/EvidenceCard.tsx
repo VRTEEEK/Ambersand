@@ -35,7 +35,16 @@ interface EvidenceCardProps {
   getProjectName: (projectId: number) => string;
   getTaskName: (taskId: number) => string;
   getRegulationType: (evidence: any) => string;
-  getControlInfo?: (controlId: number) => { code: string; codeAr: string; controlEn: string; controlAr: string; } | null;
+  getControlInfo?: (controlId: number) => { 
+    code: string; 
+    codeAr: string; 
+    controlEn: string; 
+    controlAr: string;
+    domainEn: string;
+    domainAr: string;
+    subdomainEn: string;
+    subdomainAr: string;
+  } | null;
   language: string;
 }
 
@@ -121,10 +130,55 @@ export function EvidenceCard({
                   {language === 'ar' ? 'الضابط:' : 'Control:'}
                 </div>
                 {controlInfo ? (
-                  <Badge variant="outline" className="text-xs bg-teal-50 text-teal-700 border-teal-200 w-full justify-start">
-                    <Shield className="h-3 w-3 mr-1" />
-                    <span className="truncate">{language === 'ar' ? controlInfo.codeAr : controlInfo.code}</span>
-                  </Badge>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <Badge variant="outline" className="text-xs bg-teal-50 text-teal-700 border-teal-200 w-full justify-start cursor-help">
+                          <Shield className="h-3 w-3 mr-1" />
+                          <span className="truncate">{language === 'ar' ? controlInfo.codeAr : controlInfo.code}</span>
+                        </Badge>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-md p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 pb-2 border-b border-gray-100 dark:border-gray-800">
+                          <Shield className="h-4 w-4 text-teal-600" />
+                          <span className="font-semibold text-sm text-gray-900 dark:text-white">
+                            {language === 'ar' ? controlInfo.codeAr : controlInfo.code}
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div>
+                            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                              {language === 'ar' ? 'النطاق:' : 'Domain:'}
+                            </span>
+                            <p className="text-xs text-gray-800 dark:text-gray-200 mt-1">
+                              {language === 'ar' ? controlInfo.domainAr : controlInfo.domainEn}
+                            </p>
+                          </div>
+                          
+                          <div>
+                            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                              {language === 'ar' ? 'النطاق الفرعي:' : 'Subdomain:'}
+                            </span>
+                            <p className="text-xs text-gray-800 dark:text-gray-200 mt-1">
+                              {language === 'ar' ? controlInfo.subdomainAr : controlInfo.subdomainEn}
+                            </p>
+                          </div>
+                          
+                          <div>
+                            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                              {language === 'ar' ? 'وصف الضابط:' : 'Control Description:'}
+                            </span>
+                            <p className="text-xs text-gray-800 dark:text-gray-200 mt-1 leading-relaxed">
+                              {language === 'ar' ? controlInfo.controlAr : controlInfo.controlEn}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
                 ) : (
                   <div className="text-xs text-gray-400">
                     {language === 'ar' ? 'غير محدد' : 'Not set'}
