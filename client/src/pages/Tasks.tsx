@@ -298,39 +298,39 @@ const SortableTaskCard = memo(function SortableTaskCard({ task, language, onTask
             </span>
           </div>
           <div className="flex flex-wrap gap-1">
-            {taskControls.slice(0, 3).map((control: any) => (
-              <TooltipProvider key={control.eccControlId}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge 
-                      variant="outline" 
-                      className="text-xs px-1.5 py-0.5 bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-100 cursor-help"
-                    >
-                      {control.eccControl?.code || control.eccControlId}
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-xs p-3">
-                    <div className="space-y-2">
-                      <div className="font-semibold text-sm">
-                        {control.eccControl?.code} - {language === 'ar' ? control.eccControl?.domainAr : control.eccControl?.domainEn}
-                      </div>
-                      <div className="text-xs text-gray-600">
-                        <strong>{language === 'ar' ? 'النطاق الفرعي: ' : 'Subdomain: '}</strong>
-                        {language === 'ar' ? control.eccControl?.subdomainAr : control.eccControl?.subdomainEn}
-                      </div>
-                      <div className="text-xs">
-                        {language === 'ar' ? control.eccControl?.controlAr : control.eccControl?.controlEn}
-                      </div>
-                      {control.eccControl?.evidenceAr && (
-                        <div className="text-xs text-teal-600 mt-2">
-                          <strong>{language === 'ar' ? 'الأدلة المطلوبة: ' : 'Required Evidence: '}</strong>
-                          {language === 'ar' ? control.eccControl.evidenceAr : control.eccControl.evidenceEn}
+            {taskControls.slice(0, 3).map((control: any, index: number) => (
+                <TooltipProvider key={`${control.eccControlId}-${index}`}>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Badge 
+                        variant="outline" 
+                        className="text-xs px-1.5 py-0.5 bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-100 cursor-help"
+                      >
+                        {control.eccControl?.code || control.eccControlId}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs p-3 bg-white border shadow-lg z-50">
+                      <div className="space-y-2">
+                        <div className="font-semibold text-sm text-gray-900">
+                          {control.eccControl?.code || 'N/A'} - {language === 'ar' ? (control.eccControl?.domainAr || 'Domain not available') : (control.eccControl?.domainEn || 'Domain not available')}
                         </div>
-                      )}
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+                        <div className="text-xs text-gray-600">
+                          <strong>{language === 'ar' ? 'النطاق الفرعي: ' : 'Subdomain: '}</strong>
+                          {language === 'ar' ? (control.eccControl?.subdomainAr || 'N/A') : (control.eccControl?.subdomainEn || 'N/A')}
+                        </div>
+                        <div className="text-xs text-gray-700">
+                          {language === 'ar' ? (control.eccControl?.controlAr || 'Control description not available') : (control.eccControl?.controlEn || 'Control description not available')}
+                        </div>
+                        {(control.eccControl?.evidenceAr || control.eccControl?.evidenceEn) && (
+                          <div className="text-xs text-teal-600 mt-2">
+                            <strong>{language === 'ar' ? 'الأدلة المطلوبة: ' : 'Required Evidence: '}</strong>
+                            {language === 'ar' ? (control.eccControl?.evidenceAr || control.eccControl?.evidenceEn) : (control.eccControl?.evidenceEn || control.eccControl?.evidenceAr)}
+                          </div>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
             ))}
             {taskControls.length > 3 && (
               <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
