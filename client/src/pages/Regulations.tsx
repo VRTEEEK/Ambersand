@@ -74,12 +74,12 @@ export default function Regulations() {
   const { data: controls, isLoading } = useQuery({
     queryKey: ['/api/ecc-controls', { search: searchTerm }],
     queryFn: async ({ queryKey }) => {
-      const [url, params] = queryKey;
+      const [url, params] = queryKey as [string, { search?: string }];
       const searchParams = new URLSearchParams();
       if (params?.search) {
         searchParams.append('search', params.search);
       }
-      const response = await fetch(`${url}?${searchParams}`);
+      const response = await fetch(`${url}?${searchParams.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch controls');
       return response.json();
     },
@@ -228,16 +228,33 @@ export default function Regulations() {
   };
 
   const toggleDomainSelection = (domain: string) => {
+    console.log('🔘 Toggle domain selection for:', domain);
+    console.log('📋 Available controls:', controls?.length || 0);
+    
     const domainControls = controls?.filter((control: any) => control.domainEn === domain) || [];
     const domainControlIds = domainControls.map((control: any) => control.id);
     const allSelected = domainControlIds.every((id: number) => selectedControlIds.includes(id));
     
+    console.log('🎯 Domain controls:', domainControlIds.length);
+    console.log('✅ All selected:', allSelected);
+    console.log('📝 Currently selected:', selectedControlIds);
+    
     if (allSelected) {
       // Deselect all domain controls
+      console.log('❌ Deselecting all domain controls');
       setSelectedControlIds(prev => prev.filter(id => !domainControlIds.includes(id)));
     } else {
       // Select all domain controls
-      setSelectedControlIds(prev => [...new Set([...prev, ...domainControlIds])]);
+      console.log('✅ Selecting all domain controls');
+      setSelectedControlIds(prev => {
+        const newIds = [...prev];
+        domainControlIds.forEach(id => {
+          if (!newIds.includes(id)) {
+            newIds.push(id);
+          }
+        });
+        return newIds;
+      });
     }
   };
 
@@ -604,7 +621,7 @@ export default function Regulations() {
         </div>
 
         {/* Custom Regulations Section */}
-        {customRegulations && customRegulations.length > 0 && (
+        {customRegulations && Array.isArray(customRegulations) && customRegulations.length > 0 && (
           <Card className="glass-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -614,7 +631,7 @@ export default function Regulations() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {customRegulations.map((regulation: any) => (
+                {Array.isArray(customRegulations) && customRegulations.map((regulation: any) => (
                   <Card key={regulation.id} className="border border-slate-200 hover:shadow-md transition-shadow">
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
@@ -1086,7 +1103,7 @@ export default function Regulations() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {users?.map((user: any) => (
+                                {Array.isArray(users) && users.map((user: any) => (
                                   <SelectItem key={user.id} value={user.id}>
                                     <div className="flex items-center gap-2">
                                       <span className="font-medium">
