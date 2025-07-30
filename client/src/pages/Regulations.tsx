@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -76,7 +76,7 @@ export default function Regulations() {
     queryFn: async ({ queryKey }) => {
       const [url, params] = queryKey;
       const searchParams = new URLSearchParams();
-      if (params?.search) {
+      if (params?.search && typeof params.search === 'string') {
         searchParams.append('search', params.search);
       }
       const response = await fetch(`${url}?${searchParams}`);
@@ -237,7 +237,15 @@ export default function Regulations() {
       setSelectedControlIds(prev => prev.filter(id => !domainControlIds.includes(id)));
     } else {
       // Select all domain controls
-      setSelectedControlIds(prev => [...new Set([...prev, ...domainControlIds])]);
+      setSelectedControlIds(prev => {
+        const newIds = [...prev];
+        domainControlIds.forEach((id: number) => {
+          if (!newIds.includes(id)) {
+            newIds.push(id);
+          }
+        });
+        return newIds;
+      });
     }
   };
 
@@ -604,7 +612,7 @@ export default function Regulations() {
         </div>
 
         {/* Custom Regulations Section */}
-        {customRegulations && customRegulations.length > 0 && (
+        {Array.isArray(customRegulations) && customRegulations.length > 0 && (
           <Card className="glass-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -614,7 +622,7 @@ export default function Regulations() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {customRegulations.map((regulation: any) => (
+                {Array.isArray(customRegulations) && customRegulations.map((regulation: any) => (
                   <Card key={regulation.id} className="border border-slate-200 hover:shadow-md transition-shadow">
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
@@ -713,16 +721,16 @@ export default function Regulations() {
                                 <div className="relative">
                                   <Checkbox
                                     checked={isSelected}
-                                    ref={(ref) => {
-                                      if (ref && isPartiallySelected) {
-                                        ref.indeterminate = true;
-                                      }
-                                    }}
                                     onCheckedChange={() => toggleDomainSelection(category.en)}
-                                    className="flex-shrink-0 scale-110"
+                                    className={`flex-shrink-0 scale-110 ${isPartiallySelected ? 'data-[state=unchecked]:bg-blue-100 data-[state=unchecked]:border-blue-400' : ''}`}
                                   />
                                   {isSelected && (
                                     <div className="absolute -inset-1 bg-teal-500/20 rounded-full animate-pulse"></div>
+                                  )}
+                                  {isPartiallySelected && !isSelected && (
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                      <div className="w-2 h-2 bg-blue-500 rounded-sm"></div>
+                                    </div>
                                   )}
                                 </div>
                                 <span
@@ -1086,7 +1094,7 @@ export default function Regulations() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {users?.map((user: any) => (
+                                {Array.isArray(users) && users.map((user: any) => (
                                   <SelectItem key={user.id} value={user.id}>
                                     <div className="flex items-center gap-2">
                                       <span className="font-medium">
