@@ -29,6 +29,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { EvidenceCard } from '@/components/evidence/EvidenceCard';
 import { EvidenceListRow } from '@/components/evidence/EvidenceListRow';
+import { FilePreview } from '@/components/evidence/FilePreview';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { 
   Upload, 
@@ -846,16 +847,52 @@ export default function Evidence() {
                         )}
                       </div>
 
-                    {/* Download Button - now part of scrollable content */}
-                    <div className="mt-8 flex justify-center">
-                      <Button 
-                        onClick={() => handleDownload(selectedEvidence)} 
-                        className="w-64 h-11 bg-teal-600 hover:bg-teal-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        {language === 'ar' ? 'تحميل الملف' : 'Download File'}
-                      </Button>
-                    </div>
+                    {/* File Preview Section */}
+                    {selectedEvidence.fileName && selectedEvidence.fileType && (
+                      <div className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            {language === 'ar' ? 'معاينة الملف' : 'File Preview'}
+                          </h4>
+                          <div className="flex items-center gap-2">
+                            <FilePreview
+                              fileName={selectedEvidence.fileName}
+                              fileType={selectedEvidence.fileType}
+                              filePath={selectedEvidence.filePath}
+                              fileSize={selectedEvidence.fileSize}
+                              onDownload={() => handleDownload(selectedEvidence)}
+                              language={language}
+                              trigger={
+                                <Button size="sm" variant="outline">
+                                  <Eye className="h-3 w-3 mr-1" />
+                                  {language === 'ar' ? 'معاينة في نافذة منفصلة' : 'Preview in Modal'}
+                                </Button>
+                              }
+                            />
+                            <Button 
+                              onClick={() => handleDownload(selectedEvidence)} 
+                              size="sm"
+                              className="bg-teal-600 hover:bg-teal-700 text-white"
+                            >
+                              <Download className="h-3 w-3 mr-1" />
+                              {language === 'ar' ? 'تحميل' : 'Download'}
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        {/* Inline Preview */}
+                        <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                          <FilePreview
+                            fileName={selectedEvidence.fileName}
+                            fileType={selectedEvidence.fileType}
+                            filePath={selectedEvidence.filePath}
+                            fileSize={selectedEvidence.fileSize}
+                            language={language}
+                            showInline={true}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
 
