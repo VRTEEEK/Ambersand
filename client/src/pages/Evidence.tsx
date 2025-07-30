@@ -133,22 +133,22 @@ export default function Evidence() {
 
   // Helper functions
   const getProjectName = (projectId: number) => {
-    const project = projects?.find((p: any) => p.id === projectId);
+    const project = Array.isArray(projects) ? projects.find((p: any) => p.id === projectId) : null;
     return project ? (language === 'ar' && project.nameAr ? project.nameAr : project.name) : 'Unknown Project';
   };
 
   const getTaskName = (taskId: number) => {
-    const task = tasks?.find((t: any) => t.id === taskId);
+    const task = Array.isArray(tasks) ? tasks.find((t: any) => t.id === taskId) : null;
     return task ? (language === 'ar' && task.titleAr ? task.titleAr : task.title) : 'Unknown Task';
   };
 
   const getRegulationType = (item: any) => {
     if (item.eccControlId) {
-      const control = eccControls?.find((c: any) => c.id === item.eccControlId);
+      const control = Array.isArray(eccControls) ? eccControls.find((c: any) => c.id === item.eccControlId) : null;
       return control ? 'ECC' : 'Unknown';
     }
     if (item.projectId) {
-      const project = projects?.find((p: any) => p.id === item.projectId);
+      const project = Array.isArray(projects) ? projects.find((p: any) => p.id === item.projectId) : null;
       return project?.regulationType?.toUpperCase() || 'ECC';
     }
     return 'General';
@@ -295,7 +295,7 @@ export default function Evidence() {
   };
 
   const getControlInfo = (controlId: number) => {
-    const control = eccControls?.find((c: any) => c.id === controlId);
+    const control = Array.isArray(eccControls) ? eccControls.find((c: any) => c.id === controlId) : null;
     if (!control) return null;
     return {
       code: control.code,
@@ -398,7 +398,7 @@ export default function Evidence() {
   };
 
   const filteredAndSortedEvidence = (() => {
-    let filtered = evidence?.filter((item: any) => {
+    let filtered = Array.isArray(evidence) ? evidence.filter((item: any) => {
       const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            item.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            item.fileName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -414,7 +414,7 @@ export default function Evidence() {
                              item.projectId?.toString() === projectFilter;
       
       return matchesSearch && matchesType && matchesProject;
-    }) || [];
+    }) : [];
 
     // Sort the filtered results
     filtered.sort((a: any, b: any) => {
@@ -607,11 +607,11 @@ export default function Evidence() {
                 <SelectContent>
                   <SelectItem value="all">{language === 'ar' ? 'جميع المشاريع' : 'All Projects'}</SelectItem>
                   <SelectItem value="unlinked">{language === 'ar' ? 'غير مرتبط' : 'Unlinked'}</SelectItem>
-                  {projects?.map((project: any) => (
+                  {Array.isArray(projects) ? projects.map((project: any) => (
                     <SelectItem key={project.id} value={project.id.toString()}>
                       {language === 'ar' && project.nameAr ? project.nameAr : project.name}
                     </SelectItem>
-                  ))}
+                  )) : null}
                 </SelectContent>
               </Select>
             </div>
@@ -943,7 +943,7 @@ export default function Evidence() {
                           {language === 'ar' ? 'جميع الإصدارات' : 'All Versions'}
                         </h3>
                         <Badge variant="outline" className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
-                          {evidenceVersions ? evidenceVersions.length + 1 : 1} {language === 'ar' ? 'إصدار' : 'Versions'}
+                          {Array.isArray(evidenceVersions) ? evidenceVersions.length + 1 : 1} {language === 'ar' ? 'إصدار' : 'Versions'}
                         </Badge>
                       </div>
                       
@@ -964,7 +964,7 @@ export default function Evidence() {
                               isCurrent: true
                             },
                             // Previous versions
-                            ...(evidenceVersions || []).map(v => ({
+                            ...(Array.isArray(evidenceVersions) ? evidenceVersions : []).map(v => ({
                               ...v,
                               isCurrent: false
                             }))
@@ -1042,7 +1042,7 @@ export default function Evidence() {
                           ));
                         })()}
                         
-                        {(!evidenceVersions || evidenceVersions.length === 0) && (
+                        {(!Array.isArray(evidenceVersions) || evidenceVersions.length === 0) && (
                           <div className="text-center py-6 text-gray-500 mt-4">
                             <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3">
                               <FileText className="h-6 w-6 text-gray-400" />
@@ -1065,7 +1065,7 @@ export default function Evidence() {
                           {language === 'ar' ? 'التعليقات' : 'Comments'}
                         </h3>
                         <Badge variant="outline" className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
-                          {evidenceComments?.length || 0} {language === 'ar' ? 'تعليق' : 'Comments'}
+                          {Array.isArray(evidenceComments) ? evidenceComments.length : 0} {language === 'ar' ? 'تعليق' : 'Comments'}
                         </Badge>
                       </div>
                     </div>
@@ -1122,7 +1122,7 @@ export default function Evidence() {
                       
                     {/* Comments List - Scrollable */}
                     <div className="flex-1 overflow-y-auto space-y-2">
-                        {evidenceComments && evidenceComments.length > 0 ? (
+                        {Array.isArray(evidenceComments) && evidenceComments.length > 0 ? (
                           evidenceComments.map((comment: any) => (
                             <div key={comment.id} className={`p-3 border rounded-lg transition-colors duration-200 ${
                               comment.isSystemComment 
@@ -1137,9 +1137,10 @@ export default function Evidence() {
                                 ) : (
                                   <UserAvatar 
                                     user={{
-                                      name: comment.user.name,
+                                      firstName: comment.user.name?.split(' ')[0] || '',
+                                      lastName: comment.user.name?.split(' ').slice(1).join(' ') || '',
                                       email: comment.user.email,
-                                      profilePicture: comment.user.profilePicture
+                                      profileImageUrl: comment.user.profilePicture
                                     }}
                                     size="sm"
                                   />
