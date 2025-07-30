@@ -126,7 +126,7 @@ export default function Evidence() {
   // Evidence versions query  
   const { data: evidenceVersions, isLoading: versionsLoading } = useQuery({
     queryKey: ['/api/evidence', selectedEvidence?.id, 'versions'],
-    queryFn: () => apiRequest(`/api/evidence/${selectedEvidence?.id}/versions`),
+    queryFn: () => fetch(`/api/evidence/${selectedEvidence?.id}/versions`, { credentials: 'include' }).then(res => res.json()),
     enabled: !!selectedEvidence?.id,
     retry: false,
   });
