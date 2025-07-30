@@ -22,8 +22,10 @@ import {
   CheckCircle,
   Play,
   AlertTriangle,
-  Zap
+  Zap,
+  Shield
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/hooks/use-i18n";
@@ -54,6 +56,17 @@ export default function MyTasks() {
       return response.json();
     },
     enabled: !!(user as any)?.id
+  });
+
+  // Fetch all task controls for displaying badges
+  const { data: allTaskControls = {} } = useQuery({
+    queryKey: ['/api/tasks/controls/all'],
+    queryFn: async () => {
+      const response = await fetch('/api/tasks/controls/all');
+      if (!response.ok) throw new Error('Failed to fetch task controls');
+      return response.json();
+    },
+    enabled: !!myTasks && myTasks.length > 0,
   });
 
   // Filter tasks based on search and filters
@@ -296,6 +309,59 @@ export default function MyTasks() {
                             {task.priority}
                           </Badge>
                         </div>
+
+                        {/* Control Badges */}
+                        {allTaskControls[task.id] && allTaskControls[task.id].length > 0 && (
+                          <div className="border-t border-gray-100 pt-3 mt-3">
+                            <div className="flex items-center gap-1 mb-2">
+                              <Shield className="h-3 w-3 text-teal-500" />
+                              <span className="text-xs font-medium text-gray-700">
+                                {language === 'ar' ? 'الضوابط' : 'Controls'}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {allTaskControls[task.id].slice(0, 3).map((control: any, index: number) => (
+                                <TooltipProvider key={`${control.eccControlId}-${index}`}>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Badge 
+                                        variant="outline" 
+                                        className="text-xs px-1.5 py-0.5 bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-100 cursor-help"
+                                      >
+                                        {control.eccControl?.code || control.eccControlId}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-xs p-3 bg-white border shadow-lg z-50">
+                                      <div className="space-y-2">
+                                        <div className="font-semibold text-sm text-gray-900">
+                                          {control.eccControl?.code || 'N/A'} - {language === 'ar' ? (control.eccControl?.domainAr || 'Domain not available') : (control.eccControl?.domainEn || 'Domain not available')}
+                                        </div>
+                                        <div className="text-xs text-gray-600">
+                                          <strong>{language === 'ar' ? 'النطاق الفرعي: ' : 'Subdomain: '}</strong>
+                                          {language === 'ar' ? (control.eccControl?.subdomainAr || 'N/A') : (control.eccControl?.subdomainEn || 'N/A')}
+                                        </div>
+                                        <div className="text-xs text-gray-700">
+                                          {language === 'ar' ? (control.eccControl?.controlAr || 'Control description not available') : (control.eccControl?.controlEn || 'Control description not available')}
+                                        </div>
+                                        {(control.eccControl?.evidenceAr || control.eccControl?.evidenceEn) && (
+                                          <div className="text-xs text-teal-600 mt-2">
+                                            <strong>{language === 'ar' ? 'الأدلة المطلوبة: ' : 'Required Evidence: '}</strong>
+                                            {language === 'ar' ? (control.eccControl?.evidenceAr || control.eccControl?.evidenceEn) : (control.eccControl?.evidenceEn || control.eccControl?.evidenceAr)}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              ))}
+                              {allTaskControls[task.id].length > 3 && (
+                                <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
+                                  +{allTaskControls[task.id].length - 3}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </CardHeader>
                     
@@ -391,13 +457,61 @@ export default function MyTasks() {
                             </div>
                             
                             <div className="flex items-center gap-3 ml-4">
-                              <div className="flex gap-2">
+                              <div className="flex gap-2 items-center">
                                 <Badge className={`${getStatusColor(task.status)} text-xs px-2 py-1`} variant="secondary">
                                   {task.status}
                                 </Badge>
                                 <Badge className={`${getPriorityColor(task.priority)} text-xs px-2 py-1`} variant="secondary">
                                   {task.priority}
                                 </Badge>
+                                
+                                {/* Control badges for list view */}
+                                {allTaskControls[task.id] && allTaskControls[task.id].length > 0 && (
+                                  <div className="flex items-center gap-1 ml-2">
+                                    <Shield className="h-3 w-3 text-teal-500" />
+                                    <div className="flex gap-1">
+                                      {allTaskControls[task.id].slice(0, 2).map((control: any, index: number) => (
+                                        <TooltipProvider key={`${control.eccControlId}-${index}`}>
+                                          <Tooltip>
+                                            <TooltipTrigger>
+                                              <Badge 
+                                                variant="outline" 
+                                                className="text-xs px-1 py-0 bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-100 cursor-help"
+                                              >
+                                                {control.eccControl?.code || control.eccControlId}
+                                              </Badge>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="max-w-xs p-3 bg-white border shadow-lg z-50">
+                                              <div className="space-y-2">
+                                                <div className="font-semibold text-sm text-gray-900">
+                                                  {control.eccControl?.code || 'N/A'} - {language === 'ar' ? (control.eccControl?.domainAr || 'Domain not available') : (control.eccControl?.domainEn || 'Domain not available')}
+                                                </div>
+                                                <div className="text-xs text-gray-600">
+                                                  <strong>{language === 'ar' ? 'النطاق الفرعي: ' : 'Subdomain: '}</strong>
+                                                  {language === 'ar' ? (control.eccControl?.subdomainAr || 'N/A') : (control.eccControl?.subdomainEn || 'N/A')}
+                                                </div>
+                                                <div className="text-xs text-gray-700">
+                                                  {language === 'ar' ? (control.eccControl?.controlAr || 'Control description not available') : (control.eccControl?.controlEn || 'Control description not available')}
+                                                </div>
+                                                {(control.eccControl?.evidenceAr || control.eccControl?.evidenceEn) && (
+                                                  <div className="text-xs text-teal-600 mt-2">
+                                                    <strong>{language === 'ar' ? 'الأدلة المطلوبة: ' : 'Required Evidence: '}</strong>
+                                                    {language === 'ar' ? (control.eccControl?.evidenceAr || control.eccControl?.evidenceEn) : (control.eccControl?.evidenceEn || control.eccControl?.evidenceAr)}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      ))}
+                                      {allTaskControls[task.id].length > 2 && (
+                                        <Badge variant="secondary" className="text-xs px-1 py-0">
+                                          +{allTaskControls[task.id].length - 2}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                               
                               <div className="flex items-center">

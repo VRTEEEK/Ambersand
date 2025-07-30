@@ -32,6 +32,16 @@ Preferred communication style: Simple, everyday language.
 - **STANDARDIZED**: Search functionality using unified TaskSearchInput component with bilingual support across entire application
 - **ENHANCED**: Visual consistency with glassmorphism effects, shadow depth, and smooth transitions throughout Regulations interface
 
+### July 30, 2025 - Control Badges Implementation in MyTasks Page with Hover Tooltips
+- **IMPLEMENTED**: Complete control badges functionality in MyTasks page matching Tasks page design and behavior
+- **ADDED**: Comprehensive hover tooltips showing control code, domain, subdomain, control description, and required evidence
+- **ENHANCED**: Both card view and list view with control badges display - card view shows up to 3 controls, list view shows up to 2 controls
+- **INTEGRATED**: Shield icon and "Controls" label for clear identification of control badges section
+- **STANDARDIZED**: Consistent teal-themed styling across both Tasks and MyTasks pages with proper hover states
+- **OPTIMIZED**: Efficient data fetching using existing `/api/tasks/controls/all` endpoint for all task controls
+- **BILINGUAL**: Full Arabic/English support for all control information in tooltips with appropriate fallbacks
+- **RESPONSIVE**: Proper overflow indicators ("+X more") for tasks with multiple controls in both view modes
+
 ### July 30, 2025 - Task Delete Functionality, UI Enhancements & Analytics Regulation Filter Implementation
 - **IMPLEMENTED**: Complete task deletion functionality with confirmation dialog in task edit form
 - **ADDED**: Red delete button with trash icon in bottom left of EditTaskForm component with bilingual support
