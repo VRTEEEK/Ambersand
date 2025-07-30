@@ -712,9 +712,6 @@ export default function Projects() {
                           <span className="font-medium">
                             {project.owner.firstName} {project.owner.lastName}
                           </span>
-                          <span className="text-xs text-slate-400">
-                            ({language === 'ar' ? 'مالك المشروع' : 'Project Owner'})
-                          </span>
                         </div>
                       )}
                     </div>
