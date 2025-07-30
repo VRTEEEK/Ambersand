@@ -757,17 +757,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/evidence/control/:controlId', isAuthenticated, async (req, res) => {
     try {
       const controlId = parseInt(req.params.controlId);
-      const evidenceList = await storage.getEvidence();
       
-      // Filter evidence that has this control associated
-      const linkedEvidence = [];
+      // Get evidence directly linked to the control via ecc_control_id
+      const evidenceList = await storage.getEvidence();
+      const directlyLinkedEvidence = evidenceList.filter(evidence => evidence.eccControlId === controlId);
+      
+      // Also check for evidence linked through many-to-many relationship
+      const linkedEvidence = [...directlyLinkedEvidence];
       for (const evidence of evidenceList) {
-        const evidenceControls = await storage.getEvidenceControls(evidence.id);
-        if (evidenceControls.some(ec => ec.eccControl.id === controlId)) {
-          linkedEvidence.push(evidence);
+        // Skip if already included from direct relationship
+        if (evidence.eccControlId === controlId) continue;
+        
+        try {
+          const evidenceControls = await storage.getEvidenceControls(evidence.id);
+          if (evidenceControls.some(ec => ec.eccControl.id === controlId)) {
+            linkedEvidence.push(evidence);
+          }
+        } catch (error) {
+          // Continue if getEvidenceControls fails for this evidence
+          console.log(`Could not get controls for evidence ${evidence.id}:`, error.message);
         }
       }
       
+      console.log(`Found ${linkedEvidence.length} evidence items linked to control ${controlId}`);
       res.json(linkedEvidence);
     } catch (error) {
       console.error("Error fetching evidence for control:", error);
