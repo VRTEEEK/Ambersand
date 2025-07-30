@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Eye, Download, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { Eye, Download, X, ZoomIn, ZoomOut, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface FilePreviewProps {
@@ -43,8 +43,9 @@ export function FilePreview({
 
   const getFileUrl = () => {
     if (!filePath) return '';
-    // Handle both full paths and just filenames
-    const filename = filePath.includes('/') ? filePath.split('/').pop() : filePath;
+    // Extract the actual filename from the full path
+    // filePath format: /home/runner/workspace/uploads/hashedfilename
+    const filename = filePath.split('/').pop();
     return `/uploads/${filename}`;
   };
 
@@ -121,21 +122,64 @@ export function FilePreview({
               </Badge>
               <span className="text-sm text-gray-500">{formatFileSize(fileSize || 0)}</span>
             </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => window.open(fileUrl, '_blank')}
+            >
+              <Eye className="h-3 w-3 mr-1" />
+              {language === 'ar' ? 'فتح في علامة تبويب جديدة' : 'Open in New Tab'}
+            </Button>
           </div>
-          <div className="border rounded-lg bg-gray-50 dark:bg-gray-900">
-            <iframe
-              src={fileUrl}
-              className="w-full h-96 rounded-lg"
-              title={fileName}
-              onError={() => {
-                console.log('PDF preview failed, falling back to download option');
-              }}
-            />
+          <div className="border rounded-lg bg-gray-50 dark:bg-gray-900 overflow-hidden">
+            <div className="relative">
+              <iframe
+                src={`${fileUrl}#toolbar=1&navpanes=1&scrollbar=1`}
+                className="w-full h-96 border-0"
+                title={fileName}
+                onLoad={() => console.log('PDF loaded successfully')}
+                onError={() => console.log('PDF iframe failed to load')}
+              />
+              {/* Fallback content in case iframe doesn't work */}
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800 opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
+                <div className="text-center pointer-events-auto">
+                  <Button
+                    onClick={() => window.open(fileUrl, '_blank')}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    {language === 'ar' ? 'عرض PDF في علامة تبويب جديدة' : 'View PDF in New Tab'}
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="text-center text-sm text-gray-500">
-            {language === 'ar' 
-              ? 'إذا لم تظهر المعاينة، يمكنك تحميل الملف مباشرة'
-              : 'If preview doesn\'t load, you can download the file directly'}
+          <div className="text-center text-sm text-gray-500 space-y-2">
+            <p>
+              {language === 'ar' 
+                ? 'إذا لم تظهر المعاينة، استخدم الأزرار أعلاه لفتح الملف'
+                : 'If preview doesn\'t load, use the buttons above to open the file'}
+            </p>
+            <div className="flex justify-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => window.open(fileUrl, '_blank')}
+              >
+                <Eye className="h-3 w-3 mr-1" />
+                {language === 'ar' ? 'عرض' : 'View'}
+              </Button>
+              {onDownload && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onDownload}
+                >
+                  <Download className="h-3 w-3 mr-1" />
+                  {language === 'ar' ? 'تحميل' : 'Download'}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       );
@@ -228,9 +272,9 @@ export function FilePreview({
                 )}
               </div>
             </div>
-            <div className="text-sm text-gray-600 mt-1">
+            <DialogDescription className="text-sm text-gray-600 mt-1">
               {fileName}
-            </div>
+            </DialogDescription>
           </DialogHeader>
           
           <div className="overflow-auto max-h-[calc(90vh-120px)]">
