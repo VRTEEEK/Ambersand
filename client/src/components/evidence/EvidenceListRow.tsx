@@ -17,7 +17,6 @@ import {
   Shield,
 } from 'lucide-react';
 import { UserAvatar } from '@/components/ui/user-avatar';
-import { FilePreview } from '@/components/evidence/FilePreview';
 
 interface EvidenceListRowProps {
   evidence: any;
@@ -128,10 +127,9 @@ export function EvidenceListRow({
           <div className="flex items-center space-x-2 min-w-0">
             <UserAvatar 
               user={{
-                firstName: evidence.uploaderName?.split(' ')[0] || '',
-                lastName: evidence.uploaderName?.split(' ').slice(1).join(' ') || '',
+                name: evidence.uploaderName,
                 email: evidence.uploaderEmail || '',
-                profileImageUrl: evidence.uploaderProfilePicture
+                profilePicture: evidence.uploaderProfilePicture
               }}
               size="sm"
             />
@@ -174,31 +172,6 @@ export function EvidenceListRow({
             {language === 'ar' ? 'عرض' : 'View'}
           </span>
         </Button>
-        
-        {/* File Preview Button */}
-        {evidence.fileName && evidence.fileType && (
-          <FilePreview
-            fileName={evidence.fileName}
-            fileType={evidence.fileType}
-            filePath={evidence.filePath}
-            fileSize={evidence.fileSize}
-            onDownload={() => onDownload(evidence)}
-            language={language}
-            trigger={
-              <Button
-                size="sm"
-                variant="outline"
-                className="px-2"
-              >
-                <Eye className="h-3 w-3" />
-                <span className="hidden lg:inline ml-1">
-                  {language === 'ar' ? 'معاينة' : 'Preview'}
-                </span>
-              </Button>
-            }
-          />
-        )}
-        
         <Button
           size="sm"
           variant="outline"

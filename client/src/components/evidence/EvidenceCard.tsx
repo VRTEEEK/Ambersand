@@ -26,7 +26,6 @@ import {
   Shield,
 } from 'lucide-react';
 import { UserAvatar } from '@/components/ui/user-avatar';
-import { FilePreview } from '@/components/evidence/FilePreview';
 
 interface EvidenceCardProps {
   evidence: any;
@@ -234,10 +233,9 @@ export function EvidenceCard({
             <div className="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 dark:bg-gray-800 p-2 rounded-lg">
               <UserAvatar 
                 user={{
-                  firstName: evidence.uploaderName?.split(' ')[0] || '',
-                  lastName: evidence.uploaderName?.split(' ').slice(1).join(' ') || '',
+                  name: evidence.uploaderName,
                   email: evidence.uploaderEmail || '',
-                  profileImageUrl: evidence.uploaderProfilePicture
+                  profilePicture: evidence.uploaderProfilePicture
                 }}
                 size="sm"
               />
@@ -262,18 +260,6 @@ export function EvidenceCard({
             <Eye className="h-3 w-3 mr-1" />
             {language === 'ar' ? 'عرض' : 'View'}
           </Button>
-          
-          {/* File Preview Button */}
-          {evidence.fileName && evidence.fileType && (
-            <FilePreview
-              fileName={evidence.fileName}
-              fileType={evidence.fileType}
-              filePath={evidence.filePath}
-              fileSize={evidence.fileSize}
-              onDownload={() => onDownload(evidence)}
-              language={language}
-            />
-          )}
           
           <Button
             size="sm"
