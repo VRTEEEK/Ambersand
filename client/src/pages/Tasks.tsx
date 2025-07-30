@@ -323,7 +323,7 @@ const SortableTaskCard = memo(function SortableTaskCard({ task, language, onTask
                         </div>
                         {(control.eccControl?.evidenceAr || control.eccControl?.evidenceEn) && (
                           <div className="text-xs text-teal-600 mt-2">
-                            <strong>{language === 'ar' ? 'الأدلة المطلوبة: ' : 'Required Evidence: '}</strong>
+                            <strong>Required Evidence: </strong>
                             {language === 'ar' ? (control.eccControl?.evidenceAr || control.eccControl?.evidenceEn) : (control.eccControl?.evidenceEn || control.eccControl?.evidenceAr)}
                           </div>
                         )}
