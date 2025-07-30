@@ -488,50 +488,111 @@ export default function Regulations() {
             return (
               <Card 
                 key={index} 
-                className={`border border-slate-200/60 dark:border-slate-700/60 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 bg-white dark:bg-slate-800 cursor-pointer ${
-                  isSelected ? 'ring-2 ring-[#2699A6] shadow-xl border-[#2699A6]/30' : ''
+                className={`group relative overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:scale-[1.02] ${
+                  isSelected 
+                    ? 'ring-2 ring-[#2699A6] shadow-2xl bg-gradient-to-br from-white via-[#f8fdfc] to-[#f1f9f8] dark:from-slate-800 dark:via-slate-800 dark:to-slate-700' 
+                    : 'bg-gradient-to-br from-white via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900 hover:from-slate-50 hover:via-white hover:to-slate-50'
                 }`}
                 onClick={() => {
                   setSelectedFramework(framework.id);
                   setSelectedCategory(null);
                 }}
               >
-                <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="w-12 h-12 bg-slate-100 dark:bg-slate-700 rounded-xl flex items-center justify-center border border-slate-200 dark:border-slate-600">
-                      <Icon className="h-6 w-6 text-slate-600 dark:text-slate-400" />
+                {/* Animated background overlay */}
+                <div className={`absolute inset-0 bg-gradient-to-r transition-opacity duration-300 ${
+                  isSelected 
+                    ? 'from-[#2699A6]/5 via-transparent to-[#2699A6]/5 opacity-100' 
+                    : 'from-[#2699A6]/0 via-transparent to-[#2699A6]/0 opacity-0 group-hover:opacity-100'
+                }`}></div>
+                
+                {/* Decorative corner element */}
+                <div className={`absolute top-0 right-0 w-20 h-20 transform translate-x-6 -translate-y-6 transition-all duration-300 ${
+                  isSelected ? 'bg-[#2699A6]/10' : 'bg-slate-200/50 group-hover:bg-[#2699A6]/5'
+                } rounded-full`}></div>
+                
+                <CardHeader className="relative pb-4 pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-md transition-all duration-300 ${
+                      isSelected 
+                        ? 'bg-gradient-to-br from-[#2699A6] to-[#1e7a85] shadow-[#2699A6]/25' 
+                        : 'bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 group-hover:from-[#2699A6]/10 group-hover:to-[#2699A6]/20'
+                    }`}>
+                      <Icon className={`h-7 w-7 transition-colors duration-300 ${
+                        isSelected 
+                          ? 'text-white' 
+                          : 'text-slate-600 dark:text-slate-400 group-hover:text-[#2699A6]'
+                      }`} />
                     </div>
                     <Badge 
-                      variant={framework.status === 'active' ? 'default' : 'secondary'}
-                      className={framework.status === 'active' 
-                        ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800'
-                        : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
-                      }
+                      variant="outline"
+                      className={`border-0 font-medium px-3 py-1.5 text-xs transition-all duration-300 ${
+                        framework.status === 'active'
+                          ? 'bg-gradient-to-r from-emerald-50 to-green-50 text-emerald-700 shadow-sm'
+                          : 'bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 shadow-sm'
+                      }`}
                     >
                       {framework.status === 'active' 
                         ? (language === 'ar' ? 'نشط' : 'Active')
-                        : (language === 'ar' ? 'التخطيط' : 'Planning')
+                        : (language === 'ar' ? 'قريباً' : 'Coming Soon')
                       }
                     </Badge>
                   </div>
-                  <CardTitle className="text-lg text-slate-900 dark:text-white leading-tight">
+                  <CardTitle className={`text-xl font-bold leading-tight transition-colors duration-300 ${
+                    isSelected 
+                      ? 'text-slate-900 dark:text-white' 
+                      : 'text-slate-800 dark:text-slate-100 group-hover:text-slate-900 dark:group-hover:text-white'
+                  }`}>
                     {language === 'ar' ? framework.nameAr : framework.name}
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-slate-600 dark:text-slate-400 text-sm mb-4 line-clamp-3">
+                <CardContent className="relative">
+                  <p className="text-slate-600 dark:text-slate-400 text-sm mb-6 line-clamp-3 leading-relaxed">
                     {language === 'ar' ? framework.descriptionAr : framework.description}
                   </p>
                   {framework.totalControls && (
-                    <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-100 dark:border-slate-600">
-                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                        {language === 'ar' ? 'إجمالي الضوابط' : 'Total Controls'}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl font-bold text-slate-900 dark:text-white">
-                          {framework.totalControls}
-                        </span>
-                        <div className="w-2 h-2 bg-[#2699A6] rounded-full"></div>
+                    <div className={`relative overflow-hidden rounded-xl p-4 transition-all duration-300 ${
+                      isSelected 
+                        ? 'bg-gradient-to-r from-[#2699A6]/10 via-[#2699A6]/5 to-transparent border border-[#2699A6]/20' 
+                        : 'bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-slate-700/50 dark:via-slate-800/50 dark:to-slate-700/50 border border-slate-200/50 dark:border-slate-600/50'
+                    }`}>
+                      {/* Subtle animated background */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent transform -skew-x-12 transition-transform duration-1000 group-hover:translate-x-full opacity-0 group-hover:opacity-100"></div>
+                      
+                      <div className="relative flex items-center justify-between">
+                        <div className="space-y-1">
+                          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                            {language === 'ar' ? 'إجمالي الضوابط' : 'Total Controls'}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-3xl font-bold transition-colors duration-300 ${
+                              isSelected 
+                                ? 'text-[#2699A6]' 
+                                : 'text-slate-900 dark:text-white group-hover:text-[#2699A6]'
+                            }`}>
+                              {framework.totalControls}
+                            </span>
+                            <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                              isSelected 
+                                ? 'bg-[#2699A6] shadow-md shadow-[#2699A6]/50' 
+                                : 'bg-slate-400 group-hover:bg-[#2699A6]'
+                            }`}></div>
+                          </div>
+                        </div>
+                        
+                        {/* Progress indicator */}
+                        <div className="flex flex-col items-end">
+                          <div className={`w-12 h-12 rounded-full border-4 transition-all duration-300 flex items-center justify-center ${
+                            isSelected 
+                              ? 'border-[#2699A6]/30 bg-[#2699A6]/10' 
+                              : 'border-slate-200 dark:border-slate-600 group-hover:border-[#2699A6]/30'
+                          }`}>
+                            <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                              isSelected 
+                                ? 'bg-[#2699A6]' 
+                                : 'bg-slate-300 group-hover:bg-[#2699A6]'
+                            }`}></div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
