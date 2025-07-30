@@ -1,18 +1,55 @@
+import { useState } from 'react';
 import { useI18n } from "@/hooks/use-i18n";
 import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
-import { TrendingUp, TrendingDown, Activity, Target, Users, Clock, BarChart3, PieChart as PieChartIcon, LineChart as LineChartIcon, Zap } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Target, Users, Clock, BarChart3, PieChart as PieChartIcon, LineChart as LineChartIcon, Zap, ChevronDown } from 'lucide-react';
 import heroBackgroundPath from "@assets/image_1752308830644.png";
 
-const complianceData = [
-  { month: 'Jan', compliance: 65, target: 80 },
-  { month: 'Feb', compliance: 70, target: 80 },
-  { month: 'Mar', compliance: 75, target: 80 },
-  { month: 'Apr', compliance: 68, target: 80 },
-  { month: 'May', compliance: 82, target: 80 },
-  { month: 'Jun', compliance: 85, target: 80 },
+// Compliance data for different regulations
+const complianceDataByRegulation = {
+  all: [
+    { month: 'Jan', compliance: 65, target: 80 },
+    { month: 'Feb', compliance: 70, target: 80 },
+    { month: 'Mar', compliance: 75, target: 80 },
+    { month: 'Apr', compliance: 68, target: 80 },
+    { month: 'May', compliance: 82, target: 80 },
+    { month: 'Jun', compliance: 85, target: 80 },
+  ],
+  ecc: [
+    { month: 'Jan', compliance: 72, target: 85 },
+    { month: 'Feb', compliance: 78, target: 85 },
+    { month: 'Mar', compliance: 81, target: 85 },
+    { month: 'Apr', compliance: 75, target: 85 },
+    { month: 'May', compliance: 88, target: 85 },
+    { month: 'Jun', compliance: 92, target: 85 },
+  ],
+  pdpl: [
+    { month: 'Jan', compliance: 58, target: 75 },
+    { month: 'Feb', compliance: 62, target: 75 },
+    { month: 'Mar', compliance: 69, target: 75 },
+    { month: 'Apr', compliance: 61, target: 75 },
+    { month: 'May', compliance: 76, target: 75 },
+    { month: 'Jun', compliance: 78, target: 75 },
+  ],
+  ndmo: [
+    { month: 'Jan', compliance: 45, target: 70 },
+    { month: 'Feb', compliance: 52, target: 70 },
+    { month: 'Mar', compliance: 58, target: 70 },
+    { month: 'Apr', compliance: 55, target: 70 },
+    { month: 'May', compliance: 65, target: 70 },
+    { month: 'Jun', compliance: 71, target: 70 },
+  ],
+};
+
+// Available regulation options
+const regulationOptions = [
+  { value: 'all', labelEn: 'All Regulations', labelAr: 'جميع اللوائح' },
+  { value: 'ecc', labelEn: 'ECC (Essential Cybersecurity Controls)', labelAr: 'الضوابط الأساسية للأمن السيبراني' },
+  { value: 'pdpl', labelEn: 'PDPL (Personal Data Protection Law)', labelAr: 'قانون حماية البيانات الشخصية' },
+  { value: 'ndmo', labelEn: 'NDMO (National Data Management Office)', labelAr: 'مكتب إدارة البيانات الوطني' },
 ];
 
 const regulationData = [
@@ -30,6 +67,10 @@ const taskStatusData = [
 
 export default function Analytics() {
   const { language } = useI18n();
+  const [selectedRegulation, setSelectedRegulation] = useState('all');
+  
+  // Get compliance data based on selected regulation
+  const complianceData = complianceDataByRegulation[selectedRegulation as keyof typeof complianceDataByRegulation];
 
   return (
     <AppLayout>
@@ -176,17 +217,35 @@ export default function Analytics() {
           {/* Compliance Trend */}
           <Card className="border border-slate-200/60 dark:border-slate-700/60 shadow-xl backdrop-blur-sm bg-white dark:bg-slate-800">
             <CardHeader className="bg-gradient-to-r from-slate-50/80 to-white/80 dark:from-slate-800/80 dark:to-slate-900/80 rounded-t-lg">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#2699A6]/20 rounded-xl flex items-center justify-center">
-                  <LineChartIcon className="h-5 w-5 text-[#2699A6]" />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#2699A6]/20 rounded-xl flex items-center justify-center">
+                    <LineChartIcon className="h-5 w-5 text-[#2699A6]" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl text-slate-900 dark:text-white">
+                      {language === 'ar' ? 'اتجاه الامتثال' : 'Compliance Trend'}
+                    </CardTitle>
+                    <CardDescription className="text-slate-600 dark:text-slate-400">
+                      {language === 'ar' ? 'تطور معدل الامتثال على مدى الأشهر الستة الماضية' : 'Compliance rate evolution over the past 6 months'}
+                    </CardDescription>
+                  </div>
                 </div>
-                <div>
-                  <CardTitle className="text-xl text-slate-900 dark:text-white">
-                    {language === 'ar' ? 'اتجاه الامتثال' : 'Compliance Trend'}
-                  </CardTitle>
-                  <CardDescription className="text-slate-600 dark:text-slate-400">
-                    {language === 'ar' ? 'تطور معدل الامتثال على مدى الأشهر الستة الماضية' : 'Compliance rate evolution over the past 6 months'}
-                  </CardDescription>
+                
+                {/* Regulation Filter Dropdown */}
+                <div className="min-w-[200px]">
+                  <Select value={selectedRegulation} onValueChange={setSelectedRegulation}>
+                    <SelectTrigger className="w-full border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700">
+                      <SelectValue placeholder={language === 'ar' ? 'اختر اللائحة' : 'Select Regulation'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {regulationOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {language === 'ar' ? option.labelAr : option.labelEn}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </CardHeader>

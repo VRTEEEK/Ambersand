@@ -10,7 +10,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### July 30, 2025 - Task Delete Functionality & UI Enhancements Implementation
+### July 30, 2025 - Task Delete Functionality, UI Enhancements & Analytics Regulation Filter Implementation
 - **IMPLEMENTED**: Complete task deletion functionality with confirmation dialog in task edit form
 - **ADDED**: Red delete button with trash icon in bottom left of EditTaskForm component with bilingual support
 - **CREATED**: Confirmation AlertDialog with Arabic/English text asking for user confirmation before deletion
@@ -20,6 +20,9 @@ Preferred communication style: Simple, everyday language.
 - **IMPROVED**: Project owner display in Projects page to show only name without "Project Owner" title text
 - **REDESIGNED**: Regulation framework cards with modern gradients, animations, decorative elements, and enhanced hover effects
 - **IMPLEMENTED**: Hover tooltips for control badges in ProjectDetail page showing comprehensive control information including code, domain, subdomain, control description, and required evidence with bilingual support
+- **ENHANCED**: Analytics page with regulation-specific compliance trend filtering dropdown allowing users to view trends for specific regulations (ECC, PDPL, NDMO) or all regulations combined
+- **ADDED**: Comprehensive regulation data structures with distinct compliance trend data for each regulation framework with appropriate targets and performance metrics
+- **IMPROVED**: Compliance Trend chart header layout with regulation filter dropdown positioned on the right side for easy access and professional appearance
 
 ### July 29, 2025 - Complete Email Notification System Implementation & Production URL Fix
 - **IMPLEMENTED**: Automatic email notifications for task assignments with bilingual templates supporting Arabic RTL text
