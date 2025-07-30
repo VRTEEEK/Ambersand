@@ -7,6 +7,17 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { 
   Select,
   SelectContent,
@@ -21,7 +32,8 @@ import {
   X,
   MessageSquare,
   History,
-  Plus
+  Plus,
+  Trash2
 } from 'lucide-react';
 
 interface EditTaskFormProps {
@@ -30,6 +42,7 @@ interface EditTaskFormProps {
   taskEvidence: any[];
   onSubmit: (data: any) => Promise<void>;
   onCancel: () => void;
+  onDelete?: (taskId: number) => Promise<void>;
   isLoading: boolean;
   language: string;
 }
@@ -125,6 +138,7 @@ export default function EditTaskForm({
   taskEvidence,
   onSubmit, 
   onCancel, 
+  onDelete,
   isLoading, 
   language 
 }: EditTaskFormProps) {
@@ -140,6 +154,8 @@ export default function EditTaskForm({
   const [hasAutoSelectedControl, setHasAutoSelectedControl] = useState(false);
   const [selectedControlForInfo, setSelectedControlForInfo] = useState<any>(null);
   const [isControlInfoDialogOpen, setIsControlInfoDialogOpen] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [pendingRemovedControls, setPendingRemovedControls] = useState<number[]>([]);
   const [editedTask, setEditedTask] = useState({
     title: task.title || '',
@@ -251,6 +267,26 @@ export default function EditTaskForm({
       }
     } catch (error) {
       console.error('Failed to update task:', error);
+    }
+  };
+
+  // Handle task deletion
+  const handleDeleteTask = async () => {
+    if (!onDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await onDelete(task.id);
+      setShowDeleteConfirm(false);
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ في الحذف' : 'Delete Error',
+        description: language === 'ar' ? 'فشل في حذف المهمة' : 'Failed to delete task',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1055,17 +1091,65 @@ export default function EditTaskForm({
       </Tabs>
 
       {/* Action Buttons */}
-      <div className="flex justify-end gap-3 pt-4 border-t">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          {language === 'ar' ? 'إلغاء' : 'Cancel'}
-        </Button>
-        <Button 
-          onClick={handleTaskSubmit}
-          disabled={isLoading}
-          className="bg-teal-600 hover:bg-teal-700"
-        >
-          {isLoading ? (language === 'ar' ? 'جاري التحديث...' : 'Updating...') : (language === 'ar' ? 'حفظ التغييرات' : 'Save Changes')}
-        </Button>
+      <div className="flex justify-between items-center pt-4 border-t">
+        {/* Delete Button with Confirmation */}
+        {onDelete && (
+          <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+            <AlertDialogTrigger asChild>
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {language === 'ar' ? 'حذف المهمة' : 'Delete Task'}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {language === 'ar' ? 'تأكيد حذف المهمة' : 'Confirm Task Deletion'}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {language === 'ar' 
+                    ? 'هل أنت متأكد من أنك تريد حذف هذه المهمة؟ هذا الإجراء لا يمكن التراجع عنه وسيتم حذف جميع البيانات المرتبطة بالمهمة.'
+                    : 'Are you sure you want to delete this task? This action cannot be undone and will remove all associated task data.'
+                  }
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isDeleting}>
+                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteTask}
+                  disabled={isDeleting}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  {isDeleting 
+                    ? (language === 'ar' ? 'جاري الحذف...' : 'Deleting...') 
+                    : (language === 'ar' ? 'حذف' : 'Delete')
+                  }
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+
+        {/* Right side buttons */}
+        <div className="flex gap-3">
+          <Button type="button" variant="outline" onClick={onCancel}>
+            {language === 'ar' ? 'إلغاء' : 'Cancel'}
+          </Button>
+          <Button 
+            onClick={handleTaskSubmit}
+            disabled={isLoading}
+            className="bg-teal-600 hover:bg-teal-700"
+          >
+            {isLoading ? (language === 'ar' ? 'جاري التحديث...' : 'Updating...') : (language === 'ar' ? 'حفظ التغييرات' : 'Save Changes')}
+          </Button>
+        </div>
       </div>
     </div>
   );

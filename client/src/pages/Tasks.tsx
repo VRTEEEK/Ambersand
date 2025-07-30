@@ -511,6 +511,41 @@ export default function Tasks() {
     },
   });
 
+  // Delete task mutation
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: number) => {
+      console.log('🔄 Deleting task:', taskId);
+      await apiRequest(`/api/tasks/${taskId}`, 'DELETE');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      refetch(); // Force refetch
+      setIsEditDialogOpen(false);
+      setSelectedTask(null);
+      toast({
+        title: language === 'ar' ? 'تم حذف المهمة' : 'Task Deleted',
+        description: language === 'ar' ? 'تم حذف المهمة بنجاح' : 'Task deleted successfully',
+      });
+    },
+    onError: (error) => {
+      console.error('❌ Error deleting task:', error);
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 500);
+        return;
+      }
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في حذف المهمة' : 'Failed to delete task',
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Drag and drop handlers
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const { active } = event;
@@ -848,6 +883,9 @@ export default function Tasks() {
                 onCancel={() => {
                   setIsEditDialogOpen(false);
                   setSelectedTask(null);
+                }}
+                onDelete={async (taskId: number) => {
+                  await deleteTaskMutation.mutateAsync(taskId);
                 }}
                 isLoading={updateTaskMutation.isPending}
                 language={language}
