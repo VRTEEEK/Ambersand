@@ -267,15 +267,17 @@ export default function Regulations() {
     if (!controls) return false;
     const domainControls = controls.filter((control: any) => control.domainEn === domain);
     const domainControlIds = domainControls.map((control: any) => control.id);
-    return domainControlIds.length > 0 && domainControlIds.every(id => selectedControlIds.includes(id));
+    const result = domainControlIds.length > 0 && domainControlIds.every((id: number) => selectedControlIds.includes(id));
+    console.log(`isDomainSelected(${domain}): ${domainControlIds.length} controls, selected: ${selectedControlIds.length}, result: ${result}`);
+    return result;
   };
 
   const isDomainPartiallySelected = (domain: string) => {
     if (!controls) return false;
     const domainControls = controls.filter((control: any) => control.domainEn === domain);
     const domainControlIds = domainControls.map((control: any) => control.id);
-    const someSelected = domainControlIds.some(id => selectedControlIds.includes(id));
-    const allSelected = domainControlIds.every(id => selectedControlIds.includes(id));
+    const someSelected = domainControlIds.some((id: number) => selectedControlIds.includes(id));
+    const allSelected = domainControlIds.every((id: number) => selectedControlIds.includes(id));
     return someSelected && !allSelected;
   };
 
