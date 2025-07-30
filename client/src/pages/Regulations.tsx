@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -234,7 +234,7 @@ export default function Regulations() {
     );
   };
 
-  const toggleDomainSelection = (domain: string) => {
+  const toggleDomainSelection = useCallback((domain: string) => {
     if (!controls) return;
     
     const domainControls = controls.filter((control: any) => control.domainEn === domain);
@@ -242,14 +242,13 @@ export default function Regulations() {
     
     if (domainControlIds.length === 0) return;
     
+    // Use the current state from the UI to determine if domain is selected
+    const currentlySelected = isDomainSelected(domain);
+    console.log(`Toggling ${domain}: ${domainControlIds.length} controls, currently selected per UI: ${currentlySelected}`);
+    
     setSelectedControlIds(prev => {
-      // Check if ALL controls in this domain are currently selected using the current state
-      const allDomainControlsSelected = domainControlIds.every(id => prev.includes(id));
-      
-      console.log(`Toggling ${domain}: ${domainControlIds.length} controls, current state has ${prev.length}, all selected: ${allDomainControlsSelected}`);
-      
       let newSelection;
-      if (allDomainControlsSelected) {
+      if (currentlySelected) {
         // Remove all domain controls from selection
         newSelection = prev.filter(id => !domainControlIds.includes(id));
         console.log(`DESELECTED ${domain}: ${prev.length} -> ${newSelection.length}`);
@@ -261,7 +260,7 @@ export default function Regulations() {
       }
       return newSelection;
     });
-  };
+  }, [controls, selectedControlIds, isDomainSelected]);
 
   const isDomainSelected = (domain: string) => {
     if (!controls) return false;
