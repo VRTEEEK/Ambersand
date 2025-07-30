@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -234,6 +235,29 @@ export default function ProjectDetail() {
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',
         description: language === 'ar' ? 'فشل في تحديث المهمة' : 'Failed to update task',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: number) => {
+      return await apiRequest(`/api/tasks/${taskId}`, 'DELETE');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks', { projectId: id }] });
+      setRefreshKey(prev => prev + 1);
+      toast({
+        title: language === 'ar' ? 'تم حذف المهمة' : 'Task Deleted',
+        description: language === 'ar' ? 'تم حذف المهمة بنجاح' : 'Task deleted successfully',
+      });
+    },
+    onError: (error) => {
+      console.error('Failed to delete task:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في حذف المهمة' : 'Failed to delete task',
         variant: 'destructive',
       });
     },
@@ -985,6 +1009,11 @@ export default function ProjectDetail() {
                   setIsTaskEditDialogOpen(false);
                   setEditingTask(null);
                 }}
+                onDelete={async (taskId: number) => {
+                  await deleteTaskMutation.mutateAsync(taskId);
+                  setIsTaskEditDialogOpen(false);
+                  setEditingTask(null);
+                }}
                 isLoading={updateTaskMutation.isPending}
                 language={language}
               />
@@ -1014,6 +1043,7 @@ function EditTaskForm({
   taskEvidence,
   onSubmit, 
   onCancel, 
+  onDelete,
   isLoading, 
   language 
 }: {
@@ -1022,6 +1052,7 @@ function EditTaskForm({
   taskEvidence: any[];
   onSubmit: (data: any) => Promise<void>;
   onCancel: () => void;
+  onDelete?: (taskId: number) => Promise<void>;
   isLoading: boolean;
   language: string;
 }) {
@@ -1038,6 +1069,7 @@ function EditTaskForm({
   const [selectedControlForInfo, setSelectedControlForInfo] = useState<any>(null);
   const [isControlInfoDialogOpen, setIsControlInfoDialogOpen] = useState(false);
   const [pendingRemovedControls, setPendingRemovedControls] = useState<number[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [editedTask, setEditedTask] = useState({
     title: task.title || '',
     titleAr: task.titleAr || '',
@@ -1229,6 +1261,30 @@ function EditTaskForm({
   // Handle restoring temporarily removed control
   const handleRestoreControl = (controlId: number) => {
     setPendingRemovedControls(prev => prev.filter(id => id !== controlId));
+  };
+
+  // Handle task deletion
+  const handleDeleteTask = async () => {
+    if (!onDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await onDelete(task.id);
+      toast({
+        title: language === 'ar' ? 'تم حذف المهمة' : 'Task Deleted',
+        description: language === 'ar' ? 'تم حذف المهمة بنجاح' : 'Task deleted successfully',
+      });
+      onCancel(); // Close the dialog
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في حذف المهمة' : 'Failed to delete task',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleFileSelection = (files: File[]) => {
@@ -2041,17 +2097,64 @@ function EditTaskForm({
       </Tabs>
 
       {/* Action Buttons */}
-      <div className="flex justify-end space-x-2 pt-4 border-t">
-        <Button variant="outline" onClick={onCancel}>
-          {language === 'ar' ? 'إلغاء' : 'Cancel'}
-        </Button>
-        <Button onClick={handleTaskSubmit} disabled={isLoading}>
-          {isLoading ? (
-            language === 'ar' ? 'جاري الحفظ...' : 'Saving...'
-          ) : (
-            language === 'ar' ? 'حفظ التغييرات' : 'Save Changes'
-          )}
-        </Button>
+      <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
+        {/* Delete Button - Left Side */}
+        {onDelete && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950"
+                disabled={isDeleting}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {language === 'ar' ? 'حذف المهمة' : 'Delete Task'}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {language === 'ar' ? 'تأكيد حذف المهمة' : 'Confirm Task Deletion'}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {language === 'ar' 
+                    ? 'هل أنت متأكد أنك تريد حذف هذه المهمة؟ هذا الإجراء لا يمكن التراجع عنه وسيتم حذف جميع البيانات المرتبطة بالمهمة.'
+                    : 'Are you sure you want to delete this task? This action cannot be undone and will remove all associated task data.'
+                  }
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>
+                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                </AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={handleDeleteTask}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  disabled={isDeleting}
+                >
+                  {isDeleting 
+                    ? (language === 'ar' ? 'جاري الحذف...' : 'Deleting...')
+                    : (language === 'ar' ? 'حذف' : 'Delete')
+                  }
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+        
+        {/* Cancel and Save Buttons - Right Side */}
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={onCancel}>
+            {language === 'ar' ? 'إلغاء' : 'Cancel'}
+          </Button>
+          <Button onClick={handleTaskSubmit} disabled={isLoading}>
+            {isLoading ? (
+              language === 'ar' ? 'جاري الحفظ...' : 'Saving...'
+            ) : (
+              language === 'ar' ? 'حفظ التغييرات' : 'Save Changes'
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Control Info Dialog */}
