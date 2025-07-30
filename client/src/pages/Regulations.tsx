@@ -754,10 +754,10 @@ export default function Regulations() {
                             </CardTitle>
                           </CardHeader>
                           <CardContent className="relative z-10">
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 cursor-pointer group-hover:text-teal-600 transition-colors">
+                            <div className="h-1 bg-gradient-to-r from-teal-500/30 to-transparent rounded-full mb-4"></div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer group-hover:text-teal-600 transition-colors">
                               {language === 'ar' ? 'انقر لعرض الضوابط في هذا المجال' : 'Click to view controls under this domain'}
                             </p>
-                            <div className="mt-4 h-1 bg-gradient-to-r from-teal-500/30 to-transparent rounded-full"></div>
                           </CardContent>
                         </Card>
                       );
