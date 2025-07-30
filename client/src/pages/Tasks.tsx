@@ -324,7 +324,10 @@ const SortableTaskCard = memo(function SortableTaskCard({ task, language, onTask
                         {(control.eccControl?.evidenceAr || control.eccControl?.evidenceEn) && (
                           <div className="text-xs text-teal-600 mt-2">
                             <strong>Required Evidence: </strong>
-                            {language === 'ar' ? (control.eccControl?.evidenceAr || control.eccControl?.evidenceEn) : (control.eccControl?.evidenceEn || control.eccControl?.evidenceAr)}
+                            {language === 'ar' ? 
+                              (control.eccControl?.evidenceAr || 'No Arabic evidence description available') : 
+                              (control.eccControl?.evidenceEn || 'No English evidence description available')
+                            }
                           </div>
                         )}
                       </div>
