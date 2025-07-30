@@ -8,6 +8,7 @@ import { useI18n } from '@/hooks/use-i18n';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { TaskSearchInput } from '@/components/ui/TaskSearchInput';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,7 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import { Search, BookOpen, Shield, Database, Plus, Settings, FileText, Building, CheckSquare, Square } from 'lucide-react';
+import { BookOpen, Shield, Database, Plus, Settings, FileText, Building, CheckSquare, Square } from 'lucide-react';
 
 // Custom regulation schema
 const customRegulationSchema = z.object({
@@ -651,27 +652,26 @@ export default function Regulations() {
 
         {/* ECC Framework Details */}
         {selectedFramework === 'ecc' && (
-          <Card className="glass-card">
-            <CardHeader>
+          <Card className="glass-card border-0 shadow-xl bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
+            <CardHeader className="bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-t-lg">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
+                <CardTitle className="flex items-center gap-3 text-xl font-bold">
+                  <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                    <Shield className="h-6 w-6" />
+                  </div>
                   {language === 'ar' ? 'الضوابط الأساسية للأمن السيبراني' : 'Essential Cybersecurity Controls'}
                 </CardTitle>
                 <div className="w-full sm:w-96">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <Input
-                      placeholder={language === 'ar' ? 'البحث في الضوابط...' : 'Search controls...'}
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
+                  <TaskSearchInput
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    placeholder={language === 'ar' ? 'البحث في الضوابط...' : 'Search controls...'}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-white/30 bg-white/10 backdrop-blur-sm text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-white/40 transition-all"
+                  />
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-8 bg-gradient-to-br from-gray-50/50 to-white dark:from-gray-800/50 dark:to-gray-900">
               {isLoading ? (
                 <div className="space-y-3">
                   {[...Array(5)].map((_, i) => (
@@ -686,11 +686,15 @@ export default function Regulations() {
                 </div>
               ) : !selectedCategory ? (
                 // Show main categories first
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-slate-800">
-                    {language === 'ar' ? 'المجالات الرئيسية' : 'Main Domains'}
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className="h-1 w-12 bg-gradient-to-r from-teal-500 to-teal-600 rounded-full"></div>
+                    <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">
+                      {language === 'ar' ? 'المجالات الرئيسية' : 'Main Domains'}
+                    </h3>
+                    <div className="h-1 flex-1 bg-gradient-to-r from-teal-600 to-transparent rounded-full"></div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {getMainCategories().map((category: any, index) => {
                       const domainControlsCount = controls?.filter((c: any) => c.domainEn === category.en).length || 0;
                       const selectedCount = controls?.filter((c: any) => c.domainEn === category.en && selectedControlIds.includes(c.id)).length || 0;
@@ -700,23 +704,29 @@ export default function Regulations() {
                       return (
                         <Card 
                           key={index}
-                          className="border border-slate-200 hover:shadow-md transition-shadow hover:bg-slate-50"
+                          className="group relative overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 hover:scale-105"
                         >
-                          <CardHeader className="pb-3">
-                            <CardTitle className="text-base flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <Checkbox
-                                  checked={isSelected}
-                                  ref={(ref) => {
-                                    if (ref && isPartiallySelected) {
-                                      ref.indeterminate = true;
-                                    }
-                                  }}
-                                  onCheckedChange={() => toggleDomainSelection(category.en)}
-                                  className="flex-shrink-0"
-                                />
+                          <div className="absolute inset-0 bg-gradient-to-br from-teal-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                          <CardHeader className="pb-4 relative z-10">
+                            <CardTitle className="text-lg flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className="relative">
+                                  <Checkbox
+                                    checked={isSelected}
+                                    ref={(ref) => {
+                                      if (ref && isPartiallySelected) {
+                                        ref.indeterminate = true;
+                                      }
+                                    }}
+                                    onCheckedChange={() => toggleDomainSelection(category.en)}
+                                    className="flex-shrink-0 scale-110"
+                                  />
+                                  {isSelected && (
+                                    <div className="absolute -inset-1 bg-teal-500/20 rounded-full animate-pulse"></div>
+                                  )}
+                                </div>
                                 <span
-                                  className="cursor-pointer"
+                                  className="cursor-pointer font-semibold text-gray-800 dark:text-gray-200 group-hover:text-teal-600 transition-colors"
                                   onClick={() => setSelectedCategory(category.en)}
                                 >
                                   {language === 'ar' ? category.ar : category.en}
@@ -724,23 +734,24 @@ export default function Regulations() {
                               </div>
                               <div className="flex items-center gap-2">
                                 {selectedCount > 0 && (
-                                  <Badge variant="default" className="bg-teal-600">
+                                  <Badge variant="default" className="bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-md animate-pulse">
                                     {selectedCount}
                                   </Badge>
                                 )}
-                                <Badge variant="outline">
+                                <Badge variant="outline" className="border-gray-300 text-gray-600 bg-white/80">
                                   {domainControlsCount}
                                 </Badge>
                               </div>
                             </CardTitle>
                           </CardHeader>
-                          <CardContent>
-                            <p className="text-sm text-slate-600">
+                          <CardContent className="relative z-10">
+                            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                               {language === 'ar' 
                                 ? 'انقر لعرض الضوابط في هذا المجال'
                                 : 'Click to view controls in this domain'
                               }
                             </p>
+                            <div className="mt-4 h-1 bg-gradient-to-r from-teal-500/30 to-transparent rounded-full"></div>
                           </CardContent>
                         </Card>
                       );
@@ -749,76 +760,81 @@ export default function Regulations() {
                 </div>
               ) : (
                 // Show filtered controls for selected category
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
+                <div className="space-y-6">
+                  <div className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedCategory(null)}
+                          className="flex items-center gap-2 hover:bg-teal-50 hover:border-teal-300 hover:text-teal-700 transition-all"
+                        >
+                          ← {language === 'ar' ? 'العودة للمجالات' : 'Back to Domains'}
+                        </Button>
+                        <div className="flex items-center gap-3">
+                          <div className="h-2 w-2 bg-teal-500 rounded-full"></div>
+                          <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">
+                            {getMainCategories().find(cat => cat.en === selectedCategory)?.[language === 'ar' ? 'ar' : 'en'] || selectedCategory}
+                          </h3>
+                        </div>
+                      </div>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setSelectedCategory(null)}
-                        className="flex items-center gap-2"
-                      >
-                        ← {language === 'ar' ? 'العودة للمجالات' : 'Back to Domains'}
-                      </Button>
-                      <h3 className="text-lg font-semibold text-slate-800">
-                        {getMainCategories().find(cat => cat.en === selectedCategory)?.[language === 'ar' ? 'ar' : 'en'] || selectedCategory}
-                      </h3>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const categoryControls = getFilteredControls();
-                        const categoryControlIds = categoryControls.map((control: any) => control.id);
-                        const allSelected = categoryControlIds.every((id: number) => selectedControlIds.includes(id));
-                        
-                        if (allSelected) {
-                          // Deselect all controls in this category
-                          setSelectedControlIds(prev => prev.filter(id => !categoryControlIds.includes(id)));
-                        } else {
-                          // Select all controls in this category
-                          setSelectedControlIds(prev => {
-                            const newIds = [...prev];
-                            categoryControlIds.forEach((id: number) => {
-                              if (!newIds.includes(id)) {
-                                newIds.push(id);
-                              }
+                        onClick={() => {
+                          const categoryControls = getFilteredControls();
+                          const categoryControlIds = categoryControls.map((control: any) => control.id);
+                          const allSelected = categoryControlIds.every((id: number) => selectedControlIds.includes(id));
+                          
+                          if (allSelected) {
+                            // Deselect all controls in this category
+                            setSelectedControlIds(prev => prev.filter(id => !categoryControlIds.includes(id)));
+                          } else {
+                            // Select all controls in this category
+                            setSelectedControlIds(prev => {
+                              const newIds = [...prev];
+                              categoryControlIds.forEach((id: number) => {
+                                if (!newIds.includes(id)) {
+                                  newIds.push(id);
+                                }
+                              });
+                              return newIds;
                             });
-                            return newIds;
-                          });
-                        }
-                      }}
-                      className={(() => {
-                        const categoryControls = getFilteredControls();
-                        const categoryControlIds = categoryControls.map((control: any) => control.id);
-                        const allSelected = categoryControlIds.every((id: number) => selectedControlIds.includes(id));
-                        return allSelected 
-                          ? "flex items-center gap-2 bg-teal-50 hover:bg-teal-100 text-teal-700 border-teal-200"
-                          : "flex items-center gap-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200";
-                      })()}
-                    >
-                      {(() => {
-                        const categoryControls = getFilteredControls();
-                        const categoryControlIds = categoryControls.map((control: any) => control.id);
-                        const allSelected = categoryControlIds.every((id: number) => selectedControlIds.includes(id));
-                        return allSelected 
-                          ? (language === 'ar' ? 'إلغاء تحديد الكل' : 'Deselect All')
-                          : (language === 'ar' ? 'تحديد الكل' : 'Select All');
-                      })()}
-                      <Badge 
-                        variant="secondary" 
+                          }
+                        }}
                         className={(() => {
                           const categoryControls = getFilteredControls();
                           const categoryControlIds = categoryControls.map((control: any) => control.id);
                           const allSelected = categoryControlIds.every((id: number) => selectedControlIds.includes(id));
                           return allSelected 
-                            ? "bg-teal-100 text-teal-700"
-                            : "bg-slate-200 text-slate-600";
+                            ? "flex items-center gap-2 bg-gradient-to-r from-teal-50 to-teal-100 hover:from-teal-100 hover:to-teal-200 text-teal-700 border-teal-300 shadow-md"
+                            : "flex items-center gap-2 bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 text-gray-700 border-gray-300 shadow-md";
                         })()}
                       >
-                        {getFilteredControls().length}
-                      </Badge>
-                    </Button>
+                        {(() => {
+                          const categoryControls = getFilteredControls();
+                          const categoryControlIds = categoryControls.map((control: any) => control.id);
+                          const allSelected = categoryControlIds.every((id: number) => selectedControlIds.includes(id));
+                          return allSelected 
+                            ? (language === 'ar' ? 'إلغاء تحديد الكل' : 'Deselect All')
+                            : (language === 'ar' ? 'تحديد الكل' : 'Select All');
+                        })()}
+                        <Badge 
+                          variant="secondary" 
+                          className={(() => {
+                            const categoryControls = getFilteredControls();
+                            const categoryControlIds = categoryControls.map((control: any) => control.id);
+                            const allSelected = categoryControlIds.every((id: number) => selectedControlIds.includes(id));
+                            return allSelected 
+                              ? "bg-white text-teal-700 border border-teal-200"
+                              : "bg-white text-gray-600 border border-gray-200";
+                          })()}
+                        >
+                          {getFilteredControls().length}
+                        </Badge>
+                      </Button>
+                    </div>
                   </div>
                   <TooltipProvider>
                     <div className="space-y-3">
@@ -924,25 +940,32 @@ export default function Regulations() {
 
         {/* Other Framework Details */}
         {selectedFramework && selectedFramework !== 'ecc' && (
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                {selectedFramework === 'pdpl' && <Database className="h-5 w-5" />}
-                {selectedFramework === 'ndmo' && <BookOpen className="h-5 w-5" />}
+          <Card className="glass-card border-0 shadow-xl bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
+            <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-700 text-white rounded-t-lg">
+              <CardTitle className="flex items-center gap-3 text-xl font-bold">
+                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                  {selectedFramework === 'pdpl' && <Database className="h-6 w-6" />}
+                  {selectedFramework === 'ndmo' && <BookOpen className="h-6 w-6" />}
+                </div>
                 {regulationFrameworks.find(f => f.id === selectedFramework)?.nameAr && language === 'ar'
                   ? regulationFrameworks.find(f => f.id === selectedFramework)?.nameAr
                   : regulationFrameworks.find(f => f.id === selectedFramework)?.name
                 }
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <p className="text-slate-600">
+            <CardContent className="p-12 bg-gradient-to-br from-gray-50/50 to-white dark:from-gray-800/50 dark:to-gray-900">
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 mb-6">
+                  {selectedFramework === 'pdpl' && <Database className="h-12 w-12 text-blue-600" />}
+                  {selectedFramework === 'ndmo' && <BookOpen className="h-12 w-12 text-purple-600" />}
+                </div>
+                <p className="text-lg text-gray-600 dark:text-gray-400 font-medium">
                   {language === 'ar' 
                     ? 'تفاصيل هذا الإطار التنظيمي ستكون متاحة قريباً'
                     : 'Details for this regulatory framework will be available soon'
                   }
                 </p>
+                <div className="mt-6 h-1 w-32 mx-auto bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"></div>
               </div>
             </CardContent>
           </Card>
