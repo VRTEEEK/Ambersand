@@ -628,6 +628,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
+      // If evidence is uploaded to a task, get the first control associated with that task
+      let controlId = req.body.eccControlId ? parseInt(req.body.eccControlId) : undefined;
+      const taskId = req.body.taskId ? parseInt(req.body.taskId) : undefined;
+      
+      if (taskId && !controlId) {
+        try {
+          const taskControls = await storage.getTaskControls(taskId);
+          if (taskControls.length > 0) {
+            controlId = taskControls[0].eccControl.id;
+            console.log(`🔗 Auto-assigning control ${controlId} to evidence from task ${taskId}`);
+          }
+        } catch (error) {
+          console.log('⚠️ Could not retrieve task controls:', error);
+        }
+      }
+
       const evidenceData = insertEvidenceSchema.parse({
         title: req.body.title,
         titleAr: req.body.titleAr,
@@ -637,9 +653,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileSize: req.file.size,
         fileType: req.file.mimetype,
         filePath: req.file.path,
-        taskId: req.body.taskId ? parseInt(req.body.taskId) : undefined,
+        taskId: taskId,
         projectId: req.body.projectId ? parseInt(req.body.projectId) : undefined,
-        eccControlId: req.body.eccControlId ? parseInt(req.body.eccControlId) : undefined,
+        eccControlId: controlId,
         uploadedById: req.user.claims.sub,
       });
       
