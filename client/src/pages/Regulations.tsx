@@ -228,26 +228,16 @@ export default function Regulations() {
   };
 
   const toggleDomainSelection = (domain: string) => {
-    console.log('toggleDomainSelection called for:', domain);
     const domainControls = controls?.filter((control: any) => control.domainEn === domain) || [];
     const domainControlIds = domainControls.map((control: any) => control.id);
-    console.log('Domain control IDs:', domainControlIds);
-    console.log('Currently selected IDs:', selectedControlIds);
     
     const allSelected = domainControlIds.every((id: number) => selectedControlIds.includes(id));
-    console.log('All selected?', allSelected);
     
     if (allSelected) {
       // Deselect all domain controls
-      console.log('Deselecting all domain controls');
-      setSelectedControlIds(prev => {
-        const filtered = prev.filter(id => !domainControlIds.includes(id));
-        console.log('New selected IDs after deselection:', filtered);
-        return filtered;
-      });
+      setSelectedControlIds(prev => prev.filter(id => !domainControlIds.includes(id)));
     } else {
       // Select all domain controls
-      console.log('Selecting all domain controls');
       setSelectedControlIds(prev => {
         const newIds = [...prev];
         domainControlIds.forEach((id: number) => {
@@ -255,7 +245,6 @@ export default function Regulations() {
             newIds.push(id);
           }
         });
-        console.log('New selected IDs after selection:', newIds);
         return newIds;
       });
     }
@@ -733,10 +722,7 @@ export default function Regulations() {
                                 <div className="relative">
                                   <Checkbox
                                     checked={isSelected}
-                                    onCheckedChange={() => {
-                                      console.log('Checkbox clicked for domain:', category.en, 'isSelected:', isSelected);
-                                      toggleDomainSelection(category.en);
-                                    }}
+                                    onCheckedChange={() => toggleDomainSelection(category.en)}
                                     className="flex-shrink-0 scale-110 cursor-pointer hover:scale-125 transition-transform duration-200"
                                   />
                                   {isSelected && (

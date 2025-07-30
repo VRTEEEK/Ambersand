@@ -535,6 +535,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all task controls for displaying badges
+  app.get('/api/tasks/controls/all', isAuthenticated, async (req, res) => {
+    try {
+      const tasks = await storage.getTasks();
+      const taskControlsMap: Record<number, any[]> = {};
+      
+      for (const task of tasks) {
+        const controls = await storage.getTaskControls(task.id);
+        taskControlsMap[task.id] = controls;
+      }
+      
+      res.json(taskControlsMap);
+    } catch (error) {
+      console.error("Error fetching all task controls:", error);
+      res.status(500).json({ message: "Failed to fetch all task controls" });
+    }
+  });
+
   // Get evidence for a specific task
   app.get('/api/evidence/task/:taskId', isAuthenticated, async (req, res) => {
     try {

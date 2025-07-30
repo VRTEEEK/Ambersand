@@ -19,6 +19,12 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { 
   Select,
   SelectContent,
   SelectItem,
@@ -40,6 +46,8 @@ import {
   GripVertical,
   FolderOpen,
   Eye,
+  Shield,
+  Info,
 } from 'lucide-react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -157,7 +165,7 @@ const DroppableColumn = memo(function DroppableColumn({ id, children }: { id: st
 });
 
 // Sortable Task Card Component - Memoized for performance
-const SortableTaskCard = memo(function SortableTaskCard({ task, language, onTaskClick, users, projects }: { task: Task; language: string; onTaskClick: (task: Task) => void; users: any[]; projects: any[] }) {
+const SortableTaskCard = memo(function SortableTaskCard({ task, language, onTaskClick, users, projects, taskControls }: { task: Task; language: string; onTaskClick: (task: Task) => void; users: any[]; projects: any[]; taskControls?: any[] }) {
   const {
     attributes,
     listeners,
@@ -280,6 +288,59 @@ const SortableTaskCard = memo(function SortableTaskCard({ task, language, onTask
         </div>
       </div>
       
+      {/* Control Badges */}
+      {taskControls && taskControls.length > 0 && (
+        <div className="border-t border-gray-100 dark:border-gray-700 pt-2">
+          <div className="flex items-center gap-1 mb-1">
+            <Shield className="h-3 w-3 text-teal-500" />
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              {language === 'ar' ? 'الضوابط' : 'Controls'}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {taskControls.slice(0, 3).map((control: any) => (
+              <TooltipProvider key={control.eccControlId}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge 
+                      variant="outline" 
+                      className="text-xs px-1.5 py-0.5 bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-100 cursor-help"
+                    >
+                      {control.eccControl?.code || control.eccControlId}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs p-3">
+                    <div className="space-y-2">
+                      <div className="font-semibold text-sm">
+                        {control.eccControl?.code} - {language === 'ar' ? control.eccControl?.domainAr : control.eccControl?.domainEn}
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        <strong>{language === 'ar' ? 'النطاق الفرعي: ' : 'Subdomain: '}</strong>
+                        {language === 'ar' ? control.eccControl?.subdomainAr : control.eccControl?.subdomainEn}
+                      </div>
+                      <div className="text-xs">
+                        {language === 'ar' ? control.eccControl?.controlAr : control.eccControl?.controlEn}
+                      </div>
+                      {control.eccControl?.evidenceAr && (
+                        <div className="text-xs text-teal-600 mt-2">
+                          <strong>{language === 'ar' ? 'الأدلة المطلوبة: ' : 'Required Evidence: '}</strong>
+                          {language === 'ar' ? control.eccControl.evidenceAr : control.eccControl.evidenceEn}
+                        </div>
+                      )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ))}
+            {taskControls.length > 3 && (
+              <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
+                +{taskControls.length - 3}
+              </Badge>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Footer with ID and update time */}
       <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700">
         <div className="text-xs text-gray-400 font-mono">
@@ -351,6 +412,17 @@ export default function Tasks() {
       if (!response.ok) throw new Error('Failed to fetch users');
       return response.json();
     },
+  });
+
+  // Fetch all task controls for displaying badges
+  const { data: allTaskControls = {} } = useQuery({
+    queryKey: ['/api/tasks/controls/all'],
+    queryFn: async () => {
+      const response = await fetch('/api/tasks/controls/all');
+      if (!response.ok) throw new Error('Failed to fetch task controls');
+      return response.json();
+    },
+    enabled: !!tasks && tasks.length > 0,
   });
 
   // Handle email link task selection - after tasks are loaded
@@ -810,7 +882,7 @@ export default function Tasks() {
                           ) : (
                             <>
                               {columnTasks.slice(0, 50).map((task) => (
-                                <SortableTaskCard key={task.id} task={task} language={language} onTaskClick={handleTaskClick} users={users} projects={projects} />
+                                <SortableTaskCard key={task.id} task={task} language={language} onTaskClick={handleTaskClick} users={users} projects={projects} taskControls={allTaskControls[task.id] || []} />
                               ))}
                               {columnTasks.length > 50 && (
                                 <div className="text-center py-4 text-gray-500 dark:text-gray-400">
