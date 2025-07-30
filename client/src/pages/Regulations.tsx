@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -67,13 +67,6 @@ export default function Regulations() {
   const [selectedFramework, setSelectedFramework] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedControlIds, setSelectedControlIds] = useState<number[]>([]);
-  
-  // Reset selected controls when switching frameworks
-  useEffect(() => {
-    if (selectedFramework !== 'ecc') {
-      setSelectedControlIds([]);
-    }
-  }, [selectedFramework]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -81,12 +74,12 @@ export default function Regulations() {
   const { data: controls, isLoading } = useQuery({
     queryKey: ['/api/ecc-controls', { search: searchTerm }],
     queryFn: async ({ queryKey }) => {
-      const [url, params] = queryKey as [string, { search?: string }];
+      const [url, params] = queryKey;
       const searchParams = new URLSearchParams();
       if (params?.search) {
         searchParams.append('search', params.search);
       }
-      const response = await fetch(`${url}?${searchParams.toString()}`);
+      const response = await fetch(`${url}?${searchParams}`);
       if (!response.ok) throw new Error('Failed to fetch controls');
       return response.json();
     },
@@ -235,44 +228,29 @@ export default function Regulations() {
   };
 
   const toggleDomainSelection = (domain: string) => {
-    if (!controls) return;
-    
-    const domainControls = controls.filter((control: any) => control.domainEn === domain);
+    const domainControls = controls?.filter((control: any) => control.domainEn === domain) || [];
     const domainControlIds = domainControls.map((control: any) => control.id);
+    const allSelected = domainControlIds.every((id: number) => selectedControlIds.includes(id));
     
-    if (domainControlIds.length === 0) return;
-    
-    // Force a fresh evaluation by using a timeout to ensure state is stable
-    setTimeout(() => {
-      setSelectedControlIds(prev => {
-        const allDomainControlsSelected = domainControlIds.every((id: number) => prev.includes(id));
-        
-        if (allDomainControlsSelected) {
-          // Deselect all domain controls
-          return prev.filter(id => !domainControlIds.includes(id));
-        } else {
-          // Select all domain controls
-          const uniqueIds = new Set([...prev, ...domainControlIds]);
-          return Array.from(uniqueIds);
-        }
-      });
-    }, 0);
+    if (allSelected) {
+      // Deselect all domain controls
+      setSelectedControlIds(prev => prev.filter(id => !domainControlIds.includes(id)));
+    } else {
+      // Select all domain controls
+      setSelectedControlIds(prev => [...new Set([...prev, ...domainControlIds])]);
+    }
   };
 
   const isDomainSelected = (domain: string) => {
-    if (!controls) return false;
-    const domainControls = controls.filter((control: any) => control.domainEn === domain);
+    const domainControls = controls?.filter((control: any) => control.domainEn === domain) || [];
     const domainControlIds = domainControls.map((control: any) => control.id);
     return domainControlIds.length > 0 && domainControlIds.every((id: number) => selectedControlIds.includes(id));
   };
 
   const isDomainPartiallySelected = (domain: string) => {
-    if (!controls) return false;
-    const domainControls = controls.filter((control: any) => control.domainEn === domain);
+    const domainControls = controls?.filter((control: any) => control.domainEn === domain) || [];
     const domainControlIds = domainControls.map((control: any) => control.id);
-    const someSelected = domainControlIds.some((id: number) => selectedControlIds.includes(id));
-    const allSelected = domainControlIds.every((id: number) => selectedControlIds.includes(id));
-    return someSelected && !allSelected;
+    return domainControlIds.some((id: number) => selectedControlIds.includes(id)) && !isDomainSelected(domain);
   };
 
   // Group controls by domain
@@ -626,7 +604,7 @@ export default function Regulations() {
         </div>
 
         {/* Custom Regulations Section */}
-        {customRegulations && Array.isArray(customRegulations) && customRegulations.length > 0 && (
+        {customRegulations && customRegulations.length > 0 && (
           <Card className="glass-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -636,7 +614,7 @@ export default function Regulations() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Array.isArray(customRegulations) && customRegulations.map((regulation: any) => (
+                {customRegulations.map((regulation: any) => (
                   <Card key={regulation.id} className="border border-slate-200 hover:shadow-md transition-shadow">
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
@@ -734,26 +712,17 @@ export default function Regulations() {
                               <div className="flex items-center gap-4">
                                 <div className="relative">
                                   <Checkbox
-                                    checked={isSelected ? true : isPartiallySelected ? 'indeterminate' : false}
-                                    onCheckedChange={(checked) => {
-                                      const domainControls = controls?.filter((control: any) => control.domainEn === category.en) || [];
-                                      const domainControlIds = domainControls.map((control: any) => control.id);
-                                      
-                                      if (checked) {
-                                        // Add all domain controls
-                                        setSelectedControlIds(prev => {
-                                          const newIds = new Set([...prev, ...domainControlIds]);
-                                          return Array.from(newIds);
-                                        });
-                                      } else {
-                                        // Remove all domain controls
-                                        setSelectedControlIds(prev => prev.filter(id => !domainControlIds.includes(id)));
+                                    checked={isSelected}
+                                    ref={(ref) => {
+                                      if (ref && isPartiallySelected) {
+                                        ref.indeterminate = true;
                                       }
                                     }}
+                                    onCheckedChange={() => toggleDomainSelection(category.en)}
                                     className="flex-shrink-0 scale-110"
                                   />
                                   {isSelected && (
-                                    <div className="absolute -inset-1 bg-teal-500/20 rounded-full"></div>
+                                    <div className="absolute -inset-1 bg-teal-500/20 rounded-full animate-pulse"></div>
                                   )}
                                 </div>
                                 <span
@@ -765,7 +734,7 @@ export default function Regulations() {
                               </div>
                               <div className="flex items-center gap-2">
                                 {selectedCount > 0 && (
-                                  <Badge variant="default" className="bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-md">
+                                  <Badge variant="default" className="bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-md animate-pulse">
                                     {selectedCount}
                                   </Badge>
                                 )}
@@ -1122,7 +1091,7 @@ export default function Regulations() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {Array.isArray(users) && users.map((user: any) => (
+                                {users?.map((user: any) => (
                                   <SelectItem key={user.id} value={user.id}>
                                     <div className="flex items-center gap-2">
                                       <span className="font-medium">
