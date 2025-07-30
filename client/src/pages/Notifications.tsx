@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useI18n } from '@/hooks/use-i18n';
+import { useNotifications, type Notification } from '@/hooks/useNotifications';
 import AppLayout from '@/components/layout/AppLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,86 +21,10 @@ import {
 import { cn } from '@/lib/utils';
 import heroBackgroundPath from "@assets/image_1752308830644.png";
 
-interface Notification {
-  id: string;
-  title: string;
-  titleAr: string;
-  message: string;
-  messageAr: string;
-  type: 'task' | 'project' | 'user' | 'system';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  isRead: boolean;
-  createdAt: string;
-  actionUrl?: string;
-}
-
-const mockNotifications: Notification[] = [
-  {
-    id: '1',
-    title: 'New Task Assigned',
-    titleAr: 'مهمة جديدة مُسندة',
-    message: 'You have been assigned a new compliance task for ECC control 1-2-3',
-    messageAr: 'تم إسناد مهمة امتثال جديدة لك للضابط ECC 1-2-3',
-    type: 'task',
-    priority: 'high',
-    isRead: false,
-    createdAt: '2025-07-12T09:45:00Z',
-    actionUrl: '/tasks'
-  },
-  {
-    id: '2',
-    title: 'Project Status Updated',
-    titleAr: 'تم تحديث حالة المشروع',
-    message: 'Project "Cybersecurity Framework" has been marked as completed',
-    messageAr: 'تم وضع علامة على مشروع "إطار الأمن السيبراني" كمكتمل',
-    type: 'project',
-    priority: 'medium',
-    isRead: false,
-    createdAt: '2025-07-12T08:30:00Z',
-    actionUrl: '/projects'
-  },
-  {
-    id: '3',
-    title: 'New User Added',
-    titleAr: 'تم إضافة مستخدم جديد',
-    message: 'A new user "Ahmed Mohammed" has been added to your organization',
-    messageAr: 'تم إضافة مستخدم جديد "أحمد محمد" إلى منظمتك',
-    type: 'user',
-    priority: 'low',
-    isRead: true,
-    createdAt: '2025-07-12T07:15:00Z',
-    actionUrl: '/users'
-  },
-  {
-    id: '4',
-    title: 'Compliance Report Ready',
-    titleAr: 'تقرير الامتثال جاهز',
-    message: 'Your monthly compliance report is now available for download',
-    messageAr: 'تقرير الامتثال الشهري متاح الآن للتحميل',
-    type: 'system',
-    priority: 'medium',
-    isRead: true,
-    createdAt: '2025-07-12T06:00:00Z',
-    actionUrl: '/analytics'
-  },
-  {
-    id: '5',
-    title: 'Urgent: Deadline Approaching',
-    titleAr: 'عاجل: اقتراب الموعد النهائي',
-    message: 'Task "Security Assessment" is due tomorrow',
-    messageAr: 'مهمة "تقييم الأمن" مستحقة غداً',
-    type: 'task',
-    priority: 'urgent',
-    isRead: false,
-    createdAt: '2025-07-11T18:00:00Z',
-    actionUrl: '/tasks'
-  }
-];
-
 export default function Notifications() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { language } = useI18n();
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
 
   const getNotificationIcon = (type: string) => {
@@ -136,52 +61,24 @@ export default function Notifications() {
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMinutes / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffDays > 0) {
-      return language === 'ar' ? `منذ ${diffDays} يوم` : `${diffDays}d ago`;
-    } else if (diffHours > 0) {
+    if (diffMinutes < 60) {
+      return language === 'ar' ? `منذ ${diffMinutes} دقيقة` : `${diffMinutes}m ago`;
+    } else if (diffHours < 24) {
       return language === 'ar' ? `منذ ${diffHours} ساعة` : `${diffHours}h ago`;
     } else {
-      const diffMinutes = Math.floor(diffMs / (1000 * 60));
-      return language === 'ar' ? `منذ ${diffMinutes} دقيقة` : `${diffMinutes}m ago`;
+      return language === 'ar' ? `منذ ${diffDays} يوم` : `${diffDays}d ago`;
     }
   };
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev => 
-      prev.map(notif => 
-        notif.id === id ? { ...notif, isRead: true } : notif
-      )
-    );
-  };
-
-  const markAsUnread = (id: string) => {
-    setNotifications(prev => 
-      prev.map(notif => 
-        notif.id === id ? { ...notif, isRead: false } : notif
-      )
-    );
-  };
-
-  const deleteNotification = (id: string) => {
-    setNotifications(prev => prev.filter(notif => notif.id !== id));
-  };
-
-  const markAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notif => ({ ...notif, isRead: true }))
-    );
-  };
-
-  const filteredNotifications = notifications.filter(notif => {
-    if (filter === 'unread') return !notif.isRead;
-    if (filter === 'read') return notif.isRead;
+  const filteredNotifications = notifications.filter(notification => {
+    if (filter === 'unread') return !notification.isRead;
+    if (filter === 'read') return notification.isRead;
     return true;
   });
-
-  const unreadCount = notifications.filter(n => !n.isRead).length;
 
   if (isLoading) {
     return (
@@ -218,7 +115,9 @@ export default function Notifications() {
           <div className="relative px-8 py-16 md:py-20">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
               <div className="text-center lg:text-left">
-                
+                <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">
+                  {language === 'ar' ? 'الإشعارات' : 'Notifications'}
+                </h1>
                 
                 <div className="flex flex-wrap items-center justify-center lg:justify-start gap-6 text-white/90">
                   <div className="flex items-center gap-2">
@@ -227,175 +126,148 @@ export default function Notifications() {
                     </div>
                     <span className="font-semibold">{notifications.length} {language === 'ar' ? 'إشعار' : 'Notifications'}</span>
                   </div>
+                  
+                  <Separator orientation="vertical" className="h-6 bg-white/30" />
+                  
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                      <AlertTriangle className="h-4 w-4" />
+                      <Mail className="h-4 w-4" />
                     </div>
                     <span className="font-semibold">{unreadCount} {language === 'ar' ? 'غير مقروء' : 'Unread'}</span>
                   </div>
                 </div>
               </div>
-
-              <div className="flex justify-center lg:justify-end">
-                <Button 
-                  onClick={markAllAsRead}
-                  className="bg-white/20 hover:bg-white/30 text-white border border-white/30 backdrop-blur-sm px-8 py-6 text-lg rounded-xl transition-all duration-200 hover:scale-105"
-                  disabled={unreadCount === 0}
-                >
-                  <CheckCircle2 className="h-5 w-5 mr-3" />
-                  {language === 'ar' ? 'تميز الكل كمقروء' : 'Mark All as Read'}
-                </Button>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Filter Tabs */}
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant={filter === 'all' ? 'default' : 'outline'}
-            onClick={() => setFilter('all')}
-            className={cn(
-              filter === 'all' && 'bg-[#2699A6] hover:bg-[#2699A6]/90'
-            )}
-          >
-            {language === 'ar' ? 'الكل' : 'All'} ({notifications.length})
-          </Button>
-          <Button
-            variant={filter === 'unread' ? 'default' : 'outline'}
-            onClick={() => setFilter('unread')}
-            className={cn(
-              filter === 'unread' && 'bg-[#2699A6] hover:bg-[#2699A6]/90'
-            )}
-          >
-            {language === 'ar' ? 'غير مقروء' : 'Unread'} ({unreadCount})
-          </Button>
-          <Button
-            variant={filter === 'read' ? 'default' : 'outline'}
-            onClick={() => setFilter('read')}
-            className={cn(
-              filter === 'read' && 'bg-[#2699A6] hover:bg-[#2699A6]/90'
-            )}
-          >
-            {language === 'ar' ? 'مقروء' : 'Read'} ({notifications.length - unreadCount})
-          </Button>
+        {/* Controls */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <Button
+              variant={filter === 'all' ? 'default' : 'outline'}
+              onClick={() => setFilter('all')}
+              className={filter === 'all' ? 'bg-[#2699A6] hover:bg-[#1e7a85]' : ''}
+            >
+              {language === 'ar' ? 'الكل' : 'All'} ({notifications.length})
+            </Button>
+            <Button
+              variant={filter === 'unread' ? 'default' : 'outline'}
+              onClick={() => setFilter('unread')}
+              className={filter === 'unread' ? 'bg-[#2699A6] hover:bg-[#1e7a85]' : ''}
+            >
+              {language === 'ar' ? 'غير مقروء' : 'Unread'} ({unreadCount})
+            </Button>
+            <Button
+              variant={filter === 'read' ? 'default' : 'outline'}
+              onClick={() => setFilter('read')}
+              className={filter === 'read' ? 'bg-[#2699A6] hover:bg-[#1e7a85]' : ''}
+            >
+              {language === 'ar' ? 'مقروء' : 'Read'} ({notifications.length - unreadCount})
+            </Button>
+          </div>
+
+          {unreadCount > 0 && (
+            <Button
+              variant="outline"
+              onClick={markAllAsRead}
+              className="flex items-center gap-2"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              {language === 'ar' ? 'تحديد الكل كمقروء' : 'Mark All as Read'}
+            </Button>
+          )}
         </div>
 
         {/* Notifications List */}
-        <Card className="border border-slate-200/60 dark:border-slate-700/60 shadow-xl backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-3">
-              <Bell className="h-6 w-6 text-[#2699A6]" />
-              {language === 'ar' ? 'قائمة الإشعارات' : 'Notification List'}
-            </CardTitle>
-            <CardDescription>
-              {language === 'ar' ? 'جميع الإشعارات والتحديثات الخاصة بك' : 'All your notifications and updates'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            {filteredNotifications.length === 0 ? (
-              <div className="p-12 text-center">
-                <Bell className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-600 mb-2">
-                  {language === 'ar' ? 'لا توجد إشعارات' : 'No Notifications'}
-                </h3>
-                <p className="text-slate-500">
-                  {filter === 'unread' 
-                    ? (language === 'ar' ? 'جميع الإشعارات مقروءة' : 'All notifications are read')
-                    : (language === 'ar' ? 'ستظهر الإشعارات هنا عند وصولها' : 'Notifications will appear here when they arrive')
+        <div className="space-y-4">
+          {filteredNotifications.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Bell className="h-12 w-12 text-gray-400 mb-4" />
+                <p className="text-lg font-medium text-gray-600 mb-2">
+                  {language === 'ar' ? 'لا توجد إشعارات' : 'No notifications'}
+                </p>
+                <p className="text-gray-500 text-center">
+                  {language === 'ar' 
+                    ? 'ستظهر الإشعارات الجديدة هنا عند توفرها'
+                    : 'New notifications will appear here when available'
                   }
                 </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-200 dark:divide-slate-700">
-                {filteredNotifications.map((notification, index) => (
-                  <div 
-                    key={notification.id}
-                    className={cn(
-                      "p-6 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors duration-200",
-                      !notification.isRead && "bg-blue-50/50 dark:bg-blue-900/10 border-l-4 border-l-[#2699A6]"
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-4 flex-1">
-                        <div className={cn(
-                          "w-12 h-12 rounded-full flex items-center justify-center",
-                          notification.type === 'task' ? 'bg-green-100 text-green-600' :
-                          notification.type === 'project' ? 'bg-blue-100 text-blue-600' :
-                          notification.type === 'user' ? 'bg-purple-100 text-purple-600' :
-                          'bg-gray-100 text-gray-600'
-                        )}>
-                          {getNotificationIcon(notification.type)}
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="font-semibold text-slate-900 dark:text-white">
-                              {language === 'ar' ? notification.titleAr : notification.title}
-                            </h3>
-                            <Badge className={cn("text-xs", getPriorityColor(notification.priority))}>
-                              {language === 'ar' ? (
-                                notification.priority === 'urgent' ? 'عاجل' :
-                                notification.priority === 'high' ? 'عالي' :
-                                notification.priority === 'medium' ? 'متوسط' : 'منخفض'
-                              ) : (
-                                notification.priority.charAt(0).toUpperCase() + notification.priority.slice(1)
-                              )}
-                            </Badge>
-                            {!notification.isRead && (
-                              <div className="w-2 h-2 bg-[#2699A6] rounded-full"></div>
-                            )}
-                          </div>
-                          
-                          <p className="text-slate-600 dark:text-slate-400 mb-3">
-                            {language === 'ar' ? notification.messageAr : notification.message}
-                          </p>
-                          
-                          <div className="flex items-center gap-2 text-sm text-slate-500">
-                            <Clock className="h-4 w-4" />
-                            <span>{formatTime(notification.createdAt)}</span>
-                          </div>
-                        </div>
+              </CardContent>
+            </Card>
+          ) : (
+            filteredNotifications.map((notification) => (
+              <Card 
+                key={notification.id} 
+                className={cn(
+                  "transition-all duration-200 hover:shadow-md cursor-pointer",
+                  !notification.isRead ? 'bg-blue-50/50 border-l-4 border-l-[#2699A6]' : 'hover:bg-gray-50'
+                )}
+                onClick={() => {
+                  if (!notification.isRead) {
+                    markAsRead(notification.id);
+                  }
+                  if (notification.actionUrl) {
+                    window.location.href = notification.actionUrl;
+                  }
+                }}
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-4 flex-1">
+                      <div className={cn(
+                        "w-10 h-10 rounded-full flex items-center justify-center",
+                        notification.type === 'task' ? 'bg-blue-100 text-blue-600' :
+                        notification.type === 'project' ? 'bg-green-100 text-green-600' :
+                        notification.type === 'user' ? 'bg-purple-100 text-purple-600' :
+                        'bg-gray-100 text-gray-600'
+                      )}>
+                        {getNotificationIcon(notification.type)}
                       </div>
                       
-                      <div className="flex items-center gap-2">
-                        {!notification.isRead ? (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => markAsRead(notification.id)}
-                            title={language === 'ar' ? 'تميز كمقروء' : 'Mark as read'}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-gray-900 truncate">
+                            {language === 'ar' ? notification.titleAr : notification.title}
+                          </h3>
+                          <Badge 
+                            variant="outline" 
+                            className={cn("text-xs", getPriorityColor(notification.priority))}
                           >
-                            <CheckCircle2 className="h-4 w-4" />
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => markAsUnread(notification.id)}
-                            title={language === 'ar' ? 'تميز كغير مقروء' : 'Mark as unread'}
-                          >
-                            <Mail className="h-4 w-4" />
-                          </Button>
-                        )}
+                            {language === 'ar' 
+                              ? notification.priority === 'urgent' ? 'عاجل' :
+                                notification.priority === 'high' ? 'عالي' :
+                                notification.priority === 'medium' ? 'متوسط' : 'منخفض'
+                              : notification.priority
+                            }
+                          </Badge>
+                        </div>
                         
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => deleteNotification(notification.id)}
-                          className="text-red-600 hover:text-red-700"
-                          title={language === 'ar' ? 'حذف' : 'Delete'}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <p className="text-gray-600 text-sm mb-3">
+                          {language === 'ar' ? notification.messageAr : notification.message}
+                        </p>
+                        
+                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {formatTime(notification.createdAt)}
+                          </div>
+                          
+                          {!notification.isRead && (
+                            <Badge className="bg-[#2699A6] text-white">
+                              {language === 'ar' ? 'جديد' : 'New'}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
       </div>
     </AppLayout>
   );

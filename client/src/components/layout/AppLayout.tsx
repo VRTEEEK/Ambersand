@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
 import { useI18n } from '@/hooks/use-i18n';
+import { useNotifications } from '@/hooks/useNotifications';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { UserAvatar } from '@/components/ui/user-avatar';
@@ -47,15 +48,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [location] = useLocation();
   const { user } = useAuth();
   const { t, language, toggleLanguage, isRTL } = useI18n();
-  // Mock notification data - in real app this would come from API
-  const mockNotifications = [
-    { id: '1', isRead: false, type: 'task', priority: 'high' },
-    { id: '2', isRead: false, type: 'project', priority: 'medium' },
-    { id: '3', isRead: true, type: 'user', priority: 'low' },
-    { id: '4', isRead: false, type: 'system', priority: 'urgent' },
-    { id: '5', isRead: true, type: 'task', priority: 'medium' },
-  ];
-  const notificationCount = mockNotifications.filter(n => !n.isRead).length;
+  const { unreadCount } = useNotifications();
 
   const navigationItems = [
     {
@@ -247,11 +240,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <Link href="/notifications">
                 <Button variant="ghost" size="icon" className="relative">
                   <Bell className="h-5 w-5" style={{ color: '#2699A6' }} />
-                  {notificationCount > 0 && (
+                  {unreadCount > 0 && (
                     <Badge
                       className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-[#ea580b] text-white"
                     >
-                      {notificationCount}
+                      {unreadCount}
                     </Badge>
                   )}
                 </Button>
