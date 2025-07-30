@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -67,6 +67,18 @@ export default function Regulations() {
   const [selectedFramework, setSelectedFramework] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedControlIds, setSelectedControlIds] = useState<number[]>([]);
+  
+  // Debug: Log state changes
+  useEffect(() => {
+    console.log('🔄 selectedControlIds changed:', selectedControlIds.length, 'controls selected');
+  }, [selectedControlIds]);
+
+  // Reset selected controls when switching frameworks
+  useEffect(() => {
+    if (selectedFramework !== 'ecc') {
+      setSelectedControlIds([]);
+    }
+  }, [selectedFramework]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
