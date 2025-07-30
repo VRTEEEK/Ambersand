@@ -1107,6 +1107,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const projectId = parseInt(req.body.projectId);
       const controlId = req.body.controlId ? parseInt(req.body.controlId) : null;
       const comment = req.body.comment ? req.body.comment.trim() : null;
+      const isNewVersion = req.body.isNewVersion === 'true';
+      const parentEvidenceId = req.body.parentEvidenceId ? parseInt(req.body.parentEvidenceId) : null;
       const files = req.files as Express.Multer.File[];
       
       if (!files || files.length === 0) {
