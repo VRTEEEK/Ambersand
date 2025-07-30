@@ -948,110 +948,107 @@ export default function Evidence() {
                       </div>
                       
                       <div className="space-y-4">
-                        {/* Current Version */}
-                        <Card className="p-6 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow duration-200">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl flex items-center justify-center shadow-sm">
-                                {getFileIcon(selectedEvidence.fileType)}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-semibold text-gray-900 dark:text-white mb-1">{selectedEvidence.fileName}</h4>
-                                <div className="flex items-center gap-4 text-sm text-gray-500">
-                                  <span className="flex items-center gap-1">
-                                    <span className="w-2 h-2 bg-teal-500 rounded-full"></span>
-                                    v{selectedEvidence.version}
-                                  </span>
-                                  <span>{formatFileSize(selectedEvidence.fileSize)}</span>
-                                  <span>{formatDate(selectedEvidence.createdAt)}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <Badge variant="secondary" className="bg-teal-100 text-teal-700 border-teal-200">Current</Badge>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                onClick={() => handleDownload(selectedEvidence)}
-                                className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                              >
-                                <Download className="h-3 w-3 mr-1" />
-                                Download
-                              </Button>
-                            </div>
-                          </div>
-                        </Card>
+                        {/* All Versions - Current at top, then chronological order */}
+                        {(() => {
+                          // Combine current version with all previous versions
+                          const allVersions = [
+                            // Current version
+                            {
+                              id: selectedEvidence.id,
+                              version: selectedEvidence.version,
+                              fileName: selectedEvidence.fileName,
+                              fileSize: selectedEvidence.fileSize,
+                              fileType: selectedEvidence.fileType,
+                              filePath: selectedEvidence.filePath,
+                              createdAt: selectedEvidence.createdAt,
+                              isCurrent: true
+                            },
+                            // Previous versions
+                            ...(evidenceVersions || []).map(v => ({
+                              ...v,
+                              isCurrent: false
+                            }))
+                          ];
 
-                        {/* Previous Versions */}
-                        {evidenceVersions && evidenceVersions.length > 0 && (
-                          <>
-                            <div className="flex items-center gap-2 mt-6 mb-4">
-                              <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
-                              <span className="text-sm text-gray-500 font-medium px-3">
-                                {language === 'ar' ? 'الإصدارات السابقة' : 'Previous Versions'}
-                              </span>
-                              <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
-                            </div>
-                            
-                            {evidenceVersions
-                              .sort((a, b) => {
-                                // Sort by version number (descending)
-                                const aVersion = parseFloat(a.version);
-                                const bVersion = parseFloat(b.version);
-                                return bVersion - aVersion;
-                              })
-                              .map((version) => (
-                                <Card key={version.id} className="p-6 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow duration-200">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                      <div className="w-12 h-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center shadow-sm">
-                                        {getFileIcon(version.fileType)}
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <h4 className="font-semibold text-gray-900 dark:text-white mb-1">{version.fileName}</h4>
-                                        <div className="flex items-center gap-4 text-sm text-gray-500">
-                                          <span className="flex items-center gap-1">
-                                            <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
-                                            v{version.version}
-                                          </span>
-                                          <span>{formatFileSize(version.fileSize)}</span>
-                                          <span>{formatDate(version.createdAt)}</span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                      <Badge variant="outline" className="bg-gray-100 text-gray-600 border-gray-300">Previous</Badge>
-                                      <Button 
-                                        size="sm" 
-                                        variant="outline" 
-                                        onClick={() => {
-                                          // Download specific version
-                                          const link = document.createElement('a');
-                                          link.href = `/uploads/${version.filePath.split('/').pop()}`;
-                                          link.download = version.fileName;
-                                          document.body.appendChild(link);
-                                          link.click();
-                                          document.body.removeChild(link);
-                                        }}
-                                        className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                                      >
-                                        <Download className="h-3 w-3 mr-1" />
-                                        Download
-                                      </Button>
+                          // Sort all versions by version number (descending) - current version will naturally be at top
+                          const sortedVersions = allVersions.sort((a, b) => {
+                            const aVersion = parseFloat(a.version);
+                            const bVersion = parseFloat(b.version);
+                            return bVersion - aVersion;
+                          });
+
+                          return sortedVersions.map((version, index) => (
+                            <Card key={`version-${version.id}-${version.isCurrent}`} className="p-6 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow duration-200">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                  <div className={`w-12 h-12 bg-gradient-to-br rounded-xl flex items-center justify-center shadow-sm ${
+                                    version.isCurrent 
+                                      ? 'from-teal-50 to-teal-100' 
+                                      : 'from-gray-50 to-gray-100'
+                                  }`}>
+                                    {getFileIcon(version.fileType)}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-semibold text-gray-900 dark:text-white mb-1">{version.fileName}</h4>
+                                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                                      <span className="flex items-center gap-1">
+                                        <span className={`w-2 h-2 rounded-full ${
+                                          version.isCurrent ? 'bg-teal-500' : 'bg-gray-400'
+                                        }`}></span>
+                                        v{version.version}
+                                      </span>
+                                      <span>{formatFileSize(version.fileSize)}</span>
+                                      <span>{formatDate(version.createdAt)}</span>
                                     </div>
                                   </div>
-                                </Card>
-                              ))}
-                          </>
-                        )}
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <Badge 
+                                    variant={version.isCurrent ? "secondary" : "outline"} 
+                                    className={version.isCurrent 
+                                      ? "bg-teal-100 text-teal-700 border-teal-200" 
+                                      : "bg-gray-100 text-gray-600 border-gray-300"
+                                    }
+                                  >
+                                    {version.isCurrent 
+                                      ? (language === 'ar' ? 'الحالي' : 'Current')
+                                      : (language === 'ar' ? 'سابق' : 'Previous')
+                                    }
+                                  </Badge>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    onClick={() => {
+                                      if (version.isCurrent) {
+                                        handleDownload(selectedEvidence);
+                                      } else {
+                                        // Download specific version
+                                        const link = document.createElement('a');
+                                        link.href = `/uploads/${version.filePath.split('/').pop()}`;
+                                        link.download = version.fileName;
+                                        document.body.appendChild(link);
+                                        link.click();
+                                        document.body.removeChild(link);
+                                      }
+                                    }}
+                                    className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                  >
+                                    <Download className="h-3 w-3 mr-1" />
+                                    {language === 'ar' ? 'تحميل' : 'Download'}
+                                  </Button>
+                                </div>
+                              </div>
+                            </Card>
+                          ));
+                        })()}
                         
                         {(!evidenceVersions || evidenceVersions.length === 0) && (
-                          <div className="text-center py-8 text-gray-500">
-                            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                              <FileText className="h-8 w-8 text-gray-400" />
+                          <div className="text-center py-6 text-gray-500 mt-4">
+                            <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3">
+                              <FileText className="h-6 w-6 text-gray-400" />
                             </div>
                             <p className="text-sm text-gray-400">
-                              {language === 'ar' ? 'لا توجد إصدارات سابقة' : 'No previous versions available'}
+                              {language === 'ar' ? 'إصدار واحد فقط متاح' : 'Only one version available'}
                             </p>
                           </div>
                         )}
