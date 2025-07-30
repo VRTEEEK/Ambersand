@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { 
   Select,
@@ -1380,6 +1381,9 @@ export default function Evidence() {
               <DialogTitle>
                 {language === 'ar' ? 'إضافة تعليق' : 'Add Comment'}
               </DialogTitle>
+              <DialogDescription>
+                {language === 'ar' ? 'أضف تعليق أو ملاحظة حول هذا الدليل' : 'Add a comment or note about this evidence'}
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <Textarea
