@@ -10,6 +10,18 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### July 30, 2025 - Evidence Versioning System Complete Implementation
+- **FIXED**: Evidence versioning logic to properly show only latest file versions in main repository display
+- **IMPLEMENTED**: Comprehensive "Versions" tab in evidence detail view for accessing all previous file versions
+- **UPDATED**: Backend upload logic to create version records instead of duplicate evidence entries when uploading new versions
+- **ENHANCED**: Version number generation system with automatic increment (1.0, 2.0, 3.0, etc.) for proper version tracking
+- **ADDED**: Modern card-based version history interface with download functionality for each specific version
+- **RESOLVED**: Fixed duplicate function definitions causing compilation errors in Evidence.tsx
+- **INTEGRATED**: Proper version linking with evidence_versions table maintaining complete audit trail
+- **IMPROVED**: Version upload workflow using isNewVersion and parentEvidenceId parameters for accurate version management
+- **STANDARDIZED**: Version display showing current version prominently with teal accent and previous versions with neutral styling
+- **VERIFIED**: Evidence repository now correctly displays one record per unique file with latest version visible in main list
+
 ### July 30, 2025 - Regulations Page Modern Redesign & Search Integration
 - **REDESIGNED**: Complete Regulations page with modern glassmorphism card styling and gradient headers
 - **INTEGRATED**: TaskSearchInput component across all pages (MyTasks, Tasks, Projects, Evidence, Regulations) for consistent search interface

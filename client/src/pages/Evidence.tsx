@@ -124,8 +124,9 @@ export default function Evidence() {
   });
 
   // Evidence versions query  
-  const { data: evidenceVersions } = useQuery({
-    queryKey: ['/api/evidence/versions', selectedEvidence?.id],
+  const { data: evidenceVersions, isLoading: versionsLoading } = useQuery({
+    queryKey: ['/api/evidence', selectedEvidence?.id, 'versions'],
+    queryFn: () => apiRequest(`/api/evidence/${selectedEvidence?.id}/versions`),
     enabled: !!selectedEvidence?.id,
     retry: false,
   });
@@ -152,6 +153,35 @@ export default function Evidence() {
     }
     return 'General';
   };
+
+  const getFileIcon = (fileType: string) => {
+    if (fileType?.includes('image')) return <Image className="h-6 w-6 text-teal-600" />;
+    if (fileType?.includes('video')) return <Video className="h-6 w-6 text-teal-600" />;
+    if (fileType?.includes('pdf')) return <FileText className="h-6 w-6 text-teal-600" />;
+    if (fileType?.includes('zip') || fileType?.includes('rar')) return <Archive className="h-6 w-6 text-teal-600" />;
+    return <File className="h-6 w-6 text-teal-600" />;
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+
 
   const handleViewDetails = (item: any) => {
     setSelectedEvidence(item);
@@ -358,34 +388,7 @@ export default function Evidence() {
     uploadEvidenceMutation.mutate({ ...data, file: selectedFile });
   };
 
-  const getFileIcon = (fileType?: string) => {
-    if (!fileType) {
-      return <File className="h-5 w-5 text-slate-600" />;
-    }
-    if (fileType.startsWith('image/')) {
-      return <Image className="h-5 w-5 text-blue-600" />;
-    } else if (fileType.startsWith('video/')) {
-      return <Video className="h-5 w-5 text-purple-600" />;
-    } else if (fileType.includes('pdf')) {
-      return <FileText className="h-5 w-5 text-red-600" />;
-    } else if (fileType.includes('zip') || fileType.includes('archive')) {
-      return <Archive className="h-5 w-5 text-orange-600" />;
-    } else {
-      return <File className="h-5 w-5 text-slate-600" />;
-    }
-  };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -773,6 +776,12 @@ export default function Evidence() {
                     className="text-sm font-medium px-4 py-2 rounded-md transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-teal-700 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-teal-400"
                   >
                     {language === 'ar' ? 'التعليقات' : 'Comments'}
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="versions"
+                    className="text-sm font-medium px-4 py-2 rounded-md transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-teal-700 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-teal-400"
+                  >
+                    {language === 'ar' ? 'الإصدارات' : 'Versions'}
                   </TabsTrigger>
                   <TabsTrigger 
                     value="upload"

@@ -1115,21 +1115,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const evidenceRecords = [];
       for (const file of files) {
-        // Check if evidence with same name already exists for this task/project
-        const existingEvidence = await storage.getEvidence(projectId);
-        const sameNameEvidence = existingEvidence.find(e => e.fileName === file.originalname && (e.taskId === taskId || e.projectId === projectId));
-        
-        if (sameNameEvidence) {
-          // Get all existing versions to determine the next version number
-          const existingVersions = await storage.getEvidenceVersions(sameNameEvidence.id);
-          const maxVersion = existingVersions.length > 0 
-            ? Math.max(...existingVersions.map(v => parseInt(v.version.split('.')[0])))
-            : parseInt(sameNameEvidence.version.split('.')[0]);
-          const nextVersion = `${maxVersion + 1}.0`;
+        // Check if this is a new version upload based on isNewVersion and parentEvidenceId
+        if (isNewVersion && parentEvidenceId) {
+          const parentEvidence = await storage.getEvidenceById(parentEvidenceId);
+          if (!parentEvidence) {
+            throw new Error(`Parent evidence with ID ${parentEvidenceId} not found`);
+          }
           
-          // Create a new version instead of a new evidence record
+          // Get all existing versions to determine the next version number
+          const existingVersions = await storage.getEvidenceVersions(parentEvidenceId);
+          const maxVersion = existingVersions.length > 0 
+            ? Math.max(...existingVersions.map(v => parseFloat(v.version)))
+            : parseFloat(parentEvidence.version);
+          const nextVersion = `${Math.floor(maxVersion) + 1}.0`;
+          
+          // First, store the current version as a version record if it doesn't exist
+          const currentVersionExists = existingVersions.some(v => v.version === parentEvidence.version);
+          if (!currentVersionExists) {
+            await storage.createEvidenceVersion({
+              evidenceId: parentEvidenceId,
+              version: parentEvidence.version,
+              fileName: parentEvidence.fileName,
+              fileSize: parentEvidence.fileSize,
+              fileType: parentEvidence.fileType,
+              filePath: parentEvidence.filePath,
+              uploadedById: parentEvidence.uploadedById,
+            });
+          }
+          
+          // Create a new version record for the uploaded file
           const version = await storage.createEvidenceVersion({
-            evidenceId: sameNameEvidence.id,
+            evidenceId: parentEvidenceId,
             version: nextVersion,
             fileName: file.originalname,
             fileSize: file.size,
@@ -1138,9 +1154,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             uploadedById: req.user.claims.sub,
           });
           
-          // Update the main evidence record with the new version
-          await storage.updateEvidence(sameNameEvidence.id, {
-            version: version.version,
+          // Update the main evidence record to show the latest version
+          const updatedEvidence = await storage.updateEvidence(parentEvidenceId, {
+            version: nextVersion,
+            fileName: file.originalname,
             filePath: file.path,
             fileSize: file.size,
             fileType: file.mimetype,
@@ -1148,9 +1165,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Add version note as system comment if provided
           if (comment) {
-            const systemComment = `Uploaded version ${version.version}: ${comment}`;
+            const systemComment = `Uploaded version ${nextVersion}: ${comment}`;
             await storage.createEvidenceComment({
-              evidenceId: sameNameEvidence.id,
+              evidenceId: parentEvidenceId,
               userId: req.user.claims.sub,
               comment: systemComment,
               isSystemComment: true,
@@ -1158,7 +1175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           }
           
-          evidenceRecords.push({ ...sameNameEvidence, version: version.version });
+          evidenceRecords.push(updatedEvidence);
         } else {
           // Create new evidence record
           const evidenceData = {
