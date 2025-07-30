@@ -245,29 +245,37 @@ export default function Regulations() {
     
     const domainControls = controls?.filter((control: any) => control.domainEn === domain) || [];
     const domainControlIds = domainControls.map((control: any) => control.id);
-    const allSelected = domainControlIds.length > 0 && domainControlIds.every((id: number) => selectedControlIds.includes(id));
+    
+    // Check how many of this domain's controls are currently selected
+    const selectedFromDomain = domainControlIds.filter(id => selectedControlIds.includes(id));
+    const allSelected = domainControlIds.length > 0 && selectedFromDomain.length === domainControlIds.length;
     
     console.log('🎯 Domain controls:', domainControlIds.length);
     console.log('🆔 Domain control IDs:', domainControlIds.slice(0, 5), '...');
-    console.log('✅ All selected:', allSelected);
-    console.log('📝 Currently selected:', selectedControlIds);
+    console.log('✅ Selected from domain:', selectedFromDomain.length, '/', domainControlIds.length);
+    console.log('🔍 All selected:', allSelected);
+    console.log('📝 Currently selected total:', selectedControlIds.length);
     
     if (allSelected) {
       // Deselect all domain controls
       console.log('❌ Deselecting all domain controls');
       setSelectedControlIds(prev => {
         const filtered = prev.filter(id => !domainControlIds.includes(id));
-        console.log('🔄 After deselection:', filtered);
+        console.log('🔄 After deselection:', filtered.length, 'total controls');
         return filtered;
       });
     } else {
-      // Select all domain controls
+      // Select all domain controls (add missing ones)
       console.log('✅ Selecting all domain controls');
       setSelectedControlIds(prev => {
-        const newIds = [...prev, ...domainControlIds];
-        const uniqueIds = [...new Set(newIds)]; // Remove duplicates
-        console.log('🔄 After selection:', uniqueIds.length, 'total controls');
-        return uniqueIds;
+        const newIds = [...prev];
+        domainControlIds.forEach(id => {
+          if (!newIds.includes(id)) {
+            newIds.push(id);
+          }
+        });
+        console.log('🔄 After selection:', newIds.length, 'total controls');
+        return newIds;
       });
     }
   };
@@ -749,7 +757,7 @@ export default function Regulations() {
                                     className="flex-shrink-0 scale-110"
                                   />
                                   {isSelected && (
-                                    <div className="absolute -inset-1 bg-teal-500/20 rounded-full animate-pulse"></div>
+                                    <div className="absolute -inset-1 bg-teal-500/20 rounded-full"></div>
                                   )}
                                 </div>
                                 <span
@@ -761,7 +769,7 @@ export default function Regulations() {
                               </div>
                               <div className="flex items-center gap-2">
                                 {selectedCount > 0 && (
-                                  <Badge variant="default" className="bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-md animate-pulse">
+                                  <Badge variant="default" className="bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-md">
                                     {selectedCount}
                                   </Badge>
                                 )}
