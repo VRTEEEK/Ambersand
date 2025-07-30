@@ -233,27 +233,29 @@ export default function Regulations() {
     
     const domainControls = controls?.filter((control: any) => control.domainEn === domain) || [];
     const domainControlIds = domainControls.map((control: any) => control.id);
-    const allSelected = domainControlIds.every((id: number) => selectedControlIds.includes(id));
+    const allSelected = domainControlIds.length > 0 && domainControlIds.every((id: number) => selectedControlIds.includes(id));
     
     console.log('🎯 Domain controls:', domainControlIds.length);
+    console.log('🆔 Domain control IDs:', domainControlIds.slice(0, 5), '...');
     console.log('✅ All selected:', allSelected);
     console.log('📝 Currently selected:', selectedControlIds);
     
     if (allSelected) {
       // Deselect all domain controls
       console.log('❌ Deselecting all domain controls');
-      setSelectedControlIds(prev => prev.filter(id => !domainControlIds.includes(id)));
+      setSelectedControlIds(prev => {
+        const filtered = prev.filter(id => !domainControlIds.includes(id));
+        console.log('🔄 After deselection:', filtered);
+        return filtered;
+      });
     } else {
       // Select all domain controls
       console.log('✅ Selecting all domain controls');
       setSelectedControlIds(prev => {
-        const newIds = [...prev];
-        domainControlIds.forEach(id => {
-          if (!newIds.includes(id)) {
-            newIds.push(id);
-          }
-        });
-        return newIds;
+        const newIds = [...prev, ...domainControlIds];
+        const uniqueIds = [...new Set(newIds)]; // Remove duplicates
+        console.log('🔄 After selection:', uniqueIds.length, 'total controls');
+        return uniqueIds;
       });
     }
   };
@@ -261,7 +263,8 @@ export default function Regulations() {
   const isDomainSelected = (domain: string) => {
     const domainControls = controls?.filter((control: any) => control.domainEn === domain) || [];
     const domainControlIds = domainControls.map((control: any) => control.id);
-    return domainControlIds.length > 0 && domainControlIds.every((id: number) => selectedControlIds.includes(id));
+    const result = domainControlIds.length > 0 && domainControlIds.every((id: number) => selectedControlIds.includes(id));
+    return result;
   };
 
   const isDomainPartiallySelected = (domain: string) => {
