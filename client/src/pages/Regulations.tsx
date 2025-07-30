@@ -712,12 +712,7 @@ export default function Regulations() {
                               <div className="flex items-center gap-4">
                                 <div className="relative">
                                   <Checkbox
-                                    checked={isSelected}
-                                    ref={(ref) => {
-                                      if (ref && isPartiallySelected) {
-                                        ref.indeterminate = true;
-                                      }
-                                    }}
+                                    checked={isSelected ? true : isPartiallySelected ? 'indeterminate' : false}
                                     onCheckedChange={() => toggleDomainSelection(category.en)}
                                     className="flex-shrink-0 scale-110"
                                   />
