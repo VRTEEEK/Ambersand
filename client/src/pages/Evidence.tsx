@@ -778,12 +778,6 @@ export default function Evidence() {
                     {language === 'ar' ? 'التعليقات' : 'Comments'}
                   </TabsTrigger>
                   <TabsTrigger 
-                    value="versions"
-                    className="text-sm font-medium px-4 py-2 rounded-md transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-teal-700 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-teal-400"
-                  >
-                    {language === 'ar' ? 'الإصدارات' : 'Versions'}
-                  </TabsTrigger>
-                  <TabsTrigger 
                     value="upload"
                     className="text-sm font-medium px-4 py-2 rounded-md transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-teal-700 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-teal-400"
                   >
