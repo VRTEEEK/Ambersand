@@ -735,7 +735,21 @@ export default function Regulations() {
                                 <div className="relative">
                                   <Checkbox
                                     checked={isSelected ? true : isPartiallySelected ? 'indeterminate' : false}
-                                    onCheckedChange={() => toggleDomainSelection(category.en)}
+                                    onCheckedChange={(checked) => {
+                                      const domainControls = controls?.filter((control: any) => control.domainEn === category.en) || [];
+                                      const domainControlIds = domainControls.map((control: any) => control.id);
+                                      
+                                      if (checked) {
+                                        // Add all domain controls
+                                        setSelectedControlIds(prev => {
+                                          const newIds = new Set([...prev, ...domainControlIds]);
+                                          return Array.from(newIds);
+                                        });
+                                      } else {
+                                        // Remove all domain controls
+                                        setSelectedControlIds(prev => prev.filter(id => !domainControlIds.includes(id)));
+                                      }
+                                    }}
                                     className="flex-shrink-0 scale-110"
                                   />
                                   {isSelected && (
