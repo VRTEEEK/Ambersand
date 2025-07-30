@@ -7,10 +7,10 @@ import { isUnauthorizedError } from '@/lib/authUtils';
 import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UserAvatar } from '@/components/ui/user-avatar';
+import { TaskSearchInput } from '@/components/ui/TaskSearchInput';
 import { 
   Dialog,
   DialogContent,
@@ -28,7 +28,6 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { 
   Plus, 
-  Search, 
   Calendar, 
   User, 
   CheckCircle2,
@@ -40,6 +39,7 @@ import {
   Users,
   GripVertical,
   FolderOpen,
+  Eye,
 } from 'lucide-react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -594,7 +594,7 @@ export default function Tasks() {
   const statusColumns = [
     { id: 'pending', title: language === 'ar' ? 'لم تبدأ' : 'To Do', icon: Clock },
     { id: 'in-progress', title: language === 'ar' ? 'قيد التنفيذ' : 'In Progress', icon: AlertCircle },
-    { id: 'review', title: language === 'ar' ? 'للمراجعة' : 'Review', icon: Search },
+    { id: 'review', title: language === 'ar' ? 'للمراجعة' : 'Review', icon: Eye },
     { id: 'completed', title: language === 'ar' ? 'مكتملة' : 'Completed', icon: CheckCircle2 },
   ];
 
@@ -716,14 +716,11 @@ export default function Tasks() {
         <Card className="mb-6">
           <CardContent className="p-6">
             <div className="flex flex-col lg:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  type="search"
-                  placeholder={language === 'ar' ? 'بحث في المهام...' : 'Search tasks...'}
+              <div className="flex-1">
+                <TaskSearchInput
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  onChange={setSearchTerm}
+                  placeholder={language === 'ar' ? 'بحث في المهام...' : 'Search tasks...'}
                 />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
