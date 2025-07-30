@@ -242,33 +242,28 @@ export default function Regulations() {
     
     if (domainControlIds.length === 0) return;
     
-    setSelectedControlIds(prev => {
-      // Check selection state inside the callback to use the most current state
-      const allDomainControlsSelected = domainControlIds.every((id: number) => prev.includes(id));
-      console.log(`Toggling ${domain}: ${domainControlIds.length} controls, current state: ${prev.length}, all selected: ${allDomainControlsSelected}`);
-      
-      let newSelection;
-      if (allDomainControlsSelected) {
-        // Remove all domain controls from selection
-        newSelection = prev.filter(id => !domainControlIds.includes(id));
-        console.log(`DESELECTED ${domain}: ${prev.length} -> ${newSelection.length}`);
-      } else {
-        // Add all missing domain controls to selection
-        const uniqueIds = new Set([...prev, ...domainControlIds]);
-        newSelection = Array.from(uniqueIds);
-        console.log(`SELECTED ${domain}: ${prev.length} -> ${newSelection.length}`);
-      }
-      return newSelection;
-    });
+    // Force a fresh evaluation by using a timeout to ensure state is stable
+    setTimeout(() => {
+      setSelectedControlIds(prev => {
+        const allDomainControlsSelected = domainControlIds.every((id: number) => prev.includes(id));
+        
+        if (allDomainControlsSelected) {
+          // Deselect all domain controls
+          return prev.filter(id => !domainControlIds.includes(id));
+        } else {
+          // Select all domain controls
+          const uniqueIds = new Set([...prev, ...domainControlIds]);
+          return Array.from(uniqueIds);
+        }
+      });
+    }, 0);
   };
 
   const isDomainSelected = (domain: string) => {
     if (!controls) return false;
     const domainControls = controls.filter((control: any) => control.domainEn === domain);
     const domainControlIds = domainControls.map((control: any) => control.id);
-    const result = domainControlIds.length > 0 && domainControlIds.every((id: number) => selectedControlIds.includes(id));
-    console.log(`isDomainSelected(${domain}): ${domainControlIds.length} controls, selected: ${selectedControlIds.length}, result: ${result}`);
-    return result;
+    return domainControlIds.length > 0 && domainControlIds.every((id: number) => selectedControlIds.includes(id));
   };
 
   const isDomainPartiallySelected = (domain: string) => {
