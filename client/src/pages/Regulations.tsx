@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -758,9 +759,10 @@ export default function Regulations() {
                       </Badge>
                     </Button>
                   </div>
-                  <div className="space-y-3">
-                    {getFilteredControls().map((control: any) => {
-                      const isSelected = selectedControlIds.includes(control.id);
+                  <TooltipProvider>
+                    <div className="space-y-3">
+                      {getFilteredControls().map((control: any) => {
+                        const isSelected = selectedControlIds.includes(control.id);
                       return (
                         <div
                           key={control.id}
@@ -778,11 +780,37 @@ export default function Regulations() {
                             />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-3 mb-2">
-                                <Badge 
-                                  className="text-xs text-[#f8f7fc] bg-[#18b5a7] font-mono px-2 py-1 rounded"
-                                >
-                                  {control.code}
-                                </Badge>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="inline-block">
+                                      <Badge 
+                                        className="text-xs text-[#f8f7fc] bg-[#18b5a7] font-mono px-2 py-1 rounded cursor-help"
+                                      >
+                                        {control.code}
+                                      </Badge>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-sm p-3">
+                                    <div className="space-y-2">
+                                      <div className="font-semibold text-sm">
+                                        {control.code} - {language === 'ar' && control.domainAr ? control.domainAr : control.domainEn}
+                                      </div>
+                                      <div className="text-xs text-gray-600 leading-relaxed">
+                                        {language === 'ar' && control.subdomainAr ? control.subdomainAr : control.subdomainEn}
+                                      </div>
+                                      {(control.evidenceEn || control.evidenceAr) && (
+                                        <div className="pt-1 border-t">
+                                          <div className="text-xs font-medium text-blue-600">
+                                            {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
+                                          </div>
+                                          <div className="text-xs text-gray-600 mt-1 max-h-20 overflow-y-auto">
+                                            {language === 'ar' && control.evidenceAr ? control.evidenceAr : control.evidenceEn}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
                                 <h4 className="font-medium text-slate-900 truncate">
                                   {language === 'ar' && control.subdomainAr ? control.subdomainAr : control.subdomainEn}
                                 </h4>
@@ -824,8 +852,9 @@ export default function Regulations() {
                           </div>
                         </div>
                       );
-                    })}
-                  </div>
+                      })}
+                    </div>
+                  </TooltipProvider>
                 </div>
               )}
             </CardContent>
@@ -1069,16 +1098,44 @@ export default function Regulations() {
                         <Badge variant="secondary">{selectedControlIds.length}</Badge>
                       </h4>
                       <div className="max-h-32 overflow-y-auto bg-slate-50 rounded-md p-3">
-                        <div className="flex flex-wrap gap-1">
-                          {selectedControlIds.map(id => {
-                            const control = controls?.find((c: any) => c.id === id);
-                            return control ? (
-                              <Badge key={id} variant="outline" className="text-xs text-[#f8f7fc] bg-[#18b5a7]">
-                                {control.code}
-                              </Badge>
-                            ) : null;
-                          })}
-                        </div>
+                        <TooltipProvider>
+                          <div className="flex flex-wrap gap-1">
+                            {selectedControlIds.map(id => {
+                              const control = controls?.find((c: any) => c.id === id);
+                              return control ? (
+                                <Tooltip key={id}>
+                                  <TooltipTrigger asChild>
+                                    <div className="inline-block">
+                                      <Badge variant="outline" className="text-xs text-[#f8f7fc] bg-[#18b5a7] cursor-help">
+                                        {control.code}
+                                      </Badge>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-sm p-3">
+                                    <div className="space-y-2">
+                                      <div className="font-semibold text-sm">
+                                        {control.code} - {language === 'ar' && control.subdomainAr ? control.subdomainAr : control.subdomainEn}
+                                      </div>
+                                      <div className="text-xs text-gray-600 leading-relaxed">
+                                        {language === 'ar' && control.controlAr ? control.controlAr : control.controlEn}
+                                      </div>
+                                      {(control.evidenceEn || control.evidenceAr) && (
+                                        <div className="pt-1 border-t">
+                                          <div className="text-xs font-medium text-blue-600">
+                                            {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
+                                          </div>
+                                          <div className="text-xs text-gray-600 mt-1">
+                                            {language === 'ar' && control.evidenceAr ? control.evidenceAr : control.evidenceEn}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : null;
+                            })}
+                          </div>
+                        </TooltipProvider>
                       </div>
                     </div>
 
