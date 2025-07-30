@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, User, Flag, Clock, FileText, Upload, Download, MessageSquare, X, Plus, Grid, List, Building, Shield, AlignLeft, Edit } from "lucide-react";
+import { Calendar, User, Flag, Clock, FileText, Upload, Download, MessageSquare, X, Plus, Grid, List } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -381,9 +381,11 @@ export default function TaskDetail() {
                 </TabsTrigger>
                 <TabsTrigger 
                   value="controls" 
-                  className="flex items-center gap-3 py-3 px-4 text-sm font-medium rounded-lg transition-all data-[state=active]:bg-teal-50 data-[state=active]:text-teal-700 dark:data-[state=active]:bg-teal-900/20 dark:data-[state=active]:text-teal-300"
+                  className="flex items-center gap-3 py-4 px-6 text-sm font-semibold rounded-xl transition-all data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:text-teal-600 data-[state=active]:border-teal-200 hover:bg-white/50"
                 >
-                  <Shield className="h-4 w-4" />
+                  <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
+                    <Flag className="h-5 w-5" />
+                  </div>
                   <div className="text-left">
                     <div>{language === 'ar' ? 'الضوابط' : 'Controls'}</div>
                     <div className="text-xs text-gray-500">
@@ -393,9 +395,11 @@ export default function TaskDetail() {
                 </TabsTrigger>
                 <TabsTrigger 
                   value="evidence" 
-                  className="flex items-center gap-3 py-3 px-4 text-sm font-medium rounded-lg transition-all data-[state=active]:bg-teal-50 data-[state=active]:text-teal-700 dark:data-[state=active]:bg-teal-900/20 dark:data-[state=active]:text-teal-300"
+                  className="flex items-center gap-3 py-4 px-6 text-sm font-semibold rounded-xl transition-all data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:text-teal-600 data-[state=active]:border-teal-200 hover:bg-white/50"
                 >
-                  <Upload className="h-4 w-4" />
+                  <div className="p-2 rounded-lg bg-purple-100 text-purple-600">
+                    <Upload className="h-5 w-5" />
+                  </div>
                   <div className="text-left">
                     <div>{language === 'ar' ? 'الأدلة' : 'Evidence'}</div>
                     <div className="text-xs text-gray-500">
@@ -409,59 +413,63 @@ export default function TaskDetail() {
             <TabsContent value="details" className="p-8">
               {/* Task Description Card */}
               {(task.description || task.descriptionAr) && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-6 border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-2 mb-3">
-                    <MessageSquare className="h-4 w-4 text-gray-600" />
-                    <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                <div className="bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/20 dark:to-teal-800/20 rounded-2xl p-6 mb-8 border border-teal-200 dark:border-teal-700">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-teal-600 rounded-lg">
+                      <MessageSquare className="h-5 w-5 text-white" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-teal-900 dark:text-teal-100">
                       {language === 'ar' ? 'وصف المهمة' : 'Task Description'}
                     </h3>
                   </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                  <div className="prose prose-sm max-w-none">
                     {language === 'ar' && task.descriptionAr ? (
-                      <p className="leading-relaxed" dir="rtl">{task.descriptionAr}</p>
+                      <p className="text-teal-800 dark:text-teal-200 leading-relaxed" dir="rtl">{task.descriptionAr}</p>
                     ) : (
-                      <p className="leading-relaxed">{task.description}</p>
+                      <p className="text-teal-800 dark:text-teal-200 leading-relaxed">{task.description}</p>
                     )}
                   </div>
                 </div>
               )}
 
               {/* Status and Progress Section */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                 {/* Task Status Card */}
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Flag className="h-4 w-4 text-gray-600" />
-                    <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-700">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-blue-600 rounded-lg">
+                      <Flag className="h-5 w-5 text-white" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">
                       {language === 'ar' ? 'حالة المهمة' : 'Task Status'}
                     </h3>
                   </div>
                   
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {language === 'ar' ? 'الحالة' : 'Status'}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-white/60 dark:bg-blue-900/30 rounded-xl">
+                      <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                        {language === 'ar' ? 'الحالة الحالية' : 'Current Status'}
                       </span>
-                      <Badge className={`${getStatusColor(task.status)} text-xs`}>
+                      <Badge className={`${getStatusColor(task.status)} text-sm px-3 py-1`}>
                         {task.status.replace('-', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
                       </Badge>
                     </div>
                     
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                    <div className="flex items-center justify-between p-4 bg-white/60 dark:bg-blue-900/30 rounded-xl">
+                      <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
                         {language === 'ar' ? 'الأولوية' : 'Priority'}
                       </span>
-                      <Badge className={`${getPriorityColor(task.priority)} text-xs`}>
+                      <Badge className={`${getPriorityColor(task.priority)} text-sm px-3 py-1`}>
                         {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
                       </Badge>
                     </div>
                     
                     {task.completedAt && (
-                      <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {language === 'ar' ? 'تاريخ الإنجاز' : 'Completed'}
+                      <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/30 rounded-xl border border-green-200 dark:border-green-700">
+                        <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                          {language === 'ar' ? 'تاريخ الإنجاز' : 'Completed On'}
                         </span>
-                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        <span className="text-sm font-semibold text-green-900 dark:text-green-100">
                           {format(new Date(task.completedAt), "MMM dd, yyyy")}
                         </span>
                       </div>
@@ -470,42 +478,54 @@ export default function TaskDetail() {
                 </div>
 
                 {/* Task Details Card */}
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Clock className="h-4 w-4 text-gray-600" />
-                    <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-2xl p-6 border border-purple-200 dark:border-purple-700">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-purple-600 rounded-lg">
+                      <Clock className="h-5 w-5 text-white" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-purple-900 dark:text-purple-100">
                       {language === 'ar' ? 'تفاصيل المهمة' : 'Task Details'}
                     </h3>
                   </div>
                   
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {assignedUser && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {language === 'ar' ? 'المسؤول' : 'Assignee'}
-                        </span>
-                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {assignedUser.firstName} {assignedUser.lastName}
-                        </span>
+                      <div className="flex items-center gap-3 p-4 bg-white/60 dark:bg-purple-900/30 rounded-xl">
+                        <User className="h-5 w-5 text-purple-600" />
+                        <div>
+                          <p className="text-sm font-medium text-purple-800 dark:text-purple-200">
+                            {language === 'ar' ? 'المسؤول' : 'Assigned To'}
+                          </p>
+                          <p className="text-sm font-semibold text-purple-900 dark:text-purple-100">
+                            {assignedUser.firstName} {assignedUser.lastName}
+                          </p>
+                          <p className="text-xs text-purple-600 dark:text-purple-300">{assignedUser.email}</p>
+                        </div>
                       </div>
                     )}
                     
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {language === 'ar' ? 'تاريخ الاستحقاق' : 'Due Date'}
-                      </span>
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {task.dueDate ? format(new Date(task.dueDate), "MMM dd, yyyy") : (language === 'ar' ? 'غير محدد' : 'Not set')}
-                      </span>
+                    <div className="flex items-center gap-3 p-4 bg-white/60 dark:bg-purple-900/30 rounded-xl">
+                      <Calendar className="h-5 w-5 text-purple-600" />
+                      <div>
+                        <p className="text-sm font-medium text-purple-800 dark:text-purple-200">
+                          {language === 'ar' ? 'تاريخ الاستحقاق' : 'Due Date'}
+                        </p>
+                        <p className="text-sm font-semibold text-purple-900 dark:text-purple-100">
+                          {task.dueDate ? format(new Date(task.dueDate), "PPP") : (language === 'ar' ? 'غير محدد' : 'Not set')}
+                        </p>
+                      </div>
                     </div>
                     
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {language === 'ar' ? 'تاريخ الإنشاء' : 'Created'}
-                      </span>
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {task.createdAt ? format(new Date(task.createdAt), "MMM dd, yyyy") : (language === 'ar' ? 'غير معروف' : 'Unknown')}
-                      </span>
+                    <div className="flex items-center gap-3 p-4 bg-white/60 dark:bg-purple-900/30 rounded-xl">
+                      <Clock className="h-5 w-5 text-purple-600" />
+                      <div>
+                        <p className="text-sm font-medium text-purple-800 dark:text-purple-200">
+                          {language === 'ar' ? 'تاريخ الإنشاء' : 'Created On'}
+                        </p>
+                        <p className="text-sm font-semibold text-purple-900 dark:text-purple-100">
+                          {task.createdAt ? format(new Date(task.createdAt), "PPP") : (language === 'ar' ? 'غير معروف' : 'Unknown')}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -513,23 +533,25 @@ export default function TaskDetail() {
 
               {/* Project Information */}
               {taskProject && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Building className="h-4 w-4 text-gray-600" />
-                    <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-700/50 rounded-2xl p-6 border border-gray-200 dark:border-gray-600">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-gray-600 rounded-lg">
+                      <Flag className="h-5 w-5 text-white" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                       {language === 'ar' ? 'معلومات المشروع' : 'Project Information'}
                     </h3>
                   </div>
                   
-                  <div className="space-y-1">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <div className="bg-white/60 dark:bg-gray-800/60 rounded-xl p-4">
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
                       {language === 'ar' ? 'اسم المشروع' : 'Project Name'}
                     </p>
-                    <p className="font-medium text-gray-900 dark:text-gray-100">
+                    <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                       {language === 'ar' && taskProject.nameAr ? taskProject.nameAr : taskProject.name}
                     </p>
                     {language !== 'ar' && taskProject.nameAr && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400" dir="rtl">{taskProject.nameAr}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1" dir="rtl">{taskProject.nameAr}</p>
                     )}
                   </div>
                 </div>
@@ -703,37 +725,39 @@ export default function TaskDetail() {
               )}
             </TabsContent>
 
-            <TabsContent value="evidence" className="space-y-6">
+            <TabsContent value="evidence" className="p-8">
               {/* Evidence Header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Upload className="h-6 w-6 text-teal-600" />
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-purple-600 rounded-xl">
+                    <Upload className="h-6 w-6 text-white" />
+                  </div>
                   <div>
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                       {language === 'ar' ? 'إدارة الأدلة' : 'Evidence Management'}
                     </h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-gray-600 dark:text-gray-400">
                       {evidence.length} {language === 'ar' ? 'دليل مرفوع' : 'files uploaded'}
                     </p>
                   </div>
                 </div>
                 
                 {canUploadEvidence && (
-                  <div className="flex gap-2">
+                  <div className="flex gap-3">
                     <Button 
                       onClick={() => setUploadDialogOpen(true)}
-                      className="bg-teal-600 hover:bg-teal-700 text-white"
+                      className="bg-purple-600 hover:bg-purple-700 text-white"
                     >
                       <Plus className="h-4 w-4 mr-2" />
-                      {language === 'ar' ? 'رفع دليل' : 'Upload'}
+                      {language === 'ar' ? 'رفع دليل جديد' : 'Upload Evidence'}
                     </Button>
                     <Button 
                       variant="outline"
                       onClick={() => setLinkExistingDialogOpen(true)}
-                      className="border-gray-300 hover:bg-gray-50"
+                      className="border-purple-200 text-purple-600 hover:bg-purple-50"
                     >
                       <Flag className="h-4 w-4 mr-2" />
-                      {language === 'ar' ? 'ربط موجود' : 'Link Existing'}
+                      {language === 'ar' ? 'ربط دليل موجود' : 'Link Existing'}
                     </Button>
                   </div>
                 )}
@@ -741,10 +765,12 @@ export default function TaskDetail() {
 
               {/* Control Selection */}
               {controls.length > 0 && (
-                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Flag className="h-4 w-4 text-gray-600" />
-                    <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-2xl p-6 mb-8 border border-purple-200 dark:border-purple-700">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-purple-600 rounded-lg">
+                      <Flag className="h-5 w-5 text-white" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-purple-900 dark:text-purple-100">
                       {language === 'ar' ? 'اختر الضابط لعرض الأدلة' : 'Select Control to View Evidence'}
                     </h3>
                   </div>
@@ -757,14 +783,14 @@ export default function TaskDetail() {
                       setSelectedControlForView(controlId);
                     }}
                   >
-                    <SelectTrigger className="bg-white dark:bg-gray-800">
-                      <SelectValue placeholder={language === 'ar' ? 'اختر ضابط...' : 'Choose a control...'} />
+                    <SelectTrigger className="bg-white/70 dark:bg-purple-900/30 border-purple-200 dark:border-purple-600">
+                      <SelectValue placeholder={language === 'ar' ? 'اختر ضابط لعرض الأدلة المرتبطة...' : 'Choose a control to view linked evidence...'} />
                     </SelectTrigger>
                     <SelectContent>
                       {controls.map((control: any) => (
                         <SelectItem key={control.id} value={control.eccControlId.toString()}>
                           <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="text-xs">
+                            <Badge className="bg-purple-100 text-purple-700 text-xs">
                               {language === 'ar' ? control.eccControl?.codeAr : control.eccControl?.code}
                             </Badge>
                             <span className="text-sm">
@@ -780,43 +806,42 @@ export default function TaskDetail() {
 
               {/* Evidence Grid */}
               {evidence.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-lg max-w-sm mx-auto">
-                    <Upload className="h-8 w-8 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-600 dark:text-gray-400 mb-3">
-                      {language === 'ar' ? 'لا توجد أدلة مرفوعة' : 'No evidence uploaded'}
+                <div className="text-center py-16">
+                  <div className="p-6 bg-gray-100 dark:bg-gray-800 rounded-2xl max-w-md mx-auto">
+                    <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 dark:text-gray-400 text-lg mb-4">
+                      {language === 'ar' ? 'لا توجد أدلة مرفوعة لهذه المهمة' : 'No evidence uploaded for this task'}
                     </p>
                     {canUploadEvidence && (
                       <Button 
                         onClick={() => setUploadDialogOpen(true)}
-                        className="bg-teal-600 hover:bg-teal-700 text-white"
-                        size="sm"
+                        className="bg-purple-600 hover:bg-purple-700 text-white"
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        {language === 'ar' ? 'رفع دليل' : 'Upload Evidence'}
+                        {language === 'ar' ? 'رفع أول دليل' : 'Upload First Evidence'}
                       </Button>
                     )}
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {evidence.map((item) => (
                     <div 
                       key={item.id} 
-                      className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 hover:shadow-sm transition-shadow"
+                      className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-700/50 rounded-2xl p-6 border border-gray-200 dark:border-gray-600 hover:shadow-lg transition-all duration-200 hover:scale-105"
                     >
-                      <div className="space-y-3">
-                        {/* File Info */}
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded">
-                            <FileText className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                      <div className="space-y-4">
+                        {/* File Icon and Type */}
+                        <div className="flex items-center gap-3">
+                          <div className="p-3 bg-gray-600 rounded-xl">
+                            <FileText className="h-6 w-6 text-white" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">
+                            <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
                               {item.title}
                             </h3>
                             {item.fileName && (
-                              <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                              <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
                                 {item.fileName}
                               </p>
                             )}
@@ -825,30 +850,37 @@ export default function TaskDetail() {
 
                         {/* Description */}
                         {item.description && (
-                          <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
-                            {item.description}
-                          </p>
+                          <div className="bg-white/70 dark:bg-gray-800/70 rounded-xl p-3">
+                            <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3">
+                              {item.description}
+                            </p>
+                          </div>
                         )}
 
                         {/* Actions */}
-                        <div className="flex justify-between items-center pt-2">
-                          {item.createdAt && (
-                            <span className="text-xs text-gray-500">
-                              {format(new Date(item.createdAt), "MMM dd")}
-                            </span>
-                          )}
+                        <div className="flex gap-2">
                           {item.fileName && (
                             <Button 
                               size="sm" 
                               variant="outline" 
                               asChild 
-                              className="h-7 px-2 text-xs"
+                              className="flex-1 border-gray-300 hover:bg-gray-50"
                             >
                               <a href={`/uploads/${item.fileName}`} download>
-                                <Download className="h-3 w-3 mr-1" />
+                                <Download className="h-4 w-4 mr-2" />
                                 {language === 'ar' ? 'تحميل' : 'Download'}
                               </a>
                             </Button>
+                          )}
+                        </div>
+
+                        {/* Metadata */}
+                        <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                          {item.createdAt && (
+                            <p>
+                              {language === 'ar' ? 'تاريخ الرفع: ' : 'Uploaded: '}
+                              {format(new Date(item.createdAt), "MMM dd, yyyy")}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -859,51 +891,55 @@ export default function TaskDetail() {
 
               {/* Control-Linked Evidence Display */}
               {selectedControlId && controlLinkedEvidence && controlLinkedEvidence.length > 0 && (
-                <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Flag className="h-4 w-4 text-teal-600" />
-                    <div>
-                      <h3 className="font-medium text-gray-900 dark:text-gray-100">
-                        {language === 'ar' ? 'الأدلة المرتبطة بالضابط' : 'Evidence Linked to Control'}
-                      </h3>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {controlLinkedEvidence.length} {language === 'ar' ? 'دليل مرتبط' : 'items linked'}
-                      </p>
+                <div className="mt-8">
+                  <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-2xl p-6 border border-green-200 dark:border-green-700">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="p-2 bg-green-600 rounded-lg">
+                        <Flag className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-green-900 dark:text-green-100">
+                          {language === 'ar' ? 'الأدلة المرتبطة بالضابط المحدد' : 'Evidence Linked to Selected Control'}
+                        </h3>
+                        <p className="text-sm text-green-700 dark:text-green-300">
+                          {controlLinkedEvidence.length} {language === 'ar' ? 'دليل مرتبط' : 'items linked'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {controlLinkedEvidence.map((evidence: any) => (
-                      <div 
-                        key={evidence.id} 
-                        className="bg-white dark:bg-gray-800 rounded p-3 border border-gray-200 dark:border-gray-600"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
-                              {evidence.title}
-                            </h4>
-                            {evidence.description && (
-                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-1">
-                                {evidence.description}
-                              </p>
-                            )}
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {controlLinkedEvidence.map((evidence: any) => (
+                        <div 
+                          key={evidence.id} 
+                          className="bg-white/70 dark:bg-green-900/30 rounded-xl p-4 border border-green-200 dark:border-green-600"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-green-900 dark:text-green-100 truncate">
+                                {evidence.title}
+                              </h4>
+                              {evidence.description && (
+                                <p className="text-sm text-green-700 dark:text-green-300 mt-1 line-clamp-2">
+                                  {evidence.description}
+                                </p>
+                              )}
+                              {evidence.fileName && (
+                                <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                                  {evidence.fileName}
+                                </p>
+                              )}
+                            </div>
                             {evidence.fileName && (
-                              <p className="text-xs text-teal-600 dark:text-teal-400 mt-1">
-                                {evidence.fileName}
-                              </p>
+                              <Button size="sm" variant="outline" asChild className="ml-3 border-green-300 text-green-700 hover:bg-green-50">
+                                <a href={`/uploads/${evidence.fileName}`} download>
+                                  <Download className="h-3 w-3" />
+                                </a>
+                              </Button>
                             )}
                           </div>
-                          {evidence.fileName && (
-                            <Button size="sm" variant="outline" asChild className="ml-2 h-7 px-2">
-                              <a href={`/uploads/${evidence.fileName}`} download>
-                                <Download className="h-3 w-3" />
-                              </a>
-                            </Button>
-                          )}
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
@@ -912,18 +948,22 @@ export default function TaskDetail() {
           </Tabs>
         </div>
 
-        {/* Upload Dialog */}
+        {/* Modern Upload Dialog */}
         <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
           <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Upload className="h-5 w-5 text-teal-600" />
-                {language === 'ar' ? 'رفع دليل جديد' : 'Upload New Evidence'}
-              </DialogTitle>
+            <DialogHeader className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-600 rounded-lg">
+                  <Upload className="h-5 w-5 text-white" />
+                </div>
+                <DialogTitle className="text-xl font-semibold">
+                  {language === 'ar' ? 'رفع دليل جديد' : 'Upload New Evidence'}
+                </DialogTitle>
+              </div>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="title">
+            <div className="space-y-6 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="title" className="text-sm font-medium">
                   {language === 'ar' ? 'العنوان' : 'Title'} *
                 </Label>
                 <Input
@@ -931,11 +971,12 @@ export default function TaskDetail() {
                   value={uploadForm.title}
                   onChange={(e) => setUploadForm(prev => ({ ...prev, title: e.target.value }))}
                   placeholder={language === 'ar' ? 'عنوان الدليل...' : 'Evidence title...'}
+                  className="h-11"
                 />
               </div>
               
-              <div>
-                <Label htmlFor="description">
+              <div className="space-y-2">
+                <Label htmlFor="description" className="text-sm font-medium">
                   {language === 'ar' ? 'الوصف' : 'Description'}
                 </Label>
                 <Textarea
@@ -947,8 +988,8 @@ export default function TaskDetail() {
                 />
               </div>
               
-              <div>
-                <Label htmlFor="file">
+              <div className="space-y-2">
+                <Label htmlFor="file" className="text-sm font-medium">
                   {language === 'ar' ? 'الملف' : 'File'} *
                 </Label>
                 <Input
@@ -956,20 +997,22 @@ export default function TaskDetail() {
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.txt"
                   onChange={(e) => setUploadForm(prev => ({ ...prev, file: e.target.files?.[0] || null }))}
+                  className="h-11 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
                 />
               </div>
               
-              <div className="flex justify-end gap-2 pt-4">
+              <div className="flex justify-end gap-3 pt-4">
                 <Button
                   variant="outline"
                   onClick={() => setUploadDialogOpen(false)}
+                  className="px-6"
                 >
                   {language === 'ar' ? 'إلغاء' : 'Cancel'}
                 </Button>
                 <Button
                   onClick={handleFileUpload}
                   disabled={uploadMutation.isPending}
-                  className="bg-teal-600 hover:bg-teal-700"
+                  className="bg-purple-600 hover:bg-purple-700 px-6"
                 >
                   {uploadMutation.isPending ? (
                     <>
@@ -988,52 +1031,60 @@ export default function TaskDetail() {
           </DialogContent>
         </Dialog>
 
-        {/* Link Existing Evidence Dialog */}
+        {/* Modern Link Existing Evidence Dialog */}
         <Dialog open={linkExistingDialogOpen} onOpenChange={setLinkExistingDialogOpen}>
-          <DialogContent className="sm:max-w-xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Flag className="h-5 w-5 text-teal-600" />
-                {language === 'ar' ? 'ربط دليل موجود' : 'Link Existing Evidence'}
-              </DialogTitle>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-600 rounded-lg">
+                  <Flag className="h-5 w-5 text-white" />
+                </div>
+                <DialogTitle className="text-xl font-semibold">
+                  {language === 'ar' ? 'ربط دليل موجود' : 'Link Existing Evidence'}
+                </DialogTitle>
+              </div>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-6 pt-4">
               {allEvidence.length === 0 ? (
                 <div className="text-center py-8">
-                  <FileText className="h-8 w-8 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-600 dark:text-gray-400">
-                    {language === 'ar' ? 'لا توجد أدلة متاحة للربط' : 'No evidence available to link'}
-                  </p>
+                  <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-xl max-w-sm mx-auto">
+                    <FileText className="h-8 w-8 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-600 dark:text-gray-400">
+                      {language === 'ar' ? 'لا توجد أدلة متاحة للربط' : 'No evidence available to link'}
+                    </p>
+                  </div>
                 </div>
               ) : (
-                <div className="max-h-60 overflow-y-auto space-y-2">
+                <div className="max-h-80 overflow-y-auto space-y-3">
                   {allEvidence
                     .filter((evidence: any) => !controlLinkedEvidence.some((linked: any) => linked.id === evidence.id))
                     .map((evidence: any) => (
                       <div
                         key={evidence.id}
-                        className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                        className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
                         onClick={() => handleLinkExistingEvidence(evidence.id)}
                       >
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <FileText className="h-4 w-4 text-gray-600" />
+                          <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                            <FileText className="h-5 w-5 text-blue-600" />
+                          </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
                               {evidence.title}
                             </p>
                             {evidence.description && (
-                              <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
                                 {evidence.description}
                               </p>
                             )}
                             {evidence.fileName && (
-                              <p className="text-xs text-teal-600 dark:text-teal-400">
+                              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                                 {evidence.fileName}
                               </p>
                             )}
                           </div>
                         </div>
-                        <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white">
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white ml-3">
                           {language === 'ar' ? 'ربط' : 'Link'}
                         </Button>
                       </div>
@@ -1045,6 +1096,7 @@ export default function TaskDetail() {
                 <Button
                   variant="outline"
                   onClick={() => setLinkExistingDialogOpen(false)}
+                  className="px-6"
                 >
                   {language === 'ar' ? 'إلغاء' : 'Cancel'}
                 </Button>
