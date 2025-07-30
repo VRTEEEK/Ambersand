@@ -246,7 +246,7 @@ export default function Regulations() {
     const domainControls = controls?.filter((control: any) => control.domainEn === domain) || [];
     const domainControlIds = domainControls.map((control: any) => control.id);
     
-    // Check how many of this domain's controls are currently selected
+    // Use the same logic as isDomainSelected
     const selectedFromDomain = domainControlIds.filter(id => selectedControlIds.includes(id));
     const allSelected = domainControlIds.length > 0 && selectedFromDomain.length === domainControlIds.length;
     
@@ -255,6 +255,7 @@ export default function Regulations() {
     console.log('✅ Selected from domain:', selectedFromDomain.length, '/', domainControlIds.length);
     console.log('🔍 All selected:', allSelected);
     console.log('📝 Currently selected total:', selectedControlIds.length);
+    console.log('🔍 isDomainSelected result:', isDomainSelected(domain));
     
     if (allSelected) {
       // Deselect all domain controls
@@ -283,7 +284,8 @@ export default function Regulations() {
   const isDomainSelected = (domain: string) => {
     const domainControls = controls?.filter((control: any) => control.domainEn === domain) || [];
     const domainControlIds = domainControls.map((control: any) => control.id);
-    const result = domainControlIds.length > 0 && domainControlIds.every((id: number) => selectedControlIds.includes(id));
+    const selectedFromDomain = domainControlIds.filter(id => selectedControlIds.includes(id));
+    const result = domainControlIds.length > 0 && selectedFromDomain.length === domainControlIds.length;
     return result;
   };
 
