@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import TaskWizard from '@/components/tasks/TaskWizard';
 import { ControlInfoDialog } from '@/components/tasks/ControlInfoDialog';
 import { 
@@ -739,17 +740,47 @@ export default function ProjectDetail() {
                           
                           {/* Controls as badges */}
                           {task.controls && task.controls.length > 0 && (
-                            <div className="flex flex-wrap gap-2">
-                              {task.controls.map((control: any) => (
-                                <Badge 
-                                  key={control.eccControl.id} 
-                                  variant="outline" 
-                                  className="text-xs font-medium bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-700 text-teal-800 dark:text-teal-300"
-                                >
-                                  {control.eccControl.code}
-                                </Badge>
-                              ))}
-                            </div>
+                            <TooltipProvider>
+                              <div className="flex flex-wrap gap-2">
+                                {task.controls.map((control: any) => (
+                                  <Tooltip key={control.eccControl.id}>
+                                    <TooltipTrigger asChild>
+                                      <div className="inline-block">
+                                        <Badge 
+                                          variant="outline" 
+                                          className="text-xs font-medium bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-700 text-teal-800 dark:text-teal-300 cursor-help"
+                                        >
+                                          {control.eccControl.code}
+                                        </Badge>
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-sm p-3">
+                                      <div className="space-y-2">
+                                        <div className="font-semibold text-sm">
+                                          {control.eccControl.code} - {language === 'ar' && control.eccControl.domainAr ? control.eccControl.domainAr : control.eccControl.domainEn}
+                                        </div>
+                                        <div className="text-xs text-gray-600 leading-relaxed">
+                                          {language === 'ar' && control.eccControl.subdomainAr ? control.eccControl.subdomainAr : control.eccControl.subdomainEn}
+                                        </div>
+                                        <div className="text-xs text-gray-700 leading-relaxed border-t pt-2">
+                                          {language === 'ar' && control.eccControl.controlAr ? control.eccControl.controlAr : control.eccControl.controlEn}
+                                        </div>
+                                        {(control.eccControl.evidenceEn || control.eccControl.evidenceAr) && (
+                                          <div className="pt-1 border-t">
+                                            <div className="text-xs font-medium text-blue-600">
+                                              {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
+                                            </div>
+                                            <div className="text-xs text-gray-600 mt-1 max-h-20 overflow-y-auto">
+                                              {language === 'ar' && control.eccControl.evidenceAr ? control.eccControl.evidenceAr : control.eccControl.evidenceEn}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                ))}
+                              </div>
+                            </TooltipProvider>
                           )}
                           
                           {/* Task Description */}

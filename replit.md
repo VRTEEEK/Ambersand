@@ -10,7 +10,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### July 30, 2025 - Task Delete Functionality Implementation
+### July 30, 2025 - Task Delete Functionality & UI Enhancements Implementation
 - **IMPLEMENTED**: Complete task deletion functionality with confirmation dialog in task edit form
 - **ADDED**: Red delete button with trash icon in bottom left of EditTaskForm component with bilingual support
 - **CREATED**: Confirmation AlertDialog with Arabic/English text asking for user confirmation before deletion
@@ -18,6 +18,8 @@ Preferred communication style: Simple, everyday language.
 - **ENHANCED**: Tasks page with onDelete prop handler that calls DELETE /api/tasks/:id endpoint
 - **TESTED**: Successful deletion workflow verified - task 55 deleted successfully with proper cleanup
 - **IMPROVED**: Project owner display in Projects page to show only name without "Project Owner" title text
+- **REDESIGNED**: Regulation framework cards with modern gradients, animations, decorative elements, and enhanced hover effects
+- **IMPLEMENTED**: Hover tooltips for control badges in ProjectDetail page showing comprehensive control information including code, domain, subdomain, control description, and required evidence with bilingual support
 
 ### July 29, 2025 - Complete Email Notification System Implementation & Production URL Fix
 - **IMPLEMENTED**: Automatic email notifications for task assignments with bilingual templates supporting Arabic RTL text
