@@ -303,7 +303,7 @@ export default function TaskDetail() {
           </TabsTrigger>
           <TabsTrigger value="evidence" className="flex items-center gap-2">
             <Upload className="h-4 w-4" />
-            {language === 'ar' ? `الأدلة (${evidence.length})` : `Evidence (${evidence.length})`}
+            {language === 'ar' ? 'الأدلة' : 'Evidence'}
           </TabsTrigger>
         </TabsList>
 
