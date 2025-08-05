@@ -18,9 +18,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import { BookOpen, Shield, Database, Plus, Settings, FileText, Building, CheckSquare, Square, AlertTriangle } from 'lucide-react';
+import { BookOpen, Shield, Database, Plus, Settings, FileText, Building, CheckSquare, Square, AlertTriangle, Edit, Trash2, MoreVertical } from 'lucide-react';
 
 // Custom regulation schema
 const customRegulationSchema = z.object({
@@ -85,6 +87,15 @@ export default function Regulations() {
     tags: string[];
   }>>([]);
   const [editingControlId, setEditingControlId] = useState<string | null>(null);
+  
+  // Edit regulation state
+  const [editingRegulation, setEditingRegulation] = useState<any>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  
+  // Delete regulation state
+  const [deletingRegulation, setDeletingRegulation] = useState<any>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -114,6 +125,20 @@ export default function Regulations() {
   });
 
   const form = useForm<CustomRegulationFormData>({
+    resolver: zodResolver(customRegulationSchema),
+    defaultValues: {
+      name: '',
+      nameAr: '',
+      description: '',
+      descriptionAr: '',
+      category: 'internal',
+      framework: '',
+      version: '1.0',
+      status: 'draft',
+    },
+  });
+
+  const editForm = useForm<CustomRegulationFormData>({
     resolver: zodResolver(customRegulationSchema),
     defaultValues: {
       name: '',
@@ -183,6 +208,84 @@ export default function Regulations() {
       });
     },
   });
+
+  const updateRegulationMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: CustomRegulationFormData }) => {
+      await apiRequest(`/api/custom-regulations/${id}`, 'PATCH', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/custom-regulations'] });
+      setIsEditDialogOpen(false);
+      editForm.reset();
+      setEditingRegulation(null);
+      toast({
+        title: language === 'ar' ? 'تم تحديث التنظيم' : 'Regulation Updated',
+        description: language === 'ar' ? 'تم تحديث التنظيم المخصص بنجاح' : 'Custom regulation updated successfully',
+      });
+    },
+    onError: () => {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في تحديث التنظيم' : 'Failed to update regulation',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const deleteRegulationMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest(`/api/custom-regulations/${id}`, 'DELETE');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/custom-regulations'] });
+      setIsDeleteDialogOpen(false);
+      setDeletingRegulation(null);
+      toast({
+        title: language === 'ar' ? 'تم حذف التنظيم' : 'Regulation Deleted',
+        description: language === 'ar' ? 'تم حذف التنظيم المخصص بنجاح' : 'Custom regulation deleted successfully',
+      });
+    },
+    onError: () => {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في حذف التنظيم' : 'Failed to delete regulation',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Helper functions for edit and delete
+  const handleEditRegulation = (regulation: any) => {
+    setEditingRegulation(regulation);
+    editForm.reset({
+      name: regulation.name || '',
+      nameAr: regulation.nameAr || '',
+      description: regulation.description || '',
+      descriptionAr: regulation.descriptionAr || '',
+      category: regulation.category || 'internal',
+      framework: regulation.framework || '',
+      version: regulation.version || '1.0',
+      status: regulation.status || 'draft',
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleDeleteRegulation = (regulation: any) => {
+    setDeletingRegulation(regulation);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const onEditSubmit = (data: CustomRegulationFormData) => {
+    if (editingRegulation) {
+      updateRegulationMutation.mutate({ id: editingRegulation.id, data });
+    }
+  };
+
+  const onDeleteConfirm = () => {
+    if (deletingRegulation) {
+      deleteRegulationMutation.mutate(deletingRegulation.id);
+    }
+  };
 
   const createProjectMutation = useMutation({
     mutationFn: async (data: ProjectFormData) => {
@@ -1231,12 +1334,34 @@ export default function Regulations() {
                   <Card key={regulation.id} className="border border-slate-200 hover:shadow-md transition-shadow">
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
-                        <Badge variant="outline" className="text-xs">
-                          {regulation.category}
-                        </Badge>
-                        <Badge variant={regulation.status === 'active' ? 'default' : 'secondary'}>
-                          {regulation.status}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {regulation.category}
+                          </Badge>
+                          <Badge variant={regulation.status === 'active' ? 'default' : 'secondary'}>
+                            {regulation.status}
+                          </Badge>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEditRegulation(regulation)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              {language === 'ar' ? 'تعديل' : 'Edit'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleDeleteRegulation(regulation)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              {language === 'ar' ? 'حذف' : 'Delete'}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                       <CardTitle className="text-base">
                         {language === 'ar' && regulation.nameAr ? regulation.nameAr : regulation.name}
@@ -1863,6 +1988,219 @@ export default function Regulations() {
             </Dialog>
           </div>
         )}
+
+        {/* Edit Regulation Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                {language === 'ar' ? 'تعديل التنظيم المخصص' : 'Edit Custom Regulation'}
+              </DialogTitle>
+              <DialogDescription>
+                {language === 'ar' ? 'قم بتعديل تفاصيل التنظيم المخصص' : 'Modify the custom regulation details'}
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'الاسم (انجليزي)' : 'Name (English)'}</FormLabel>
+                        <FormControl>
+                          <Input placeholder="SOX Compliance" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="nameAr"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'الاسم (عربي)' : 'Name (Arabic)'}</FormLabel>
+                        <FormControl>
+                          <Input placeholder="امتثال ساربانس أوكسلي" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="category"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'الفئة' : 'Category'}</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="internal">{language === 'ar' ? 'داخلي' : 'Internal'}</SelectItem>
+                            <SelectItem value="external">{language === 'ar' ? 'خارجي' : 'External'}</SelectItem>
+                            <SelectItem value="industry">{language === 'ar' ? 'صناعي' : 'Industry'}</SelectItem>
+                            <SelectItem value="custom">{language === 'ar' ? 'مخصص' : 'Custom'}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'الحالة' : 'Status'}</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="draft">{language === 'ar' ? 'مسودة' : 'Draft'}</SelectItem>
+                            <SelectItem value="active">{language === 'ar' ? 'نشط' : 'Active'}</SelectItem>
+                            <SelectItem value="archived">{language === 'ar' ? 'مؤرشف' : 'Archived'}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="version"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{language === 'ar' ? 'الإصدار' : 'Version'}</FormLabel>
+                        <FormControl>
+                          <Input placeholder="1.0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={editForm.control}
+                  name="framework"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{language === 'ar' ? 'الإطار' : 'Framework'} ({language === 'ar' ? 'اختياري' : 'Optional'})</FormLabel>
+                      <FormControl>
+                        <Input placeholder="SOX, COSO, etc." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{language === 'ar' ? 'الوصف (انجليزي)' : 'Description (English)'}</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Detailed description of the regulation..."
+                          className="min-h-[100px]"
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="descriptionAr"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{language === 'ar' ? 'الوصف (عربي)' : 'Description (Arabic)'}</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="وصف تفصيلي للتنظيم..."
+                          className="min-h-[100px]"
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex justify-end gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsEditDialogOpen(false);
+                      editForm.reset();
+                      setEditingRegulation(null);
+                    }}
+                  >
+                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={updateRegulationMutation.isPending}
+                    className="bg-teal-600 hover:bg-teal-700"
+                  >
+                    {updateRegulationMutation.isPending 
+                      ? (language === 'ar' ? 'جاري التحديث...' : 'Updating...') 
+                      : (language === 'ar' ? 'تحديث التنظيم' : 'Update Regulation')
+                    }
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {language === 'ar' 
+                  ? `هل أنت متأكد من أنك تريد حذف التنظيم "${deletingRegulation?.name}"؟ هذا الإجراء لا يمكن التراجع عنه.`
+                  : `Are you sure you want to delete the regulation "${deletingRegulation?.name}"? This action cannot be undone.`
+                }
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={onDeleteConfirm}
+                disabled={deleteRegulationMutation.isPending}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {deleteRegulationMutation.isPending 
+                  ? (language === 'ar' ? 'جاري الحذف...' : 'Deleting...') 
+                  : (language === 'ar' ? 'حذف' : 'Delete')
+                }
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AppLayout>
   );
