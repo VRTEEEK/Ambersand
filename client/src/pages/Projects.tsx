@@ -52,7 +52,6 @@ const projectSchema = z.object({
   nameAr: z.string().optional(),
   description: z.string().optional(),
   descriptionAr: z.string().optional(),
-  status: z.enum(['planning', 'active', 'completed', 'on-hold', 'overdue']),
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
   startDate: z.string().min(1, 'Start date is required'),
   endDate: z.string().min(1, 'End date is required'),
@@ -76,7 +75,7 @@ export default function Projects() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+
   const [regulationFilter, setRegulationFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -125,7 +124,7 @@ export default function Projects() {
       nameAr: '',
       description: '',
       descriptionAr: '',
-      status: 'planning',
+
       priority: 'medium',
       startDate: new Date().toISOString().split('T')[0],
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
@@ -223,7 +222,7 @@ export default function Projects() {
         nameAr: project.nameAr || '',
         description: project.description || '',
         descriptionAr: project.descriptionAr || '',
-        status: project.status || 'planning',
+
         priority: project.priority || 'medium',
         startDate: project.startDate || '',
         endDate: project.endDate || '',
@@ -243,30 +242,7 @@ export default function Projects() {
     }
   }, [language, deleteProjectMutation]);
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'active': return 'default';
-      case 'completed': return 'secondary';
-      case 'planning': return 'outline';
-      case 'on-hold': return 'destructive';
-      case 'overdue': return 'destructive';
-      default: return 'outline';
-    }
-  };
 
-  const getStatusText = (status: string) => {
-    if (language === 'ar') {
-      switch (status) {
-        case 'active': return 'نشط';
-        case 'completed': return 'مكتمل';
-        case 'planning': return 'تخطيط';
-        case 'on-hold': return 'معلق';
-        case 'overdue': return 'متأخر';
-        default: return status;
-      }
-    }
-    return status?.charAt(0).toUpperCase() + status?.slice(1) || 'Unknown';
-  };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -281,10 +257,10 @@ export default function Projects() {
   const filteredProjects = projectsWithProgress?.filter((project: any) => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          project.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
+
     const matchesRegulation = regulationFilter === 'all' || project.regulationType === regulationFilter;
     const matchesPriority = priorityFilter === 'all' || project.priority === priorityFilter;
-    return matchesSearch && matchesStatus && matchesRegulation && matchesPriority;
+    return matchesSearch && matchesRegulation && matchesPriority;
   }) || [];
 
   if (error && isUnauthorizedError(error as Error)) {
@@ -380,30 +356,8 @@ export default function Projects() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Status</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="planning">Planning</SelectItem>
-                            <SelectItem value="active">Active</SelectItem>
-                            <SelectItem value="on-hold">On Hold</SelectItem>
-                            <SelectItem value="completed">Completed</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
                   <FormField
                     control={form.control}
                     name="priority"
@@ -550,19 +504,7 @@ export default function Projects() {
               </div>
               
               <div className="flex flex-col sm:flex-row gap-4">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-[160px]">
-                    <SelectValue placeholder={language === 'ar' ? 'الحالة' : 'Status'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{language === 'ar' ? 'جميع الحالات' : 'All Status'}</SelectItem>
-                    <SelectItem value="planning">{language === 'ar' ? 'تخطيط' : 'Planning'}</SelectItem>
-                    <SelectItem value="active">{language === 'ar' ? 'نشط' : 'Active'}</SelectItem>
-                    <SelectItem value="completed">{language === 'ar' ? 'مكتمل' : 'Completed'}</SelectItem>
-                    <SelectItem value="on-hold">{language === 'ar' ? 'معلق' : 'On Hold'}</SelectItem>
-                    <SelectItem value="overdue">{language === 'ar' ? 'متأخر' : 'Overdue'}</SelectItem>
-                  </SelectContent>
-                </Select>
+
 
                 <Select value={regulationFilter} onValueChange={setRegulationFilter}>
                   <SelectTrigger className="w-full sm:w-[160px]">
@@ -654,14 +596,14 @@ export default function Projects() {
             <div className="col-span-full text-center py-12">
               <Calendar className="h-16 w-16 text-slate-300 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-slate-600 mb-2">
-                {searchTerm || statusFilter !== 'all' || regulationFilter !== 'all' || priorityFilter !== 'all'
+                {searchTerm || regulationFilter !== 'all' || priorityFilter !== 'all'
                   ? (language === 'ar' ? 'لم يتم العثور على مشاريع' : 'No projects found')
                   : (language === 'ar' ? 'لا توجد مشاريع' : 'No projects yet')
                 }
               </h3>
               <p className="text-slate-500 mb-4">
-                {searchTerm || statusFilter !== 'all' || regulationFilter !== 'all' || priorityFilter !== 'all'
-                  ? (language === 'ar' ? 'جرب تغيير مرشحات البحث أو الحالة أو النظام أو الأولوية' : 'Try adjusting your search, status, regulation, or priority filters')
+                {searchTerm || regulationFilter !== 'all' || priorityFilter !== 'all'
+                  ? (language === 'ar' ? 'جرب تغيير مرشحات البحث أو النظام أو الأولوية' : 'Try adjusting your search, regulation, or priority filters')
                   : (language === 'ar' ? 'يمكنك إنشاء مشروع من صفحة الأنظمة' : 'You can create projects from the Regulations page')
                 }
               </p>
@@ -683,12 +625,7 @@ export default function Projects() {
                         }
                       </CardTitle>
                       <div className="flex items-center flex-wrap gap-2">
-                        <Badge 
-                          variant={getStatusBadgeVariant(project.status)}
-                          className="text-xs font-semibold"
-                        >
-                          {getStatusText(project.status)}
-                        </Badge>
+
                         <Badge 
                           variant="outline" 
                           className={`text-xs font-medium ${getPriorityColor(project.priority)} border-current`}

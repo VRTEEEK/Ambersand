@@ -126,7 +126,7 @@ export const projects = pgTable("projects", {
   nameAr: varchar("name_ar"),
   description: text("description"),
   descriptionAr: text("description_ar"),
-  status: varchar("status").notNull().default("planning"), // planning, active, completed, on-hold, overdue
+
   priority: varchar("priority").notNull().default("medium"), // low, medium, high, urgent
   startDate: date("start_date"),
   endDate: date("end_date"),
