@@ -1317,7 +1317,8 @@ export default function Regulations() {
                       return (
                         <Card 
                           key={index}
-                          className="group relative overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 hover:scale-105"
+                          className="group relative overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 hover:scale-105 cursor-pointer"
+                          onClick={() => setSelectedCategory(category.en)}
                         >
                           <div className="absolute inset-0 bg-gradient-to-br from-teal-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                           <CardHeader className="pb-4 relative z-10">
@@ -1326,7 +1327,11 @@ export default function Regulations() {
                                 <div className="relative">
                                   <Checkbox
                                     checked={isSelected}
-                                    onCheckedChange={() => toggleDomainSelection(category.en)}
+                                    onCheckedChange={(e) => {
+                                      e?.stopPropagation?.();
+                                      toggleDomainSelection(category.en);
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
                                     className="flex-shrink-0 scale-110 cursor-pointer hover:scale-125 transition-transform duration-200"
                                   />
                                   {isSelected && (
@@ -1338,10 +1343,7 @@ export default function Regulations() {
                                     </div>
                                   )}
                                 </div>
-                                <span
-                                  className="cursor-pointer font-semibold text-gray-800 dark:text-gray-200 group-hover:text-teal-600 transition-colors"
-                                  onClick={() => setSelectedCategory(category.en)}
-                                >
+                                <span className="font-semibold text-gray-800 dark:text-gray-200 group-hover:text-teal-600 transition-colors">
                                   {language === 'ar' ? category.ar : category.en}
                                 </span>
                               </div>
@@ -1359,7 +1361,7 @@ export default function Regulations() {
                           </CardHeader>
                           <CardContent className="relative z-10">
                             <div className="h-1 bg-gradient-to-r from-teal-500/30 to-transparent rounded-full mb-4"></div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer group-hover:text-teal-600 transition-colors">
+                            <p className="text-sm text-gray-600 dark:text-gray-400 group-hover:text-teal-600 transition-colors">
                               {language === 'ar' ? 'انقر لعرض الضوابط في هذا المجال' : 'Click to view controls under this domain'}
                             </p>
                           </CardContent>
