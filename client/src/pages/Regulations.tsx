@@ -20,7 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import { BookOpen, Shield, Database, Plus, Settings, FileText, Building, CheckSquare, Square } from 'lucide-react';
+import { BookOpen, Shield, Database, Plus, Settings, FileText, Building, CheckSquare, Square, AlertTriangle } from 'lucide-react';
 
 // Custom regulation schema
 const customRegulationSchema = z.object({
@@ -231,6 +231,24 @@ export default function Regulations() {
 
   // Control entry handlers
   const addControlEntry = (data: any) => {
+    // Check for duplicate controls
+    const isDuplicate = customControlEntries.some(entry => 
+      entry.mainDomain.toLowerCase().trim() === data.mainDomain.toLowerCase().trim() &&
+      entry.subDomain.toLowerCase().trim() === data.subDomain.toLowerCase().trim() &&
+      entry.control.toLowerCase().trim() === data.control.toLowerCase().trim()
+    );
+
+    if (isDuplicate) {
+      toast({
+        title: language === 'ar' ? 'ضابط مكرر' : 'Duplicate Control',
+        description: language === 'ar' 
+          ? 'هذا الضابط موجود بالفعل. يرجى إدخال ضابط مختلف أو تعديل الضابط الموجود.'
+          : 'This control already exists. Please enter a different control or edit the existing one.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const newEntry = {
       id: Date.now().toString(),
       ...data,
@@ -238,6 +256,12 @@ export default function Regulations() {
     };
     setCustomControlEntries(prev => [...prev, newEntry]);
     controlForm.reset();
+    
+    // Show success message
+    toast({
+      title: language === 'ar' ? 'تم إضافة الضابط' : 'Control Added',
+      description: language === 'ar' ? 'تم إضافة الضابط بنجاح' : 'Control added successfully',
+    });
   };
 
   const editControlEntry = (id: string) => {
@@ -254,6 +278,25 @@ export default function Regulations() {
   const updateControlEntry = (data: any) => {
     if (!editingControlId) return;
     
+    // Check for duplicate controls (excluding the current entry being edited)
+    const isDuplicate = customControlEntries.some(entry => 
+      entry.id !== editingControlId &&
+      entry.mainDomain.toLowerCase().trim() === data.mainDomain.toLowerCase().trim() &&
+      entry.subDomain.toLowerCase().trim() === data.subDomain.toLowerCase().trim() &&
+      entry.control.toLowerCase().trim() === data.control.toLowerCase().trim()
+    );
+
+    if (isDuplicate) {
+      toast({
+        title: language === 'ar' ? 'ضابط مكرر' : 'Duplicate Control',
+        description: language === 'ar' 
+          ? 'هذا الضابط موجود بالفعل. يرجى إدخال ضابط مختلف.'
+          : 'This control already exists. Please enter a different control.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     setCustomControlEntries(prev => prev.map(entry => 
       entry.id === editingControlId 
         ? { 
@@ -265,10 +308,34 @@ export default function Regulations() {
     ));
     controlForm.reset();
     setEditingControlId(null);
+    
+    // Show success message
+    toast({
+      title: language === 'ar' ? 'تم تحديث الضابط' : 'Control Updated',
+      description: language === 'ar' ? 'تم تحديث الضابط بنجاح' : 'Control updated successfully',
+    });
   };
 
   const deleteControlEntry = (id: string) => {
     setCustomControlEntries(prev => prev.filter(entry => entry.id !== id));
+    
+    // Show success message
+    toast({
+      title: language === 'ar' ? 'تم حذف الضابط' : 'Control Deleted',
+      description: language === 'ar' ? 'تم حذف الضابط بنجاح' : 'Control deleted successfully',
+    });
+  };
+
+  // Helper function to check for potential duplicates while typing
+  const checkPotentialDuplicate = (mainDomain: string, subDomain: string, control: string) => {
+    if (!mainDomain || !subDomain || !control) return false;
+    
+    return customControlEntries.some(entry => 
+      entry.id !== editingControlId &&
+      entry.mainDomain.toLowerCase().includes(mainDomain.toLowerCase()) &&
+      entry.subDomain.toLowerCase().includes(subDomain.toLowerCase()) &&
+      entry.control.toLowerCase().includes(control.toLowerCase())
+    );
   };
 
   const onSubmit = async (data: CustomRegulationFormData) => {
@@ -611,15 +678,32 @@ export default function Regulations() {
                         <FormField
                           control={controlForm.control}
                           name="mainDomain"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>{language === 'ar' ? 'المجال الرئيسي (انجليزي)' : 'Main Domain (English)'} *</FormLabel>
-                              <FormControl>
-                                <Input placeholder="e.g., Access Control" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
+                          render={({ field }) => {
+                            const mainDomain = controlForm.watch('mainDomain');
+                            const subDomain = controlForm.watch('subDomain');
+                            const control = controlForm.watch('control');
+                            const hasPotentialDuplicate = checkPotentialDuplicate(mainDomain, subDomain, control);
+                            
+                            return (
+                              <FormItem>
+                                <FormLabel>{language === 'ar' ? 'المجال الرئيسي (انجليزي)' : 'Main Domain (English)'} *</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    placeholder="e.g., Access Control" 
+                                    {...field}
+                                    className={hasPotentialDuplicate ? 'border-amber-300 bg-amber-50 focus:border-amber-400' : ''}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                                {hasPotentialDuplicate && (
+                                  <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    {language === 'ar' ? 'قد يكون هناك ضابط مشابه موجود' : 'Similar control may already exist'}
+                                  </p>
+                                )}
+                              </FormItem>
+                            );
+                          }}
                         />
                         <FormField
                           control={controlForm.control}
@@ -640,15 +724,32 @@ export default function Regulations() {
                         <FormField
                           control={controlForm.control}
                           name="subDomain"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>{language === 'ar' ? 'المجال الفرعي (انجليزي)' : 'Sub Domain (English)'} *</FormLabel>
-                              <FormControl>
-                                <Input placeholder="e.g., User Authentication" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
+                          render={({ field }) => {
+                            const mainDomain = controlForm.watch('mainDomain');
+                            const subDomain = controlForm.watch('subDomain');
+                            const control = controlForm.watch('control');
+                            const hasPotentialDuplicate = checkPotentialDuplicate(mainDomain, subDomain, control);
+                            
+                            return (
+                              <FormItem>
+                                <FormLabel>{language === 'ar' ? 'المجال الفرعي (انجليزي)' : 'Sub Domain (English)'} *</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    placeholder="e.g., User Authentication" 
+                                    {...field}
+                                    className={hasPotentialDuplicate ? 'border-amber-300 bg-amber-50 focus:border-amber-400' : ''}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                                {hasPotentialDuplicate && (
+                                  <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    {language === 'ar' ? 'قد يكون هناك ضابط مشابه موجود' : 'Similar control may already exist'}
+                                  </p>
+                                )}
+                              </FormItem>
+                            );
+                          }}
                         />
                         <FormField
                           control={controlForm.control}
@@ -669,19 +770,32 @@ export default function Regulations() {
                         <FormField
                           control={controlForm.control}
                           name="control"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>{language === 'ar' ? 'الضابط (انجليزي)' : 'Control (English)'} *</FormLabel>
-                              <FormControl>
-                                <Textarea 
-                                  placeholder="Describe the main control requirement..."
-                                  className="min-h-[60px]"
-                                  {...field} 
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
+                          render={({ field }) => {
+                            const mainDomain = controlForm.watch('mainDomain');
+                            const subDomain = controlForm.watch('subDomain');
+                            const control = controlForm.watch('control');
+                            const hasPotentialDuplicate = checkPotentialDuplicate(mainDomain, subDomain, control);
+                            
+                            return (
+                              <FormItem>
+                                <FormLabel>{language === 'ar' ? 'الضابط (انجليزي)' : 'Control (English)'} *</FormLabel>
+                                <FormControl>
+                                  <Textarea 
+                                    placeholder="Describe the main control requirement..."
+                                    className={`min-h-[60px] ${hasPotentialDuplicate ? 'border-amber-300 bg-amber-50 focus:border-amber-400' : ''}`}
+                                    {...field} 
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                                {hasPotentialDuplicate && (
+                                  <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    {language === 'ar' ? 'قد يكون هناك ضابط مشابه موجود' : 'Similar control may already exist'}
+                                  </p>
+                                )}
+                              </FormItem>
+                            );
+                          }}
                         />
                         <FormField
                           control={controlForm.control}
