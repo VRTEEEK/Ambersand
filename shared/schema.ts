@@ -100,16 +100,20 @@ export const customRegulations = pgTable("custom_regulations", {
 export const customControls = pgTable("custom_controls", {
   id: serial("id").primaryKey(),
   code: varchar("code").notNull(),
-  title: varchar("title").notNull(),
-  titleAr: varchar("title_ar"),
+  mainDomain: varchar("main_domain").notNull(),
+  mainDomainAr: varchar("main_domain_ar"),
+  subDomain: varchar("sub_domain").notNull(),
+  subDomainAr: varchar("sub_domain_ar"),
+  control: text("control").notNull(),
+  controlAr: text("control_ar"),
+  subControl: text("sub_control"), // Optional
+  subControlAr: text("sub_control_ar"), // Optional
   description: text("description").notNull(),
   descriptionAr: text("description_ar"),
-  category: varchar("category"), // technical, administrative, physical
-  severity: varchar("severity").notNull().default("medium"), // low, medium, high, critical
-  evidence: text("evidence"),
-  evidenceAr: text("evidence_ar"),
-  requirement: text("requirement"),
-  requirementAr: text("requirement_ar"),
+  evidenceRequired: boolean("evidence_required").notNull().default(false),
+  evidenceNote: text("evidence_note"), // If evidenceRequired is true, this can provide details
+  evidenceNoteAr: text("evidence_note_ar"),
+  tags: text("tags").array(), // For categorization/filtering
   customRegulationId: integer("custom_regulation_id").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

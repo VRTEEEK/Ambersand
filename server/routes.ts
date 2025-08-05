@@ -992,13 +992,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      const regulationData = {
-        ...req.body,
+      const { controls, ...regulationData } = req.body;
+      
+      const regulation = await storage.createCustomRegulation({
+        ...regulationData,
         organizationId: user?.organizationId || 'default',
         createdById: userId,
-      };
+      });
+
+      // Create associated controls if provided
+      if (controls && Array.isArray(controls) && controls.length > 0) {
+        for (const controlData of controls) {
+          await storage.createCustomControl({
+            ...controlData,
+            customRegulationId: regulation.id,
+            code: `CR-${regulation.id}-${controls.indexOf(controlData) + 1}`, // Generate unique code
+          });
+        }
+      }
       
-      const regulation = await storage.createCustomRegulation(regulationData);
       res.status(201).json(regulation);
     } catch (error) {
       console.error("Error creating custom regulation:", error);

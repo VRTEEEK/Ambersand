@@ -67,6 +67,24 @@ export default function Regulations() {
   const [selectedFramework, setSelectedFramework] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedControlIds, setSelectedControlIds] = useState<number[]>([]);
+  const [customControlEntries, setCustomControlEntries] = useState<Array<{
+    id: string;
+    mainDomain: string;
+    mainDomainAr: string;
+    subDomain: string;
+    subDomainAr: string;
+    control: string;
+    controlAr: string;
+    subControl: string;
+    subControlAr: string;
+    description: string;
+    descriptionAr: string;
+    evidenceRequired: boolean;
+    evidenceNote: string;
+    evidenceNoteAr: string;
+    tags: string[];
+  }>>([]);
+  const [editingControlId, setEditingControlId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -121,6 +139,26 @@ export default function Regulations() {
       startDate: new Date().toISOString().split('T')[0],
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
       ownerId: '',
+    },
+  });
+
+  // Control entry form
+  const controlForm = useForm({
+    defaultValues: {
+      mainDomain: '',
+      mainDomainAr: '',
+      subDomain: '',
+      subDomainAr: '',
+      control: '',
+      controlAr: '',
+      subControl: '',
+      subControlAr: '',
+      description: '',
+      descriptionAr: '',
+      evidenceRequired: false,
+      evidenceNote: '',
+      evidenceNoteAr: '',
+      tags: [] as string[],
     },
   });
 
@@ -191,8 +229,65 @@ export default function Regulations() {
     },
   });
 
-  const onSubmit = (data: CustomRegulationFormData) => {
-    createRegulationMutation.mutate(data);
+  // Control entry handlers
+  const addControlEntry = (data: any) => {
+    const newEntry = {
+      id: Date.now().toString(),
+      ...data,
+      tags: typeof data.tags === 'string' ? data.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : data.tags || [],
+    };
+    setCustomControlEntries(prev => [...prev, newEntry]);
+    controlForm.reset();
+  };
+
+  const editControlEntry = (id: string) => {
+    const entry = customControlEntries.find(e => e.id === id);
+    if (entry) {
+      controlForm.reset({
+        ...entry,
+        tags: entry.tags,
+      });
+      setEditingControlId(id);
+    }
+  };
+
+  const updateControlEntry = (data: any) => {
+    if (!editingControlId) return;
+    
+    setCustomControlEntries(prev => prev.map(entry => 
+      entry.id === editingControlId 
+        ? { 
+          ...entry, 
+          ...data,
+          tags: typeof data.tags === 'string' ? data.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : data.tags || [],
+        }
+        : entry
+    ));
+    controlForm.reset();
+    setEditingControlId(null);
+  };
+
+  const deleteControlEntry = (id: string) => {
+    setCustomControlEntries(prev => prev.filter(entry => entry.id !== id));
+  };
+
+  const onSubmit = async (data: CustomRegulationFormData) => {
+    if (customControlEntries.length === 0) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'يرجى إضافة ضابط واحد على الأقل' : 'Please add at least one control',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Include the control entries in the regulation data
+    const regulationWithControls = {
+      ...data,
+      controls: customControlEntries,
+    };
+    
+    createRegulationMutation.mutate(regulationWithControls);
   };
 
   const onProjectSubmit = (data: ProjectFormData) => {
@@ -357,135 +452,530 @@ export default function Regulations() {
                 {language === 'ar' ? 'إنشاء تنظيم مخصص' : 'Create Custom Regulation'}
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
                   {language === 'ar' ? 'إنشاء تنظيم مخصص جديد' : 'Create New Custom Regulation'}
                 </DialogTitle>
+                <DialogDescription>
+                  {language === 'ar' 
+                    ? 'إنشاء تنظيم مخصص مع ضوابط متعددة وهيكل مفصل'
+                    : 'Create a custom regulation with multiple controls and detailed structure'
+                  }
+                </DialogDescription>
               </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{language === 'ar' ? 'الاسم (انجليزي)' : 'Name (English)'}</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., SOX Compliance" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="nameAr"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{language === 'ar' ? 'الاسم (عربي)' : 'Name (Arabic)'}</FormLabel>
-                          <FormControl>
-                            <Input placeholder="مثال: ضوابط ساربينز أوكسلي" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="category"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{language === 'ar' ? 'الفئة' : 'Category'}</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+              
+              <div className="space-y-8">
+                {/* Regulation Basic Info */}
+                <Form {...form}>
+                  <div className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                      <Settings className="h-5 w-5 text-teal-600" />
+                      {language === 'ar' ? 'معلومات التنظيم الأساسية' : 'Regulation Basic Information'}
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <FormField
+                        control={form.control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{language === 'ar' ? 'الاسم (انجليزي)' : 'Name (English)'} *</FormLabel>
                             <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select category" />
-                              </SelectTrigger>
+                              <Input placeholder="e.g., SOX Compliance" {...field} />
                             </FormControl>
-                            <SelectContent>
-                              <SelectItem value="internal">{language === 'ar' ? 'داخلي' : 'Internal'}</SelectItem>
-                              <SelectItem value="external">{language === 'ar' ? 'خارجي' : 'External'}</SelectItem>
-                              <SelectItem value="industry">{language === 'ar' ? 'صناعي' : 'Industry'}</SelectItem>
-                              <SelectItem value="custom">{language === 'ar' ? 'مخصص' : 'Custom'}</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="nameAr"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{language === 'ar' ? 'الاسم (عربي)' : 'Name (Arabic)'}</FormLabel>
+                            <FormControl>
+                              <Input placeholder="مثال: ضوابط ساربينز أوكسلي" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <FormField
+                        control={form.control}
+                        name="category"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{language === 'ar' ? 'الفئة' : 'Category'}</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select category" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="internal">{language === 'ar' ? 'داخلي' : 'Internal'}</SelectItem>
+                                <SelectItem value="external">{language === 'ar' ? 'خارجي' : 'External'}</SelectItem>
+                                <SelectItem value="industry">{language === 'ar' ? 'صناعي' : 'Industry'}</SelectItem>
+                                <SelectItem value="custom">{language === 'ar' ? 'مخصص' : 'Custom'}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="framework"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{language === 'ar' ? 'الإطار المرجعي' : 'Framework'}</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g., ISO 27001, SOX, COBIT" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="description"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{language === 'ar' ? 'الوصف (انجليزي)' : 'Description (English)'} *</FormLabel>
+                            <FormControl>
+                              <Textarea 
+                                placeholder="Describe the purpose and scope of this regulation..."
+                                className="min-h-[80px]"
+                                {...field} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="descriptionAr"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{language === 'ar' ? 'الوصف (عربي)' : 'Description (Arabic)'}</FormLabel>
+                            <FormControl>
+                              <Textarea 
+                                placeholder="اشرح الغرض والنطاق من هذا التنظيم..."
+                                className="min-h-[80px]"
+                                {...field} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                </Form>
+
+                {/* Controls Section */}
+                <div className="bg-gradient-to-r from-teal-50 to-white dark:from-teal-900/20 dark:to-gray-900 rounded-lg p-6 border border-teal-200 dark:border-teal-700">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-bold flex items-center gap-2">
+                      <Shield className="h-5 w-5 text-teal-600" />
+                      {language === 'ar' ? 'الضوابط المخصصة' : 'Custom Controls'}
+                      {customControlEntries.length > 0 && (
+                        <Badge variant="secondary" className="ml-2">
+                          {customControlEntries.length}
+                        </Badge>
                       )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="framework"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{language === 'ar' ? 'الإطار المرجعي' : 'Framework'}</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., ISO 27001, SOX, COBIT" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    </h3>
                   </div>
 
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'الوصف (انجليزي)' : 'Description (English)'}</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Describe the purpose and scope of this regulation..."
-                            className="min-h-[100px]"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {/* Control Entry Form */}
+                  <Form {...controlForm}>
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 mb-6">
+                      <h4 className="font-medium mb-4 flex items-center gap-2">
+                        <Plus className="h-4 w-4" />
+                        {editingControlId 
+                          ? (language === 'ar' ? 'تعديل الضابط' : 'Edit Control')
+                          : (language === 'ar' ? 'إضافة ضابط جديد' : 'Add New Control')
+                        }
+                      </h4>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <FormField
+                          control={controlForm.control}
+                          name="mainDomain"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{language === 'ar' ? 'المجال الرئيسي (انجليزي)' : 'Main Domain (English)'} *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., Access Control" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={controlForm.control}
+                          name="mainDomainAr"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{language === 'ar' ? 'المجال الرئيسي (عربي)' : 'Main Domain (Arabic)'}</FormLabel>
+                              <FormControl>
+                                <Input placeholder="مثال: التحكم في الوصول" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
 
-                  <FormField
-                    control={form.control}
-                    name="descriptionAr"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'الوصف (عربي)' : 'Description (Arabic)'}</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="اشرح الغرض والنطاق من هذا التنظيم..."
-                            className="min-h-[100px]"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <FormField
+                          control={controlForm.control}
+                          name="subDomain"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{language === 'ar' ? 'المجال الفرعي (انجليزي)' : 'Sub Domain (English)'} *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., User Authentication" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={controlForm.control}
+                          name="subDomainAr"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{language === 'ar' ? 'المجال الفرعي (عربي)' : 'Sub Domain (Arabic)'}</FormLabel>
+                              <FormControl>
+                                <Input placeholder="مثال: مصادقة المستخدم" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
 
-                  <div className="flex justify-end gap-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsCreateDialogOpen(false)}
-                    >
-                      {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                    </Button>
-                    <Button type="submit" disabled={createRegulationMutation.isPending}>
-                      {createRegulationMutation.isPending 
-                        ? (language === 'ar' ? 'جاري الإنشاء...' : 'Creating...') 
-                        : (language === 'ar' ? 'إنشاء' : 'Create')
-                      }
-                    </Button>
-                  </div>
-                </form>
-              </Form>
+                      <div className="grid grid-cols-1 gap-4 mb-4">
+                        <FormField
+                          control={controlForm.control}
+                          name="control"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{language === 'ar' ? 'الضابط (انجليزي)' : 'Control (English)'} *</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="Describe the main control requirement..."
+                                  className="min-h-[60px]"
+                                  {...field} 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={controlForm.control}
+                          name="controlAr"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{language === 'ar' ? 'الضابط (عربي)' : 'Control (Arabic)'}</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="اشرح متطلب الضابط الرئيسي..."
+                                  className="min-h-[60px]"
+                                  {...field} 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-4 mb-4">
+                        <FormField
+                          control={controlForm.control}
+                          name="subControl"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{language === 'ar' ? 'الضابط الفرعي (انجليزي) - اختياري' : 'Sub Control (English) - Optional'}</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="Additional sub-control details (optional)..."
+                                  className="min-h-[50px]"
+                                  {...field} 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={controlForm.control}
+                          name="subControlAr"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{language === 'ar' ? 'الضابط الفرعي (عربي) - اختياري' : 'Sub Control (Arabic) - Optional'}</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="تفاصيل الضابط الفرعي الإضافية (اختياري)..."
+                                  className="min-h-[50px]"
+                                  {...field} 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-4 mb-4">
+                        <FormField
+                          control={controlForm.control}
+                          name="description"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{language === 'ar' ? 'الوصف التفصيلي (انجليزي)' : 'Detailed Description (English)'} *</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="Provide detailed description of implementation requirements..."
+                                  className="min-h-[80px]"
+                                  {...field} 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={controlForm.control}
+                          name="descriptionAr"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{language === 'ar' ? 'الوصف التفصيلي (عربي)' : 'Detailed Description (Arabic)'}</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="قدم وصفاً مفصلاً لمتطلبات التنفيذ..."
+                                  className="min-h-[80px]"
+                                  {...field} 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <FormField
+                          control={controlForm.control}
+                          name="evidenceRequired"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                              <div className="space-y-1 leading-none">
+                                <FormLabel>
+                                  {language === 'ar' ? 'دليل مطلوب' : 'Evidence Required'}
+                                </FormLabel>
+                              </div>
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={controlForm.control}
+                          name="tags"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{language === 'ar' ? 'العلامات (مفصولة بفواصل)' : 'Tags (comma-separated)'}</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  placeholder="security, compliance, critical"
+                                  value={Array.isArray(field.value) ? field.value.join(', ') : field.value}
+                                  onChange={(e) => field.onChange(e.target.value)}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      {controlForm.watch('evidenceRequired') && (
+                        <div className="grid grid-cols-1 gap-4 mb-4">
+                          <FormField
+                            control={controlForm.control}
+                            name="evidenceNote"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{language === 'ar' ? 'ملاحظة الدليل (انجليزي)' : 'Evidence Note (English)'}</FormLabel>
+                                <FormControl>
+                                  <Textarea 
+                                    placeholder="Specify what evidence is required..."
+                                    className="min-h-[60px]"
+                                    {...field} 
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={controlForm.control}
+                            name="evidenceNoteAr"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{language === 'ar' ? 'ملاحظة الدليل (عربي)' : 'Evidence Note (Arabic)'}</FormLabel>
+                                <FormControl>
+                                  <Textarea 
+                                    placeholder="حدد ما هو الدليل المطلوب..."
+                                    className="min-h-[60px]"
+                                    {...field} 
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex justify-end gap-2">
+                        {editingControlId && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              controlForm.reset();
+                              setEditingControlId(null);
+                            }}
+                          >
+                            {language === 'ar' ? 'إلغاء التعديل' : 'Cancel Edit'}
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          onClick={controlForm.handleSubmit(editingControlId ? updateControlEntry : addControlEntry)}
+                          className="bg-teal-600 hover:bg-teal-700"
+                        >
+                          {editingControlId 
+                            ? (language === 'ar' ? 'تحديث الضابط' : 'Update Control')
+                            : (language === 'ar' ? 'إضافة الضابط' : 'Add Control')
+                          }
+                        </Button>
+                      </div>
+                    </div>
+                  </Form>
+
+                  {/* Added Controls List */}
+                  {customControlEntries.length > 0 && (
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-gray-800 dark:text-gray-200">
+                        {language === 'ar' ? 'الضوابط المضافة' : 'Added Controls'}
+                      </h4>
+                      {customControlEntries.map((entry, index) => (
+                        <Card key={entry.id} className="border border-gray-200 hover:shadow-md transition-shadow">
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <Badge variant="outline" className="text-xs font-mono">
+                                    {index + 1}
+                                  </Badge>
+                                  <h5 className="font-medium text-sm">
+                                    {language === 'ar' && entry.mainDomainAr ? entry.mainDomainAr : entry.mainDomain}
+                                    {' → '}
+                                    {language === 'ar' && entry.subDomainAr ? entry.subDomainAr : entry.subDomain}
+                                  </h5>
+                                  {entry.evidenceRequired && (
+                                    <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800">
+                                      {language === 'ar' ? 'دليل مطلوب' : 'Evidence Required'}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
+                                  {language === 'ar' && entry.controlAr ? entry.controlAr : entry.control}
+                                </p>
+                                {entry.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1">
+                                    {entry.tags.map((tag, tagIndex) => (
+                                      <Badge key={tagIndex} variant="outline" className="text-xs">
+                                        {tag}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 ml-4">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => editControlEntry(entry.id)}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Settings className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteControlEntry(entry.id)}
+                                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  ×
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Submit Buttons */}
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsCreateDialogOpen(false);
+                      setCustomControlEntries([]);
+                      setEditingControlId(null);
+                      form.reset();
+                      controlForm.reset();
+                    }}
+                  >
+                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                  </Button>
+                  <Button 
+                    type="button"
+                    onClick={form.handleSubmit(onSubmit)}
+                    disabled={createRegulationMutation.isPending || customControlEntries.length === 0}
+                    className="bg-teal-600 hover:bg-teal-700"
+                  >
+                    {createRegulationMutation.isPending 
+                      ? (language === 'ar' ? 'جاري الإنشاء...' : 'Creating...') 
+                      : (language === 'ar' ? 'إنشاء التنظيم' : 'Create Regulation')
+                    }
+                  </Button>
+                </div>
+              </div>
             </DialogContent>
           </Dialog>
         </div>
