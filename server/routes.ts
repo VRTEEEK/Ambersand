@@ -1084,6 +1084,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get domain breakdown for a specific project and regulation
+  app.get('/api/projects/:projectId/regulations/:regulationId/domains', isAuthenticated, async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.projectId);
+      const regulationId = req.params.regulationId;
+      
+      // For now, we'll focus on ECC regulation
+      if (regulationId !== 'ecc') {
+        return res.status(400).json({ message: "Only ECC regulation is currently supported" });
+      }
+
+      // Get all ECC controls grouped by domain
+      const controls = await storage.getEccControls();
+      
+      // Get approved controls for this project
+      const projectControls = await storage.getProjectControls(projectId);
+      const approvedControlIds = new Set(
+        projectControls
+          .filter(pc => pc.status === 'completed')
+          .map(pc => pc.eccControlId)
+      );
+
+      // Group controls by domain and calculate approved/total counts
+      const domainStats: Record<string, { approved: number; total: number }> = {};
+      
+      controls.forEach(control => {
+        const domain = control.domainEn;
+        if (!domainStats[domain]) {
+          domainStats[domain] = { approved: 0, total: 0 };
+        }
+        
+        domainStats[domain].total++;
+        if (approvedControlIds.has(control.id)) {
+          domainStats[domain].approved++;
+        }
+      });
+
+      // Format the response according to the specification
+      const domains = Object.entries(domainStats).map(([domain, stats]) => ({
+        name_en: domain,
+        name_ar: getArabicDomainName(domain), // Helper function for Arabic names
+        approved: stats.approved,
+        total: stats.total
+      }));
+
+      const response = {
+        project_id: projectId.toString(),
+        regulation_id: regulationId,
+        regulation_code: "NCA-ECC-2:2024",
+        logo_url: "/assets/logos/nca-ecc.svg",
+        title_en: "Essential Cybersecurity Controls (ECC - 2 : 2024)",
+        title_ar: "الضوابط الأساسية للأمن السيبراني (2024 : 2 - ECC)",
+        domains
+      };
+
+      res.json(response);
+    } catch (error) {
+      console.error("Error fetching domain breakdown:", error);
+      res.status(500).json({ message: "Failed to fetch domain breakdown" });
+    }
+  });
+
+  // Helper function to get Arabic domain names
+  function getArabicDomainName(domainEn: string): string {
+    const domainMap: Record<string, string> = {
+      "Cybersecurity Governance": "حوكمة الأمن السيبراني",
+      "Cybersecurity Defense": "دفاع الأمن السيبراني", 
+      "Cybersecurity Resilience": "مرونة الأمن السيبراني",
+      "Cybersecurity Third Party": "الأطراف الثالثة للأمن السيبراني"
+    };
+    return domainMap[domainEn] || domainEn;
+  }
+
   // Email testing endpoint
   app.post('/api/test-email', isAuthenticated, async (req: any, res) => {
     try {

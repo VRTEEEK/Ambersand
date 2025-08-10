@@ -1,0 +1,103 @@
+Got it.
+
+What I think: your current dashboard is KPI‑heavy (donut, cards, tasks). The client mock shifts to a regulation‑centric hero: 1) big ECC branding, 2) four domain tiles with X/Y controls (not %), 3) a large “Add more regulations” CTA. So we should: (a) keep the old widgets but move them to a secondary “Overview” tab, and (b) build a new Regulation Banner as the default landing view.
+
+Here’s a single copy‑paste Prompt to Replit to implement it.
+
+⸻
+
+Prompt to Replit (single message)
+
+Please refactor the Dashboard to match the attached mock (“Ambersand regulation banner”). Tech: Next.js/React + Tailwind (frontend), FastAPI + Postgres (backend).
+
+Goals
+	1.	Make the Regulation Banner the default Dashboard view.
+	2.	Show ECC branding and domain tiles with approved/total controls as X/Y.
+	3.	Provide a large “Add more regulations” card/CTA.
+	4.	Move the existing KPI widgets (donut, recent projects, tasks) into a secondary tab “Overview”.
+
+Data & business logic
+	•	We already track control approvals per Project × Regulation (see project_control_approvals).
+	•	Compute counts by domain. For ECC, domains = Cybersecurity Governance, Cybersecurity Defense, Cybersecurity Resilience, Cybersecurity Third Party.
+	•	Counting rule: sub‑controls roll into their parent control; count unique parent controls only.
+	•	Approved = control present in project_control_approvals for the project.
+	•	Show X/Y only (no % here). If we also want % under the hood, % = X / Y * 100.
+
+Backend (FastAPI)
+
+Add endpoint to return domain breakdown for a given Project × Regulation.
+
+Route
+
+GET /projects/{project_id}/regulations/{regulation_id}/domains
+
+Response
+
+{
+  "project_id": "...",
+  "regulation_id": "...",
+  "regulation_code": "NCA-ECC-2:2024",
+  "logo_url": "/assets/logos/nca-ecc.svg",
+  "title_en": "Essential Cybersecurity Controls (ECC - 2 : 2024)",
+  "domains": [
+    { "name_en": "Cybersecurity Governance", "approved": 30, "total": 50 },
+    { "name_en": "Cybersecurity Defense",   "approved": 60, "total": 70 },
+    { "name_en": "Cybersecurity Resilience","approved": 20, "total": 40 },
+    { "name_en": "Cybersecurity Third Party","approved": 13, "total": 40 }
+  ]
+}
+
+SQL (illustrative)
+
+-- domain is a column on controls (e.g., 'Governance','Defense','Resilience','Third Party').
+-- Count ONLY parent controls
+SELECT c.domain,
+       COUNT(DISTINCT c.id) AS total,
+       COUNT(DISTINCT CASE WHEN pca.control_id IS NOT NULL THEN c.id END) AS approved
+FROM controls c
+LEFT JOIN project_control_approvals pca
+  ON pca.control_id = c.id AND pca.project_id = :project_id
+WHERE c.regulation_id = :regulation_id
+  AND c.parent_control_id IS NULL
+GROUP BY c.domain
+ORDER BY c.domain;
+
+If ECC domains are modeled as categories or codes, adjust the GROUP BY accordingly. If no domain mapping exists, create a lightweight lookup regulation_domains(control_id → domain) migration and populate for ECC.
+
+Frontend (Next.js + Tailwind)
+
+Create components/RegulationBanner.tsx and use it as the Dashboard default.
+	•	Header strip: ECC logo (left), bilingual title (EN/AR) pulled from API.
+	•	Domain tiles (4): rounded cards, soft shadow, show {approved}/{total} in large text; small caption with domain name. Entire tile clickable → navigates to Regulation → Domain details page (filter controls list).
+	•	Add more regulations card: large bordered card with a centered “+” icon and label. Clicking opens the “Add Regulation” flow we already have.
+	•	i18n: if UI language = Arabic, flip to RTL, use Arabic strings from the API (name_ar, title_ar).
+	•	Empty states: if the project has no regulations, show the “Add Regulation” card full‑width.
+
+Wire‑up
+	•	Dashboard now has two tabs:
+	•	Regulations (default): shows RegulationBanner for the primary/selected regulation (ECC). If multiple regs exist, show a horizontal scroll of regulation chips above the banner.
+	•	Overview: move current widgets (donut, KPI cards, Recent Projects, Upcoming Tasks) here unchanged.
+
+Styles (Tailwind)
+	•	Card: rounded-2xl border p-6 shadow-sm hover:shadow-md transition.
+	•	Domain tile value: text-2xl font-semibold.
+	•	Keep palette aligned with brand green #2699A6 for accents.
+
+Routing
+	•	Clicking a domain tile routes to:
+/projects/[projectId]/regulations/[regulationId]?domain=Governance
+and pre-filters the Controls/Tasks list to that domain.
+
+Tests & acceptance
+	•	Endpoint returns correct X/Y with sub-controls collapsed.
+	•	Tiles render X/Y correctly for each domain and update live after control approve/unapprove.
+	•	Arabic mode shows RTL layout and Arabic labels.
+	•	“Add more regulations” opens the existing add‑reg flow.
+
+Acceptance demo numbers (mock)
+	•	Governance 30/50, Defense 60/70, Resilience 20/40, Third Party 13/40 (match the client image).
+	•	Switching to “Overview” shows the previous donut and KPI cards.
+
+⸻
+
+If you want, I can also give you the exact React component stub and Tailwind classes next.

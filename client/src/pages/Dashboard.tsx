@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useI18n } from '@/hooks/use-i18n';
 import { useToast } from '@/hooks/use-toast';
@@ -11,8 +11,10 @@ import { ComplianceChart } from '@/components/dashboard/ComplianceChart';
 import { RegulationStatus } from '@/components/dashboard/RegulationStatus';
 import { ProjectsList } from '@/components/dashboard/ProjectsList';
 import { TasksList } from '@/components/dashboard/TasksList';
+import { RegulationBanner } from '@/components/dashboard/RegulationBanner';
 
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Shield, 
   FolderOpen, 
@@ -20,12 +22,15 @@ import {
   BookOpen,
   TrendingUp,
   Clock,
+  BarChart3,
+  FileText,
 } from 'lucide-react';
 
 export default function Dashboard() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("regulations");
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -79,98 +84,122 @@ export default function Dashboard() {
 
   return (
     <AppLayout>
-      <div className="space-y-8 animate-fade-in">
-        {/* Hero Section with Background */}
-        <div 
-          className="relative overflow-hidden rounded-2xl"
-          style={{
-            backgroundImage: `url(${heroBackgroundPath})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-          }}
-        >
-          {/* Overlay for better text readability */}
-          <div className="absolute inset-0 bg-gradient-to-r from-teal-600/90 via-teal-700/80 to-teal-800/90"></div>
-          
-          
-        </div>
+      <div className="space-y-6 animate-fade-in">
+        {/* Dashboard Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-8">
+            <TabsTrigger 
+              value="regulations" 
+              className={`flex items-center gap-2 ${language === 'ar' ? 'flex-row-reverse' : ''}`}
+            >
+              <FileText className="w-4 h-4" />
+              {language === 'ar' ? 'الأنظمة' : 'Regulations'}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="overview"
+              className={`flex items-center gap-2 ${language === 'ar' ? 'flex-row-reverse' : ''}`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              {language === 'ar' ? 'النظرة العامة' : 'Overview'}
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Key Metrics Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {metricsLoading ? (
-            // Loading skeletons
-            Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-xl p-6 shadow-sm border">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <Skeleton className="h-4 w-24 mb-2" />
-                    <Skeleton className="h-8 w-16 mb-1" />
-                    <Skeleton className="h-3 w-32" />
+          {/* Regulations Tab - Default View */}
+          <TabsContent value="regulations" className="space-y-6">
+            <RegulationBanner projectId={39} />
+          </TabsContent>
+
+          {/* Overview Tab - KPI Heavy View */}
+          <TabsContent value="overview" className="space-y-8">
+            {/* Hero Section with Background */}
+            <div 
+              className="relative overflow-hidden rounded-2xl"
+              style={{
+                backgroundImage: `url(${heroBackgroundPath})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+              }}
+            >
+              {/* Overlay for better text readability */}
+              <div className="absolute inset-0 bg-gradient-to-r from-teal-600/90 via-teal-700/80 to-teal-800/90"></div>
+            </div>
+
+            {/* Key Metrics Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {metricsLoading ? (
+                // Loading skeletons
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="bg-white rounded-xl p-6 shadow-sm border">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <Skeleton className="h-4 w-24 mb-2" />
+                        <Skeleton className="h-8 w-16 mb-1" />
+                        <Skeleton className="h-3 w-32" />
+                      </div>
+                      <Skeleton className="w-12 h-12 rounded-lg" />
+                    </div>
                   </div>
-                  <Skeleton className="w-12 h-12 rounded-lg" />
-                </div>
+                ))
+              ) : (
+                <>
+                  <MetricsCard
+                    title={t('dashboard.overallCompliance')}
+                    value={`${metrics?.overallCompliance || 0}%`}
+                    trend={{
+                      value: "+5% from last month",
+                      isPositive: true,
+                    }}
+                    icon={Shield}
+                    progress={metrics?.overallCompliance || 0}
+                  />
+                  
+                  <MetricsCard
+                    title={t('dashboard.activeProjects')}
+                    value={metrics?.activeProjects || 0}
+                    subtitle="8 on track, 4 overdue"
+                    icon={FolderOpen}
+                  />
+                  
+                  <MetricsCard
+                    title={t('dashboard.pendingTasks')}
+                    value={metrics?.pendingTasks || 0}
+                    trend={{
+                      value: "6 urgent",
+                      isPositive: false,
+                    }}
+                    icon={ListTodo}
+                  />
+                  
+                  <MetricsCard
+                    title={t('dashboard.regulations')}
+                    value={`${metrics?.regulationsCovered || 0}/5`}
+                    subtitle="ECC, PDPL, NDMO"
+                    icon={BookOpen}
+                  />
+                </>
+              )}
+            </div>
+
+            {/* Charts and Analytics Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ComplianceChart 
+                data={metrics?.complianceTrend || []}
+              />
+              <RegulationStatus 
+                regulations={metrics?.regulationStatus || []}
+              />
+            </div>
+
+            {/* Projects and Tasks Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <ProjectsList />
               </div>
-            ))
-          ) : (
-            <>
-              <MetricsCard
-                title={t('dashboard.overallCompliance')}
-                value={`${metrics?.overallCompliance || 0}%`}
-                trend={{
-                  value: "+5% from last month",
-                  isPositive: true,
-                }}
-                icon={Shield}
-                progress={metrics?.overallCompliance || 0}
-              />
-              
-              <MetricsCard
-                title={t('dashboard.activeProjects')}
-                value={metrics?.activeProjects || 0}
-                subtitle="8 on track, 4 overdue"
-                icon={FolderOpen}
-              />
-              
-              <MetricsCard
-                title={t('dashboard.pendingTasks')}
-                value={metrics?.pendingTasks || 0}
-                trend={{
-                  value: "6 urgent",
-                  isPositive: false,
-                }}
-                icon={ListTodo}
-              />
-              
-              <MetricsCard
-                title={t('dashboard.regulations')}
-                value={`${metrics?.regulationsCovered || 0}/5`}
-                subtitle="ECC, PDPL, NDMO"
-                icon={BookOpen}
-              />
-            </>
-          )}
-        </div>
-
-        {/* Charts and Analytics Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ComplianceChart 
-            data={metrics?.complianceTrend || []}
-          />
-          <RegulationStatus 
-            regulations={metrics?.regulationStatus || []}
-          />
-        </div>
-
-        {/* Projects and ListTodo Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <ProjectsList />
-          </div>
-          <TasksList />
-        </div>
-
-
+              <TasksList />
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
   );
