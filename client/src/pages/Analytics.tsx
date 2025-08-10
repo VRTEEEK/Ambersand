@@ -1,423 +1,310 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useI18n } from "@/hooks/use-i18n";
 import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
-import { TrendingUp, TrendingDown, Activity, Target, Users, Clock, BarChart3, PieChart as PieChartIcon, LineChart as LineChartIcon, Zap, ChevronDown } from 'lucide-react';
-import heroBackgroundPath from "@assets/image_1752308830644.png";
+import { TrendingUp, TrendingDown, Activity, Target, Users, Clock, FileText, CheckCircle2, Archive, RefreshCw } from 'lucide-react';
 
-// Compliance data for different regulations
-const complianceDataByRegulation = {
-  all: [
-    { month: 'Jan', compliance: 65, target: 80 },
-    { month: 'Feb', compliance: 70, target: 80 },
-    { month: 'Mar', compliance: 75, target: 80 },
-    { month: 'Apr', compliance: 68, target: 80 },
-    { month: 'May', compliance: 82, target: 80 },
-    { month: 'Jun', compliance: 85, target: 80 },
-  ],
-  ecc: [
-    { month: 'Jan', compliance: 72, target: 85 },
-    { month: 'Feb', compliance: 78, target: 85 },
-    { month: 'Mar', compliance: 81, target: 85 },
-    { month: 'Apr', compliance: 75, target: 85 },
-    { month: 'May', compliance: 88, target: 85 },
-    { month: 'Jun', compliance: 92, target: 85 },
-  ],
-  pdpl: [
-    { month: 'Jan', compliance: 58, target: 75 },
-    { month: 'Feb', compliance: 62, target: 75 },
-    { month: 'Mar', compliance: 69, target: 75 },
-    { month: 'Apr', compliance: 61, target: 75 },
-    { month: 'May', compliance: 76, target: 75 },
-    { month: 'Jun', compliance: 78, target: 75 },
-  ],
-  ndmo: [
-    { month: 'Jan', compliance: 45, target: 70 },
-    { month: 'Feb', compliance: 52, target: 70 },
-    { month: 'Mar', compliance: 58, target: 70 },
-    { month: 'Apr', compliance: 55, target: 70 },
-    { month: 'May', compliance: 65, target: 70 },
-    { month: 'Jun', compliance: 71, target: 70 },
-  ],
+// Sample data based on the reference image
+const topStatsData = {
+  complianceFrameworks: 8,
+  openProjects: 7,
+  openTasks: 308,
+  closedTasks: 308,
+  approvedEvidences: 308,
+  archivedProjects: 3,
+  reopenedControls: 27,
+  evidenceSubmissionLag: '3 Days'
 };
 
-// Available regulation options
-const regulationOptions = [
-  { value: 'all', labelEn: 'All Regulations', labelAr: 'جميع اللوائح' },
-  { value: 'ecc', labelEn: 'ECC (Essential Cybersecurity Controls)', labelAr: 'الضوابط الأساسية للأمن السيبراني' },
-  { value: 'pdpl', labelEn: 'PDPL (Personal Data Protection Law)', labelAr: 'قانون حماية البيانات الشخصية' },
-  { value: 'ndmo', labelEn: 'NDMO (National Data Management Office)', labelAr: 'مكتب إدارة البيانات الوطني' },
+// Internal and External Scores data
+const frameworkScores = [
+  { name: 'ECC', internal: 50, external: 50 },
+  { name: 'DCC', internal: 70, external: 70 },
+  { name: 'PDPL', internal: 10, external: 10 },
+  { name: 'NDMO', internal: 85, external: 85 },
+  { name: 'CSCC', internal: 100, external: 100 },
+  { name: 'SAMA', internal: 40, external: 40 }
 ];
 
-const regulationData = [
-  { name: 'ECC', value: 45, color: '#2699A6' },
-  { name: 'PDPL', value: 30, color: '#059669' },
-  { name: 'NDMO', value: 25, color: '#d97706' },
+// Control Status Trend data
+const controlStatusTrendData = [
+  { name: 'Open', value: 4 },
+  { name: 'Submitted', value: 3 },
+  { name: 'Review', value: 4 },
+  { name: 'Approved', value: 5 },
+  { name: 'Reopened', value: 3 }
 ];
 
-const taskStatusData = [
-  { status: 'Completed', count: 45 },
-  { status: 'In Progress', count: 23 },
-  { status: 'Pending', count: 12 },
-  { status: 'Overdue', count: 8 },
+// Evidence Submission Lag data
+const evidenceSubmissionLagData = [
+  { name: 'Omar', value: 85 },
+  { name: 'Abdullah', value: 60 },
+  { name: 'Ali', value: 35 },
+  { name: 'Muhammed', value: 70 }
 ];
+
+// Evidence Review Lag data
+const evidenceReviewLagData = [
+  { name: 'Omar', value: 75 },
+  { name: 'Abdullah', value: 55 },
+  { name: 'Ali', value: 30 },
+  { name: 'Muhammed', value: 65 }
+];
+
+// Number of Tasks per Owner data
+const tasksPerOwnerData = [
+  { name: 'Omar', value: 90 },
+  { name: 'Abdullah', value: 65 },
+  { name: 'Ali', value: 45 },
+  { name: 'Muhammed', value: 85 }
+];
+
+const COLORS = ['#2563eb', '#059669', '#d97706', '#dc2626', '#7c3aed', '#e11d48'];
 
 export default function Analytics() {
-  const { language } = useI18n();
-  const [selectedRegulation, setSelectedRegulation] = useState('all');
-  
-  // Get compliance data based on selected regulation
-  const complianceData = complianceDataByRegulation[selectedRegulation as keyof typeof complianceDataByRegulation];
+  const { language, t } = useI18n();
 
   return (
     <AppLayout>
-      <div className="space-y-8">
-        {/* Hero Section with Background */}
-        <div 
-          className="relative overflow-hidden rounded-2xl"
-          style={{
-            backgroundImage: `url(${heroBackgroundPath})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-          }}
-        >
-          {/* Overlay for better text readability */}
-          <div className="absolute inset-0 bg-gradient-to-r from-teal-600/90 via-teal-700/80 to-teal-800/90"></div>
-          
-          {/* Content */}
-          <div className="relative px-8 py-16 md:py-20">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
-              <div className="text-center lg:text-left">
-                {/* Key Stats Overview */}
-                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-6 text-white/90">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                      <TrendingUp className="h-4 w-4" />
-                    </div>
-                    <span className="font-semibold">85% {language === 'ar' ? 'امتثال' : 'Compliance'}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                      <Activity className="h-4 w-4" />
-                    </div>
-                    <span className="font-semibold">12 {language === 'ar' ? 'مشروع نشط' : 'Active Projects'}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                      <Target className="h-4 w-4" />
-                    </div>
-                    <span className="font-semibold">45 {language === 'ar' ? 'مهمة مكتملة' : 'Completed Tasks'}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-center lg:justify-end">
-                <div className="bg-white/20 hover:bg-white/30 text-white border border-white/30 backdrop-blur-sm px-8 py-6 text-lg rounded-xl transition-all duration-200 hover:scale-105">
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-white mb-2">92%</div>
-                    <div className="text-white/80 text-sm">
-                      {language === 'ar' ? 'معدل الإنجاز في الوقت المحدد' : 'On-time Completion'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+      <div className="space-y-6">
+        {/* Page Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-800 dark:text-white">
+              {language === 'ar' ? 'التحليلات والتقارير' : 'Analytics & Reports'}
+            </h1>
+            <p className="text-slate-600 dark:text-slate-400 mt-1">
+              {language === 'ar' ? 'مراجعة شاملة لمقاييس الامتثال والأداء' : 'Comprehensive overview of compliance metrics and performance'}
+            </p>
           </div>
         </div>
 
-        {/* Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="border border-slate-200/60 dark:border-slate-700/60 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 bg-white dark:bg-slate-800">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                {language === 'ar' ? 'الامتثال الإجمالي' : 'Overall Compliance'}
-              </CardTitle>
-              <div className="w-8 h-8 bg-[#2699A6]/10 rounded-lg flex items-center justify-center">
-                <TrendingUp className="h-4 w-4 text-[#2699A6]" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-slate-900 dark:text-white mb-1">85%</div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <p className="text-xs text-green-600 font-medium">
-                  +5% {language === 'ar' ? 'من الشهر الماضي' : 'from last month'}
-                </p>
+        {/* Top Statistics Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+          {/* Compliance Frameworks */}
+          <Card className="text-center p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <CardContent className="p-0">
+              <div className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{topStatsData.complianceFrameworks}</div>
+              <div className="text-xs text-slate-600 dark:text-slate-400">
+                {language === 'ar' ? 'أطر الامتثال' : 'Compliance'}<br />
+                {language === 'ar' ? '' : 'Frameworks'}
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border border-slate-200/60 dark:border-slate-700/60 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 bg-white dark:bg-slate-800">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                {language === 'ar' ? 'المشاريع النشطة' : 'Active Projects'}
-              </CardTitle>
-              <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                <Activity className="h-4 w-4 text-blue-600" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-slate-900 dark:text-white mb-1">12</div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <p className="text-xs text-blue-600 font-medium">
-                  3 {language === 'ar' ? 'مشاريع جديدة' : 'new projects'}
-                </p>
+          {/* Open Projects */}
+          <Card className="text-center p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <CardContent className="p-0">
+              <div className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{topStatsData.openProjects}</div>
+              <div className="text-xs text-slate-600 dark:text-slate-400">
+                {language === 'ar' ? 'المشاريع' : 'Open'}<br />
+                {language === 'ar' ? 'المفتوحة' : 'Projects'}
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border border-slate-200/60 dark:border-slate-700/60 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 bg-white dark:bg-slate-800">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                {language === 'ar' ? 'المهام المكتملة' : 'Completed Tasks'}
-              </CardTitle>
-              <div className="w-8 h-8 bg-green-500/10 rounded-lg flex items-center justify-center">
-                <Target className="h-4 w-4 text-green-600" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-slate-900 dark:text-white mb-1">45</div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <p className="text-xs text-green-600 font-medium">
-                  +12 {language === 'ar' ? 'هذا الأسبوع' : 'this week'}
-                </p>
+          {/* Open Tasks */}
+          <Card className="text-center p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <CardContent className="p-0">
+              <div className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{topStatsData.openTasks}</div>
+              <div className="text-xs text-slate-600 dark:text-slate-400">
+                {language === 'ar' ? 'المهام' : 'Open Tasks'}<br />
+                {language === 'ar' ? 'المفتوحة' : ''}
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border border-slate-200/60 dark:border-slate-700/60 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 bg-white dark:bg-slate-800">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                {language === 'ar' ? 'متوسط وقت الإنجاز' : 'Avg. Completion Time'}
-              </CardTitle>
-              <div className="w-8 h-8 bg-orange-500/10 rounded-lg flex items-center justify-center">
-                <Clock className="h-4 w-4 text-orange-600" />
+          {/* Closed Tasks */}
+          <Card className="text-center p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <CardContent className="p-0">
+              <div className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{topStatsData.closedTasks}</div>
+              <div className="text-xs text-slate-600 dark:text-slate-400">
+                {language === 'ar' ? 'المهام' : 'Closed Tasks'}<br />
+                {language === 'ar' ? 'المغلقة' : ''}
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-slate-900 dark:text-white mb-1">5.2</div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                <p className="text-xs text-orange-600 font-medium">
-                  {language === 'ar' ? 'أيام' : 'days'}
-                </p>
+            </CardContent>
+          </Card>
+
+          {/* Approved Evidences */}
+          <Card className="text-center p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <CardContent className="p-0">
+              <div className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{topStatsData.approvedEvidences}</div>
+              <div className="text-xs text-slate-600 dark:text-slate-400">
+                {language === 'ar' ? 'الأدلة' : 'Approved'}<br />
+                {language === 'ar' ? 'المعتمدة' : 'Evidences'}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Archived Projects */}
+          <Card className="text-center p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <CardContent className="p-0">
+              <div className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{topStatsData.archivedProjects}</div>
+              <div className="text-xs text-slate-600 dark:text-slate-400">
+                {language === 'ar' ? 'المشاريع' : 'Archived'}<br />
+                {language === 'ar' ? 'المؤرشفة' : 'Projects'}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Re-Opened Controls */}
+          <Card className="text-center p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <CardContent className="p-0">
+              <div className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{topStatsData.reopenedControls}</div>
+              <div className="text-xs text-slate-600 dark:text-slate-400">
+                {language === 'ar' ? 'الضوابط' : 'Re-Opened'}<br />
+                {language === 'ar' ? 'المعاد فتحها' : 'Controls'}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Evidence Submission Lag */}
+          <Card className="text-center p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <CardContent className="p-0">
+              <div className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{topStatsData.evidenceSubmissionLag}</div>
+              <div className="text-xs text-slate-600 dark:text-slate-400">
+                {language === 'ar' ? 'تأخير تقديم' : 'Evidence'}<br />
+                {language === 'ar' ? 'الأدلة' : 'Submission Lag'}
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Compliance Trend */}
-          <Card className="border border-slate-200/60 dark:border-slate-700/60 shadow-xl backdrop-blur-sm bg-white dark:bg-slate-800">
-            <CardHeader className="bg-gradient-to-r from-slate-50/80 to-white/80 dark:from-slate-800/80 dark:to-slate-900/80 rounded-t-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#2699A6]/20 rounded-xl flex items-center justify-center">
-                    <LineChartIcon className="h-5 w-5 text-[#2699A6]" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-xl text-slate-900 dark:text-white">
-                      {language === 'ar' ? 'اتجاه الامتثال' : 'Compliance Trend'}
-                    </CardTitle>
-                    <CardDescription className="text-slate-600 dark:text-slate-400">
-                      {language === 'ar' ? 'تطور معدل الامتثال على مدى الأشهر الستة الماضية' : 'Compliance rate evolution over the past 6 months'}
-                    </CardDescription>
-                  </div>
-                </div>
-                
-                {/* Regulation Filter Dropdown */}
-                <div className="min-w-[200px]">
-                  <Select value={selectedRegulation} onValueChange={setSelectedRegulation}>
-                    <SelectTrigger className="w-full border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700">
-                      <SelectValue placeholder={language === 'ar' ? 'اختر اللائحة' : 'Select Regulation'} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {regulationOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {language === 'ar' ? option.labelAr : option.labelEn}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+        {/* Main Analytics Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {/* Internal & External Scores */}
+          <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">
+                {language === 'ar' ? 'النتائج الداخلية والخارجية' : 'Internal & External Scores'}
+              </CardTitle>
             </CardHeader>
-            <CardContent className="p-6">
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={complianceData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="month" stroke="#64748b" />
-                  <YAxis stroke="#64748b" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }}
-                  />
-                  <Legend />
-                  <Line type="monotone" dataKey="compliance" stroke="#2699A6" strokeWidth={3} dot={{ fill: '#2699A6', strokeWidth: 2, r: 4 }} />
-                  <Line type="monotone" dataKey="target" stroke="#f59e0b" strokeDasharray="5 5" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
+            <CardContent>
+              <div className="space-y-4">
+                {frameworkScores.map((item, index) => (
+                  <div key={index} className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium">{item.name}</span>
+                      <div className="flex gap-4">
+                        <span className="text-slate-600 dark:text-slate-400">
+                          {language === 'ar' ? 'داخلي' : 'Internal'}: {item.internal}%
+                        </span>
+                        <span className="text-slate-600 dark:text-slate-400">
+                          {language === 'ar' ? 'خارجي' : 'External'}: {item.external}%
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Progress value={item.internal} className="h-2" />
+                      </div>
+                      <div className="flex-1">
+                        <Progress value={item.external} className="h-2" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
 
-          {/* Regulation Distribution */}
-          <Card className="border border-slate-200/60 dark:border-slate-700/60 shadow-xl backdrop-blur-sm bg-white dark:bg-slate-800">
-            <CardHeader className="bg-gradient-to-r from-slate-50/80 to-white/80 dark:from-slate-800/80 dark:to-slate-900/80 rounded-t-lg">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#2699A6]/20 rounded-xl flex items-center justify-center">
-                  <PieChartIcon className="h-5 w-5 text-[#2699A6]" />
-                </div>
-                <div>
-                  <CardTitle className="text-xl text-slate-900 dark:text-white">
-                    {language === 'ar' ? 'توزيع اللوائح' : 'Regulation Distribution'}
-                  </CardTitle>
-                  <CardDescription className="text-slate-600 dark:text-slate-400">
-                    {language === 'ar' ? 'توزيع المشاريع حسب نوع اللائحة' : 'Project distribution by regulation type'}
-                  </CardDescription>
-                </div>
-              </div>
+          {/* Control Status Trend */}
+          <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">
+                {language === 'ar' ? 'اتجاه حالة الضوابط' : 'Control Status Trend'}
+              </CardTitle>
             </CardHeader>
-            <CardContent className="p-6">
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={regulationData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {regulationData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          {/* Task Status */}
-          <Card className="border border-slate-200/60 dark:border-slate-700/60 shadow-xl backdrop-blur-sm bg-white dark:bg-slate-800">
-            <CardHeader className="bg-gradient-to-r from-slate-50/80 to-white/80 dark:from-slate-800/80 dark:to-slate-900/80 rounded-t-lg">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#2699A6]/20 rounded-xl flex items-center justify-center">
-                  <BarChart3 className="h-5 w-5 text-[#2699A6]" />
-                </div>
-                <div>
-                  <CardTitle className="text-xl text-slate-900 dark:text-white">
-                    {language === 'ar' ? 'حالة المهام' : 'Task Status'}
-                  </CardTitle>
-                  <CardDescription className="text-slate-600 dark:text-slate-400">
-                    {language === 'ar' ? 'توزيع المهام حسب الحالة' : 'Task distribution by status'}
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={taskStatusData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="status" stroke="#64748b" />
-                  <YAxis stroke="#64748b" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }}
-                  />
-                  <Bar dataKey="count" fill="#2699A6" radius={[4, 4, 0, 0]} />
+            <CardContent>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={controlStatusTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="#2563eb" />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
 
-          {/* Performance Metrics */}
-          <Card className="border border-slate-200/60 dark:border-slate-700/60 shadow-xl backdrop-blur-sm bg-white dark:bg-slate-800">
-            <CardHeader className="bg-gradient-to-r from-slate-50/80 to-white/80 dark:from-slate-800/80 dark:to-slate-900/80 rounded-t-lg">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#2699A6]/20 rounded-xl flex items-center justify-center">
-                  <Zap className="h-5 w-5 text-[#2699A6]" />
-                </div>
-                <div>
-                  <CardTitle className="text-xl text-slate-900 dark:text-white">
-                    {language === 'ar' ? 'مقاييس الأداء' : 'Performance Metrics'}
-                  </CardTitle>
-                  <CardDescription className="text-slate-600 dark:text-slate-400">
-                    {language === 'ar' ? 'المقاييس الرئيسية للأداء' : 'Key performance indicators'}
-                  </CardDescription>
-                </div>
-              </div>
+          {/* Evidence Submission Lag Per Collaborator */}
+          <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">
+                {language === 'ar' ? 'تأخير تقديم الأدلة لكل متعاون' : 'Evidence Submission Lag Per Collaborator'}
+              </CardTitle>
             </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-6">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      {language === 'ar' ? 'معدل الإنجاز في الوقت المحدد' : 'On-time Completion Rate'}
-                    </span>
-                    <Badge variant="secondary" className="bg-[#2699A6]/10 text-[#2699A6] border-[#2699A6]/20">
-                      92%
-                    </Badge>
+            <CardContent>
+              <div className="space-y-3">
+                {evidenceSubmissionLagData.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{item.name}</span>
+                    <div className="flex-1 mx-4">
+                      <Progress value={item.value} className="h-2" />
+                    </div>
                   </div>
-                  <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3">
-                    <div className="bg-gradient-to-r from-[#2699A6] to-[#1e7a85] h-3 rounded-full transition-all duration-300" style={{ width: '92%' }}></div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      {language === 'ar' ? 'معدل جودة الأدلة' : 'Evidence Quality Score'}
-                    </span>
-                    <Badge variant="secondary" className="bg-[#2699A6]/10 text-[#2699A6] border-[#2699A6]/20">
-                      88%
-                    </Badge>
-                  </div>
-                  <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3">
-                    <div className="bg-gradient-to-r from-[#2699A6] to-[#1e7a85] h-3 rounded-full transition-all duration-300" style={{ width: '88%' }}></div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      {language === 'ar' ? 'مشاركة الفريق' : 'Team Engagement'}
-                    </span>
-                    <Badge variant="secondary" className="bg-[#2699A6]/10 text-[#2699A6] border-[#2699A6]/20">
-                      75%
-                    </Badge>
-                  </div>
-                  <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3">
-                    <div className="bg-gradient-to-r from-[#2699A6] to-[#1e7a85] h-3 rounded-full transition-all duration-300" style={{ width: '75%' }}></div>
-                  </div>
-                </div>
+                ))}
               </div>
             </CardContent>
           </Card>
+
+          {/* Empty space for balance */}
+          <div className="lg:col-span-1"></div>
+
+          {/* Evidence Review Lag Per Compliance Officer */}
+          <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">
+                {language === 'ar' ? 'تأخير مراجعة الأدلة لكل مسؤول امتثال' : 'Evidence Review Lag Per Compliance Officer'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {evidenceReviewLagData.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{item.name}</span>
+                    <div className="flex-1 mx-4">
+                      <Progress value={item.value} className="h-2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Number of Tasks per Owner */}
+          <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">
+                {language === 'ar' ? 'عدد المهام لكل مالك' : 'Number of Tasks per Owner'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {tasksPerOwnerData.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{item.name}</span>
+                    <div className="flex-1 mx-4">
+                      <Progress value={item.value} className="h-2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Footer with Ambersand branding */}
+        <div className="text-center py-6 border-t border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-center gap-2">
+            <div className="text-2xl font-bold text-[#2699A6]">AMBERSAND</div>
+            <div className="text-sm text-slate-500 dark:text-slate-400 ml-auto">2</div>
+          </div>
         </div>
       </div>
     </AppLayout>
