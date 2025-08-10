@@ -196,29 +196,64 @@ export default function Analytics() {
               </div>
             </CardHeader>
             <CardContent className="p-6">
-              <div className="space-y-6">
+              <div className="space-y-5">
                 {frameworkScores.map((item, index) => (
-                  <div key={index} className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium text-foreground">{item.name}</span>
-                      <div className="flex gap-4 text-sm text-muted-foreground">
-                        <span>{language === 'ar' ? 'داخلي' : 'Internal'}: {item.internal}%</span>
-                        <span>{language === 'ar' ? 'خارجي' : 'External'}: {item.external}%</span>
+                  <div key={index} className="bg-muted/30 rounded-lg p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-4 h-4 rounded-full" 
+                          style={{ backgroundColor: item.color }}
+                        />
+                        <span className="font-semibold text-foreground text-lg">{item.name}</span>
                       </div>
                     </div>
-                    <div className="flex gap-3">
-                      <div className="flex-1 space-y-1">
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Internal Score */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-muted-foreground">
+                            {language === 'ar' ? 'النتيجة الداخلية' : 'Internal Score'}
+                          </span>
+                          <span className="text-sm font-bold text-foreground">{item.internal}%</span>
+                        </div>
                         <Progress 
                           value={item.internal} 
-                          className="h-2"
+                          className="h-3"
                         />
                       </div>
-                      <div className="flex-1 space-y-1">
+
+                      {/* External Score */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-muted-foreground">
+                            {language === 'ar' ? 'النتيجة الخارجية' : 'External Score'}
+                          </span>
+                          <span className="text-sm font-bold text-foreground">{item.external}%</span>
+                        </div>
                         <Progress 
                           value={item.external} 
-                          className="h-2"
+                          className="h-3"
                         />
                       </div>
+                    </div>
+
+                    {/* Status Indicator */}
+                    <div className="flex items-center gap-2">
+                      {item.internal >= 80 && item.external >= 80 ? (
+                        <Badge variant="default" className="bg-green-500/10 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800">
+                          {language === 'ar' ? 'ممتاز' : 'Excellent'}
+                        </Badge>
+                      ) : item.internal >= 60 && item.external >= 60 ? (
+                        <Badge variant="default" className="bg-yellow-500/10 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800">
+                          {language === 'ar' ? 'جيد' : 'Good'}
+                        </Badge>
+                      ) : (
+                        <Badge variant="default" className="bg-red-500/10 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800">
+                          {language === 'ar' ? 'يحتاج تحسين' : 'Needs Improvement'}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 ))}
