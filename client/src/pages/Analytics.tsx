@@ -284,19 +284,15 @@ export default function Analytics() {
                   <div key={index} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div 
-                          className="w-4 h-4 rounded-sm" 
-                          style={{ backgroundColor: item.color }}
-                        />
+                        <div className="w-4 h-4 rounded-sm bg-primary" />
                         <span className="text-sm font-medium text-foreground">{item.name}</span>
                       </div>
                       <span className="text-sm font-bold text-foreground">{item.value}</span>
                     </div>
                     <div className="w-full bg-muted rounded-full h-3">
                       <div
-                        className="h-3 rounded-full transition-all duration-300"
+                        className="h-3 rounded-full transition-all duration-300 bg-primary"
                         style={{
-                          backgroundColor: item.color,
                           width: `${(item.value / Math.max(...controlStatusTrendData.map(d => d.value))) * 100}%`
                         }}
                       />
