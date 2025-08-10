@@ -1,14 +1,29 @@
-import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useI18n } from "@/hooks/use-i18n";
 import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
-import { TrendingUp, TrendingDown, Activity, Target, Users, Clock, FileText, CheckCircle2, Archive, RefreshCw } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  Activity, 
+  Target, 
+  Users, 
+  Clock, 
+  FileText, 
+  CheckCircle2, 
+  Archive, 
+  RefreshCw,
+  BarChart3,
+  PieChart,
+  Calendar,
+  Shield,
+  FolderOpen
+} from 'lucide-react';
 
-// Sample data based on the reference image
+// Top statistics data matching the reference image
 const topStatsData = {
   complianceFrameworks: 8,
   openProjects: 7,
@@ -20,190 +35,189 @@ const topStatsData = {
   evidenceSubmissionLag: '3 Days'
 };
 
-// Internal and External Scores data
+// Internal and External Scores data for compliance frameworks
 const frameworkScores = [
-  { name: 'ECC', internal: 50, external: 50 },
-  { name: 'DCC', internal: 70, external: 70 },
-  { name: 'PDPL', internal: 10, external: 10 },
-  { name: 'NDMO', internal: 85, external: 85 },
-  { name: 'CSCC', internal: 100, external: 100 },
-  { name: 'SAMA', internal: 40, external: 40 }
+  { name: 'ECC', internal: 50, external: 50, color: 'hsl(174, 36%, 45%)' },
+  { name: 'DCC', internal: 70, external: 70, color: 'hsl(220, 91%, 60%)' },
+  { name: 'PDPL', internal: 10, external: 10, color: 'hsl(168, 76%, 36%)' },
+  { name: 'NDMO', internal: 85, external: 85, color: 'hsl(25, 95%, 53%)' },
+  { name: 'CSCC', internal: 100, external: 100, color: 'hsl(262, 83%, 58%)' },
+  { name: 'SAMA', internal: 40, external: 40, color: 'hsl(346, 87%, 43%)' }
 ];
 
 // Control Status Trend data
 const controlStatusTrendData = [
-  { name: 'Open', value: 4 },
-  { name: 'Submitted', value: 3 },
-  { name: 'Review', value: 4 },
-  { name: 'Approved', value: 5 },
-  { name: 'Reopened', value: 3 }
+  { name: 'Open', value: 4, color: 'hsl(25, 95%, 53%)' },
+  { name: 'Submitted', value: 3, color: 'hsl(220, 91%, 60%)' },
+  { name: 'Review', value: 4, color: 'hsl(262, 83%, 58%)' },
+  { name: 'Approved', value: 5, color: 'hsl(168, 76%, 36%)' },
+  { name: 'Reopened', value: 3, color: 'hsl(346, 87%, 43%)' }
 ];
 
-// Evidence Submission Lag data
+// Team performance data
 const evidenceSubmissionLagData = [
-  { name: 'Omar', value: 85 },
-  { name: 'Abdullah', value: 60 },
-  { name: 'Ali', value: 35 },
-  { name: 'Muhammed', value: 70 }
+  { name: 'Omar', value: 85, color: 'hsl(174, 36%, 45%)' },
+  { name: 'Abdullah', value: 60, color: 'hsl(220, 91%, 60%)' },
+  { name: 'Ali', value: 35, color: 'hsl(25, 95%, 53%)' },
+  { name: 'Muhammed', value: 70, color: 'hsl(168, 76%, 36%)' }
 ];
 
-// Evidence Review Lag data
 const evidenceReviewLagData = [
-  { name: 'Omar', value: 75 },
-  { name: 'Abdullah', value: 55 },
-  { name: 'Ali', value: 30 },
-  { name: 'Muhammed', value: 65 }
+  { name: 'Omar', value: 75, color: 'hsl(174, 36%, 45%)' },
+  { name: 'Abdullah', value: 55, color: 'hsl(220, 91%, 60%)' },
+  { name: 'Ali', value: 30, color: 'hsl(25, 95%, 53%)' },
+  { name: 'Muhammed', value: 65, color: 'hsl(168, 76%, 36%)' }
 ];
 
-// Number of Tasks per Owner data
 const tasksPerOwnerData = [
-  { name: 'Omar', value: 90 },
-  { name: 'Abdullah', value: 65 },
-  { name: 'Ali', value: 45 },
-  { name: 'Muhammed', value: 85 }
+  { name: 'Omar', value: 90, color: 'hsl(174, 36%, 45%)' },
+  { name: 'Abdullah', value: 65, color: 'hsl(220, 91%, 60%)' },
+  { name: 'Ali', value: 45, color: 'hsl(25, 95%, 53%)' },
+  { name: 'Muhammed', value: 85, color: 'hsl(168, 76%, 36%)' }
 ];
-
-const COLORS = ['#2563eb', '#059669', '#d97706', '#dc2626', '#7c3aed', '#e11d48'];
 
 export default function Analytics() {
-  const { language, t } = useI18n();
+  const { language } = useI18n();
+
+  const statCards = [
+    {
+      title: language === 'ar' ? 'أطر الامتثال' : 'Compliance Frameworks',
+      value: topStatsData.complianceFrameworks,
+      icon: Shield,
+      color: 'bg-primary/10 text-primary'
+    },
+    {
+      title: language === 'ar' ? 'المشاريع المفتوحة' : 'Open Projects',
+      value: topStatsData.openProjects,
+      icon: FolderOpen,
+      color: 'bg-blue-500/10 text-blue-600'
+    },
+    {
+      title: language === 'ar' ? 'المهام المفتوحة' : 'Open Tasks',
+      value: topStatsData.openTasks,
+      icon: CheckCircle2,
+      color: 'bg-orange-500/10 text-orange-600'
+    },
+    {
+      title: language === 'ar' ? 'المهام المغلقة' : 'Closed Tasks',
+      value: topStatsData.closedTasks,
+      icon: Target,
+      color: 'bg-green-500/10 text-green-600'
+    },
+    {
+      title: language === 'ar' ? 'الأدلة المعتمدة' : 'Approved Evidences',
+      value: topStatsData.approvedEvidences,
+      icon: FileText,
+      color: 'bg-purple-500/10 text-purple-600'
+    },
+    {
+      title: language === 'ar' ? 'المشاريع المؤرشفة' : 'Archived Projects',
+      value: topStatsData.archivedProjects,
+      icon: Archive,
+      color: 'bg-gray-500/10 text-gray-600'
+    },
+    {
+      title: language === 'ar' ? 'الضوابط المعاد فتحها' : 'Re-Opened Controls',
+      value: topStatsData.reopenedControls,
+      icon: RefreshCw,
+      color: 'bg-red-500/10 text-red-600'
+    },
+    {
+      title: language === 'ar' ? 'تأخير تقديم الأدلة' : 'Evidence Submission Lag',
+      value: topStatsData.evidenceSubmissionLag,
+      icon: Clock,
+      color: 'bg-yellow-500/10 text-yellow-600'
+    }
+  ];
 
   return (
     <AppLayout>
-      <div className="space-y-6">
+      <div className="space-y-8">
         {/* Page Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-800 dark:text-white">
-              {language === 'ar' ? 'التحليلات والتقارير' : 'Analytics & Reports'}
-            </h1>
-            <p className="text-slate-600 dark:text-slate-400 mt-1">
-              {language === 'ar' ? 'مراجعة شاملة لمقاييس الامتثال والأداء' : 'Comprehensive overview of compliance metrics and performance'}
-            </p>
+        <div className="border-b border-border pb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">
+                {language === 'ar' ? 'التحليلات والتقارير' : 'Analytics & Reports'}
+              </h1>
+              <p className="text-muted-foreground">
+                {language === 'ar' ? 'نظرة شاملة على مقاييس الامتثال وأداء الفريق' : 'Comprehensive overview of compliance metrics and team performance'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="px-3 py-1">
+                <Calendar className="w-4 h-4 mr-2" />
+                {language === 'ar' ? 'آخر تحديث: اليوم' : 'Last updated: Today'}
+              </Badge>
+            </div>
           </div>
         </div>
 
-        {/* Top Statistics Cards */}
+        {/* Top Statistics Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-          {/* Compliance Frameworks */}
-          <Card className="text-center p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            <CardContent className="p-0">
-              <div className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{topStatsData.complianceFrameworks}</div>
-              <div className="text-xs text-slate-600 dark:text-slate-400">
-                {language === 'ar' ? 'أطر الامتثال' : 'Compliance'}<br />
-                {language === 'ar' ? '' : 'Frameworks'}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Open Projects */}
-          <Card className="text-center p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            <CardContent className="p-0">
-              <div className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{topStatsData.openProjects}</div>
-              <div className="text-xs text-slate-600 dark:text-slate-400">
-                {language === 'ar' ? 'المشاريع' : 'Open'}<br />
-                {language === 'ar' ? 'المفتوحة' : 'Projects'}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Open Tasks */}
-          <Card className="text-center p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            <CardContent className="p-0">
-              <div className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{topStatsData.openTasks}</div>
-              <div className="text-xs text-slate-600 dark:text-slate-400">
-                {language === 'ar' ? 'المهام' : 'Open Tasks'}<br />
-                {language === 'ar' ? 'المفتوحة' : ''}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Closed Tasks */}
-          <Card className="text-center p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            <CardContent className="p-0">
-              <div className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{topStatsData.closedTasks}</div>
-              <div className="text-xs text-slate-600 dark:text-slate-400">
-                {language === 'ar' ? 'المهام' : 'Closed Tasks'}<br />
-                {language === 'ar' ? 'المغلقة' : ''}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Approved Evidences */}
-          <Card className="text-center p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            <CardContent className="p-0">
-              <div className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{topStatsData.approvedEvidences}</div>
-              <div className="text-xs text-slate-600 dark:text-slate-400">
-                {language === 'ar' ? 'الأدلة' : 'Approved'}<br />
-                {language === 'ar' ? 'المعتمدة' : 'Evidences'}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Archived Projects */}
-          <Card className="text-center p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            <CardContent className="p-0">
-              <div className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{topStatsData.archivedProjects}</div>
-              <div className="text-xs text-slate-600 dark:text-slate-400">
-                {language === 'ar' ? 'المشاريع' : 'Archived'}<br />
-                {language === 'ar' ? 'المؤرشفة' : 'Projects'}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Re-Opened Controls */}
-          <Card className="text-center p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            <CardContent className="p-0">
-              <div className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{topStatsData.reopenedControls}</div>
-              <div className="text-xs text-slate-600 dark:text-slate-400">
-                {language === 'ar' ? 'الضوابط' : 'Re-Opened'}<br />
-                {language === 'ar' ? 'المعاد فتحها' : 'Controls'}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Evidence Submission Lag */}
-          <Card className="text-center p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            <CardContent className="p-0">
-              <div className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{topStatsData.evidenceSubmissionLag}</div>
-              <div className="text-xs text-slate-600 dark:text-slate-400">
-                {language === 'ar' ? 'تأخير تقديم' : 'Evidence'}<br />
-                {language === 'ar' ? 'الأدلة' : 'Submission Lag'}
-              </div>
-            </CardContent>
-          </Card>
+          {statCards.map((stat, index) => {
+            const IconComponent = stat.icon;
+            return (
+              <Card key={index} className="hover:shadow-md transition-shadow duration-200 bg-card border-border">
+                <CardContent className="p-4 text-center">
+                  <div className={`w-10 h-10 rounded-lg ${stat.color} flex items-center justify-center mx-auto mb-3`}>
+                    <IconComponent className="w-5 h-5" />
+                  </div>
+                  <div className="text-2xl font-bold text-foreground mb-1">
+                    {stat.value}
+                  </div>
+                  <div className="text-xs text-muted-foreground leading-tight">
+                    {stat.title}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {/* Main Analytics Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          
           {/* Internal & External Scores */}
-          <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">
-                {language === 'ar' ? 'النتائج الداخلية والخارجية' : 'Internal & External Scores'}
-              </CardTitle>
+          <Card className="bg-card border-border hover:shadow-lg transition-shadow duration-200">
+            <CardHeader className="border-b border-border/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg text-foreground">
+                    {language === 'ar' ? 'النتائج الداخلية والخارجية' : 'Internal & External Scores'}
+                  </CardTitle>
+                  <CardDescription className="text-sm">
+                    {language === 'ar' ? 'مقارنة أداء الأطر التشريعية' : 'Framework performance comparison'}
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+            <CardContent className="p-6">
+              <div className="space-y-6">
                 {frameworkScores.map((item, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium">{item.name}</span>
-                      <div className="flex gap-4">
-                        <span className="text-slate-600 dark:text-slate-400">
-                          {language === 'ar' ? 'داخلي' : 'Internal'}: {item.internal}%
-                        </span>
-                        <span className="text-slate-600 dark:text-slate-400">
-                          {language === 'ar' ? 'خارجي' : 'External'}: {item.external}%
-                        </span>
+                  <div key={index} className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium text-foreground">{item.name}</span>
+                      <div className="flex gap-4 text-sm text-muted-foreground">
+                        <span>{language === 'ar' ? 'داخلي' : 'Internal'}: {item.internal}%</span>
+                        <span>{language === 'ar' ? 'خارجي' : 'External'}: {item.external}%</span>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <Progress value={item.internal} className="h-2" />
+                    <div className="flex gap-3">
+                      <div className="flex-1 space-y-1">
+                        <Progress 
+                          value={item.internal} 
+                          className="h-2"
+                        />
                       </div>
-                      <div className="flex-1">
-                        <Progress value={item.external} className="h-2" />
+                      <div className="flex-1 space-y-1">
+                        <Progress 
+                          value={item.external} 
+                          className="h-2"
+                        />
                       </div>
                     </div>
                   </div>
@@ -213,64 +227,106 @@ export default function Analytics() {
           </Card>
 
           {/* Control Status Trend */}
-          <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">
-                {language === 'ar' ? 'اتجاه حالة الضوابط' : 'Control Status Trend'}
-              </CardTitle>
+          <Card className="bg-card border-border hover:shadow-lg transition-shadow duration-200">
+            <CardHeader className="border-b border-border/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                  <Activity className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg text-foreground">
+                    {language === 'ar' ? 'اتجاه حالة الضوابط' : 'Control Status Trend'}
+                  </CardTitle>
+                  <CardDescription className="text-sm">
+                    {language === 'ar' ? 'توزيع حالات الضوابط الحالية' : 'Current control status distribution'}
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={controlStatusTrendData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#2563eb" />
+            <CardContent className="p-6">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={controlStatusTrendData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis 
+                    dataKey="name" 
+                    tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                    tickLine={{ stroke: 'hsl(var(--border))' }}
+                  />
+                  <YAxis 
+                    tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                    tickLine={{ stroke: 'hsl(var(--border))' }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
 
-          {/* Evidence Submission Lag Per Collaborator */}
-          <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">
-                {language === 'ar' ? 'تأخير تقديم الأدلة لكل متعاون' : 'Evidence Submission Lag Per Collaborator'}
-              </CardTitle>
+          {/* Evidence Submission Lag */}
+          <Card className="bg-card border-border hover:shadow-lg transition-shadow duration-200">
+            <CardHeader className="border-b border-border/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                  <Users className="w-5 h-5 text-orange-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg text-foreground">
+                    {language === 'ar' ? 'تأخير تقديم الأدلة' : 'Evidence Submission Lag'}
+                  </CardTitle>
+                  <CardDescription className="text-sm">
+                    {language === 'ar' ? 'أداء المتعاونين في تقديم الأدلة' : 'Per collaborator submission performance'}
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
+            <CardContent className="p-6">
+              <div className="space-y-4">
                 {evidenceSubmissionLagData.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{item.name}</span>
-                    <div className="flex-1 mx-4">
-                      <Progress value={item.value} className="h-2" />
+                  <div key={index} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-foreground">{item.name}</span>
+                      <span className="text-xs text-muted-foreground">{item.value}%</span>
                     </div>
+                    <Progress value={item.value} className="h-2" />
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
 
-          {/* Empty space for balance */}
-          <div className="lg:col-span-1"></div>
-
-          {/* Evidence Review Lag Per Compliance Officer */}
-          <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">
-                {language === 'ar' ? 'تأخير مراجعة الأدلة لكل مسؤول امتثال' : 'Evidence Review Lag Per Compliance Officer'}
-              </CardTitle>
+          {/* Evidence Review Lag */}
+          <Card className="bg-card border-border hover:shadow-lg transition-shadow duration-200">
+            <CardHeader className="border-b border-border/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                  <CheckCircle2 className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg text-foreground">
+                    {language === 'ar' ? 'تأخير مراجعة الأدلة' : 'Evidence Review Lag'}
+                  </CardTitle>
+                  <CardDescription className="text-sm">
+                    {language === 'ar' ? 'أداء مسؤولي الامتثال في المراجعة' : 'Per compliance officer review performance'}
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
+            <CardContent className="p-6">
+              <div className="space-y-4">
                 {evidenceReviewLagData.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{item.name}</span>
-                    <div className="flex-1 mx-4">
-                      <Progress value={item.value} className="h-2" />
+                  <div key={index} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-foreground">{item.name}</span>
+                      <span className="text-xs text-muted-foreground">{item.value}%</span>
                     </div>
+                    <Progress value={item.value} className="h-2" />
                   </div>
                 ))}
               </div>
@@ -278,20 +334,31 @@ export default function Analytics() {
           </Card>
 
           {/* Number of Tasks per Owner */}
-          <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">
-                {language === 'ar' ? 'عدد المهام لكل مالك' : 'Number of Tasks per Owner'}
-              </CardTitle>
+          <Card className="bg-card border-border hover:shadow-lg transition-shadow duration-200">
+            <CardHeader className="border-b border-border/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                  <Target className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg text-foreground">
+                    {language === 'ar' ? 'عدد المهام لكل مالك' : 'Tasks per Owner'}
+                  </CardTitle>
+                  <CardDescription className="text-sm">
+                    {language === 'ar' ? 'توزيع المهام بين أعضاء الفريق' : 'Task distribution across team members'}
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
+            <CardContent className="p-6">
+              <div className="space-y-4">
                 {tasksPerOwnerData.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{item.name}</span>
-                    <div className="flex-1 mx-4">
-                      <Progress value={item.value} className="h-2" />
+                  <div key={index} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-foreground">{item.name}</span>
+                      <span className="text-xs text-muted-foreground">{Math.round(item.value * 0.3)} tasks</span>
                     </div>
+                    <Progress value={item.value} className="h-2" />
                   </div>
                 ))}
               </div>
@@ -299,7 +366,31 @@ export default function Analytics() {
           </Card>
         </div>
 
-        
+        {/* Summary Section */}
+        <Card className="bg-gradient-to-r from-primary/5 via-transparent to-primary/5 border-primary/20">
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+              <div className="space-y-2">
+                <div className="text-2xl font-bold text-primary">85%</div>
+                <div className="text-sm text-muted-foreground">
+                  {language === 'ar' ? 'متوسط الامتثال الإجمالي' : 'Overall Compliance Average'}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-2xl font-bold text-foreground">5.2 {language === 'ar' ? 'أيام' : 'days'}</div>
+                <div className="text-sm text-muted-foreground">
+                  {language === 'ar' ? 'متوسط وقت إنجاز المهام' : 'Average Task Completion Time'}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-2xl font-bold text-green-600">92%</div>
+                <div className="text-sm text-muted-foreground">
+                  {language === 'ar' ? 'معدل الإنجاز في الوقت المحدد' : 'On-time Completion Rate'}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </AppLayout>
   );
