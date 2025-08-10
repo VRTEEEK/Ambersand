@@ -279,28 +279,31 @@ export default function Analytics() {
               </div>
             </CardHeader>
             <CardContent className="p-6">
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={controlStatusTrendData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis 
-                    dataKey="name" 
-                    tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
-                    tickLine={{ stroke: 'hsl(var(--border))' }}
-                  />
-                  <YAxis 
-                    tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
-                    tickLine={{ stroke: 'hsl(var(--border))' }}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px'
-                    }}
-                  />
-                  <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="space-y-4">
+                {controlStatusTrendData.map((item, index) => (
+                  <div key={index} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-4 h-4 rounded-sm" 
+                          style={{ backgroundColor: item.color }}
+                        />
+                        <span className="text-sm font-medium text-foreground">{item.name}</span>
+                      </div>
+                      <span className="text-sm font-bold text-foreground">{item.value}</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-3">
+                      <div
+                        className="h-3 rounded-full transition-all duration-300"
+                        style={{
+                          backgroundColor: item.color,
+                          width: `${(item.value / Math.max(...controlStatusTrendData.map(d => d.value))) * 100}%`
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
 
