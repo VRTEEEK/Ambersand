@@ -103,20 +103,23 @@ export default function EnhancedUsersPage() {
   const canManageUsers = can(PERMISSIONS.CHANGE_USER_PERMISSIONS);
 
   // Query params for API call
-  const queryParams = useMemo(() => ({
-    query: debouncedSearch,
-    role: selectedRole,
-    status: selectedStatus,
-    project_id: selectedProject,
-    page,
-    page_size: pageSize,
-    sort_by: sortBy,
-    sort_order: sortOrder,
-  }), [debouncedSearch, selectedRole, selectedStatus, selectedProject, page, pageSize, sortBy, sortOrder]);
+  const queryParams = useMemo(() => {
+    const params = new URLSearchParams();
+    if (debouncedSearch) params.set('query', debouncedSearch);
+    if (selectedRole && selectedRole !== 'all') params.set('role', selectedRole);
+    if (selectedStatus && selectedStatus !== 'all') params.set('status', selectedStatus);
+    if (selectedProject && selectedProject !== 'all') params.set('project_id', selectedProject);
+    params.set('page', page.toString());
+    params.set('page_size', pageSize.toString());
+    params.set('sort_by', sortBy);
+    params.set('sort_order', sortOrder);
+    return params.toString();
+  }, [debouncedSearch, selectedRole, selectedStatus, selectedProject, page, pageSize, sortBy, sortOrder]);
 
   // Fetch data
   const { data: usersResponse, isLoading: usersLoading } = useQuery({
     queryKey: ['/api/admin/users', queryParams],
+    queryFn: () => fetch(`/api/admin/users?${queryParams}`).then(res => res.json()),
     enabled: canManageUsers,
   });
 
@@ -284,7 +287,7 @@ export default function EnhancedUsersPage() {
                     <SelectValue placeholder={t('users.filterByRole')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{t('users.allRoles')}</SelectItem>
+                    <SelectItem value="all">{t('users.allRoles')}</SelectItem>
                     {roles.map((role) => (
                       <SelectItem key={role.id} value={role.code}>
                         {getRoleDisplayName(role.code)}
@@ -298,7 +301,7 @@ export default function EnhancedUsersPage() {
                     <SelectValue placeholder={t('users.filterByStatus')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{t('users.allStatuses')}</SelectItem>
+                    <SelectItem value="all">{t('users.allStatuses')}</SelectItem>
                     <SelectItem value="active">{t('users.active')}</SelectItem>
                     <SelectItem value="disabled">{t('users.disabled')}</SelectItem>
                   </SelectContent>
@@ -309,7 +312,7 @@ export default function EnhancedUsersPage() {
                     <SelectValue placeholder={t('users.filterByProject')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{t('users.allProjects')}</SelectItem>
+                    <SelectItem value="all">{t('users.allProjects')}</SelectItem>
                     {projects.map((project) => (
                       <SelectItem key={project.id} value={project.id.toString()}>
                         {isRTL ? project.nameAr || project.name : project.name}

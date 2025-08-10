@@ -96,6 +96,10 @@ export default function UserRolesDrawer({ user, isOpen, onClose }: UserRolesDraw
   // Fetch effective permissions preview
   const { data: effectivePermissions, isLoading: loadingPermissions } = useQuery<EffectivePermissions>({
     queryKey: ['/api/users', user?.id, 'effective-permissions', previewProjectId],
+    queryFn: () => {
+      const params = previewProjectId && previewProjectId !== 'org' ? `?project_id=${previewProjectId}` : '';
+      return fetch(`/api/users/${user?.id}/effective-permissions${params}`).then(res => res.json());
+    },
     enabled: !!user?.id && !!previewProjectId,
   });
 
@@ -390,7 +394,7 @@ export default function UserRolesDrawer({ user, isOpen, onClose }: UserRolesDraw
                       <SelectValue placeholder={t('users.selectProjectPreview')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">{t('users.organizationLevel')}</SelectItem>
+                      <SelectItem value="org">{t('users.organizationLevel')}</SelectItem>
                       {projects.map((project) => (
                         <SelectItem key={project.id} value={project.id.toString()}>
                           {isRTL ? project.nameAr || project.name : project.name}

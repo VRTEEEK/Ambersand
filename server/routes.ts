@@ -456,13 +456,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
       }
 
-      if (role) {
+      if (role && role !== 'all') {
         filteredUsers = filteredUsers.filter(user => 
           user.userRoles?.some(r => r.code === role)
         );
       }
 
-      if (status) {
+      if (status && status !== 'all') {
         filteredUsers = filteredUsers.filter(user => user.status === status);
       }
 
