@@ -299,13 +299,7 @@ export default function Analytics() {
           </Card>
         </div>
 
-        {/* Footer with Ambersand branding */}
-        <div className="text-center py-6 border-t border-slate-200 dark:border-slate-700">
-          <div className="flex items-center justify-center gap-2">
-            <div className="text-2xl font-bold text-[#2699A6]">AMBERSAND</div>
-            <div className="text-sm text-slate-500 dark:text-slate-400 ml-auto">2</div>
-          </div>
-        </div>
+        
       </div>
     </AppLayout>
   );
