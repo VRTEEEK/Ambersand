@@ -20,6 +20,7 @@ import Analytics from "@/pages/Analytics";
 import Settings from "@/pages/Settings";
 import UserProfile from "@/pages/UserProfile";
 import Users from "@/pages/Users";
+import EnhancedUsersPage from "@/components/users/EnhancedUsersPage";
 import Notifications from "@/pages/Notifications";
 import EmailTest from "@/pages/EmailTest";
 
@@ -42,6 +43,7 @@ function Router() {
           <Route path="/evidence" component={Evidence} />
           <Route path="/analytics" component={Analytics} />
           <Route path="/users" component={Users} />
+          <Route path="/admin/users" component={EnhancedUsersPage} />
           <Route path="/notifications" component={Notifications} />
           <Route path="/email-test" component={EmailTest} />
           <Route path="/settings" component={Settings} />
