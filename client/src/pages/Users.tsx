@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useI18n } from '@/hooks/use-i18n';
 import { useToast } from '@/hooks/use-toast';
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { isUnauthorizedError } from '@/lib/authUtils';
 import { apiRequest } from '@/lib/queryClient';
 import AppLayout from '@/components/layout/AppLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +15,8 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -32,7 +34,9 @@ import {
   Crown,
   Eye,
   Clock,
-  Loader2
+  Loader2,
+  User2,
+  KeyRound
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -41,18 +45,31 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import heroBackgroundPath from "@assets/image_1752308830644.png";
 
 interface User {
   id: string;
   email?: string;
   firstName?: string;
   lastName?: string;
+  name?: string;
   profileImageUrl?: string;
   role: string;
   organizationId?: string;
   createdAt: string;
   updatedAt: string;
+  userRoles?: Role[];
+}
+
+interface Role {
+  id: string;
+  code: string;
+  name: string;
+}
+
+interface Permission {
+  id: string;
+  code: string;
+  description: string;
 }
 
 const createUserSchema = z.object({
@@ -60,11 +77,6 @@ const createUserSchema = z.object({
   email: z.string().email('Valid email is required'),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
-  role: z.enum(['admin', 'manager', 'viewer']),
-});
-
-const updateRoleSchema = z.object({
-  role: z.enum(['admin', 'manager', 'viewer']),
 });
 
 const updateNameSchema = z.object({
@@ -72,999 +84,610 @@ const updateNameSchema = z.object({
   lastName: z.string().min(1, 'Last name is required'),
 });
 
-const updateProfilePictureSchema = z.object({
-  profileImageUrl: z.string().url('Please provide a valid image URL'),
+const roleAssignmentSchema = z.object({
+  roleIds: z.array(z.string()).min(1, 'At least one role must be selected'),
 });
 
-type CreateUserData = z.infer<typeof createUserSchema>;
-type UpdateRoleData = z.infer<typeof updateRoleSchema>;
-type UpdateNameData = z.infer<typeof updateNameSchema>;
-type UpdateProfilePictureData = z.infer<typeof updateProfilePictureSchema>;
-
 export default function Users() {
-  const { user: currentUser, isAuthenticated, isLoading: authLoading } = useAuth();
-  const { t, language } = useI18n();
+  const { user: currentUser } = useAuth();
+  const { t, isRTL } = useI18n();
   const { toast } = useToast();
+  const { can } = usePermissions();
   const queryClient = useQueryClient();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
-  const [isNameDialogOpen, setIsNameDialogOpen] = useState(false);
-  const [isProfilePictureDialogOpen, setIsProfilePictureDialogOpen] = useState(false);
-  const [uploadingFile, setUploadingFile] = useState(false);
 
-  // Forms
-  const createForm = useForm<CreateUserData>({
-    resolver: zodResolver(createUserSchema),
-    defaultValues: {
-      role: 'viewer',
-    },
-  });
+  // Check permissions
+  const canManageUsers = can(PERMISSIONS.CHANGE_USER_PERMISSIONS);
 
-  const roleForm = useForm<UpdateRoleData>({
-    resolver: zodResolver(updateRoleSchema),
-  });
-
-  const nameForm = useForm<UpdateNameData>({
-    resolver: zodResolver(updateNameSchema),
-  });
-
-  const profilePictureForm = useForm<UpdateProfilePictureData>({
-    resolver: zodResolver(updateProfilePictureSchema),
-  });
-
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-      return;
-    }
-  }, [isAuthenticated, authLoading, toast]);
-
-  // Fetch users
-  const { data: users = [], isLoading, error } = useQuery({
-    queryKey: ['/api/users'],
-    enabled: isAuthenticated && currentUser?.role === 'admin',
-    retry: false,
-  });
-
-  // Create user mutation
-  const createUserMutation = useMutation({
-    mutationFn: async (data: CreateUserData) => {
-      return await apiRequest('/api/users', 'POST', data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
-      toast({
-        title: t('common.success'),
-        description: language === 'ar' ? 'تم إنشاء المستخدم بنجاح' : 'User created successfully',
-      });
-      createForm.reset();
-      setIsCreateDialogOpen(false);
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: t('common.error'),
-        description: language === 'ar' ? 'فشل في إنشاء المستخدم' : 'Failed to create user',
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Update role mutation
-  const updateRoleMutation = useMutation({
-    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      return await apiRequest(`/api/users/${userId}/role`, 'PATCH', { role });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
-      toast({
-        title: t('common.success'),
-        description: language === 'ar' ? 'تم تحديث الدور بنجاح' : 'Role updated successfully',
-      });
-      setIsRoleDialogOpen(false);
-      setSelectedUser(null);
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: t('common.error'),
-        description: language === 'ar' ? 'فشل في تحديث الدور' : 'Failed to update role',
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Update name mutation
-  const updateNameMutation = useMutation({
-    mutationFn: async ({ userId, firstName, lastName }: { userId: string; firstName: string; lastName: string }) => {
-      return await apiRequest(`/api/users/${userId}`, 'PATCH', { firstName, lastName });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
-      toast({
-        title: t('common.success'),
-        description: language === 'ar' ? 'تم تحديث الاسم بنجاح' : 'Name updated successfully',
-      });
-      setIsNameDialogOpen(false);
-      setSelectedUser(null);
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: t('common.error'),
-        description: language === 'ar' ? 'فشل في تحديث الاسم' : 'Failed to update name',
-        variant: "destructive",
-      });
-    },
-  });
-
-  // File upload and profile picture update mutation
-  const uploadProfilePictureMutation = useMutation({
-    mutationFn: async ({ userId, file }: { userId: string; file: File }) => {
-      const formData = new FormData();
-      formData.append('profilePicture', file);
-      
-      const response = await fetch(`/api/users/${userId}/profile-picture`, {
-        method: 'POST',
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to upload profile picture');
-      }
-      
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
-      toast({
-        title: t('common.success'),
-        description: language === 'ar' ? 'تم تحديث الصورة بنجاح' : 'Profile picture updated successfully',
-      });
-      setIsProfilePictureDialogOpen(false);
-      setSelectedUser(null);
-      setUploadingFile(false);
-    },
-    onError: (error) => {
-      setUploadingFile(false);
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: t('common.error'),
-        description: language === 'ar' ? 'فشل في تحديث الصورة' : 'Failed to update profile picture',
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Delete user mutation
-  const deleteUserMutation = useMutation({
-    mutationFn: async (userId: string) => {
-      return await apiRequest(`/api/users/${userId}`, 'DELETE');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
-      toast({
-        title: t('common.success'),
-        description: language === 'ar' ? 'تم حذف المستخدم بنجاح' : 'User deleted successfully',
-      });
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: t('common.error'),
-        description: language === 'ar' ? 'فشل في حذف المستخدم' : 'Failed to delete user',
-        variant: "destructive",
-      });
-    },
-  });
-
-  const filteredUsers = users.filter((user: User) => 
-    user.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'manager':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'viewer':
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-    }
-  };
-
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return <Crown className="h-3 w-3" />;
-      case 'manager':
-        return <Shield className="h-3 w-3" />;
-      case 'viewer':
-        return <Eye className="h-3 w-3" />;
-      default:
-        return <Eye className="h-3 w-3" />;
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US');
-  };
-
-  const onCreateSubmit = (data: CreateUserData) => {
-    createUserMutation.mutate(data);
-  };
-
-  const onRoleSubmit = (data: UpdateRoleData) => {
-    if (selectedUser) {
-      updateRoleMutation.mutate({ userId: selectedUser.id, role: data.role });
-    }
-  };
-
-  const onNameSubmit = (data: UpdateNameData) => {
-    if (selectedUser) {
-      updateNameMutation.mutate({ 
-        userId: selectedUser.id, 
-        firstName: data.firstName, 
-        lastName: data.lastName 
-      });
-    }
-  };
-
-  const handleEditRole = (user: User) => {
-    setSelectedUser(user);
-    roleForm.setValue('role', user.role as any);
-    setIsRoleDialogOpen(true);
-  };
-
-  const handleEditName = (user: User) => {
-    setSelectedUser(user);
-    nameForm.setValue('firstName', user.firstName || '');
-    nameForm.setValue('lastName', user.lastName || '');
-    setIsNameDialogOpen(true);
-  };
-
-  const handleEditProfilePicture = (user: User) => {
-    setSelectedUser(user);
-    setIsProfilePictureDialogOpen(true);
-  };
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !selectedUser) return;
-
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      toast({
-        title: t('common.error'),
-        description: language === 'ar' ? 'يرجى اختيار صورة صالحة (JPG, PNG, WEBP)' : 'Please select a valid image (JPG, PNG, WEBP)',
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: t('common.error'),
-        description: language === 'ar' ? 'حجم الملف كبير جداً (الحد الأقصى 5 ميجابايت)' : 'File size too large (max 5MB)',
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setUploadingFile(true);
-    uploadProfilePictureMutation.mutate({ userId: selectedUser.id, file });
-  };
-
-  const handleDeleteUser = (userId: string) => {
-    if (confirm(language === 'ar' ? 'هل أنت متأكد من حذف هذا المستخدم؟' : 'Are you sure you want to delete this user?')) {
-      deleteUserMutation.mutate(userId);
-    }
-  };
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2699A6] mx-auto"></div>
-          <p className="mt-4 text-slate-600">{t('common.loading')}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return null; // Will redirect to login
-  }
-
-  // Check if user is admin
-  if (currentUser?.role !== 'admin') {
+  if (!canManageUsers) {
     return (
       <AppLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <Shield className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              {language === 'ar' ? 'الوصول مرفوض' : 'Access Denied'}
-            </h2>
-            <p className="text-gray-600">
-              {language === 'ar' ? 'تحتاج إلى صلاحيات المدير للوصول إلى إدارة المستخدمين' : 'You need admin privileges to access user management'}
-            </p>
-          </div>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+          <Shield className="h-16 w-16 text-slate-400 mb-4" />
+          <h2 className="text-2xl font-semibold text-slate-900 mb-2">
+            {t('users.noAccess')}
+          </h2>
+          <p className="text-slate-600 max-w-md">
+            {t('users.noAccessDescription')}
+          </p>
         </div>
       </AppLayout>
     );
   }
 
+  // Fetch users
+  const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
+    queryKey: ['/api/users'],
+  });
+
+  // Fetch roles
+  const { data: roles = [] } = useQuery<Role[]>({
+    queryKey: ['/api/roles'],
+  });
+
+  // Fetch permissions for reference
+  const { data: permissions = [] } = useQuery<Permission[]>({
+    queryKey: ['/api/permissions'],
+  });
+
+  // Create user form
+  const createForm = useForm<z.infer<typeof createUserSchema>>({
+    resolver: zodResolver(createUserSchema),
+    defaultValues: {
+      id: '',
+      email: '',
+      firstName: '',
+      lastName: '',
+    },
+  });
+
+  // Edit user form
+  const editForm = useForm<z.infer<typeof updateNameSchema>>({
+    resolver: zodResolver(updateNameSchema),
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+    },
+  });
+
+  // Role assignment form
+  const roleForm = useForm<z.infer<typeof roleAssignmentSchema>>({
+    resolver: zodResolver(roleAssignmentSchema),
+    defaultValues: {
+      roleIds: [],
+    },
+  });
+
+  // Mutations
+  const createUserMutation = useMutation({
+    mutationFn: (data: z.infer<typeof createUserSchema>) => 
+      apiRequest('/api/users', 'POST', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      toast({ 
+        title: t('users.created'), 
+        description: t('users.createdDescription') 
+      });
+      setIsCreateDialogOpen(false);
+      createForm.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        variant: 'destructive',
+        title: t('users.createError'),
+        description: error.message || t('users.createErrorDescription'),
+      });
+    },
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: ({ userId, ...data }: { userId: string } & z.infer<typeof updateNameSchema>) => 
+      apiRequest(`/api/users/${userId}`, 'PATCH', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      toast({ 
+        title: t('users.updated'), 
+        description: t('users.updatedDescription') 
+      });
+      setIsEditDialogOpen(false);
+      setSelectedUser(null);
+    },
+    onError: (error: any) => {
+      toast({
+        variant: 'destructive',
+        title: t('users.updateError'),
+        description: error.message || t('users.updateErrorDescription'),
+      });
+    },
+  });
+
+  const updateUserRolesMutation = useMutation({
+    mutationFn: ({ userId, roleIds }: { userId: string; roleIds: string[] }) => 
+      apiRequest(`/api/users/${userId}/roles`, 'PUT', { roleIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/me/permissions'] });
+      toast({ 
+        title: t('users.rolesUpdated'), 
+        description: t('users.rolesUpdatedDescription') 
+      });
+      setIsRoleDialogOpen(false);
+      setSelectedUser(null);
+    },
+    onError: (error: any) => {
+      toast({
+        variant: 'destructive',
+        title: t('users.roleUpdateError'),
+        description: error.message || t('users.roleUpdateErrorDescription'),
+      });
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: (userId: string) => apiRequest(`/api/users/${userId}`, 'DELETE'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      toast({ 
+        title: t('users.deleted'), 
+        description: t('users.deletedDescription') 
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: 'destructive',
+        title: t('users.deleteError'),
+        description: error.message || t('users.deleteErrorDescription'),
+      });
+    },
+  });
+
+  // Filter users based on search
+  const filteredUsers = users.filter(user => {
+    const searchTerm = searchQuery.toLowerCase();
+    return (
+      user.email?.toLowerCase().includes(searchTerm) ||
+      user.firstName?.toLowerCase().includes(searchTerm) ||
+      user.lastName?.toLowerCase().includes(searchTerm) ||
+      user.name?.toLowerCase().includes(searchTerm)
+    );
+  });
+
+  const handleCreateUser = (data: z.infer<typeof createUserSchema>) => {
+    createUserMutation.mutate(data);
+  };
+
+  const handleEditUser = (data: z.infer<typeof updateNameSchema>) => {
+    if (!selectedUser) return;
+    updateUserMutation.mutate({ userId: selectedUser.id, ...data });
+  };
+
+  const handleUpdateRoles = (data: z.infer<typeof roleAssignmentSchema>) => {
+    if (!selectedUser) return;
+    updateUserRolesMutation.mutate({ userId: selectedUser.id, roleIds: data.roleIds });
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    if (confirm(t('users.deleteConfirmation'))) {
+      deleteUserMutation.mutate(userId);
+    }
+  };
+
+  const openEditDialog = (user: User) => {
+    setSelectedUser(user);
+    editForm.reset({
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const openRoleDialog = (user: User) => {
+    setSelectedUser(user);
+    roleForm.reset({
+      roleIds: user.userRoles?.map(r => r.id) || [],
+    });
+    setIsRoleDialogOpen(true);
+  };
+
+  const getRoleDisplayName = (roleCode: string) => {
+    const roleNames = {
+      'admin': 'Administrator',
+      'user': 'User',
+      'officer': 'Compliance Officer', 
+      'collaborator': 'Collaborator',
+      'viewer': 'Viewer'
+    };
+    return roleNames[roleCode as keyof typeof roleNames] || roleCode;
+  };
+
+  const getRoleBadgeColor = (roleCode: string) => {
+    const colors = {
+      'admin': 'bg-red-100 text-red-800',
+      'user': 'bg-blue-100 text-blue-800',
+      'officer': 'bg-purple-100 text-purple-800',
+      'collaborator': 'bg-green-100 text-green-800',
+      'viewer': 'bg-slate-100 text-slate-800'
+    };
+    return colors[roleCode as keyof typeof colors] || 'bg-slate-100 text-slate-800';
+  };
+
   return (
     <AppLayout>
-      <div className="space-y-8 animate-fade-in">
-        {/* Hero Section with Background */}
-        <div 
-          className="relative overflow-hidden rounded-2xl"
-          style={{
-            backgroundImage: `url(${heroBackgroundPath})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-          }}
-        >
-          {/* Overlay for better text readability */}
-          <div className="absolute inset-0 bg-gradient-to-r from-teal-600/90 via-teal-700/80 to-teal-800/90"></div>
-          
-          {/* Content */}
-          <div className="relative px-8 py-16 md:py-20">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
-              <div className="text-center lg:text-left">
-                
-                
-                {/* Stats Overview */}
-                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-6 text-white/90">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                      <UsersIcon className="h-4 w-4" />
-                    </div>
-                    <span className="font-semibold">{users.length} {language === 'ar' ? 'مستخدم' : 'Users'}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                      <Crown className="h-4 w-4" />
-                    </div>
-                    <span className="font-semibold">{users.filter((u: User) => u.role === 'admin').length} {language === 'ar' ? 'مدير' : 'Admins'}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                      <Shield className="h-4 w-4" />
-                    </div>
-                    <span className="font-semibold">{users.filter((u: User) => u.role === 'manager').length} {language === 'ar' ? 'مشرف' : 'Managers'}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-center lg:justify-end">
-                <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="bg-white/20 hover:bg-white/30 text-white border border-white/30 backdrop-blur-sm px-8 py-6 text-lg rounded-xl transition-all duration-200 hover:scale-105">
-                      <UserPlus className="h-5 w-5 mr-3" />
-                      {language === 'ar' ? 'إضافة مستخدم جديد' : 'Add New User'}
-                    </Button>
-                  </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>
-                  {language === 'ar' ? 'إضافة مستخدم جديد' : 'Add New User'}
-                </DialogTitle>
-                <DialogDescription>
-                  {language === 'ar' ? 'أدخل معلومات المستخدم الجديد' : 'Enter the new user details'}
-                </DialogDescription>
-              </DialogHeader>
-
-              <Form {...createForm}>
-                <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
-                  <FormField
-                    control={createForm.control}
-                    name="id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'معرف المستخدم' : 'User ID'}</FormLabel>
-                        <FormControl>
-                          <Input placeholder={language === 'ar' ? 'أدخل معرف المستخدم' : 'Enter user ID'} {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={createForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'البريد الإلكتروني' : 'Email'}</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder={language === 'ar' ? 'أدخل البريد الإلكتروني' : 'Enter email address'} {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={createForm.control}
-                      name="firstName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{language === 'ar' ? 'الاسم الأول' : 'First Name'}</FormLabel>
-                          <FormControl>
-                            <Input placeholder={language === 'ar' ? 'الاسم الأول' : 'First name'} {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={createForm.control}
-                      name="lastName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{language === 'ar' ? 'اسم العائلة' : 'Last Name'}</FormLabel>
-                          <FormControl>
-                            <Input placeholder={language === 'ar' ? 'اسم العائلة' : 'Last name'} {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={createForm.control}
-                    name="role"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{language === 'ar' ? 'الدور' : 'Role'}</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder={language === 'ar' ? 'اختر الدور' : 'Select role'} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="admin">
-                              <div className="flex items-center gap-2">
-                                <Crown className="h-4 w-4" />
-                                {language === 'ar' ? 'مدير' : 'Admin'}
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="manager">
-                              <div className="flex items-center gap-2">
-                                <Shield className="h-4 w-4" />
-                                {language === 'ar' ? 'مشرف' : 'Manager'}
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="viewer">
-                              <div className="flex items-center gap-2">
-                                <Eye className="h-4 w-4" />
-                                {language === 'ar' ? 'مشاهد' : 'Viewer'}
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="flex justify-end space-x-2">
-                    <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                      {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                    </Button>
-                    <Button type="submit" disabled={createUserMutation.isPending}>
-                      {createUserMutation.isPending 
-                        ? (language === 'ar' ? 'جاري الإنشاء...' : 'Creating...') 
-                        : (language === 'ar' ? 'إنشاء المستخدم' : 'Create User')
-                      }
-                    </Button>
-                  </div>
-                </form>
-              </Form>
-            </DialogContent>
-                </Dialog>
-              </div>
-            </div>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">
+              {t('users.title')}
+            </h1>
+            <p className="text-slate-600">
+              {t('users.description')}
+            </p>
           </div>
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <UserPlus className="h-4 w-4 mr-2" />
+            {t('users.addUser')}
+          </Button>
         </div>
 
-        {/* Search and Quick Actions */}
-        <div className="grid grid-cols-1 gap-6">
-          {/* Search Bar */}
-          <div>
-            <Card className="border border-slate-200/60 dark:border-slate-700/60 shadow-lg backdrop-blur-sm">
-              <CardContent className="p-6">
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
-                  <Input
-                    type="search"
-                    placeholder={language === 'ar' ? 'البحث عن المستخدمين بالاسم أو البريد الإلكتروني...' : 'Search users by name or email...'}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-12 h-12 text-lg border-0 bg-transparent focus:ring-2 focus:ring-[#2699A6]/20"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
+        {/* Search and Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <Card className="md:col-span-3">
+            <CardContent className="p-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder={t('users.searchPlaceholder')}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </CardContent>
+          </Card>
           
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-slate-900">{users.length}</div>
+              <div className="text-sm text-slate-600">{t('users.totalUsers')}</div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Users List */}
-        <Card className="border border-slate-200/60 dark:border-slate-700/60 shadow-xl backdrop-blur-sm">
-          <CardHeader className="bg-gradient-to-r from-slate-50/80 to-white/80 dark:from-slate-800/80 dark:to-slate-900/80 rounded-t-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#2699A6]/20 rounded-xl flex items-center justify-center">
-                  <UsersIcon className="h-5 w-5 text-[#2699A6]" />
-                </div>
-                <div>
-                  <CardTitle className="text-xl text-slate-900 dark:text-white">
-                    {language === 'ar' ? 'قائمة المستخدمين' : 'Users Directory'}
-                  </CardTitle>
-                  <CardDescription className="text-slate-600 dark:text-slate-400">
-                    {language === 'ar' ? 'إدارة أدوار ومعلومات المستخدمين' : 'Manage user roles and information'}
-                  </CardDescription>
-                </div>
-              </div>
-              <Badge variant="secondary" className="bg-[#2699A6]/10 text-[#2699A6] border border-[#2699A6]/20 px-3 py-1">
-                {filteredUsers.length} {language === 'ar' ? 'مستخدم' : 'Users'}
-              </Badge>
-            </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <UsersIcon className="h-5 w-5" />
+              {t('users.userDirectory')}
+            </CardTitle>
+            <CardDescription>
+              {t('users.manageRoles')}
+            </CardDescription>
           </CardHeader>
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="p-8">
-                <div className="space-y-6">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="flex items-center space-x-4 p-4 bg-slate-50/50 dark:bg-slate-800/50 rounded-lg">
-                      <div className="w-14 h-14 bg-slate-200 dark:bg-slate-700 rounded-full animate-pulse" />
-                      <div className="flex-1 space-y-3">
-                        <div className="h-5 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
-                        <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-2/3 animate-pulse" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+          <CardContent>
+            {usersLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
               </div>
             ) : filteredUsers.length === 0 ? (
-              <div className="p-12 text-center">
-                <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <UsersIcon className="h-10 w-10 text-slate-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
-                  {language === 'ar' ? 'لا يوجد مستخدمين' : 'No Users Found'}
-                </h3>
-                <p className="text-slate-600 dark:text-slate-400">
-                  {searchTerm 
-                    ? (language === 'ar' ? 'لم يتم العثور على مستخدمين مطابقين لبحثك' : 'No users match your search criteria')
-                    : (language === 'ar' ? 'ابدأ بإضافة أول مستخدم لمنظمتك' : 'Start by adding your first user to the organization')
-                  }
+              <div className="text-center py-8">
+                <User2 className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                <p className="text-slate-600">{t('users.noUsersFound')}</p>
+                <p className="text-slate-500 text-sm mt-1">
+                  {searchQuery ? t('users.tryDifferentSearch') : t('users.startByAdding')}
                 </p>
               </div>
             ) : (
-              <div className="p-6">
-                <div className="grid gap-4">
-                  {filteredUsers.map((user: User, index) => (
-                    <div 
-                      key={user.id} 
-                      className={cn(
-                        "group relative p-6 bg-gradient-to-r from-white to-slate-50/50 dark:from-slate-800 dark:to-slate-900/50 rounded-xl border border-slate-200/60 dark:border-slate-700/60 hover:shadow-lg transition-all duration-200 hover:scale-[1.02]",
-                        index % 2 === 0 ? "hover:from-[#2699A6]/5 hover:to-transparent" : "hover:from-purple-500/5 hover:to-transparent"
-                      )}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-5">
-                          <div className="relative">
-                            <UserAvatar 
-                              user={user} 
-                              size="2xl" 
-                              className="ring-2 ring-white dark:ring-slate-800 shadow-lg"
-                            />
-                            <div className={cn(
-                              "absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-white dark:border-slate-800 flex items-center justify-center",
-                              user.role === 'admin' ? 'bg-red-500' : user.role === 'manager' ? 'bg-blue-500' : 'bg-gray-500'
-                            )}>
-                              {getRoleIcon(user.role)}
-                            </div>
-                          </div>
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-3 mb-2">
-                              <h3 className="text-xl font-bold text-slate-900 dark:text-white truncate">
-                                {user.firstName || user.lastName ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Unknown User'}
-                              </h3>
-                              <Badge className={cn("text-sm font-semibold px-3 py-1", getRoleColor(user.role))}>
-                                <div className="flex items-center gap-2">
-                                  {getRoleIcon(user.role)}
-                                  {language === 'ar' ? (
-                                    user.role === 'admin' ? 'مدير' : user.role === 'manager' ? 'مشرف' : 'مشاهد'
-                                  ) : (
-                                    user.role.charAt(0).toUpperCase() + user.role.slice(1)
-                                  )}
-                                </div>
-                              </Badge>
-                            </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                              <div className="flex items-center text-slate-600 dark:text-slate-400">
-                                <Mail className="h-4 w-4 mr-2 text-[#2699A6]" />
-                                <span className="truncate">{user.email || 'No email'}</span>
-                              </div>
-                              <div className="flex items-center text-slate-600 dark:text-slate-400">
-                                <Calendar className="h-4 w-4 mr-2 text-[#2699A6]" />
-                                <span>{language === 'ar' ? 'انضم في' : 'Joined'} {formatDate(user.createdAt)}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center space-x-3">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEditName(user)}
-                            disabled={updateNameMutation.isPending}
-                            className="hover:bg-[#2699A6]/10 hover:border-[#2699A6]/30 hover:text-[#2699A6] transition-all duration-200"
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            {language === 'ar' ? 'تعديل الاسم' : 'Edit Name'}
-                          </Button>
-                          
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEditRole(user)}
-                            disabled={updateRoleMutation.isPending}
-                            className="hover:bg-[#2699A6]/10 hover:border-[#2699A6]/30 hover:text-[#2699A6] transition-all duration-200"
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            {language === 'ar' ? 'تعديل الدور' : 'Edit Role'}
-                          </Button>
-
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEditProfilePicture(user)}
-                            disabled={uploadProfilePictureMutation.isPending}
-                            className="hover:bg-[#2699A6]/10 hover:border-[#2699A6]/30 hover:text-[#2699A6] transition-all duration-200"
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            {language === 'ar' ? 'تعديل الصورة' : 'Edit Picture'}
-                          </Button>
-                          
-                          {user.id !== currentUser?.id && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/20 transition-all duration-200"
-                              onClick={() => handleDeleteUser(user.id)}
-                              disabled={deleteUserMutation.isPending}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+              <div className="space-y-4">
+                {filteredUsers.map((user) => (
+                  <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50">
+                    <div className="flex items-center space-x-4">
+                      <UserAvatar user={user} />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium text-slate-900">
+                            {user.firstName && user.lastName 
+                              ? `${user.firstName} ${user.lastName}`
+                              : user.name || user.email
+                            }
+                          </h3>
+                          {user.id === currentUser?.id && (
+                            <Badge variant="outline" className="text-xs">
+                              {t('users.you')}
+                            </Badge>
                           )}
+                        </div>
+                        <p className="text-sm text-slate-600">{user.email}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          {user.userRoles?.map((role) => (
+                            <Badge 
+                              key={role.id} 
+                              className={cn("text-xs", getRoleBadgeColor(role.code))}
+                            >
+                              {getRoleDisplayName(role.code)}
+                            </Badge>
+                          ))}
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEditDialog(user)}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            {t('users.editProfile')}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openRoleDialog(user)}>
+                            <KeyRound className="h-4 w-4 mr-2" />
+                            {t('users.manageRoles')}
+                          </DropdownMenuItem>
+                          {user.id !== currentUser?.id && (
+                            <DropdownMenuItem 
+                              onClick={() => handleDeleteUser(user.id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              {t('users.deleteUser')}
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Role Edit Dialog */}
-        <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>
-          <DialogContent className="sm:max-w-[400px]">
+        {/* Create User Dialog */}
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogContent>
             <DialogHeader>
-              <DialogTitle>
-                {language === 'ar' ? 'تعديل دور المستخدم' : 'Edit User Role'}
-              </DialogTitle>
+              <DialogTitle>{t('users.addUser')}</DialogTitle>
               <DialogDescription>
-                {language === 'ar' ? 'اختر الدور الجديد للمستخدم' : 'Select the new role for the user'}
+                {t('users.addUserDescription')}
               </DialogDescription>
             </DialogHeader>
-
-            {selectedUser && (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                  <UserAvatar user={selectedUser} size="md" />
-                  <div>
-                    <p className="font-medium text-slate-900 dark:text-white">
-                      {selectedUser.firstName || selectedUser.lastName 
-                        ? `${selectedUser.firstName || ''} ${selectedUser.lastName || ''}`.trim() 
-                        : 'Unknown User'}
-                    </p>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">{selectedUser.email}</p>
-                  </div>
+            <Form {...createForm}>
+              <form onSubmit={createForm.handleSubmit(handleCreateUser)} className="space-y-4">
+                <FormField
+                  control={createForm.control}
+                  name="id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('users.userId')}</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="user123" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={createForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('users.email')}</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="email" placeholder="user@example.com" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={createForm.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('users.firstName')}</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={createForm.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('users.lastName')}</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
-
-                <Form {...roleForm}>
-                  <form onSubmit={roleForm.handleSubmit(onRoleSubmit)} className="space-y-4">
-                    <FormField
-                      control={roleForm.control}
-                      name="role"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{language === 'ar' ? 'الدور' : 'Role'}</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder={language === 'ar' ? 'اختر الدور' : 'Select role'} />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="admin">
-                                <div className="flex items-center gap-2">
-                                  <Crown className="h-4 w-4 text-red-600" />
-                                  {language === 'ar' ? 'مدير' : 'Admin'}
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="manager">
-                                <div className="flex items-center gap-2">
-                                  <Shield className="h-4 w-4 text-blue-600" />
-                                  {language === 'ar' ? 'مشرف' : 'Manager'}
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="viewer">
-                                <div className="flex items-center gap-2">
-                                  <Eye className="h-4 w-4 text-gray-600" />
-                                  {language === 'ar' ? 'مشاهد' : 'Viewer'}
-                                </div>
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="flex justify-end gap-2">
-                      <Button type="button" variant="outline" onClick={() => setIsRoleDialogOpen(false)}>
-                        {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                      </Button>
-                      <Button 
-                        type="submit" 
-                        disabled={updateRoleMutation.isPending}
-                        className="bg-[#2699A6] hover:bg-[#2699A6]/90"
-                      >
-                        {updateRoleMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {language === 'ar' ? 'حفظ' : 'Save'}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-
-        {/* Name Edit Dialog */}
-        <Dialog open={isNameDialogOpen} onOpenChange={setIsNameDialogOpen}>
-          <DialogContent className="sm:max-w-[400px]">
-            <DialogHeader>
-              <DialogTitle>
-                {language === 'ar' ? 'تعديل اسم المستخدم' : 'Edit User Name'}
-              </DialogTitle>
-              <DialogDescription>
-                {language === 'ar' ? 'قم بتحديث الاسم الأول والاسم الأخير للمستخدم' : 'Update the first and last name for the user'}
-              </DialogDescription>
-            </DialogHeader>
-
-            {selectedUser && (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                  <UserAvatar user={selectedUser} size="md" />
-                  <div>
-                    <p className="font-medium text-slate-900 dark:text-white">
-                      {selectedUser.firstName || selectedUser.lastName 
-                        ? `${selectedUser.firstName || ''} ${selectedUser.lastName || ''}`.trim() 
-                        : 'Unknown User'}
-                    </p>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">{selectedUser.email}</p>
-                  </div>
-                </div>
-
-                <Form {...nameForm}>
-                  <form onSubmit={nameForm.handleSubmit(onNameSubmit)} className="space-y-4">
-                    <FormField
-                      control={nameForm.control}
-                      name="firstName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{language === 'ar' ? 'الاسم الأول' : 'First Name'}</FormLabel>
-                          <FormControl>
-                            <Input placeholder={language === 'ar' ? 'الاسم الأول' : 'First Name'} {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={nameForm.control}
-                      name="lastName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{language === 'ar' ? 'الاسم الأخير' : 'Last Name'}</FormLabel>
-                          <FormControl>
-                            <Input placeholder={language === 'ar' ? 'الاسم الأخير' : 'Last Name'} {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="flex justify-end gap-2">
-                      <Button type="button" variant="outline" onClick={() => setIsNameDialogOpen(false)}>
-                        {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                      </Button>
-                      <Button 
-                        type="submit" 
-                        disabled={updateNameMutation.isPending}
-                        className="bg-[#2699A6] hover:bg-[#2699A6]/90"
-                      >
-                        {updateNameMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {language === 'ar' ? 'حفظ' : 'Save'}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-
-        {/* Profile Picture Edit Dialog */}
-        <Dialog open={isProfilePictureDialogOpen} onOpenChange={setIsProfilePictureDialogOpen}>
-          <DialogContent className="sm:max-w-[400px]">
-            <DialogHeader>
-              <DialogTitle>
-                {language === 'ar' ? 'تحديث صورة الملف الشخصي' : 'Update Profile Picture'}
-              </DialogTitle>
-              <DialogDescription>
-                {language === 'ar' ? 'اختر صورة جديدة لملف المستخدم الشخصي' : 'Select a new profile picture for the user'}
-              </DialogDescription>
-            </DialogHeader>
-
-            {selectedUser && (
-              <div className="space-y-6">
-                {/* Current Profile Picture */}
-                <div className="flex flex-col items-center space-y-4">
-                  <UserAvatar user={selectedUser} size="2xl" />
-                  <div className="text-center">
-                    <p className="font-medium text-slate-900 dark:text-white">
-                      {selectedUser.firstName || selectedUser.lastName 
-                        ? `${selectedUser.firstName || ''} ${selectedUser.lastName || ''}`.trim() 
-                        : 'Unknown User'}
-                    </p>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">{selectedUser.email}</p>
-                  </div>
-                </div>
-
-                {/* File Upload */}
-                <div className="space-y-4">
-                  <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 hover:border-[#2699A6] transition-colors">
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/jpg,image/png,image/webp"
-                      onChange={handleFileUpload}
-                      disabled={uploadingFile}
-                      className="hidden"
-                      id="profile-picture-upload"
-                    />
-                    <label
-                      htmlFor="profile-picture-upload"
-                      className={`cursor-pointer flex flex-col items-center space-y-2 ${uploadingFile ? 'pointer-events-none opacity-50' : ''}`}
-                    >
-                      {uploadingFile ? (
-                        <Loader2 className="h-8 w-8 text-[#2699A6] animate-spin" />
-                      ) : (
-                        <Edit className="h-8 w-8 text-[#2699A6]" />
-                      )}
-                      <span className="text-sm font-medium text-[#2699A6]">
-                        {uploadingFile 
-                          ? (language === 'ar' ? 'جاري الرفع...' : 'Uploading...') 
-                          : (language === 'ar' ? 'اختر صورة' : 'Choose Image')}
-                      </span>
-                      <span className="text-xs text-gray-500 text-center">
-                        {language === 'ar' ? 'JPG, PNG, WEBP حتى 5 ميجابايت' : 'JPG, PNG, WEBP up to 5MB'}
-                      </span>
-                    </label>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2">
+                <div className="flex justify-end space-x-2">
                   <Button 
                     type="button" 
                     variant="outline" 
-                    onClick={() => setIsProfilePictureDialogOpen(false)}
-                    disabled={uploadingFile}
+                    onClick={() => setIsCreateDialogOpen(false)}
                   >
-                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                    {t('common.cancel')}
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={createUserMutation.isPending}
+                  >
+                    {createUserMutation.isPending && (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    )}
+                    {t('users.createUser')}
                   </Button>
                 </div>
-              </div>
-            )}
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit User Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('users.editProfile')}</DialogTitle>
+              <DialogDescription>
+                {t('users.editProfileDescription')}
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(handleEditUser)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('users.firstName')}</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('users.lastName')}</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setIsEditDialogOpen(false)}
+                  >
+                    {t('common.cancel')}
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={updateUserMutation.isPending}
+                  >
+                    {updateUserMutation.isPending && (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    )}
+                    {t('common.save')}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Role Management Dialog */}
+        <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{t('users.manageRoles')}</DialogTitle>
+              <DialogDescription>
+                {t('users.manageRolesDescription')}
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...roleForm}>
+              <form onSubmit={roleForm.handleSubmit(handleUpdateRoles)} className="space-y-4">
+                <FormField
+                  control={roleForm.control}
+                  name="roleIds"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel>{t('users.assignedRoles')}</FormLabel>
+                      <ScrollArea className="h-48 border rounded-md p-4">
+                        <div className="space-y-3">
+                          {roles.map((role) => (
+                            <FormField
+                              key={role.id}
+                              control={roleForm.control}
+                              name="roleIds"
+                              render={({ field }) => {
+                                return (
+                                  <FormItem
+                                    key={role.id}
+                                    className="flex flex-row items-start space-x-3 space-y-0"
+                                  >
+                                    <FormControl>
+                                      <Checkbox
+                                        checked={field.value?.includes(role.id)}
+                                        onCheckedChange={(checked) => {
+                                          return checked
+                                            ? field.onChange([...field.value, role.id])
+                                            : field.onChange(
+                                                field.value?.filter(
+                                                  (value) => value !== role.id
+                                                )
+                                              )
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <div className="space-y-1 leading-none">
+                                      <FormLabel className="font-medium">
+                                        {getRoleDisplayName(role.code)}
+                                      </FormLabel>
+                                      <p className="text-xs text-slate-600">
+                                        {role.code}
+                                      </p>
+                                    </div>
+                                  </FormItem>
+                                )
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </ScrollArea>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setIsRoleDialogOpen(false)}
+                  >
+                    {t('common.cancel')}
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={updateUserRolesMutation.isPending}
+                  >
+                    {updateUserRolesMutation.isPending && (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    )}
+                    {t('users.updateRoles')}
+                  </Button>
+                </div>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>
     </AppLayout>
   );
-};
+}

@@ -70,9 +70,18 @@ export interface IStorage {
   // User Management operations
   getAllUsers(organizationId?: string): Promise<User[]>;
   createUser(user: Omit<UpsertUser, 'id'> & { id: string }): Promise<User>;
-  updateUserRole(userId: string, role: string): Promise<User>;
   updateUser(userId: string, updates: Partial<UpsertUser>): Promise<User>;
   deleteUser(userId: string): Promise<void>;
+  
+  // RBAC operations
+  getRoles(): Promise<Role[]>;
+  getPermissions(): Promise<Permission[]>;
+  getUserRoles(userId: string): Promise<Role[]>;
+  getUserPermissions(userId: string, projectId?: number): Promise<string[]>;
+  assignUserRole(userId: string, roleId: string): Promise<void>;
+  removeUserRole(userId: string, roleId: string): Promise<void>;
+  assignUserProjectRole(userId: string, projectId: number, roleId: string): Promise<void>;
+  removeUserProjectRole(userId: string, projectId: number, roleId: string): Promise<void>;
   
   // Project operations
   getProjects(organizationId?: string): Promise<Project[]>;
@@ -249,6 +258,108 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(userId: string): Promise<void> {
     await db.delete(users).where(eq(users.id, userId));
+  }
+
+  // RBAC operations
+  async getRoles(): Promise<Role[]> {
+    return await db.select().from(roles).orderBy(roles.name);
+  }
+
+  async getPermissions(): Promise<Permission[]> {
+    return await db.select().from(permissions).orderBy(permissions.code);
+  }
+
+  async getUserRoles(userId: string): Promise<Role[]> {
+    const result = await db
+      .select({
+        id: roles.id,
+        code: roles.code,
+        name: roles.name,
+        createdAt: roles.createdAt,
+      })
+      .from(userRoles)
+      .leftJoin(roles, eq(userRoles.roleId, roles.id))
+      .where(eq(userRoles.userId, userId));
+    
+    return result.filter(r => r.id).map(r => ({
+      id: r.id!,
+      code: r.code!,
+      name: r.name!,
+      createdAt: r.createdAt!,
+    }));
+  }
+
+  async getUserPermissions(userId: string, projectId?: number): Promise<string[]> {
+    // Get user's organization-wide roles
+    const orgRoles = await db
+      .select({
+        permissionCode: permissions.code
+      })
+      .from(userRoles)
+      .leftJoin(rolePermissions, eq(userRoles.roleId, rolePermissions.roleId))
+      .leftJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+      .where(eq(userRoles.userId, userId));
+
+    let projectPermissions: string[] = [];
+    
+    // Get project-specific roles if projectId provided
+    if (projectId) {
+      const projectRoles = await db
+        .select({
+          permissionCode: permissions.code
+        })
+        .from(userProjectRoles)
+        .leftJoin(rolePermissions, eq(userProjectRoles.roleId, rolePermissions.roleId))
+        .leftJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+        .where(and(
+          eq(userProjectRoles.userId, userId),
+          eq(userProjectRoles.projectId, projectId)
+        ));
+      
+      projectPermissions = projectRoles
+        .filter(r => r.permissionCode)
+        .map(r => r.permissionCode!);
+    }
+
+    const orgPermissions = orgRoles
+      .filter(r => r.permissionCode)
+      .map(r => r.permissionCode!);
+
+    // Combine and dedupe permissions
+    return [...new Set([...orgPermissions, ...projectPermissions])];
+  }
+
+  async assignUserRole(userId: string, roleId: string): Promise<void> {
+    await db
+      .insert(userRoles)
+      .values({ userId, roleId })
+      .onConflictDoNothing();
+  }
+
+  async removeUserRole(userId: string, roleId: string): Promise<void> {
+    await db
+      .delete(userRoles)
+      .where(and(
+        eq(userRoles.userId, userId),
+        eq(userRoles.roleId, roleId)
+      ));
+  }
+
+  async assignUserProjectRole(userId: string, projectId: number, roleId: string): Promise<void> {
+    await db
+      .insert(userProjectRoles)
+      .values({ userId, projectId, roleId })
+      .onConflictDoNothing();
+  }
+
+  async removeUserProjectRole(userId: string, projectId: number, roleId: string): Promise<void> {
+    await db
+      .delete(userProjectRoles)
+      .where(and(
+        eq(userProjectRoles.userId, userId),
+        eq(userProjectRoles.projectId, projectId),
+        eq(userProjectRoles.roleId, roleId)
+      ));
   }
 
   // Project operations

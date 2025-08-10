@@ -72,37 +72,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // User Management routes
-  app.get('/api/users', isAuthenticated, requireUserPermissions(), async (req: any, res) => {
+  // User Management routes  
+  app.get('/api/users', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
       const currentUser = await storage.getUser(req.user.claims.sub);
+      const users = await storage.getAllUsers(currentUser?.organizationId || undefined);
       
-      // Only admins can view all users
-      if (currentUser?.role !== 'admin') {
-        return res.status(403).json({ message: "Access denied. Admin role required." });
-      }
-
-      const users = await storage.getAllUsers(currentUser.organizationId || undefined);
-      res.json(users);
+      // Include user roles in response
+      const usersWithRoles = await Promise.all(users.map(async (user) => ({
+        ...user,
+        userRoles: await storage.getUserRoles(user.id)
+      })));
+      
+      res.json(usersWithRoles);
     } catch (error) {
       console.error("Error fetching users:", error);
       res.status(500).json({ message: "Failed to fetch users" });
     }
   });
 
-  app.post('/api/users', isAuthenticated, requireUserPermissions(), async (req: any, res) => {
+  app.post('/api/users', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
       const currentUser = await storage.getUser(req.user.claims.sub);
+      const { id, email, firstName, lastName, organizationId } = req.body;
       
-      // Only admins can create users
-      if (currentUser?.role !== 'admin') {
-        return res.status(403).json({ message: "Access denied. Admin role required." });
-      }
-
-      const { id, email, firstName, lastName, role, organizationId } = req.body;
-      
-      if (!id || !email || !role) {
-        return res.status(400).json({ message: "ID, email, and role are required" });
+      if (!id || !email) {
+        return res.status(400).json({ message: "ID and email are required" });
       }
 
       const newUser = await storage.createUser({
@@ -110,8 +105,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email,
         firstName,
         lastName,
-        role,
-        organizationId: organizationId || currentUser.organizationId,
+        role: 'viewer', // Default role, can be changed via role assignment
+        organizationId: organizationId || currentUser?.organizationId,
       });
 
       res.status(201).json(newUser);
@@ -121,39 +116,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/users/:userId/role', isAuthenticated, async (req: any, res) => {
+  // RBAC API endpoints
+  app.get('/api/roles', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
-      
-      // Only admins can update user roles
-      if (currentUser?.role !== 'admin') {
-        return res.status(403).json({ message: "Access denied. Admin role required." });
-      }
-
-      const { userId } = req.params;
-      const { role } = req.body;
-
-      if (!role || !['admin', 'manager', 'viewer'].includes(role)) {
-        return res.status(400).json({ message: "Valid role is required (admin, manager, viewer)" });
-      }
-
-      const updatedUser = await storage.updateUserRole(userId, role);
-      res.json(updatedUser);
+      const roles = await storage.getRoles();
+      res.json(roles);
     } catch (error) {
-      console.error("Error updating user role:", error);
-      res.status(500).json({ message: "Failed to update user role" });
+      console.error("Error fetching roles:", error);
+      res.status(500).json({ message: "Failed to fetch roles" });
     }
   });
 
-  app.patch('/api/users/:userId', isAuthenticated, async (req: any, res) => {
+  app.get('/api/permissions', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
-      
-      // Only admins can update user details
-      if (currentUser?.role !== 'admin') {
-        return res.status(403).json({ message: "Access denied. Admin role required." });
+      const permissions = await storage.getPermissions();
+      res.json(permissions);
+    } catch (error) {
+      console.error("Error fetching permissions:", error);
+      res.status(500).json({ message: "Failed to fetch permissions" });
+    }
+  });
+
+  app.put('/api/users/:userId/roles', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { roleIds } = req.body;
+
+      if (!Array.isArray(roleIds)) {
+        return res.status(400).json({ message: "roleIds must be an array" });
       }
 
+      // Remove all current roles for user
+      const currentRoles = await storage.getUserRoles(userId);
+      for (const role of currentRoles) {
+        await storage.removeUserRole(userId, role.id);
+      }
+
+      // Assign new roles
+      for (const roleId of roleIds) {
+        await storage.assignUserRole(userId, roleId);
+      }
+
+      res.json({ message: "User roles updated successfully" });
+    } catch (error) {
+      console.error("Error updating user roles:", error);
+      res.status(500).json({ message: "Failed to update user roles" });
+    }
+  });
+
+  app.get('/api/users/:userId/roles', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const roles = await storage.getUserRoles(userId);
+      res.json(roles);
+    } catch (error) {
+      console.error("Error fetching user roles:", error);
+      res.status(500).json({ message: "Failed to fetch user roles" });
+    }
+  });
+
+  app.patch('/api/users/:userId', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+    try {
       const { userId } = req.params;
       const updates = req.body;
 
@@ -202,19 +225,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/users/:userId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/users/:userId', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
       const currentUser = await storage.getUser(req.user.claims.sub);
-      
-      // Only admins can delete users
-      if (currentUser?.role !== 'admin') {
-        return res.status(403).json({ message: "Access denied. Admin role required." });
-      }
-
       const { userId } = req.params;
       
       // Prevent self-deletion
-      if (userId === currentUser.id) {
+      if (userId === currentUser?.id) {
         return res.status(400).json({ message: "Cannot delete your own account" });
       }
 
