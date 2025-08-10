@@ -1,11 +1,26 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useI18n } from '@/hooks/use-i18n';
 import { useToast } from '@/hooks/use-toast';
 import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
-import { useDebounce } from '@/hooks/use-debounce';
+// Simple inline debounce to avoid import issues
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
 import AppLayout from '@/components/layout/AppLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -116,15 +131,6 @@ export default function EnhancedUsersPage() {
   // Check permissions
   const canManageUsers = can(PERMISSIONS.CHANGE_USER_PERMISSIONS);
 
-  // Check if current user is the last admin (guard rails)
-  const isLastAdmin = useMemo(() => {
-    if (!currentUser || !usersResponse?.users) return false;
-    const activeAdmins = usersResponse.users
-      .filter((u: User) => u.status !== 'disabled')
-      .filter((u: User) => u.userRoles?.some(r => r.code === 'admin'));
-    return activeAdmins.length === 1 && activeAdmins[0].id === currentUser.id;
-  }, [currentUser, usersResponse?.users]);
-
   // Query params for API call
   const queryParams = useMemo(() => {
     const params = new URLSearchParams();
@@ -156,6 +162,15 @@ export default function EnhancedUsersPage() {
     enabled: canManageUsers,
   });
 
+  // Check if current user is the last admin (guard rails) - after usersResponse is available
+  const isLastAdmin = useMemo(() => {
+    if (!currentUser || !usersResponse || !Array.isArray(usersResponse.users)) return false;
+    const activeAdmins = usersResponse.users
+      .filter((u: User) => u.status !== 'disabled')
+      .filter((u: User) => u.userRoles?.some(r => r.code === 'admin'));
+    return activeAdmins.length === 1 && activeAdmins[0].id === (currentUser as any).id;
+  }, [currentUser, usersResponse]);
+
   // Mutations
   const updateUserStatusMutation = useMutation({
     mutationFn: ({ userId, status }: { userId: string; status: 'active' | 'disabled' }) =>
@@ -166,13 +181,13 @@ export default function EnhancedUsersPage() {
         predicate: (query) => String(query.queryKey[0]).startsWith('/api/admin/users')
       });
       queryClient.invalidateQueries({ queryKey: ['/api/me/permissions'] });
-      toast({ title: t('users.statusUpdated') });
+      toast({ title: 'Status Updated' });
     },
     onError: (error: any) => {
       toast({
         variant: 'destructive',
-        title: t('users.statusUpdateError'),
-        description: error.message || t('users.statusUpdateErrorDescription'),
+        title: 'Status Update Error',
+        description: error.message || 'Failed to update user status',
       });
     },
   });
@@ -187,8 +202,8 @@ export default function EnhancedUsersPage() {
   };
 
   const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedUsers(usersResponse?.users?.map((u: User) => u.id) || []);
+    if (checked && usersResponse?.users) {
+      setSelectedUsers(usersResponse.users.map((u: User) => u.id));
     } else {
       setSelectedUsers([]);
     }
@@ -221,11 +236,11 @@ export default function EnhancedUsersPage() {
 
   const getRoleDisplayName = (roleCode: string) => {
     const roleNames = {
-      'admin': t('roles.admin'),
-      'user': t('roles.user'),
-      'officer': t('roles.officer'), 
-      'collaborator': t('roles.collaborator'),
-      'viewer': t('roles.viewer')
+      'admin': 'Admin',
+      'user': 'User',
+      'officer': 'Officer', 
+      'collaborator': 'Collaborator',
+      'viewer': 'Viewer'
     };
     return roleNames[roleCode as keyof typeof roleNames] || roleCode;
   };
@@ -240,10 +255,10 @@ export default function EnhancedUsersPage() {
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
           <Shield className="h-16 w-16 text-slate-400 mb-4" />
           <h2 className="text-2xl font-semibold text-slate-900 mb-2">
-            {t('users.noAccess')}
+            Access Denied
           </h2>
           <p className="text-slate-600 max-w-md">
-            {t('users.noAccessDescription')}
+            You don't have permission to access user management
           </p>
         </div>
       </AppLayout>
@@ -263,10 +278,10 @@ export default function EnhancedUsersPage() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">
-              {t('users.adminTitle')}
+              User Management
             </h1>
             <p className="text-slate-600">
-              {t('users.adminDescription')}
+              Manage user roles, permissions and access control
             </p>
           </div>
           
@@ -278,7 +293,7 @@ export default function EnhancedUsersPage() {
               className="flex items-center gap-2"
             >
               <Settings className="h-4 w-4" />
-              {t('users.bulkAssign')}
+              Bulk Assign
               {selectedUsers.length > 0 && (
                 <Badge variant="secondary" className="ml-1">
                   {selectedUsers.length}
@@ -290,7 +305,7 @@ export default function EnhancedUsersPage() {
               onClick={() => setIsInviteDialogOpen(true)}
             >
               <UserPlus className="h-4 w-4" />
-              {t('users.inviteUser')}
+              Invite User
             </Button>
           </div>
         </div>
@@ -302,7 +317,7 @@ export default function EnhancedUsersPage() {
               <div className="flex items-center gap-2">
                 <UsersIcon className="h-5 w-5" />
                 <span className="font-medium">
-                  {t('users.totalUsers', { count: totalUsers })}
+                  Total Users: {totalUsers}
                 </span>
               </div>
               
@@ -311,7 +326,7 @@ export default function EnhancedUsersPage() {
                 <div className="relative min-w-[300px]">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
-                    placeholder={t('users.searchPlaceholder')}
+                    placeholder="Search users..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-9"
@@ -321,10 +336,10 @@ export default function EnhancedUsersPage() {
                 {/* Filters */}
                 <Select value={selectedRole} onValueChange={setSelectedRole}>
                   <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder={t('users.filterByRole')} />
+                    <SelectValue placeholder="Filter by role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">{t('users.allRoles')}</SelectItem>
+                    <SelectItem value="all">All Roles</SelectItem>
                     {roles.map((role) => (
                       <SelectItem key={role.id} value={role.code}>
                         {getRoleDisplayName(role.code)}
@@ -335,21 +350,21 @@ export default function EnhancedUsersPage() {
                 
                 <Select value={selectedStatus} onValueChange={setSelectedStatus}>
                   <SelectTrigger className="w-[120px]">
-                    <SelectValue placeholder={t('users.filterByStatus')} />
+                    <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">{t('users.allStatuses')}</SelectItem>
-                    <SelectItem value="active">{t('users.active')}</SelectItem>
-                    <SelectItem value="disabled">{t('users.disabled')}</SelectItem>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="disabled">Disabled</SelectItem>
                   </SelectContent>
                 </Select>
                 
                 <Select value={selectedProject} onValueChange={setSelectedProject}>
                   <SelectTrigger className="w-[160px]">
-                    <SelectValue placeholder={t('users.filterByProject')} />
+                    <SelectValue placeholder="Filter by project" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">{t('users.allProjects')}</SelectItem>
+                    <SelectItem value="all">All Projects</SelectItem>
                     {projects.map((project) => (
                       <SelectItem key={project.id} value={project.id.toString()}>
                         {isRTL ? project.nameAr || project.name : project.name}
@@ -372,9 +387,9 @@ export default function EnhancedUsersPage() {
             ) : users.length === 0 ? (
               <div className="text-center py-12">
                 <UsersIcon className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                <p className="text-slate-600">{t('users.noUsersFound')}</p>
+                <p className="text-slate-600">No users found</p>
                 <p className="text-slate-500 text-sm mt-1">
-                  {searchQuery ? t('users.tryDifferentSearch') : t('users.startByInviting')}
+                  {searchQuery ? 'Try a different search term' : 'Start by inviting your first user'}
                 </p>
               </div>
             ) : (
@@ -385,10 +400,7 @@ export default function EnhancedUsersPage() {
                       <Checkbox
                         checked={isAllSelected}
                         onCheckedChange={handleSelectAll}
-                        aria-label={t('users.selectAll')}
-                        ref={(el) => {
-                          if (el) el.indeterminate = isIndeterminate;
-                        }}
+                        aria-label="Select all users"
                       />
                     </TableHead>
                     <TableHead>
@@ -405,15 +417,15 @@ export default function EnhancedUsersPage() {
                           }
                         }}
                       >
-                        {t('users.user')}
+                        User
                         {sortBy === 'name' && (
                           <ChevronDown className={cn("ml-2 h-4 w-4", sortOrder === 'desc' && "rotate-180")} />
                         )}
                       </Button>
                     </TableHead>
-                    <TableHead>{t('users.orgRoles')}</TableHead>
-                    <TableHead>{t('users.projectRoles')}</TableHead>
-                    <TableHead>{t('users.status')}</TableHead>
+                    <TableHead>Organization Roles</TableHead>
+                    <TableHead>Project Roles</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>
                       <Button 
                         variant="ghost" 
@@ -428,7 +440,7 @@ export default function EnhancedUsersPage() {
                           }
                         }}
                       >
-                        {t('users.lastActive')}
+                        Last Active
                         {sortBy === 'lastActive' && (
                           <ChevronDown className={cn("ml-2 h-4 w-4", sortOrder === 'desc' && "rotate-180")} />
                         )}
@@ -455,9 +467,9 @@ export default function EnhancedUsersPage() {
                                 ? `${user.firstName} ${user.lastName}`
                                 : user.name || user.email
                               }
-                              {user.id === currentUser?.id && (
+                              {user.id === (currentUser as any)?.id && (
                                 <Badge variant="outline" className="ml-2 text-xs">
-                                  {t('users.you')}
+                                  You
                                 </Badge>
                               )}
                             </div>
@@ -468,7 +480,7 @@ export default function EnhancedUsersPage() {
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {user.userRoles?.slice(0, 2).map((role) => (
-                            <Badge key={role.id} variant={getRoleBadgeVariant(role.code)} className="text-xs">
+                            <Badge key={role.id} variant={getRoleBadgeVariant(role.code) as any} className="text-xs">
                               {getRoleDisplayName(role.code)}
                             </Badge>
                           ))}
@@ -484,14 +496,14 @@ export default function EnhancedUsersPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(user.status || 'active')}>
-                          {user.status === 'disabled' ? t('users.disabled') : t('users.active')}
+                          {user.status === 'disabled' ? 'Disabled' : 'Active'}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="text-sm text-slate-500">
                           {user.lastActiveAt 
                             ? new Date(user.lastActiveAt).toLocaleDateString()
-                            : t('users.never')
+                            : 'Never'
                           }
                         </div>
                       </TableCell>
@@ -505,37 +517,37 @@ export default function EnhancedUsersPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => openRolesDrawer(user)}>
                               <Edit className="h-4 w-4 mr-2" />
-                              {t('users.editRoles')}
+                              Edit Roles
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               onClick={() => handleStatusToggle(user.id, user.status || 'active')}
-                              disabled={user.id === currentUser?.id && isLastAdmin && user.status === 'active'}
+                              disabled={user.id === (currentUser as any)?.id && isLastAdmin && user.status === 'active'}
                             >
                               {user.status === 'disabled' ? (
                                 <>
                                   <UserCheck className="h-4 w-4 mr-2" />
-                                  {t('users.reactivate')}
+                                  Reactivate
                                 </>
                               ) : (
                                 <>
                                   <UserX className="h-4 w-4 mr-2" />
-                                  {t('users.deactivate')}
+                                  Deactivate
                                 </>
                               )}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setAuditUser(user)}>
                               <Activity className="h-4 w-4 mr-2" />
-                              {t('users.viewAudit')}
+                              View Audit
                             </DropdownMenuItem>
                             <DropdownMenuItem>
                               <KeyRound className="h-4 w-4 mr-2" />
-                              {t('users.resetPassword')}
+                              Reset Password
                             </DropdownMenuItem>
-                            {user.id !== currentUser?.id && !isLastAdmin && (
+                            {user.id !== (currentUser as any)?.id && !isLastAdmin && (
                               <DropdownMenuItem className="text-red-600">
                                 <Trash2 className="h-4 w-4 mr-2" />
-                                {t('users.deleteUser')}
+                                Delete User
                               </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
@@ -553,11 +565,7 @@ export default function EnhancedUsersPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between">
             <div className="text-sm text-slate-600">
-              {t('users.showingResults', { 
-                start: (page - 1) * pageSize + 1,
-                end: Math.min(page * pageSize, totalUsers),
-                total: totalUsers
-              })}
+              Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, totalUsers)} of {totalUsers} results
             </div>
             <div className="flex items-center space-x-2">
               <Button
@@ -566,10 +574,10 @@ export default function EnhancedUsersPage() {
                 onClick={() => setPage(Math.max(1, page - 1))}
                 disabled={page === 1}
               >
-                {t('common.previous')}
+                Previous
               </Button>
               <span className="text-sm text-slate-600">
-                {t('users.pageOfTotal', { page, total: totalPages })}
+                Page {page} of {totalPages}
               </span>
               <Button
                 variant="outline"
@@ -577,7 +585,7 @@ export default function EnhancedUsersPage() {
                 onClick={() => setPage(Math.min(totalPages, page + 1))}
                 disabled={page === totalPages}
               >
-                {t('common.next')}
+                Next
               </Button>
             </div>
           </div>
