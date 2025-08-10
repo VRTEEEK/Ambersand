@@ -39,8 +39,13 @@ export function requirePermissions(permissionCodes: string[], requireProjectId: 
         }
       }
 
-      // Get user's effective permissions
-      const userPermissions = await getUserPermissions(req.user.id, projectId);
+      // Get user's effective permissions - extract user ID correctly for Replit Auth
+      const userId = (req.user as any)?.claims?.sub || (req.user as any)?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "Invalid user authentication" });
+      }
+      
+      const userPermissions = await getUserPermissions(userId, projectId);
 
       // Check if user has all required permissions
       const missingPermissions = permissionCodes.filter(perm => !userPermissions.includes(perm));

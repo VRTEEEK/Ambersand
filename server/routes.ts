@@ -94,7 +94,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/users', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
       const currentUser = await storage.getUser(req.user.claims.sub);
-      const { id, email, firstName, lastName, organizationId } = req.body;
+      const { id, email, firstName, lastName, organizationId, roleIds } = req.body;
       
       if (!id || !email) {
         return res.status(400).json({ message: "ID and email are required" });
@@ -105,11 +105,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email,
         firstName,
         lastName,
-        role: 'viewer', // Default role, can be changed via role assignment
+        role: 'viewer', // Default role in legacy field
         organizationId: organizationId || currentUser?.organizationId,
       });
 
-      res.status(201).json(newUser);
+      // Assign roles if provided
+      if (roleIds && Array.isArray(roleIds) && roleIds.length > 0) {
+        for (const roleId of roleIds) {
+          await storage.assignUserRole(id, roleId);
+        }
+      } else {
+        // Assign default viewer role if no roles specified
+        const allRoles = await storage.getRoles();
+        const viewerRole = allRoles.find(r => r.code === 'viewer');
+        if (viewerRole) {
+          await storage.assignUserRole(id, viewerRole.id);
+        }
+      }
+
+      // Return user with roles
+      const userWithRoles = {
+        ...newUser,
+        userRoles: await storage.getUserRoles(id)
+      };
+
+      res.status(201).json(userWithRoles);
     } catch (error) {
       console.error("Error creating user:", error);
       res.status(500).json({ message: "Failed to create user" });

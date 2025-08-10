@@ -77,6 +77,7 @@ const createUserSchema = z.object({
   email: z.string().email('Valid email is required'),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
+  roleIds: z.array(z.string()).optional(),
 });
 
 const updateNameSchema = z.object({
@@ -143,6 +144,7 @@ export default function Users() {
       email: '',
       firstName: '',
       lastName: '',
+      roleIds: [],
     },
   });
 
@@ -517,6 +519,58 @@ export default function Users() {
                     )}
                   />
                 </div>
+                <FormField
+                  control={createForm.control}
+                  name="roleIds"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel>{t('users.assignedRoles')}</FormLabel>
+                      <ScrollArea className="h-32 border rounded-md p-4">
+                        <div className="space-y-3">
+                          {roles.map((role) => (
+                            <FormField
+                              key={role.id}
+                              control={createForm.control}
+                              name="roleIds"
+                              render={({ field }) => {
+                                return (
+                                  <FormItem
+                                    key={role.id}
+                                    className="flex flex-row items-start space-x-3 space-y-0"
+                                  >
+                                    <FormControl>
+                                      <Checkbox
+                                        checked={field.value?.includes(role.id)}
+                                        onCheckedChange={(checked) => {
+                                          return checked
+                                            ? field.onChange([...(field.value || []), role.id])
+                                            : field.onChange(
+                                                field.value?.filter(
+                                                  (value) => value !== role.id
+                                                )
+                                              )
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <div className="space-y-1 leading-none">
+                                      <FormLabel className="font-medium">
+                                        {getRoleDisplayName(role.code)}
+                                      </FormLabel>
+                                      <p className="text-xs text-slate-600">
+                                        {role.code}
+                                      </p>
+                                    </div>
+                                  </FormItem>
+                                )
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </ScrollArea>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <div className="flex justify-end space-x-2">
                   <Button 
                     type="button" 
