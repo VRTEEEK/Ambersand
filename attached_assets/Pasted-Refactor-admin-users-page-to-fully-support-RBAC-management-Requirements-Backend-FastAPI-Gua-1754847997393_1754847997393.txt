@@ -1,0 +1,66 @@
+Refactor /admin/users page to fully support RBAC management.
+
+Requirements
+
+Backend (FastAPI)
+	•	Guard all endpoints with require(["change_user_permissions"]).
+	•	Implement/confirm endpoints:
+	1.	GET /admin/users?query=&role=&status=&project_id=&page=&page_size=
+Returns: id, name, email, status, org_roles, project_roles (array of {project_id, project_name, roles:[codes]}), last_active_at, and effective_permissions (optional—can be fetched lazily).
+	2.	POST /admin/users/{user_id}/org-roles { "add":[codes], "remove":[codes] }
+	3.	POST /admin/users/{user_id}/project-roles { "project_id":"...", "add":[codes], "remove":[codes] }
+	4.	POST /admin/users/{user_id}/status { "status":"active"|"disabled" }
+	5.	GET /admin/users/{user_id}/audit?page=&page_size=
+	6.	GET /admin/users/{user_id}/effective-permissions?project_id=
+-> { roles:{org:[codes], project:[codes]}, permissions:[codes] }
+	•	Return 403 if caller lacks permission. Log all mutations to audit_events.
+
+Frontend (Next.js + Tailwind + shadcn/ui)
+
+Layout
+	•	Header:
+	•	Search input (debounced), total users count.
+	•	Filters: Role (multi-select), Status (Active/Disabled), Project (select).
+	•	Buttons: Invite User, Bulk Assign Roles (disabled until rows selected).
+
+Users table/list
+	•	Columns: Avatar, Name, Email, Org Roles (chips), Project Roles (compact summary), Status (chip), Last Active, Actions (kebab).
+	•	Row actions: Edit Roles, Deactivate/Reactivate, View Audit, Reset Password.
+	•	Sorting: by Name (asc/desc) and Last Active.
+	•	Pagination (server-side) or virtualized list if >500.
+
+Edit Roles drawer
+	•	Tabs:
+	•	Organization roles: checkboxes for [Admin, User, Officer, Collaborator, Viewer].
+	•	Project roles: project picker + multi-select roles for the selected project; list existing assignments with remove buttons.
+	•	Permissions preview panel (right side) that calls /effective-permissions as selections change.
+	•	Save with optimistic updates; rollback on error; toasts on success/failure.
+
+Bulk assign dialog
+	•	Select “Add/Remove” Org roles.
+	•	Optional project + roles to Add/Remove.
+	•	Show impact summary before confirm.
+
+Audit modal
+	•	Paginated list from /audit: actor, action, details, timestamp.
+
+State
+	•	Use React Query/SWR. Invalidate affected queries after mutations.
+	•	Permission gate: fetch /me/permissions; if missing change_user_permissions, render 403.
+
+i18n & A11y
+	•	Replace placeholder keys (e.g., users.title) with real i18n entries (EN/AR).
+	•	RTL support for Arabic.
+	•	Keyboard/focus states; ARIA for drawer/dialog.
+
+Styling hints
+	•	Role chips with distinct variants:
+	•	Admin (red), User (emerald), Officer (amber), Collaborator (indigo), Viewer (slate).
+	•	Cards/buttons: rounded-2xl border shadow-sm.
+	•	Use brand accent #2699A6 for primary.
+
+Acceptance criteria
+	•	Admin can: search, filter, paginate; invite users; edit org roles; add/remove project roles; bulk assign; deactivate/reactivate; view audit; see live permissions preview.
+	•	Non‑admin visiting /admin/users gets 403.
+	•	i18n works in EN/AR with RTL flip; placeholders removed.
+	•	List reflects server status immediately (optimistic update + cache invalidation).

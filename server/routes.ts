@@ -24,6 +24,14 @@ import {
   requireUserPermissions 
 } from "./rbac-middleware";
 import { getUserPermissions } from "./rbac-seed";
+import { db } from "./storage";
+import { eq, and } from "drizzle-orm";
+import { 
+  roles, 
+  userRoles, 
+  userProjectRoles,
+  projects
+} from "@shared/schema";
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -192,6 +200,307 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user roles:", error);
       res.status(500).json({ message: "Failed to fetch user roles" });
+    }
+  });
+
+  // Enhanced RBAC endpoints for admin panel
+  app.post('/api/users/:userId/org-roles', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { add = [], remove = [] } = req.body;
+
+      // Remove specified roles
+      for (const roleCode of remove) {
+        const role = await db.select().from(roles).where(eq(roles.code, roleCode)).limit(1);
+        if (role.length > 0) {
+          await storage.removeUserRole(userId, role[0].id);
+        }
+      }
+
+      // Add specified roles
+      for (const roleCode of add) {
+        const role = await db.select().from(roles).where(eq(roles.code, roleCode)).limit(1);
+        if (role.length > 0) {
+          await storage.assignUserRole(userId, role[0].id);
+        }
+      }
+
+      res.json({ message: "Organization roles updated successfully" });
+    } catch (error) {
+      console.error("Error updating organization roles:", error);
+      res.status(500).json({ message: "Failed to update organization roles" });
+    }
+  });
+
+  app.post('/api/users/:userId/project-roles', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { project_id, add = [], remove = [] } = req.body;
+
+      if (!project_id) {
+        return res.status(400).json({ message: "Project ID is required" });
+      }
+
+      const projectId = parseInt(project_id);
+
+      // Remove specified project roles
+      for (const roleCode of remove) {
+        const role = await db.select().from(roles).where(eq(roles.code, roleCode)).limit(1);
+        if (role.length > 0) {
+          await storage.removeUserProjectRole(userId, projectId, role[0].id);
+        }
+      }
+
+      // Add specified project roles
+      for (const roleCode of add) {
+        const role = await db.select().from(roles).where(eq(roles.code, roleCode)).limit(1);
+        if (role.length > 0) {
+          await storage.assignUserProjectRole(userId, projectId, role[0].id);
+        }
+      }
+
+      res.json({ message: "Project roles updated successfully" });
+    } catch (error) {
+      console.error("Error updating project roles:", error);
+      res.status(500).json({ message: "Failed to update project roles" });
+    }
+  });
+
+  app.get('/api/users/:userId/project-roles', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Get user's project roles with project information
+      const projectRoles = await db
+        .select({
+          projectId: userProjectRoles.projectId,
+          projectName: projects.name,
+          projectNameAr: projects.nameAr,
+          roleCode: roles.code,
+          roleName: roles.name,
+        })
+        .from(userProjectRoles)
+        .leftJoin(projects, eq(userProjectRoles.projectId, projects.id))
+        .leftJoin(roles, eq(userProjectRoles.roleId, roles.id))
+        .where(eq(userProjectRoles.userId, userId));
+
+      // Group by project
+      const groupedRoles = projectRoles.reduce((acc, pr) => {
+        if (!pr.projectId || !pr.roleCode) return acc;
+        
+        const existing = acc.find(p => p.projectId === pr.projectId);
+        if (existing) {
+          existing.roles.push(pr.roleCode);
+        } else {
+          acc.push({
+            projectId: pr.projectId,
+            projectName: pr.projectName || '',
+            projectNameAr: pr.projectNameAr,
+            roles: [pr.roleCode]
+          });
+        }
+        return acc;
+      }, [] as Array<{ projectId: number; projectName: string; projectNameAr?: string; roles: string[] }>);
+
+      res.json(groupedRoles);
+    } catch (error) {
+      console.error("Error fetching user project roles:", error);
+      res.status(500).json({ message: "Failed to fetch user project roles" });
+    }
+  });
+
+  app.get('/api/users/:userId/effective-permissions', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const projectId = req.query.project_id ? parseInt(req.query.project_id as string) : undefined;
+
+      // Get user permissions
+      const permissions = await getUserPermissions(userId, projectId);
+      
+      // Get user roles (organization level)
+      const userOrgRoles = await storage.getUserRoles(userId);
+      
+      // Get project roles if projectId provided
+      let projectRoleCodes: string[] = [];
+      if (projectId) {
+        const projectRoles = await db
+          .select({ roleCode: roles.code })
+          .from(userProjectRoles)
+          .leftJoin(roles, eq(userProjectRoles.roleId, roles.id))
+          .where(and(
+            eq(userProjectRoles.userId, userId),
+            eq(userProjectRoles.projectId, projectId)
+          ));
+        
+        projectRoleCodes = projectRoles
+          .filter(pr => pr.roleCode)
+          .map(pr => pr.roleCode!);
+      }
+
+      res.json({
+        roles: {
+          org: userOrgRoles.map(r => r.code),
+          project: projectRoleCodes
+        },
+        permissions
+      });
+    } catch (error) {
+      console.error("Error fetching effective permissions:", error);
+      res.status(500).json({ message: "Failed to fetch effective permissions" });
+    }
+  });
+
+  app.post('/api/admin/users/bulk-assign', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+    try {
+      const { user_ids, org_roles, project_roles } = req.body;
+
+      if (!Array.isArray(user_ids) || user_ids.length === 0) {
+        return res.status(400).json({ message: "User IDs array is required" });
+      }
+
+      for (const userId of user_ids) {
+        // Handle organization roles
+        if (org_roles?.add) {
+          for (const roleCode of org_roles.add) {
+            const role = await db.select().from(roles).where(eq(roles.code, roleCode)).limit(1);
+            if (role.length > 0) {
+              await storage.assignUserRole(userId, role[0].id);
+            }
+          }
+        }
+        
+        if (org_roles?.remove) {
+          for (const roleCode of org_roles.remove) {
+            const role = await db.select().from(roles).where(eq(roles.code, roleCode)).limit(1);
+            if (role.length > 0) {
+              await storage.removeUserRole(userId, role[0].id);
+            }
+          }
+        }
+
+        // Handle project roles
+        if (project_roles) {
+          const projectId = parseInt(project_roles.project_id);
+          
+          if (project_roles.add) {
+            for (const roleCode of project_roles.add) {
+              const role = await db.select().from(roles).where(eq(roles.code, roleCode)).limit(1);
+              if (role.length > 0) {
+                await storage.assignUserProjectRole(userId, projectId, role[0].id);
+              }
+            }
+          }
+          
+          if (project_roles.remove) {
+            for (const roleCode of project_roles.remove) {
+              const role = await db.select().from(roles).where(eq(roles.code, roleCode)).limit(1);
+              if (role.length > 0) {
+                await storage.removeUserProjectRole(userId, projectId, role[0].id);
+              }
+            }
+          }
+        }
+      }
+
+      res.json({ message: `Bulk role assignment completed for ${user_ids.length} users` });
+    } catch (error) {
+      console.error("Error in bulk role assignment:", error);
+      res.status(500).json({ message: "Failed to complete bulk role assignment" });
+    }
+  });
+
+  // Enhanced admin users endpoint with filtering and pagination
+  app.get('/api/admin/users', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+    try {
+      const { 
+        query = '',
+        role = '',
+        status = '',
+        project_id = '',
+        page = '1',
+        page_size = '20',
+        sort_by = 'name',
+        sort_order = 'asc'
+      } = req.query;
+
+      const pageNum = parseInt(page);
+      const pageSizeNum = parseInt(page_size);
+      const offset = (pageNum - 1) * pageSizeNum;
+
+      // Get all users with their roles
+      const allUsers = await storage.getAllUsers();
+      
+      // Add user roles to each user
+      const usersWithRoles = await Promise.all(
+        allUsers.map(async (user) => {
+          const userRoles = await storage.getUserRoles(user.id);
+          return {
+            ...user,
+            userRoles,
+            status: user.role === 'disabled' ? 'disabled' : 'active', // Mock status from role field
+            lastActiveAt: user.updatedAt, // Mock last active from updatedAt
+          };
+        })
+      );
+
+      // Apply filters
+      let filteredUsers = usersWithRoles;
+
+      if (query) {
+        const searchLower = query.toLowerCase();
+        filteredUsers = filteredUsers.filter(user => 
+          user.email?.toLowerCase().includes(searchLower) ||
+          user.firstName?.toLowerCase().includes(searchLower) ||
+          user.lastName?.toLowerCase().includes(searchLower) ||
+          user.name?.toLowerCase().includes(searchLower)
+        );
+      }
+
+      if (role) {
+        filteredUsers = filteredUsers.filter(user => 
+          user.userRoles?.some(r => r.code === role)
+        );
+      }
+
+      if (status) {
+        filteredUsers = filteredUsers.filter(user => user.status === status);
+      }
+
+      // Apply sorting
+      filteredUsers.sort((a, b) => {
+        let aVal: any, bVal: any;
+        
+        if (sort_by === 'name') {
+          aVal = a.firstName && a.lastName ? `${a.firstName} ${a.lastName}` : a.name || a.email || '';
+          bVal = b.firstName && b.lastName ? `${b.firstName} ${b.lastName}` : b.name || b.email || '';
+        } else if (sort_by === 'lastActive') {
+          aVal = new Date(a.lastActiveAt || a.updatedAt).getTime();
+          bVal = new Date(b.lastActiveAt || b.updatedAt).getTime();
+        } else {
+          return 0;
+        }
+        
+        if (sort_order === 'desc') {
+          return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+        } else {
+          return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+        }
+      });
+
+      // Apply pagination
+      const total = filteredUsers.length;
+      const paginatedUsers = filteredUsers.slice(offset, offset + pageSizeNum);
+
+      res.json({
+        users: paginatedUsers,
+        total,
+        page: pageNum,
+        pageSize: pageSizeNum,
+        totalPages: Math.ceil(total / pageSizeNum),
+      });
+    } catch (error) {
+      console.error("Error fetching admin users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
     }
   });
 

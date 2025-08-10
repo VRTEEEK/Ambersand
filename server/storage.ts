@@ -289,6 +289,23 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
+  async assignUserProjectRole(userId: string, projectId: number, roleId: string): Promise<void> {
+    await db
+      .insert(userProjectRoles)
+      .values({ userId, projectId, roleId })
+      .onConflictDoNothing();
+  }
+
+  async removeUserProjectRole(userId: string, projectId: number, roleId: string): Promise<void> {
+    await db
+      .delete(userProjectRoles)
+      .where(and(
+        eq(userProjectRoles.userId, userId),
+        eq(userProjectRoles.projectId, projectId),
+        eq(userProjectRoles.roleId, roleId)
+      ));
+  }
+
   async getUserPermissions(userId: string, projectId?: number): Promise<string[]> {
     // Get user's organization-wide roles
     const orgRoles = await db
@@ -1032,4 +1049,6 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new DatabaseStorage();
+const storage = new DatabaseStorage();
+
+export { storage, db };
