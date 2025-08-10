@@ -41,9 +41,20 @@ import {
   ChevronDown,
   CheckSquare,
   Square,
-  Loader2
+  Loader2,
+  Activity,
+  KeyRound
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import ProjectRoleSummary from './ProjectRoleSummary';
+import AuditModal from './AuditModal';
+import InviteUserDialog from './InviteUserDialog';
+
+interface ProjectRole {
+  projectId: string;
+  projectName: string;
+  roles: { code: string; name?: string }[];
+}
 
 interface User {
   id: string;
@@ -57,6 +68,7 @@ interface User {
   createdAt: string;
   updatedAt: string;
   userRoles?: Role[];
+  projectRoles?: ProjectRole[];
   status?: 'active' | 'disabled';
   lastActiveAt?: string;
 }
@@ -95,12 +107,23 @@ export default function EnhancedUsersPage() {
   const [isRolesDrawerOpen, setIsRolesDrawerOpen] = useState(false);
   const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [auditUser, setAuditUser] = useState<User | null>(null);
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   
   // Debounce search
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // Check permissions
   const canManageUsers = can(PERMISSIONS.CHANGE_USER_PERMISSIONS);
+
+  // Check if current user is the last admin (guard rails)
+  const isLastAdmin = useMemo(() => {
+    if (!currentUser || !usersResponse?.users) return false;
+    const activeAdmins = usersResponse.users
+      .filter((u: User) => u.status !== 'disabled')
+      .filter((u: User) => u.userRoles?.some(r => r.code === 'admin'));
+    return activeAdmins.length === 1 && activeAdmins[0].id === currentUser.id;
+  }, [currentUser, usersResponse?.users]);
 
   // Query params for API call
   const queryParams = useMemo(() => {
@@ -138,8 +161,19 @@ export default function EnhancedUsersPage() {
     mutationFn: ({ userId, status }: { userId: string; status: 'active' | 'disabled' }) =>
       apiRequest(`/api/users/${userId}/status`, 'POST', { status }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      // Invalidate all admin users queries
+      queryClient.invalidateQueries({
+        predicate: (query) => String(query.queryKey[0]).startsWith('/api/admin/users')
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/me/permissions'] });
       toast({ title: t('users.statusUpdated') });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: 'destructive',
+        title: t('users.statusUpdateError'),
+        description: error.message || t('users.statusUpdateErrorDescription'),
+      });
     },
   });
 
@@ -251,7 +285,10 @@ export default function EnhancedUsersPage() {
                 </Badge>
               )}
             </Button>
-            <Button className="flex items-center gap-2">
+            <Button 
+              className="flex items-center gap-2"
+              onClick={() => setIsInviteDialogOpen(true)}
+            >
               <UserPlus className="h-4 w-4" />
               {t('users.inviteUser')}
             </Button>
@@ -432,7 +469,7 @@ export default function EnhancedUsersPage() {
                         <div className="flex flex-wrap gap-1">
                           {user.userRoles?.slice(0, 2).map((role) => (
                             <Badge key={role.id} variant={getRoleBadgeVariant(role.code)} className="text-xs">
-                              {role.code}
+                              {getRoleDisplayName(role.code)}
                             </Badge>
                           ))}
                           {user.userRoles && user.userRoles.length > 2 && (
@@ -443,10 +480,7 @@ export default function EnhancedUsersPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="text-sm text-slate-500">
-                          {/* TODO: Show project role count */}
-                          {t('users.viewDetails')}
-                        </div>
+                        <ProjectRoleSummary roles={user.projectRoles || []} />
                       </TableCell>
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(user.status || 'active')}>
@@ -475,6 +509,7 @@ export default function EnhancedUsersPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               onClick={() => handleStatusToggle(user.id, user.status || 'active')}
+                              disabled={user.id === currentUser?.id && isLastAdmin && user.status === 'active'}
                             >
                               {user.status === 'disabled' ? (
                                 <>
@@ -489,11 +524,15 @@ export default function EnhancedUsersPage() {
                               )}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem>
-                              <Eye className="h-4 w-4 mr-2" />
+                            <DropdownMenuItem onClick={() => setAuditUser(user)}>
+                              <Activity className="h-4 w-4 mr-2" />
                               {t('users.viewAudit')}
                             </DropdownMenuItem>
-                            {user.id !== currentUser?.id && (
+                            <DropdownMenuItem>
+                              <KeyRound className="h-4 w-4 mr-2" />
+                              {t('users.resetPassword')}
+                            </DropdownMenuItem>
+                            {user.id !== currentUser?.id && !isLastAdmin && (
                               <DropdownMenuItem className="text-red-600">
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 {t('users.deleteUser')}
@@ -563,6 +602,22 @@ export default function EnhancedUsersPage() {
           setIsBulkAssignOpen(false);
           setSelectedUsers([]);
         }}
+      />
+
+      {/* Audit Modal */}
+      {auditUser && (
+        <AuditModal 
+          userId={auditUser.id}
+          userName={auditUser.name || auditUser.email || ''}
+          open={!!auditUser}
+          onClose={() => setAuditUser(null)}
+        />
+      )}
+
+      {/* Invite User Dialog */}
+      <InviteUserDialog
+        isOpen={isInviteDialogOpen}
+        onClose={() => setIsInviteDialogOpen(false)}
       />
     </AppLayout>
   );

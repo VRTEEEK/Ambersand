@@ -1,0 +1,182 @@
+Nice progress—this is 80% of a proper RBAC manager. You’ve got search/filters, paging, bulk‑assign entry point, status toggle, and the roles drawer hook. What’s left is mostly wiring + visibility:
+
+What’s missing / to tighten up
+	•	Project‑scoped roles in the table. The “users.viewDetails” placeholder needs a compact summary per user (e.g., ECC Sand 2: Viewer • Project Sand One: User) with a popover to see all.
+	•	Effective permissions preview. From “Edit Roles”, show the merged permissions (org + project) and update live as selections change.
+	•	Audit modal. From the row menu → “View Audit” (paginated).
+	•	Invite user action wiring.
+	•	Bulk assign dialog wiring (apply add/remove org roles + optional project roles, then invalidate the users list).
+	•	Guard rails: prevent removing your last admin; disable “Delete” or “Deactivate” self if last admin.
+	•	Type alignment: your list handler expects usersResponse.users, but many APIs return {items:[], total:n}—be consistent with your backend.
+	•	Minor UX: role chips show role.code—swap to i18n display names; add overflow popover if >2 org roles; use RTL flip for filters row in Arabic.
+
+⸻
+
+Want a tight, copy‑paste Replit prompt plus minimal code you can drop in? Here you go.
+
+⸻
+
+Prompt to Replit (single message)
+
+Enhance /admin/users to fully reflect RBAC:
+
+Backend (FastAPI)
+	1.	Ensure list endpoint returns project roles:
+
+GET /admin/users?query=&role=&status=&project_id=&page=&page_size=&sort_by=&sort_order=
+-> {
+  "users":[
+    {
+      "id":"...", "name":"...", "email":"...", "status":"active","lastActiveAt":"...",
+      "userRoles":[{"id":"r1","code":"admin","name":"Admin"}],
+      "projectRoles":[
+        {"projectId":"p1","projectName":"ECC Sand 2","roles":[{"code":"viewer"}]},
+        {"projectId":"p2","projectName":"Project Sand One","roles":[{"code":"user"}]}
+      ]
+    }
+  ],
+  "total": 42
+}
+
+	2.	Implement:
+
+	•	GET /admin/users/{id}/effective-permissions?project_id= → { roles:{org:[codes], project:[codes]}, permissions:[codes] }
+	•	GET /admin/users/{id}/audit?page=&page_size=
+	•	POST /admin/users/invite { email, name, org_roles:[], project_roles:[{project_id, roles:[]}] }
+	•	Existing POSTs for org/project role assign and status toggle stay the same.
+
+	3.	Guard all with require(["change_user_permissions"]) and write to audit_events.
+
+Frontend (Next.js + Tailwind + shadcn/ui)
+
+Add components and wire:
+	•	ProjectRoleSummary.tsx (chips + popover for overflow)
+	•	PermissionsPreview.tsx (calls /effective-permissions, shows badges)
+	•	AuditModal.tsx (paginated list)
+	•	Wire Invite User dialog to POST /admin/users/invite
+	•	Finish BulkAssignDialog: apply org + project role diffs
+
+Table row:
+	•	Replace “users.viewDetails” with ProjectRoleSummary using user.projectRoles.
+	•	Row menu items:
+	•	Edit Roles (opens existing drawer)
+	•	Deactivate/Reactivate (already wired)
+	•	View Audit (open AuditModal)
+	•	Reset Password (hide if endpoint not available)
+	•	Delete only if not self and not last admin
+
+Roles drawer:
+	•	Right‑side PermissionsPreview panel that updates when checkboxes change.
+	•	Prevent saving changes that would remove the last admin (ask backend for is_last_admin or compute from list).
+
+i18n/RTL:
+	•	Replace role codes with t('roles.*') everywhere.
+	•	Ensure filters row stacks nicely in RTL.
+
+Cache:
+	•	After invite / role changes / bulk assign / status toggle, invalidate /api/admin/users?*.
+
+⸻
+
+Minimal code you can drop in
+
+1) Types for project roles (top of your file)
+
+interface ProjectRole {
+  projectId: string;
+  projectName: string;
+  roles: { code: string; name?: string }[];
+}
+declare module './types' {
+  interface User { projectRoles?: ProjectRole[] }
+}
+
+2) ProjectRoleSummary component
+
+function ProjectRoleSummary({ roles = [] as ProjectRole[] }) {
+  if (!roles || roles.length === 0) return <span className="text-slate-400 text-sm">—</span>;
+  const firstTwo = roles.slice(0, 2);
+  const rest = roles.slice(2);
+
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {firstTwo.map((pr) => (
+        <span key={pr.projectId} className="text-xs bg-slate-100 text-slate-700 rounded-full px-2 py-1">
+          {pr.projectName}: {pr.roles.map(r => r.code).join(', ')}
+        </span>
+      ))}
+      {rest.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Badge variant="outline" className="text-xs cursor-pointer">+{rest.length}</Badge>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64">
+            {rest.map((pr) => (
+              <div key={pr.projectId} className="px-2 py-1.5 text-xs">
+                <div className="font-medium">{pr.projectName}</div>
+                <div className="text-slate-600">{pr.roles.map(r => r.code).join(', ')}</div>
+              </div>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
+  );
+}
+
+Then in your Project Roles cell:
+
+<TableCell>
+  <ProjectRoleSummary roles={user.projectRoles || []} />
+</TableCell>
+
+3) Wire “View Audit” and “Permissions preview”
+
+Add state:
+
+const [auditUser, setAuditUser] = useState<User|null>(null);
+
+Row menu item:
+
+<DropdownMenuItem onClick={() => setAuditUser(user)}>
+  <Eye className="h-4 w-4 mr-2" /> {t('users.viewAudit')}
+</DropdownMenuItem>
+
+Modal (bottom of file, before closing AppLayout):
+
+{auditUser && (
+  <AuditModal 
+    userId={auditUser.id}
+    userName={auditUser.name || auditUser.email || ''}
+    open={!!auditUser}
+    onClose={() => setAuditUser(null)}
+  />
+)}
+
+Inside UserRolesDrawer, render PermissionsPreview on the right and pass the staged selections; it should call:
+
+GET /admin/users/{id}/effective-permissions?project_id=<selectedProjectId>
+
+and list the merged permissions as tiny badges.
+
+4) Role chip labels (replace code with i18n)
+
+In your role badge map:
+
+<Badge key={role.id} variant={getRoleBadgeVariant(role.code)} className="text-xs">
+  {getRoleDisplayName(role.code)}
+</Badge>
+
+5) “Last admin” guard (frontend quick check)
+
+Before allowing destructive actions on currentUser, check:
+
+const isLastAdmin = (usersResponse?.users || [])
+  .filter((u: User) => u.status !== 'disabled')
+  .filter((u: User) => u.userRoles?.some(r => r.code === 'admin')).length === 1;
+
+Then disable Deactivate/Delete on self if isLastAdmin.
+
+⸻
+
+If you want, send me UserRolesDrawer.tsx and BulkAssignDialog.tsx, and I’ll add the exact calls and the live permissions preview logic so it’s plug‑and‑play.

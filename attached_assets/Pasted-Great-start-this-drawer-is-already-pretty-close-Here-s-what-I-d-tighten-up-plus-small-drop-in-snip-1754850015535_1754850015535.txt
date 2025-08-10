@@ -1,0 +1,131 @@
+Great start—this drawer is already pretty close. Here’s what I’d tighten up, plus small drop‑in snippets.
+
+High‑impact fixes
+	1.	Close behavior (controlled Sheet)
+	•	onOpenChange={() => onClose()} fires even when opening. Use the boolean and reset local state when closing.
+
+function reset() {
+  setSelectedProjectId('');
+  setOrgRoles(user?.userRoles?.map(r => r.code) || []);
+  setProjectRoles({});
+  setPreviewProjectId('');
+}
+
+<Sheet open={isOpen} onOpenChange={(open) => {
+  if (!open) { reset(); onClose(); }
+}}>
+
+
+	2.	Prevent removing the last Admin (guard rails)
+	•	Disable the admin checkbox if this user is the only active admin.
+
+// Pass this in as a prop or compute via a query:
+const { data: isLastAdmin } = useQuery({
+  queryKey: ['/api/admin/users/guards', user?.id],
+  enabled: !!user?.id,
+});
+
+const disabledAdminRemoval =
+  isLastAdmin && user?.userRoles?.some(r => r.code === 'admin');
+
+// In the org role checkbox:
+<Checkbox
+  checked={orgRoles.includes(role.code)}
+  onCheckedChange={(checked) => handleOrgRoleChange(role.code, !!checked)}
+  disabled={role.code === 'admin' && !orgRoles.includes('admin') ? false : (role.code === 'admin' && disabledAdminRemoval)}
+/>
+{role.code === 'admin' && disabledAdminRemoval && (
+  <p className="text-xs text-amber-600 mt-1">
+    {t('users.cannotRemoveLastAdmin')}
+  </p>
+)}
+
+
+	3.	Invalidate the right queries
+	•	Your list page uses keys like ['/api/admin/users', queryString]. Invalidate with a predicate so you don’t miss variants.
+
+const invalidateUsersList = () =>
+  queryClient.invalidateQueries({
+    predicate: (q) => String(q.queryKey[0]).startsWith('/api/admin/users')
+  });
+
+// then in onSuccess of both mutations:
+onSuccess: () => {
+  invalidateUsersList();
+  queryClient.invalidateQueries({ queryKey: ['/api/users', user?.id, 'project-roles'] });
+  queryClient.invalidateQueries({ queryKey: ['/api/me/permissions'] });
+  toast({ title: t('users.rolesUpdated'), description: ... });
+}
+
+
+	4.	Keep state in sync when switching users
+	•	Your effect initializes from user.userRoles and userProjectRoles, but doesn’t reset when drawer opens for a different user fast. Add isOpen as a dependency and clear first.
+
+useEffect(() => {
+  if (!isOpen) return;
+  setOrgRoles(user?.userRoles?.map(r => r.code) || []);
+  const map: Record<string,string[]> = {};
+  (userProjectRoles || []).forEach(pr => { map[String(pr.projectId)] = pr.roles; });
+  setProjectRoles(map);
+  setPreviewProjectId('org');
+  setSelectedProjectId('');
+}, [user?.id, userProjectRoles, isOpen]);
+
+
+	5.	Permissions preview = live view of staged changes
+	•	Right now it shows server state only. Add a preview endpoint (or param) that accepts proposed diffs so the panel reflects your current selections.
+	•	Backend (FastAPI, new route):
+
+POST /api/users/{id}/effective-permissions/preview
+Body: { org_roles: ["user","viewer"], project_id: "p1" | null, project_roles: ["viewer"] }
+-> { roles: {org:[], project:[]}, permissions: [...] }
+
+
+	•	Frontend: switch your query to a mutation you call after any checkbox change with a 250ms debounce.
+
+const previewMutation = useMutation({
+  mutationFn: (body: any) => apiRequest(`/api/users/${user?.id}/effective-permissions/preview`, 'POST', body)
+});
+
+useEffect(() => {
+  if (!user || !previewProjectId) return;
+  const body = {
+    org_roles: orgRoles,
+    project_id: previewProjectId === 'org' ? null : previewProjectId,
+    project_roles: previewProjectId === 'org' ? [] : (projectRoles[previewProjectId] || [])
+  };
+  const id = setTimeout(() => previewMutation.mutate(body), 250);
+  return () => clearTimeout(id);
+}, [orgRoles, projectRoles, previewProjectId, user?.id]);
+
+	•	Then render previewMutation.data in the Permissions tab (fallback to your GET if you don’t add the preview API yet).
+
+	6.	UX polish
+	•	Default project for the Projects tab: auto‑select the first project this user has roles in.
+
+useEffect(() => {
+  if (!selectedProjectId && userProjectRoles?.length) {
+    setSelectedProjectId(String(userProjectRoles[0].projectId));
+  }
+}, [userProjectRoles, selectedProjectId]);
+
+	•	Role labels: in badges inside the Permissions tab, swap role with getRoleDisplayName(role) for i18n.
+	•	RTL spacing: you’re using space-x-* in a few places; add rtl:space-x-reverse to keep spacing correct in Arabic.
+	•	Action feedback: disable save buttons if nothing changed.
+
+const orgChanged = JSON.stringify((user.userRoles||[]).map(r=>r.code).sort()) !== JSON.stringify([...orgRoles].sort());
+<Button disabled={!orgChanged || updateOrgRolesMutation.isPending}>...</Button>
+
+
+
+Minor correctness
+	•	Types: UserProjectRole.projectId is number but you key projectRoles by string—standardize to string.
+	•	Sheet close: onOpenChange={() => onClose()} will also fire on open; fixed above.
+	•	Error surfacing: apiRequest errors might not have .message; show generic text via i18n if missing.
+
+Optional extras (nice to have)
+	•	Add “Remove all roles” quick link per selected project (sets projectRoles[pid]=[]).
+	•	Show a diff summary above the Save button: “Adding: Viewer. Removing: User”.
+	•	In the “Current Project Roles” list, add a small Edit button to jump‑select that project into the editor.
+
+If you want, send the BulkAssignDialog.tsx and I’ll wire the same diff logic + guard against removing the last admin across multiple users.
