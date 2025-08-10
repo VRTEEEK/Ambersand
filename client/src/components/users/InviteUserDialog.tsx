@@ -67,9 +67,10 @@ type InviteUserForm = z.infer<typeof inviteUserSchema>;
 interface InviteUserDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function InviteUserDialog({ isOpen, onClose }: InviteUserDialogProps) {
+export default function InviteUserDialog({ isOpen, onClose, onSuccess }: InviteUserDialogProps) {
   const { t, isRTL } = useI18n();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -103,6 +104,7 @@ export default function InviteUserDialog({ isOpen, onClose }: InviteUserDialogPr
       queryClient.invalidateQueries({
         predicate: (query) => String(query.queryKey[0]).startsWith('/api/admin/users')
       });
+      onSuccess?.();
       toast({
         title: t('users.inviteSuccess'),
         description: t('users.inviteSuccessDescription'),

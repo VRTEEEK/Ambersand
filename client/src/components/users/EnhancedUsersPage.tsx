@@ -64,6 +64,7 @@ import { cn } from '@/lib/utils';
 import ProjectRoleSummary from './ProjectRoleSummary';
 import AuditModal from './AuditModal';
 import InviteUserDialog from './InviteUserDialog';
+import PermissionsPreviewModal from './PermissionsPreviewModal';
 
 interface ProjectRole {
   projectId: string;
@@ -123,6 +124,7 @@ export default function EnhancedUsersPage() {
   const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [auditUser, setAuditUser] = useState<User | null>(null);
+  const [permissionsUser, setPermissionsUser] = useState<User | null>(null);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   
   // Debounce search
@@ -171,6 +173,15 @@ export default function EnhancedUsersPage() {
     return activeAdmins.length === 1 && activeAdmins[0].id === (currentUser as any).id;
   }, [currentUser, usersResponse]);
 
+  // Helper function to invalidate all user-related queries
+  const invalidateUsersLists = useCallback(() => {
+    queryClient.invalidateQueries({ 
+      predicate: (query) => 
+        typeof query.queryKey[0] === 'string' && 
+        query.queryKey[0].startsWith('/api/admin/users')
+    });
+  }, [queryClient]);
+
   // Mutations
   const updateUserStatusMutation = useMutation({
     mutationFn: ({ userId, status }: { userId: string; status: 'active' | 'disabled' }) =>
@@ -216,6 +227,10 @@ export default function EnhancedUsersPage() {
 
   const openBulkAssign = () => {
     setIsBulkAssignOpen(true);
+  };
+
+  const openPermissionsPreview = (user: User) => {
+    setPermissionsUser(user);
   };
 
   const handleStatusToggle = (userId: string, currentStatus: string) => {
@@ -425,6 +440,7 @@ export default function EnhancedUsersPage() {
                     </TableHead>
                     <TableHead>Organization Roles</TableHead>
                     <TableHead>Project Roles</TableHead>
+                    <TableHead>Permissions</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>
                       <Button 
@@ -478,7 +494,7 @@ export default function EnhancedUsersPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1 rtl:space-x-reverse">
                           {user.userRoles?.slice(0, 2).map((role) => (
                             <Badge key={role.id} variant={getRoleBadgeVariant(role.code) as any} className="text-xs">
                               {getRoleDisplayName(role.code)}
@@ -493,6 +509,16 @@ export default function EnhancedUsersPage() {
                       </TableCell>
                       <TableCell>
                         <ProjectRoleSummary roles={user.projectRoles || []} />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openPermissionsPreview(user)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Shield className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(user.status || 'active')}>
@@ -600,6 +626,7 @@ export default function EnhancedUsersPage() {
           setIsRolesDrawerOpen(false);
           setSelectedUser(null);
         }}
+        onSuccess={invalidateUsersLists}
       />
 
       {/* Bulk Assign Dialog */}
@@ -610,6 +637,7 @@ export default function EnhancedUsersPage() {
           setIsBulkAssignOpen(false);
           setSelectedUsers([]);
         }}
+        onSuccess={invalidateUsersLists}
       />
 
       {/* Audit Modal */}
@@ -622,10 +650,18 @@ export default function EnhancedUsersPage() {
         />
       )}
 
+      {/* Permissions Preview Modal */}
+      <PermissionsPreviewModal
+        user={permissionsUser}
+        isOpen={!!permissionsUser}
+        onClose={() => setPermissionsUser(null)}
+      />
+
       {/* Invite User Dialog */}
       <InviteUserDialog
         isOpen={isInviteDialogOpen}
         onClose={() => setIsInviteDialogOpen(false)}
+        onSuccess={invalidateUsersLists}
       />
     </AppLayout>
   );

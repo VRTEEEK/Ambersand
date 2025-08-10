@@ -56,9 +56,10 @@ interface BulkAssignDialogProps {
   selectedUserIds: string[];
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function BulkAssignDialog({ selectedUserIds, isOpen, onClose }: BulkAssignDialogProps) {
+export default function BulkAssignDialog({ selectedUserIds, isOpen, onClose, onSuccess }: BulkAssignDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -111,6 +112,7 @@ export default function BulkAssignDialog({ selectedUserIds, isOpen, onClose }: B
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
       queryClient.invalidateQueries({ queryKey: ['/api/me/permissions'] });
+      onSuccess?.();
       toast({ 
         title: 'Bulk Assignment Complete',
         description: `Successfully ${operation === 'add' ? 'assigned' : 'removed'} permissions for ${selectedUserIds.length} users`

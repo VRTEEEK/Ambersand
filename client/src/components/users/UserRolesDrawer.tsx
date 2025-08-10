@@ -65,9 +65,10 @@ interface UserRolesDrawerProps {
   user: User | null;
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function UserRolesDrawer({ user, isOpen, onClose }: UserRolesDrawerProps) {
+export default function UserRolesDrawer({ user, isOpen, onClose, onSuccess }: UserRolesDrawerProps) {
   const { t, isRTL } = useI18n();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -124,16 +125,18 @@ export default function UserRolesDrawer({ user, isOpen, onClose }: UserRolesDraw
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
       queryClient.invalidateQueries({ queryKey: ['/api/me/permissions'] });
+      onSuccess?.();
+      setHasChanges(false);
       toast({ 
-        title: t('users.rolesUpdated'), 
-        description: t('users.orgRolesUpdatedSuccess') 
+        title: 'Roles Updated', 
+        description: 'Organization roles have been updated successfully' 
       });
     },
     onError: (error: any) => {
       toast({
         variant: 'destructive',
-        title: t('users.roleUpdateError'),
-        description: error.message || t('users.orgRolesUpdateError'),
+        title: 'Role Update Error',
+        description: error.message || 'Failed to update organization roles',
       });
     },
   });
@@ -145,16 +148,18 @@ export default function UserRolesDrawer({ user, isOpen, onClose }: UserRolesDraw
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
       queryClient.invalidateQueries({ queryKey: ['/api/users', user?.id, 'project-roles'] });
       queryClient.invalidateQueries({ queryKey: ['/api/me/permissions'] });
+      onSuccess?.();
+      setHasChanges(false);
       toast({ 
-        title: t('users.rolesUpdated'), 
-        description: t('users.projectRolesUpdatedSuccess') 
+        title: 'Roles Updated', 
+        description: 'Project roles have been updated successfully' 
       });
     },
     onError: (error: any) => {
       toast({
         variant: 'destructive',
-        title: t('users.roleUpdateError'),
-        description: error.message || t('users.projectRolesUpdateError'),
+        title: 'Role Update Error',
+        description: error.message || 'Failed to update project roles',
       });
     },
   });
@@ -211,11 +216,11 @@ export default function UserRolesDrawer({ user, isOpen, onClose }: UserRolesDraw
 
   const getRoleDisplayName = (roleCode: string) => {
     const roleNames = {
-      'admin': t('roles.admin'),
-      'user': t('roles.user'),
-      'officer': t('roles.officer'), 
-      'collaborator': t('roles.collaborator'),
-      'viewer': t('roles.viewer')
+      'admin': 'Administrator',
+      'user': 'User',
+      'officer': 'Compliance Officer', 
+      'collaborator': 'Collaborator',
+      'viewer': 'Viewer'
     };
     return roleNames[roleCode as keyof typeof roleNames] || roleCode;
   };
@@ -228,12 +233,10 @@ export default function UserRolesDrawer({ user, isOpen, onClose }: UserRolesDraw
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5" />
-            {t('users.editRoles')}
+            Edit User Roles
           </SheetTitle>
           <SheetDescription>
-            {t('users.editRolesDescription', { 
-              name: user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email 
-            })}
+            Manage roles and permissions for {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email}
           </SheetDescription>
         </SheetHeader>
 
@@ -242,24 +245,24 @@ export default function UserRolesDrawer({ user, isOpen, onClose }: UserRolesDraw
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="organization" className="flex items-center gap-2">
                 <Building className="h-4 w-4" />
-                {t('users.orgRoles')}
+                Organization Roles
               </TabsTrigger>
               <TabsTrigger value="projects" className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
-                {t('users.projectRoles')}
+                Project Roles
               </TabsTrigger>
               <TabsTrigger value="permissions" className="flex items-center gap-2">
                 <Eye className="h-4 w-4" />
-                {t('users.permissions')}
+                Permissions
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="organization" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>{t('users.organizationRoles')}</CardTitle>
+                  <CardTitle>Organization Roles</CardTitle>
                   <CardDescription>
-                    {t('users.orgRolesDescription')}
+                    System-wide roles that apply across the entire organization
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -273,12 +276,17 @@ export default function UserRolesDrawer({ user, isOpen, onClose }: UserRolesDraw
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{getRoleDisplayName(role.code)}</span>
-                            <Badge variant={getRoleBadgeVariant(role.code)}>
+                            <Badge variant={getRoleBadgeVariant(role.code) as any}>
                               {role.code}
                             </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            {t(`roles.${role.code}Description`)}
+                            {role.code === 'admin' ? 'Full system access and user management' : 
+                             role.code === 'user' ? 'Basic user access to assigned projects' :
+                             role.code === 'officer' ? 'Compliance monitoring and oversight' :
+                             role.code === 'collaborator' ? 'Project collaboration and task management' :
+                             role.code === 'viewer' ? 'Read-only access to compliance data' :
+                             `${role.code} role`}
                           </p>
                         </div>
                       </div>
@@ -292,7 +300,7 @@ export default function UserRolesDrawer({ user, isOpen, onClose }: UserRolesDraw
                     {updateOrgRolesMutation.isPending && (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     )}
-                    {t('users.saveOrgRoles')}
+                    Save Organization Roles
                   </Button>
                 </CardContent>
               </Card>
@@ -301,15 +309,15 @@ export default function UserRolesDrawer({ user, isOpen, onClose }: UserRolesDraw
             <TabsContent value="projects" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>{t('users.projectRoles')}</CardTitle>
+                  <CardTitle>Project Roles</CardTitle>
                   <CardDescription>
-                    {t('users.projectRolesDescription')}
+                    Roles specific to individual projects
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
                     <SelectTrigger>
-                      <SelectValue placeholder={t('users.selectProject')} />
+                      <SelectValue placeholder="Select a project" />
                     </SelectTrigger>
                     <SelectContent>
                       {projects.map((project) => (
@@ -332,7 +340,7 @@ export default function UserRolesDrawer({ user, isOpen, onClose }: UserRolesDraw
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
                                 <span className="font-medium">{getRoleDisplayName(role.code)}</span>
-                                <Badge variant={getRoleBadgeVariant(role.code)}>
+                                <Badge variant={getRoleBadgeVariant(role.code) as any}>
                                   {role.code}
                                 </Badge>
                               </div>
@@ -348,7 +356,7 @@ export default function UserRolesDrawer({ user, isOpen, onClose }: UserRolesDraw
                         {updateProjectRolesMutation.isPending && (
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         )}
-                        {t('users.saveProjectRoles')}
+                        Save Project Roles
                       </Button>
                     </div>
                   )}
@@ -357,7 +365,7 @@ export default function UserRolesDrawer({ user, isOpen, onClose }: UserRolesDraw
                   {userProjectRoles.length > 0 && (
                     <div className="space-y-2">
                       <Separator />
-                      <h4 className="font-medium">{t('users.currentProjectRoles')}</h4>
+                      <h4 className="font-medium">Current Project Roles</h4>
                       <ScrollArea className="h-32">
                         <div className="space-y-2">
                           {userProjectRoles.map((pr) => (
@@ -365,7 +373,7 @@ export default function UserRolesDrawer({ user, isOpen, onClose }: UserRolesDraw
                               <span className="text-sm font-medium">{pr.projectName}</span>
                               <div className="flex gap-1">
                                 {pr.roles.map((roleCode) => (
-                                  <Badge key={roleCode} variant={getRoleBadgeVariant(roleCode)} className="text-xs">
+                                  <Badge key={roleCode} variant={getRoleBadgeVariant(roleCode) as any} className="text-xs">
                                     {roleCode}
                                   </Badge>
                                 ))}
@@ -383,18 +391,18 @@ export default function UserRolesDrawer({ user, isOpen, onClose }: UserRolesDraw
             <TabsContent value="permissions" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>{t('users.effectivePermissions')}</CardTitle>
+                  <CardTitle>Effective Permissions</CardTitle>
                   <CardDescription>
-                    {t('users.effectivePermissionsDescription')}
+                    View all permissions granted through assigned roles
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <Select value={previewProjectId} onValueChange={setPreviewProjectId}>
                     <SelectTrigger>
-                      <SelectValue placeholder={t('users.selectProjectPreview')} />
+                      <SelectValue placeholder="Select project context" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="org">{t('users.organizationLevel')}</SelectItem>
+                      <SelectItem value="org">Organization Level</SelectItem>
                       {projects.map((project) => (
                         <SelectItem key={project.id} value={project.id.toString()}>
                           {isRTL ? project.nameAr || project.name : project.name}
@@ -410,13 +418,13 @@ export default function UserRolesDrawer({ user, isOpen, onClose }: UserRolesDraw
                   ) : effectivePermissions ? (
                     <div className="space-y-4">
                       <div>
-                        <h5 className="font-medium mb-2">{t('users.roles')}</h5>
+                        <h5 className="font-medium mb-2">Roles</h5>
                         <div className="space-y-2">
                           <div>
-                            <span className="text-sm text-muted-foreground">{t('users.orgRoles')}:</span>
+                            <span className="text-sm text-muted-foreground">Organization Roles:</span>
                             <div className="flex flex-wrap gap-1 mt-1">
                               {effectivePermissions.roles.org.map((role) => (
-                                <Badge key={role} variant={getRoleBadgeVariant(role)}>
+                                <Badge key={role} variant={getRoleBadgeVariant(role) as any}>
                                   {role}
                                 </Badge>
                               ))}
@@ -424,10 +432,10 @@ export default function UserRolesDrawer({ user, isOpen, onClose }: UserRolesDraw
                           </div>
                           {effectivePermissions.roles.project.length > 0 && (
                             <div>
-                              <span className="text-sm text-muted-foreground">{t('users.projectRoles')}:</span>
+                              <span className="text-sm text-muted-foreground">Project Roles:</span>
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {effectivePermissions.roles.project.map((role) => (
-                                  <Badge key={role} variant={getRoleBadgeVariant(role)}>
+                                  <Badge key={role} variant={getRoleBadgeVariant(role) as any}>
                                     {role}
                                   </Badge>
                                 ))}
@@ -440,12 +448,12 @@ export default function UserRolesDrawer({ user, isOpen, onClose }: UserRolesDraw
                       <Separator />
                       
                       <div>
-                        <h5 className="font-medium mb-2">{t('users.permissions')}</h5>
+                        <h5 className="font-medium mb-2">Permissions</h5>
                         <ScrollArea className="h-48">
                           <div className="grid gap-1">
                             {effectivePermissions.permissions.map((permission) => (
                               <div key={permission} className="text-sm p-2 bg-muted rounded">
-                                {t(`permissions.${permission}`, permission)}
+                                {permission.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                               </div>
                             ))}
                           </div>
@@ -454,7 +462,7 @@ export default function UserRolesDrawer({ user, isOpen, onClose }: UserRolesDraw
                     </div>
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
-                      {t('users.selectProjectToPreview')}
+                      Select a project to preview permissions
                     </div>
                   )}
                 </CardContent>

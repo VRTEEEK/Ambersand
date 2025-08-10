@@ -251,6 +251,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/users/:userId/effective-permissions', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const projectId = req.query.project_id ? parseInt(req.query.project_id) : undefined;
+      
+      // Get user info
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Get organization roles
+      const orgRoles = await storage.getUserRoles(userId);
+      
+      // Get project roles if project context is specified
+      let projectRoles: any[] = [];
+      let projectContext = null;
+      if (projectId) {
+        projectRoles = await storage.getUserProjectRoles(userId);
+        const projectData = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
+        if (projectData.length > 0) {
+          projectContext = {
+            id: projectData[0].id,
+            name: projectData[0].name
+          };
+        }
+      }
+
+      // Get effective permissions
+      const permissions = await getUserPermissions(userId, projectId);
+      const allPermissions = await storage.getPermissions();
+
+      // Format permissions with descriptions
+      const formattedPermissions = permissions.map(permCode => {
+        const permDetail = allPermissions.find(p => p.code === permCode);
+        return {
+          code: permCode,
+          description: permDetail?.description || permCode.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          source: projectId ? 'project' : 'organization'
+        };
+      });
+
+      res.json({
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          name: user.name
+        },
+        organization_roles: orgRoles,
+        project_roles: projectRoles.filter(pr => !projectId || pr.project_id === projectId),
+        permissions: formattedPermissions,
+        project_context: projectContext
+      });
+    } catch (error) {
+      console.error("Error fetching user effective permissions:", error);
+      res.status(500).json({ message: "Failed to fetch effective permissions" });
+    }
+  });
+
   app.get('/api/users/:userId/roles', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
       const { userId } = req.params;
