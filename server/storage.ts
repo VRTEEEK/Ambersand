@@ -14,6 +14,11 @@ import {
   evidenceComments,
   evidenceControls,
   evidenceTasks,
+  roles,
+  permissions,
+  rolePermissions,
+  userRoles,
+  userProjectRoles,
   type User,
   type UpsertUser,
   type Project,
@@ -43,6 +48,16 @@ import {
   type InsertEvidenceControl,
   type EvidenceTask,
   type InsertEvidenceTask,
+  type Role,
+  type InsertRole,
+  type Permission,
+  type InsertPermission,
+  type RolePermission,
+  type InsertRolePermission,
+  type UserRole,
+  type InsertUserRole,
+  type UserProjectRole,
+  type InsertUserProjectRole,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, like, or, sql, count, inArray } from "drizzle-orm";

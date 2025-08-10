@@ -40,6 +40,14 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Initialize RBAC system on startup
+  try {
+    const { seedRBAC } = await import("./rbac-seed");
+    await seedRBAC();
+  } catch (error) {
+    console.error("Failed to seed RBAC:", error);
+  }
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

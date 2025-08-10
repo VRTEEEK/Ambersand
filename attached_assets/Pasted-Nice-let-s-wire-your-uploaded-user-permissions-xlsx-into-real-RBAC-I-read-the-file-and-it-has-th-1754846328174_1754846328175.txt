@@ -1,0 +1,189 @@
+Nice—let’s wire your uploaded “user permissions.xlsx” into real RBAC.
+
+I read the file and it has these columns/roles: Admin, User, Officer, Collaborator, Viewer with permissions like “View Regulations”, “Create Projects from Regulations”, etc. I’ll give you a single copy‑paste Replit prompt that:
+	•	creates RBAC tables and seeds them from the sheet,
+	•	exposes /me/permissions for the frontend,
+	•	guards FastAPI endpoints with a require("perm") decorator,
+	•	gates React UI (show/disable) based on effective permissions,
+	•	supports optional project‑scoped roles.
+
+⸻
+
+Prompt to Replit (single message)
+
+Implement Role‑Based Access Control (RBAC) using the attached Excel mapping (roles: Admin, User, Officer, Collaborator, Viewer).
+
+Data model (PostgreSQL migrations)
+
+Create normalized RBAC tables + optional project scope:
+
+CREATE TABLE IF NOT EXISTS roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT UNIQUE NOT NULL,      -- e.g., 'admin','user','officer','collaborator','viewer'
+  name TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS permissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT UNIQUE NOT NULL,      -- e.g., 'view_regulations'
+  description TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS role_permissions (
+  role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+  permission_id UUID NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
+  PRIMARY KEY (role_id, permission_id)
+);
+
+-- Org‑level role assignment
+CREATE TABLE IF NOT EXISTS user_roles (
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+  PRIMARY KEY (user_id, role_id)
+);
+
+-- Optional: project‑scoped roles (use if needed on any endpoint)
+CREATE TABLE IF NOT EXISTS user_project_roles (
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+  PRIMARY KEY (user_id, project_id, role_id)
+);
+
+Permission catalog (from the Excel)
+
+Create these permission codes (snake‑case), with descriptions:
+
+view_regulations
+create_projects_from_regulations
+assign_projects_to_users
+change_organization_settings
+change_user_permissions
+create_tasks
+create_risks
+review_evidences_submitted
+view_evidence_repository
+edit_evidence_repository
+
+Note: We already use control approvals; please also add permission approve_controls. Default mapping: Admin=Yes, Officer=Yes, others=No (adjust if client wants different).
+
+Seed script
+
+Seed roles and permissions, then apply the matrix below (convert “Yes/No” to booleans). Use an idempotent Python script (Alembic data migration or startup job).
+
+Role codes
+	•	admin, user, officer, collaborator, viewer
+
+Matrix (from Excel)
+
+permission	Admin	User	Officer	Collaborator	Viewer
+view_regulations	Yes	Yes	No	Yes	Yes
+create_projects_from_regulations	Yes	Yes	No	No	No
+assign_projects_to_users	Yes	Yes	No	No	No
+change_organization_settings	Yes	No	No	No	No
+change_user_permissions	Yes	No	No	No	No
+create_tasks	Yes	Yes	No	No	No
+create_risks	Yes	Yes	No	No	No
+review_evidences_submitted	Yes	Yes	No	Yes	Yes
+view_evidence_repository	Yes	Yes	No	Yes	Yes
+edit_evidence_repository	Yes	Yes	No	No	No
+approve_controls (new)	Yes	No	Yes	No	No
+
+If the client wants different Officer rights, change the matrix accordingly when seeding.
+
+Backend (FastAPI)
+	1.	Auth dependency
+Create a require(perms: list[str], project_id: UUID | None = None) dependency that:
+
+	•	resolves user → roles (org + project scope if project_id provided),
+	•	unions all permissions from those roles,
+	•	raises 403 if any requested perm missing.
+
+	2.	Endpoint guards (examples; apply across API):
+
+@router.get("/regulations")
+@require(["view_regulations"])
+def list_regs(...): ...
+
+@router.post("/projects")
+@require(["create_projects_from_regulations"])
+def create_project(...): ...
+
+@router.post("/projects/{project_id}/assign")
+@require(["assign_projects_to_users"], project_id)
+def assign_user(...): ...
+
+@router.post("/tasks")
+@require(["create_tasks"])
+def create_task(...): ...
+
+@router.post("/risks")
+@require(["create_risks"])
+def create_risk(...): ...
+
+@router.get("/evidence")
+@require(["view_evidence_repository"])
+def list_evidence(...): ...
+
+@router.post("/evidence/edit")
+@require(["edit_evidence_repository"])
+def edit_evidence(...): ...
+
+@router.post("/projects/{project_id}/controls/approve")
+@require(["approve_controls"], project_id)
+def approve_controls(...): ...
+
+@router.post("/admin/org-settings")
+@require(["change_organization_settings"])
+def update_org_settings(...): ...
+
+@router.post("/admin/user-permissions")
+@require(["change_user_permissions"])
+def update_user_perms(...): ...
+
+	3.	Expose effective permissions for UI
+
+GET /me/permissions?project_id={optional}
+-> { "roles": ["user","viewer"], "permissions": ["view_regulations","create_tasks", ...] }
+
+Frontend (Next.js/React + Tailwind)
+	•	On app bootstrap or route change, call /me/permissions (once per project) and store in a PermissionContext.
+	•	Gate UI elements:
+	•	Show “Add Project” only if create_projects_from_regulations.
+	•	Show “Assign” action only if assign_projects_to_users.
+	•	Evidence list requires view_evidence_repository; editing requires edit_evidence_repository.
+	•	Approve controls button requires approve_controls.
+	•	Org/Users settings menu visible only with change_organization_settings or change_user_permissions.
+	•	For disabled actions, show tooltip “You don’t have permission” and hide destructive buttons entirely for non‑authorized users.
+
+Example helper:
+
+export const useCan = () => {
+  const { permissions } = useContext(PermissionContext);
+  return (perm: string) => permissions?.includes(perm);
+};
+
+Usage:
+
+const can = useCan();
+{can("create_tasks") && <Button onClick={...}>New Task</Button>}
+
+Admin UI (optional, for superusers)
+	•	Simple page to assign org‑level roles and project roles to users.
+	•	POST to /admin/user-permissions guarded by change_user_permissions.
+
+Tests
+	•	Unit: permission resolution (org only, project only, both), multiple roles union.
+	•	Endpoint: 403 without perm, 200 with perm.
+	•	Frontend: component rendering toggles with mocked permission sets.
+
+Acceptance criteria
+	•	Given a Viewer, they can open Regulations and Evidence repository (view) but cannot create/edit anything.
+	•	Given a User, they can create Projects, Tasks, Risks, assign projects, and review evidence.
+	•	Only Admin sees Org Settings and can change user permissions.
+	•	Officer (or Admin) can hit POST /projects/{id}/controls/approve.
+	•	/me/permissions returns the correct effective set and UI updates immediately on role change.
+
+⸻
+
+Want me to tweak the matrix (e.g., give Officer “review_evidences_submitted” or “view_regulations” = Yes)? I can adjust the seed and guards in seconds.

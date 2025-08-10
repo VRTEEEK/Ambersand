@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { NotificationProvider } from "@/hooks/useNotifications";
+import { PermissionsProvider } from "@/hooks/use-permissions";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/Dashboard";
 import Landing from "@/pages/Landing";
@@ -56,10 +57,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <NotificationProvider>
-        <TooltipProvider>
-          <Router />
-          <Toaster />
-        </TooltipProvider>
+        <PermissionsProvider>
+          <TooltipProvider>
+            <Router />
+            <Toaster />
+          </TooltipProvider>
+        </PermissionsProvider>
       </NotificationProvider>
     </QueryClientProvider>
   );

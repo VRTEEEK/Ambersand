@@ -270,12 +270,66 @@ export const controlAssessments = pgTable("control_assessments", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// RBAC Tables
+export const roles = pgTable("roles", {
+  id: varchar("id").primaryKey().default("gen_random_uuid()"),
+  code: varchar("code").notNull().unique(),
+  name: varchar("name").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const permissions = pgTable("permissions", {
+  id: varchar("id").primaryKey().default("gen_random_uuid()"),
+  code: varchar("code").notNull().unique(),
+  description: text("description").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const rolePermissions = pgTable("role_permissions", {
+  roleId: varchar("role_id").notNull().references(() => roles.id, { onDelete: "cascade" }),
+  permissionId: varchar("permission_id").notNull().references(() => permissions.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  pk: { primaryKey: [table.roleId, table.permissionId] }
+}));
+
+export const userRoles = pgTable("user_roles", {
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  roleId: varchar("role_id").notNull().references(() => roles.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  pk: { primaryKey: [table.userId, table.roleId] }
+}));
+
+export const userProjectRoles = pgTable("user_project_roles", {
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  roleId: varchar("role_id").notNull().references(() => roles.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  pk: { primaryKey: [table.userId, table.projectId, table.roleId] }
+}));
+
+// RBAC Types
+export type Role = typeof roles.$inferSelect;
+export type InsertRole = typeof roles.$inferInsert;
+export type Permission = typeof permissions.$inferSelect;
+export type InsertPermission = typeof permissions.$inferInsert;
+export type RolePermission = typeof rolePermissions.$inferSelect;
+export type InsertRolePermission = typeof rolePermissions.$inferInsert;
+export type UserRole = typeof userRoles.$inferSelect;
+export type InsertUserRole = typeof userRoles.$inferInsert;
+export type UserProjectRole = typeof userProjectRoles.$inferSelect;
+export type InsertUserProjectRole = typeof userProjectRoles.$inferInsert;
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   projects: many(projects),
   tasks: many(tasks),
   evidence: many(evidence),
   assessments: many(complianceAssessments),
+  userRoles: many(userRoles),
+  userProjectRoles: many(userProjectRoles),
 }));
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
@@ -435,6 +489,54 @@ export const customControlsRelations = relations(customControls, ({ one }) => ({
   }),
 }));
 
+// RBAC Relations
+export const rolesRelations = relations(roles, ({ many }) => ({
+  rolePermissions: many(rolePermissions),
+  userRoles: many(userRoles),
+  userProjectRoles: many(userProjectRoles),
+}));
+
+export const permissionsRelations = relations(permissions, ({ many }) => ({
+  rolePermissions: many(rolePermissions),
+}));
+
+export const rolePermissionsRelations = relations(rolePermissions, ({ one }) => ({
+  role: one(roles, {
+    fields: [rolePermissions.roleId],
+    references: [roles.id],
+  }),
+  permission: one(permissions, {
+    fields: [rolePermissions.permissionId],
+    references: [permissions.id],
+  }),
+}));
+
+export const userRolesRelations = relations(userRoles, ({ one }) => ({
+  user: one(users, {
+    fields: [userRoles.userId],
+    references: [users.id],
+  }),
+  role: one(roles, {
+    fields: [userRoles.roleId],
+    references: [roles.id],
+  }),
+}));
+
+export const userProjectRolesRelations = relations(userProjectRoles, ({ one }) => ({
+  user: one(users, {
+    fields: [userProjectRoles.userId],
+    references: [users.id],
+  }),
+  project: one(projects, {
+    fields: [userProjectRoles.projectId],
+    references: [projects.id],
+  }),
+  role: one(roles, {
+    fields: [userProjectRoles.roleId],
+    references: [roles.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   id: true,
@@ -538,6 +640,29 @@ export const insertEvidenceControlSchema = createInsertSchema(evidenceControls).
 
 export const insertEvidenceTaskSchema = createInsertSchema(evidenceTasks).omit({
   id: true,
+  createdAt: true,
+});
+
+// RBAC Insert Schemas
+export const insertRoleSchema = createInsertSchema(roles).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPermissionSchema = createInsertSchema(permissions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertRolePermissionSchema = createInsertSchema(rolePermissions).omit({
+  createdAt: true,
+});
+
+export const insertUserRoleSchema = createInsertSchema(userRoles).omit({
+  createdAt: true,
+});
+
+export const insertUserProjectRoleSchema = createInsertSchema(userProjectRoles).omit({
   createdAt: true,
 });
 

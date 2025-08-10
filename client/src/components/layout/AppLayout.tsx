@@ -3,6 +3,7 @@ import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
 import { useI18n } from '@/hooks/use-i18n';
 import { useNotifications } from '@/hooks/useNotifications';
+import { usePermissions, PERMISSIONS } from '@/hooks/use-permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { UserAvatar } from '@/components/ui/user-avatar';
@@ -49,6 +50,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const { user } = useAuth();
   const { t, language, toggleLanguage, isRTL } = useI18n();
   const { unreadCount } = useNotifications();
+  const { can } = usePermissions();
 
   const navigationItems = [
     {
@@ -57,13 +59,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
       icon: LayoutDashboard,
       current: location === '/',
     },
-    {
+    can(PERMISSIONS.VIEW_REGULATIONS) && {
       title: t('nav.regulations'),
       href: '/regulations',
       icon: BookOpen,
       current: location === '/regulations',
     },
-    {
+    can(PERMISSIONS.CREATE_PROJECTS_FROM_REGULATIONS) && {
       title: t('nav.projects'),
       href: '/projects',
       icon: FolderOpen,
@@ -75,13 +77,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
       icon: CheckSquare,
       current: location === '/my-tasks',
     },
-    {
+    can(PERMISSIONS.CREATE_TASKS) && {
       title: t('nav.tasks'),
       href: '/tasks',
       icon: ListTodo,
       current: location === '/tasks',
     },
-    {
+    can(PERMISSIONS.VIEW_EVIDENCE_REPOSITORY) && {
       title: t('nav.evidence'),
       href: '/evidence',
       icon: Upload,
@@ -99,22 +101,22 @@ export default function AppLayout({ children }: AppLayoutProps) {
       icon: Bell,
       current: location === '/notifications',
     },
-  ];
+  ].filter(Boolean);
 
   const adminItems = [
-    {
+    can(PERMISSIONS.CHANGE_USER_PERMISSIONS) && {
       title: t('nav.users'),
       href: '/users',
       icon: Users,
       current: location === '/users',
     },
-    {
+    can(PERMISSIONS.CHANGE_ORGANIZATION_SETTINGS) && {
       title: t('nav.settings'),
       href: '/settings',
       icon: Settings,
       current: location === '/settings',
     },
-  ];
+  ].filter(Boolean);
 
   const SidebarContent = () => (
     <div className="flex h-full flex-col">
@@ -153,33 +155,38 @@ export default function AppLayout({ children }: AppLayoutProps) {
           );
         })}
 
-        <Separator className="my-6" />
-        
-        <p className="px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-          Administration
-        </p>
+        {/* Admin section */}
+        {adminItems.length > 0 && (
+          <>
+            <Separator className="my-6" />
+            
+            <p className="px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+              {t('nav.administration')}
+            </p>
 
-        {adminItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <Link key={item.href} href={item.href}>
-              <div
-                className={cn(
-                  "flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors cursor-pointer",
-                  item.current
-                    ? "bg-teal-50 text-teal-600 border border-teal-200"
-                    : "text-slate-600 hover:bg-slate-100"
-                )}
-              >
-                <Icon 
-                  className={cn("w-5 h-5", isRTL ? "ml-3" : "mr-3")} 
-                  style={{ color: item.current ? '#2699A6' : undefined }}
-                />
-                <span>{item.title}</span>
-              </div>
-            </Link>
-          );
-        })}
+            {adminItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link key={item.href} href={item.href}>
+                  <div
+                    className={cn(
+                      "flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors cursor-pointer",
+                      item.current
+                        ? "bg-teal-50 text-teal-600 border border-teal-200"
+                        : "text-slate-600 hover:bg-slate-100"
+                    )}
+                  >
+                    <Icon 
+                      className={cn("w-5 h-5", isRTL ? "ml-3" : "mr-3")} 
+                      style={{ color: item.current ? '#2699A6' : undefined }}
+                    />
+                    <span>{item.title}</span>
+                  </div>
+                </Link>
+              );
+            })}
+          </>
+        )}
       </nav>
 
       {/* User Profile */}

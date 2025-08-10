@@ -14,6 +14,16 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { emailService } from "./emailService";
+import { 
+  requirePermissions, 
+  requireViewRegulations, 
+  requireCreateProjects, 
+  requireCreateTasks,
+  requireViewEvidence,
+  requireEditEvidence,
+  requireUserPermissions 
+} from "./rbac-middleware";
+import { getUserPermissions } from "./rbac-seed";
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -44,8 +54,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // RBAC routes
+  app.get('/api/me/permissions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const projectId = req.query.project_id ? parseInt(req.query.project_id) : undefined;
+      
+      const permissions = await getUserPermissions(userId, projectId);
+      
+      res.json({
+        permissions,
+        projectId
+      });
+    } catch (error) {
+      console.error("Error fetching user permissions:", error);
+      res.status(500).json({ message: "Failed to fetch permissions" });
+    }
+  });
+
   // User Management routes
-  app.get('/api/users', isAuthenticated, async (req: any, res) => {
+  app.get('/api/users', isAuthenticated, requireUserPermissions(), async (req: any, res) => {
     try {
       const currentUser = await storage.getUser(req.user.claims.sub);
       
@@ -62,7 +90,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/users', isAuthenticated, async (req: any, res) => {
+  app.post('/api/users', isAuthenticated, requireUserPermissions(), async (req: any, res) => {
     try {
       const currentUser = await storage.getUser(req.user.claims.sub);
       
