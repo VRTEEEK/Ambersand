@@ -157,8 +157,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/permissions', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
-      const permissions = await storage.getPermissions();
-      res.json(permissions);
+      const allPermissions = await storage.getPermissions();
+      const allRoles = await storage.getRoles();
+      
+      // Group permissions by category (aligned with Excel structure)
+      const permissionCategories = [
+        {
+          id: 'org_roles',
+          name: 'Organization Roles',
+          description: 'System-wide roles that apply across the entire organization',
+          permissions: allRoles.map(role => ({
+            id: role.id,
+            code: role.code,
+            name: role.name,
+            type: 'role',
+            category: 'org_roles'
+          }))
+        },
+        {
+          id: 'project_roles', 
+          name: 'Project Roles',
+          description: 'Project-specific roles that apply to individual projects',
+          permissions: allRoles.map(role => ({
+            id: role.id,
+            code: role.code,
+            name: role.name,
+            type: 'role',
+            category: 'project_roles'
+          }))
+        },
+        {
+          id: 'regulation_roles',
+          name: 'Regulation Roles', 
+          description: 'Specialized roles for regulation management and compliance oversight',
+          permissions: allRoles.filter(role => ['officer', 'collaborator'].includes(role.code)).map(role => ({
+            id: role.id,
+            code: role.code,
+            name: role.name,
+            type: 'role',
+            category: 'regulation_roles'
+          }))
+        },
+        {
+          id: 'functional_permissions',
+          name: 'Functional Permissions',
+          description: 'Granular permissions for specific system functions',
+          permissions: allPermissions.map(perm => ({
+            id: perm.id,
+            code: perm.code,
+            name: perm.description || perm.code.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            type: 'permission',
+            category: 'functional_permissions'
+          }))
+        }
+      ];
+      
+      res.json({
+        categories: permissionCategories,
+        // Keep backward compatibility
+        permissions: allPermissions,
+        roles: allRoles
+      });
     } catch (error) {
       console.error("Error fetching permissions:", error);
       res.status(500).json({ message: "Failed to fetch permissions" });
@@ -350,6 +409,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Legacy bulk assign endpoint (keep for backward compatibility)
   app.post('/api/admin/users/bulk-assign', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
       const { user_ids, org_roles, project_roles } = req.body;
@@ -406,6 +466,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error in bulk role assignment:", error);
       res.status(500).json({ message: "Failed to complete bulk role assignment" });
+    }
+  });
+
+  // New Excel-aligned bulk permission assignment endpoint
+  app.post('/api/admin/users/bulk-assign-permissions', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+    try {
+      const { user_ids, operation, categories } = req.body;
+
+      if (!Array.isArray(user_ids) || user_ids.length === 0) {
+        return res.status(400).json({ message: "User IDs array is required" });
+      }
+
+      if (!operation || !['add', 'remove'].includes(operation)) {
+        return res.status(400).json({ message: "Operation must be 'add' or 'remove'" });
+      }
+
+      if (!categories || typeof categories !== 'object') {
+        return res.status(400).json({ message: "Categories object is required" });
+      }
+
+      let operationsCompleted = 0;
+
+      for (const userId of user_ids) {
+        for (const [categoryId, categoryData] of Object.entries(categories)) {
+          const { type, permissions, project_id } = categoryData as any;
+
+          if (!permissions || !Array.isArray(permissions)) continue;
+
+          for (const permissionCode of permissions) {
+            try {
+              const role = await db.select().from(roles).where(eq(roles.code, permissionCode)).limit(1);
+              if (role.length === 0) continue;
+
+              const roleId = role[0].id;
+
+              if (type === 'project_role' && project_id) {
+                // Handle project-specific roles
+                const projectIdNum = parseInt(project_id);
+                if (operation === 'add') {
+                  await storage.assignUserProjectRole(userId, projectIdNum, roleId);
+                } else {
+                  await storage.removeUserProjectRole(userId, projectIdNum, roleId);
+                }
+              } else {
+                // Handle organization roles
+                if (operation === 'add') {
+                  await storage.assignUserRole(userId, roleId);
+                } else {
+                  await storage.removeUserRole(userId, roleId);
+                }
+              }
+              operationsCompleted++;
+            } catch (roleError) {
+              console.warn(`Failed to ${operation} role ${permissionCode} for user ${userId}:`, roleError);
+            }
+          }
+        }
+      }
+
+      res.json({ 
+        message: `Bulk permission assignment completed for ${user_ids.length} users`,
+        operations_completed: operationsCompleted,
+        operation,
+        categories_processed: Object.keys(categories)
+      });
+    } catch (error) {
+      console.error("Error in bulk permission assignment:", error);
+      res.status(500).json({ message: "Failed to complete bulk permission assignment" });
     }
   });
 
