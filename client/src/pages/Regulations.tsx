@@ -451,10 +451,11 @@ export default function Regulations() {
       return;
     }
 
-    // Include the control entries in the regulation data
+    // Include the control entries in the regulation data, excluding the frontend IDs
+    const controlsForBackend = customControlEntries.map(({ id, ...control }) => control);
     const regulationWithControls = {
       ...data,
-      controls: customControlEntries,
+      controls: controlsForBackend,
     };
     
     createRegulationMutation.mutate(regulationWithControls);

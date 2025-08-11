@@ -1736,10 +1736,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create associated controls if provided
       if (controls && Array.isArray(controls) && controls.length > 0) {
         for (const controlData of controls) {
+          // Ensure the control data doesn't contain invalid fields
+          const {
+            mainDomain,
+            mainDomainAr,
+            subDomain,
+            subDomainAr,
+            control,
+            controlAr,
+            subControl,
+            subControlAr,
+            description,
+            descriptionAr,
+            evidenceRequired,
+            evidenceNote,
+            evidenceNoteAr,
+            tags,
+          } = controlData;
+
           await storage.createCustomControl({
-            ...controlData,
+            mainDomain,
+            mainDomainAr,
+            subDomain,
+            subDomainAr,
+            control,
+            controlAr,
+            subControl,
+            subControlAr,
+            description,
+            descriptionAr,
+            evidenceRequired: Boolean(evidenceRequired),
+            evidenceNote,
+            evidenceNoteAr,
+            tags: Array.isArray(tags) ? tags : [],
             customRegulationId: regulation.id,
-            code: `CR-${regulation.id}-${controls.indexOf(controlData) + 1}`, // Generate unique code
+            code: `CR-${regulation.id}-${String(controls.indexOf(controlData) + 1).padStart(3, '0')}`, // Generate unique code
           });
         }
       }
