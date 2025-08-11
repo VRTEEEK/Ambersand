@@ -113,16 +113,16 @@ export default function InviteUserDialog({ isOpen, onClose, onSuccess }: InviteU
       });
       onSuccess?.();
       toast({
-        title: t('users.inviteSuccess'),
-        description: t('users.inviteSuccessDescription'),
+        title: 'Invitation Sent',
+        description: 'User invitation has been sent successfully',
       });
       handleClose();
     },
     onError: (error: any) => {
       toast({
         variant: 'destructive',
-        title: t('users.inviteError'),
-        description: error.message || t('users.inviteErrorDescription'),
+        title: 'Invitation Failed',
+        description: error.message || 'Failed to send user invitation. Please try again.',
       });
     },
   });
@@ -177,24 +177,35 @@ export default function InviteUserDialog({ isOpen, onClose, onSuccess }: InviteU
 
   const getRoleBadgeVariant = (roleCode: string) => {
     const variants = {
-      'admin': 'destructive',
-      'user': 'default', 
-      'officer': 'secondary',
-      'collaborator': 'outline',
-      'viewer': 'secondary'
-    };
+      admin: 'destructive',
+      user: 'default', 
+      officer: 'secondary',
+      collaborator: 'outline',
+      viewer: 'secondary'
+    } as const;
     return variants[roleCode as keyof typeof variants] || 'outline';
   };
 
   const getRoleDisplayName = (roleCode: string) => {
     const roleNames = {
-      'admin': t('roles.admin'),
-      'user': t('roles.user'),
-      'officer': t('roles.officer'), 
-      'collaborator': t('roles.collaborator'),
-      'viewer': t('roles.viewer')
+      admin: 'Administrator',
+      user: 'User',
+      officer: 'Compliance Officer', 
+      collaborator: 'Collaborator',
+      viewer: 'Viewer'
     };
     return roleNames[roleCode as keyof typeof roleNames] || roleCode;
+  };
+
+  const getRoleDescription = (roleCode: string): string => {
+    const descriptions = {
+      admin: 'Full system access, user management, and all permissions across the platform',
+      user: 'Basic user access to assigned projects with standard permissions',
+      officer: 'Compliance monitoring, oversight, and audit capabilities',
+      collaborator: 'Project collaboration, task management, and evidence handling',
+      viewer: 'Read-only access to compliance data and reporting',
+    };
+    return descriptions[roleCode as keyof typeof descriptions] || `${roleCode} role permissions`;
   };
 
   return (
