@@ -38,7 +38,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { X, UserPlus, Loader2, Mail } from 'lucide-react';
+import { X, UserPlus, Loader2, Mail, ChevronDown, ChevronRight, Info, Building, Users } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Textarea } from '@/components/ui/textarea';
 
 interface Role {
   id: string;
@@ -55,6 +58,7 @@ interface Project {
 const inviteUserSchema = z.object({
   email: z.string().email('Invalid email address'),
   name: z.string().min(1, 'Name is required'),
+  message: z.string().optional(),
   org_roles: z.array(z.string()).optional(),
   project_roles: z.array(z.object({
     project_id: z.number(),
@@ -77,12 +81,15 @@ export default function InviteUserDialog({ isOpen, onClose, onSuccess }: InviteU
   
   const [selectedOrgRoles, setSelectedOrgRoles] = useState<string[]>([]);
   const [projectRoleAssignments, setProjectRoleAssignments] = useState<Record<number, string[]>>({});
+  const [orgRolesOpen, setOrgRolesOpen] = useState(true);
+  const [projectRolesOpen, setProjectRolesOpen] = useState(false);
 
   const form = useForm<InviteUserForm>({
     resolver: zodResolver(inviteUserSchema),
     defaultValues: {
       email: '',
       name: '',
+      message: '',
       org_roles: [],
       project_roles: [],
     },
@@ -124,6 +131,8 @@ export default function InviteUserDialog({ isOpen, onClose, onSuccess }: InviteU
     form.reset();
     setSelectedOrgRoles([]);
     setProjectRoleAssignments({});
+    setOrgRolesOpen(true);
+    setProjectRolesOpen(false);
     onClose();
   };
 
@@ -190,144 +199,233 @@ export default function InviteUserDialog({ isOpen, onClose, onSuccess }: InviteU
 
   return (
     <Dialog open={isOpen} onOpenChange={() => handleClose()}>
-      <DialogContent className="max-w-3xl h-[90vh] flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[95vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />
-            {t('users.inviteUser')}
+            Invite New User
           </DialogTitle>
           <DialogDescription>
-            {t('users.inviteUserDescription')}
+            Send an invitation to join your organization with specific roles and permissions
           </DialogDescription>
         </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col">
-            <ScrollArea className="flex-1 pr-6">
-              <div className="space-y-6">
-                {/* Basic Info */}
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t('users.email')}</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder={t('users.emailPlaceholder')} 
-                            type="email"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t('users.name')}</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder={t('users.namePlaceholder')} 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+        <TooltipProvider>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col">
+              <ScrollArea className="flex-1 pr-6">
+                <div className="space-y-6">
+                  {/* Basic Info */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email Address</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="Enter email address" 
+                              type="email"
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Full Name</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="Enter full name" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
-                {/* Organization Roles */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">{t('users.organizationRoles')}</CardTitle>
-                    <CardDescription>
-                      {t('users.selectOrgRolesDescription')}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-3">
-                      {availableRoles.map((role) => (
-                        <div key={role.id} className="flex items-center space-x-3 p-3 border rounded-lg">
-                          <Checkbox
-                            checked={selectedOrgRoles.includes(role.code)}
-                            onCheckedChange={() => handleOrgRoleToggle(role.code)}
+                  {/* Personal Message */}
+                  <FormField
+                    control={form.control}
+                    name="message"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Personal Message (Optional)</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Add a personal message to include with the invitation..."
+                            className="min-h-[80px]"
+                            {...field} 
                           />
-                          <div className="flex-1">
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Organization Roles */}
+                  <Collapsible open={orgRolesOpen} onOpenChange={setOrgRolesOpen}>
+                    <Card>
+                      <CollapsibleTrigger asChild>
+                        <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">{getRoleDisplayName(role.code)}</span>
-                              <Badge variant={getRoleBadgeVariant(role.code)}>
-                                {role.code}
-                              </Badge>
+                              <Building className="h-4 w-4" />
+                              <CardTitle className="text-lg">Organization Roles</CardTitle>
                             </div>
+                            {orgRolesOpen ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                          <CardDescription>
+                            System-wide roles that apply across the entire organization
+                          </CardDescription>
+                        </CardHeader>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <CardContent className="pt-0">
+                          <div className="grid gap-3">
+                            {availableRoles.map((role) => (
+                              <div 
+                                key={role.id} 
+                                className={`flex items-start space-x-3 rtl:space-x-reverse p-4 border rounded-lg transition-all ${
+                                  selectedOrgRoles.includes(role.code) 
+                                    ? 'bg-primary/5 border-primary/30 shadow-sm' 
+                                    : 'hover:bg-muted/30'
+                                }`}
+                              >
+                                <Checkbox
+                                  checked={selectedOrgRoles.includes(role.code)}
+                                  onCheckedChange={() => handleOrgRoleToggle(role.code)}
+                                  className="mt-1"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-medium">{getRoleDisplayName(role.code)}</span>
+                                    <Badge variant={getRoleBadgeVariant(role.code) as any}>
+                                      {role.code}
+                                    </Badge>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Info className="h-3 w-3 text-muted-foreground hover:text-foreground cursor-help" />
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="max-w-xs">
+                                        <p>{getRoleDescription(role.code)}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">
+                                    {getRoleDescription(role.code)}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Card>
+                  </Collapsible>
 
-                {/* Project Roles */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">{t('users.projectRoles')}</CardTitle>
-                    <CardDescription>
-                      {t('users.selectProjectRolesDescription')}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {projects.map((project) => (
-                      <div key={project.id} className="border rounded-lg p-4">
-                        <h4 className="font-medium mb-3">
-                          {isRTL ? project.nameAr || project.name : project.name}
-                        </h4>
-                        <div className="grid gap-2">
-                          {availableRoles.map((role) => (
-                            <div key={`${project.id}-${role.id}`} className="flex items-center space-x-3">
-                              <Checkbox
-                                checked={(projectRoleAssignments[project.id] || []).includes(role.code)}
-                                onCheckedChange={() => handleProjectRoleToggle(project.id, role.code)}
-                              />
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm">{getRoleDisplayName(role.code)}</span>
-                                <Badge variant={getRoleBadgeVariant(role.code)} className="text-xs">
-                                  {role.code}
-                                </Badge>
+                  {/* Project Roles */}
+                  <Collapsible open={projectRolesOpen} onOpenChange={setProjectRolesOpen}>
+                    <Card>
+                      <CollapsibleTrigger asChild>
+                        <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Users className="h-4 w-4" />
+                              <CardTitle className="text-lg">Project Roles</CardTitle>
+                            </div>
+                            {projectRolesOpen ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </div>
+                          <CardDescription>
+                            Roles specific to individual projects
+                          </CardDescription>
+                        </CardHeader>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <CardContent className="pt-0 space-y-4">
+                          {projects.map((project) => (
+                            <div key={project.id} className="border rounded-lg p-4">
+                              <h4 className="font-medium mb-4 flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-primary"></div>
+                                {isRTL ? project.nameAr || project.name : project.name}
+                              </h4>
+                              <div className="grid gap-3">
+                                {availableRoles.map((role) => (
+                                  <div 
+                                    key={`${project.id}-${role.id}`} 
+                                    className={`flex items-start space-x-3 rtl:space-x-reverse p-3 rounded-md transition-all ${
+                                      (projectRoleAssignments[project.id] || []).includes(role.code)
+                                        ? 'bg-primary/5 border border-primary/20' 
+                                        : 'hover:bg-muted/30'
+                                    }`}
+                                  >
+                                    <Checkbox
+                                      checked={(projectRoleAssignments[project.id] || []).includes(role.code)}
+                                      onCheckedChange={() => handleProjectRoleToggle(project.id, role.code)}
+                                      className="mt-0.5"
+                                    />
+                                    <div className="flex items-center gap-2 flex-1">
+                                      <span className="text-sm font-medium">{getRoleDisplayName(role.code)}</span>
+                                      <Badge variant={getRoleBadgeVariant(role.code) as any} className="text-xs">
+                                        {role.code}
+                                      </Badge>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Info className="h-3 w-3 text-muted-foreground hover:text-foreground cursor-help" />
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" className="max-w-xs">
+                                          <p>{getRoleDescription(role.code)}</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
                             </div>
                           ))}
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              </div>
-            </ScrollArea>
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Card>
+                  </Collapsible>
+                </div>
+              </ScrollArea>
 
-            <DialogFooter className="mt-6">
-              <Button type="button" variant="outline" onClick={handleClose}>
-                {t('common.cancel')}
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={inviteUserMutation.isPending}
-                className="flex items-center gap-2"
-              >
-                {inviteUserMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Mail className="h-4 w-4" />
-                )}
-                {t('users.sendInvite')}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+              <DialogFooter className="mt-6 flex-shrink-0">
+                <Button type="button" variant="outline" onClick={handleClose}>
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={inviteUserMutation.isPending}
+                  className="flex items-center gap-2 min-w-[140px]"
+                >
+                  {inviteUserMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Mail className="h-4 w-4" />
+                  )}
+                  Send Invite
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </TooltipProvider>
       </DialogContent>
     </Dialog>
   );
