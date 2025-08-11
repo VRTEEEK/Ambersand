@@ -1,0 +1,85 @@
+Totally—here’s a concise, copy‑paste prompt for Replit to fix both issues (modal overflow + projects dropdown not opening/visible).
+
+⸻
+
+Prompt for Replit – Fix Invite Modal Overflow & Project Picker
+
+Refactor the Invite New User modal so it never overflows the screen and the Assign to Projects control is a working, searchable multi‑select that renders via a portal (not clipped by the modal).
+
+1) Modal sizing & scrolling
+	•	Use shadcn Dialog.
+	•	Make the modal body scroll instead of the page:
+
+<DialogContent className="w-[calc(100vw-2rem)] sm:max-w-[920px] p-0">
+  <div className="flex max-h-[85vh] flex-col">
+    <header className="px-6 pt-6 pb-3 border-b">...</header>
+    <main className="px-6 py-4 overflow-y-auto"> {form sections} </main>
+    <footer className="px-6 py-4 border-t flex justify-end gap-2">...</footer>
+  </div>
+</DialogContent>
+
+
+	•	On open: add overflow-hidden to <body>; remove when closed.
+	•	Ensure no child containers of the form have overflow-hidden that would clip popovers.
+
+2) Projects multi‑select (portal + collision)
+
+Replace the current select with a Combobox + Checkbox multi‑select that portals outside the modal so it isn’t clipped:
+
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Command, CommandList, CommandItem, CommandInput, CommandEmpty } from "@/components/ui/command";
+import { Portal } from "@radix-ui/react-portal";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ChevronDown } from "lucide-react";
+
+<Popover open={open} onOpenChange={setOpen} modal={false}>
+  <PopoverTrigger asChild>
+    <button
+      type="button"
+      className="w-full inline-flex items-center justify-between rounded-md border px-3 py-2"
+      aria-expanded={open}
+    >
+      {selected.length ? `${selected.length} project(s) selected` : "Select projects..."}
+      <ChevronDown className="ml-2 h-4 w-4" />
+    </button>
+  </PopoverTrigger>
+
+  <Portal>
+    <PopoverContent
+      align="start"
+      sideOffset={8}
+      className="z-[10000] w-[min(640px,calc(100vw-2rem))] p-0"
+    >
+      <Command shouldFilter>
+        <CommandInput placeholder="Search projects..." />
+        <CommandList className="max-h-[280px] overflow-y-auto">
+          {projects.map(p => (
+            <CommandItem key={p.id} value={p.name} onSelect={() => toggleProject(p.id)}>
+              <Checkbox checked={isSelected(p.id)} className="mr-2" />
+              {p.name}
+            </CommandItem>
+          ))}
+          <CommandEmpty>No projects found</CommandEmpty>
+        </CommandList>
+      </Command>
+    </PopoverContent>
+  </Portal>
+</Popover>
+
+	•	Z-index: modal z-[9990], dropdown z-[10000], backdrop below both.
+	•	Use @floating-ui/Radix collision defaults (shadcn already) so it flips if near edges.
+	•	Add Select All / Select None actions under the trigger.
+
+3) Data & validation (RHF + Zod)
+	•	Form fields: email (required), full name (optional), message (optional), org roles (0..n), projectAssignments: Array<{ projectId: string; roles: string[] }> (0..n).
+	•	Zod: valid email; if any project selected, require at least one role per project.
+	•	Disable Send Invite until valid; show inline errors.
+
+4) Acceptance criteria
+	1.	Modal never exceeds 85vh; inner content scrolls on small screens (tested at 360×640).
+	2.	Projects dropdown opens fully visible (never clipped), searchable, and supports multi‑select.
+	3.	RTL/Arabic respected (portal content inherits dir), keyboard accessible, and ESC closes.
+
+⸻
+
+If you want, I can turn the multi‑select into a ready ProjectsMultiSelect.tsx component you can drop in.

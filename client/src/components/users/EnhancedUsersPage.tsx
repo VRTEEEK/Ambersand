@@ -63,7 +63,7 @@ import {
 import { cn } from '@/lib/utils';
 import ProjectRoleSummary from './ProjectRoleSummary';
 import AuditModal from './AuditModal';
-import InviteUserDialog from './InviteUserDialog';
+import InviteUserDialog from './InviteUserDialogNew';
 import PermissionsPreviewModal from './PermissionsPreviewModal';
 
 interface ProjectRole {

@@ -7,7 +7,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -17,7 +16,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -38,7 +36,7 @@ import {
   Users, 
   Info,
   Check,
-  ChevronsUpDown,
+  ChevronDown,
   X
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -66,11 +64,6 @@ const inviteUserSchema = z.object({
 });
 
 type InviteUserForm = z.infer<typeof inviteUserSchema>;
-
-interface ProjectAssignment {
-  projectId: number;
-  roles: string[];
-}
 
 interface InviteUserDialogProps {
   isOpen: boolean;
@@ -246,184 +239,186 @@ function InviteUserDialog({ isOpen, onClose, onSuccess }: InviteUserDialogProps)
     (project.name_ar && project.name_ar?.toLowerCase().includes(projectSearch.toLowerCase()))
   );
 
-  // Debug logging
-  console.log('InviteDialog - Projects:', projects);
-  console.log('InviteDialog - FilteredProjects:', filteredProjects);
-
-  // Disable body scroll when modal is open
+  // Body scroll management
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = 'hidden';
+      document.body.classList.add('overflow-hidden');
     } else {
-      document.body.style.overflow = 'unset';
+      document.body.classList.remove('overflow-hidden');
     }
+    
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.classList.remove('overflow-hidden');
     };
   }, [isOpen]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[95vh] flex flex-col z-[1000]" aria-describedby="invite-user-description">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5" />
-            Invite New User
-          </DialogTitle>
-          <DialogDescription id="invite-user-description">
-            Send an invitation to join your organization with specific roles and permissions
-          </DialogDescription>
-        </DialogHeader>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-[920px] p-0" style={{ zIndex: 9990 }}>
+        <div className="flex max-h-[85vh] flex-col">
+          {/* Header */}
+          <div className="px-6 pt-6 pb-3 border-b">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-xl">
+                <UserPlus className="h-5 w-5" />
+                Invite New User
+              </DialogTitle>
+              <DialogDescription>
+                Send an invitation to join your organization with specific roles and project access
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-        <TooltipProvider>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col">
-              <ScrollArea className="flex-1 pr-4">
-                <div className="space-y-6">
-                  {/* Basic Info */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email Address *</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="user@example.com" 
-                              type="email"
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="fullName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Full Name (Optional)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="Enter full name" 
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+          {/* Main Content */}
+          <div className="px-6 py-4 overflow-y-auto flex-1">
+            <TooltipProvider>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  {/* User Information */}
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4" />
+                        <CardTitle className="text-lg">User Information</CardTitle>
+                      </div>
+                      <CardDescription>
+                        Enter the details for the person you want to invite
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Email Field */}
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-1">
+                              Email Address
+                              <span className="text-destructive">*</span>
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="user@example.com"
+                                type="email"
+                                {...field}
+                                className={cn(
+                                  "transition-all",
+                                  form.formState.errors.email && "border-destructive focus-visible:ring-destructive"
+                                )}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                  {/* Personal Message */}
-                  <FormField
-                    control={form.control}
-                    name="personalMessage"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Personal Message (Optional)</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Add a personal message to include with the invitation..."
-                            className="min-h-[80px]"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                      {/* Full Name Field */}
+                      <FormField
+                        control={form.control}
+                        name="fullName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Full Name (Optional)</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="John Doe"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                  {/* Project Selection */}
+                      {/* Personal Message Field */}
+                      <FormField
+                        control={form.control}
+                        name="personalMessage"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Personal Message (Optional)</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Welcome to our team! We're excited to have you join us..."
+                                className="min-h-[80px]"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  {/* Project Assignment */}
                   <Card>
                     <CardHeader>
                       <div className="flex items-center gap-2">
                         <Building className="h-4 w-4" />
-                        <CardTitle className="text-lg">Assign to Projects (Optional)</CardTitle>
+                        <CardTitle className="text-lg">Assign to Projects</CardTitle>
                       </div>
                       <CardDescription>
-                        Select one or more projects and assign roles for each
+                        Select projects and assign specific roles for each project
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        {/* Multi-select Project Dropdown */}
-                        <Popover open={projectSearchOpen} onOpenChange={setProjectSearchOpen}>
+                        {/* Portal-based Multi-select Project Dropdown */}
+                        <Popover open={projectSearchOpen} onOpenChange={setProjectSearchOpen} modal={false}>
                           <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              role="combobox"
+                            <button
+                              type="button"
+                              className="w-full inline-flex items-center justify-between rounded-md border px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                               aria-expanded={projectSearchOpen}
-                              className="w-full justify-between"
                             >
                               {selectedProjects.length === 0
                                 ? "Select projects..."
                                 : `${selectedProjects.length} project${selectedProjects.length > 1 ? 's' : ''} selected`}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
+                              <ChevronDown className="ml-2 h-4 w-4" />
+                            </button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-full p-0">
-                            <Command>
-                              <CommandInput 
-                                placeholder="Search projects..." 
-                                value={projectSearch}
-                                onValueChange={setProjectSearch}
-                              />
-                              <CommandList>
-                                <CommandEmpty>No projects found.</CommandEmpty>
-                                <CommandGroup>
-                                  {filteredProjects.map((project) => (
-                                    <CommandItem
-                                      key={project.id}
-                                      onSelect={() => handleProjectSelect(project.id)}
-                                      className="flex items-center gap-2"
-                                    >
-                                      <Checkbox
-                                        checked={selectedProjects.includes(project.id)}
-                                        onChange={() => handleProjectSelect(project.id)}
-                                      />
-                                      <span className="flex-1">
-                                        {isRTL ? project.nameAr || project.name : project.name}
-                                      </span>
-                                      {selectedProjects.includes(project.id) && (
-                                        <Check className="h-4 w-4" />
-                                      )}
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
 
-                        {/* Selected Projects Chips */}
-                        {selectedProjects.length > 0 && (
-                          <div className="flex flex-wrap gap-2">
-                            {selectedProjects.map((projectId) => {
-                              const project = projects.find(p => p.id === projectId);
-                              if (!project) return null;
-                              
-                              return (
-                                <Badge 
-                                  key={projectId} 
-                                  variant="secondary" 
-                                  className="flex items-center gap-1"
-                                >
-                                  {isRTL ? project.nameAr || project.name : project.name}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleProjectSelect(projectId)}
-                                    className="ml-1 hover:bg-secondary-foreground/20 rounded-sm"
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </button>
-                                </Badge>
-                              );
-                            })}
-                          </div>
-                        )}
+                          <Portal>
+                            <PopoverContent
+                              align="start"
+                              sideOffset={8}
+                              className="z-[10000] w-[min(640px,calc(100vw-2rem))] p-0"
+                            >
+                              <Command shouldFilter>
+                                <CommandInput 
+                                  placeholder="Search projects..." 
+                                  value={projectSearch}
+                                  onValueChange={setProjectSearch}
+                                />
+                                <CommandList className="max-h-[280px] overflow-y-auto">
+                                  <CommandEmpty>No projects found</CommandEmpty>
+                                  <CommandGroup>
+                                    {filteredProjects.map((project) => (
+                                      <CommandItem
+                                        key={project.id}
+                                        value={project.name}
+                                        onSelect={() => handleProjectSelect(project.id)}
+                                        className="flex items-center gap-2"
+                                      >
+                                        <Checkbox
+                                          checked={selectedProjects.includes(project.id)}
+                                          className="mr-2"
+                                        />
+                                        <span className="flex-1">
+                                          {isRTL ? project.name_ar || project.nameAr || project.name : project.name}
+                                        </span>
+                                        {selectedProjects.includes(project.id) && (
+                                          <Check className="h-4 w-4" />
+                                        )}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Portal>
+                        </Popover>
 
                         {/* Quick Actions */}
                         {projects.length > 0 && (
@@ -447,6 +442,33 @@ function InviteUserDialog({ isOpen, onClose, onSuccess }: InviteUserDialogProps)
                             >
                               Select All
                             </Button>
+                          </div>
+                        )}
+
+                        {/* Selected Projects Chips */}
+                        {selectedProjects.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {selectedProjects.map((projectId) => {
+                              const project = projects.find(p => p.id === projectId);
+                              if (!project) return null;
+                              
+                              return (
+                                <Badge 
+                                  key={projectId} 
+                                  variant="secondary" 
+                                  className="flex items-center gap-1"
+                                >
+                                  {isRTL ? project.name_ar || project.nameAr || project.name : project.name}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleProjectSelect(projectId)}
+                                    className="ml-1 hover:bg-secondary-foreground/20 rounded-sm"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </Badge>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -527,7 +549,7 @@ function InviteUserDialog({ isOpen, onClose, onSuccess }: InviteUserDialogProps)
                             <div key={projectId} className="border rounded-lg p-4">
                               <h4 className="font-medium mb-4 flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-primary"></div>
-                                {isRTL ? project.nameAr || project.name : project.name}
+                                {isRTL ? project.name_ar || project.nameAr || project.name : project.name}
                               </h4>
                               <div className="grid gap-3">
                                 {availableRoles.map((role) => (
@@ -574,29 +596,30 @@ function InviteUserDialog({ isOpen, onClose, onSuccess }: InviteUserDialogProps)
                       </CardContent>
                     </Card>
                   )}
-                </div>
-              </ScrollArea>
+                </form>
+              </Form>
+            </TooltipProvider>
+          </div>
 
-              <DialogFooter className="mt-6 flex-shrink-0">
-                <Button type="button" variant="outline" onClick={handleClose}>
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit" 
-                  disabled={inviteUserMutation.isPending || checkDuplicateMutation.isPending}
-                  className="flex items-center gap-2 min-w-[140px]"
-                >
-                  {(inviteUserMutation.isPending || checkDuplicateMutation.isPending) ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Mail className="h-4 w-4" />
-                  )}
-                  Send Invite
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </TooltipProvider>
+          {/* Footer */}
+          <div className="px-6 py-4 border-t flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={handleClose}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={form.handleSubmit(onSubmit)}
+              disabled={inviteUserMutation.isPending || checkDuplicateMutation.isPending}
+              className="flex items-center gap-2 min-w-[140px]"
+            >
+              {(inviteUserMutation.isPending || checkDuplicateMutation.isPending) ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Mail className="h-4 w-4" />
+              )}
+              Send Invite
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
