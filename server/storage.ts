@@ -72,6 +72,7 @@ export interface IStorage {
   createUser(user: Omit<UpsertUser, 'id'> & { id: string }): Promise<User>;
   updateUser(userId: string, updates: Partial<UpsertUser>): Promise<User>;
   deleteUser(userId: string): Promise<void>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   
   // RBAC operations
   getRoles(): Promise<Role[]>;
@@ -257,7 +258,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(userId: string): Promise<void> {
+    // Remove all user role assignments first
+    await db.delete(userRoles).where(eq(userRoles.userId, userId));
+    await db.delete(userProjectRoles).where(eq(userProjectRoles.userId, userId));
+    
+    // Then remove the user
     await db.delete(users).where(eq(users.id, userId));
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    return user;
   }
 
   // RBAC operations

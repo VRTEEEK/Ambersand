@@ -1,0 +1,74 @@
+Got it—here’s a tight, copy‑paste prompt for Replit to fix the Invite User flow and the project selection issue.
+
+⸻
+
+Prompt for Replit – Fix Invite User modal (UI, logic, and stability)
+
+Refactor the Invite User feature to resolve rendering glitches, support multi‑project assignment, and harden validations.
+
+1) Rendering bug (green ASCII/overlay on right)
+	•	Symptom: Opening the Invite User modal sometimes shows a teal ASCII/overlay panel on the right side of the screen.
+	•	Fixes:
+	•	Ensure the modal renders via a portal (e.g., @radix-ui/react-dialog or shadcn Dialog) mounted once under #modal-root.
+	•	Add a z-index stack: modal z-[1000+], backdrop below it, and disable any debug/preview panes in this route.
+	•	Lock body scroll while open (overflow-hidden on <body>); add a focus trap.
+	•	Remove any stray absolute/fixed debug components or iframes injected in dev mode.
+	•	QA on Chrome/Safari and small widths to ensure no overflow side panels reappear.
+
+2) Project selection must be multi-select
+	•	Replace the current single selected project with a searchable multi-select dropdown with checkboxes:
+	•	Label: “Assign to Projects (optional)”.
+	•	UX: Combobox shows project list with a search filter; each item has a checkbox; selected items render as chips.
+	•	Allow selecting one or more projects. Provide quick actions: Select none / Select all.
+	•	Below the project picker, show per‑project role selectors (checkboxes: admin, officer, collaborator, user, viewer). Default none.
+	•	Persist selections as:
+
+{
+  email: string,
+  fullName?: string,
+  personalMessage?: string,
+  orgRoles: string[], // role keys
+  projectAssignments: Array<{ projectId: string, roles: string[] }>
+}
+
+
+	•	Do not auto-assign any default project. If user selects projects but no roles for a project, show inline error for that project row.
+
+3) Form + validation (React Hook Form + Zod)
+	•	Fields: Email (required), Full name (optional), Personal message (optional), Org roles (0..n), Project assignments (0..n).
+	•	Zod rules:
+	•	email required + valid email.
+	•	If projectAssignments.length > 0, each entry must have roles.length > 0.
+	•	Disable Send Invite until form is valid. Show concise inline errors.
+
+4) API & behavior
+	•	Endpoint: POST /api/users/invitations (or existing) with payload above.
+	•	Prevent duplicate invitations:
+	•	If email already exists as active user → block with clear error.
+	•	If email exists as pending invite → offer Resend instead.
+	•	On success: toast “Invitation sent to ”, close modal, and optimistically update Users list (react-query invalidate/refetch).
+
+5) Roles UX
+	•	Organization Roles: checkbox list with tooltips (Admin, Collaborator, Officer, User, Viewer). Add brief permission hints.
+	•	Project Roles: shown only when at least one project is selected; each project expands to show the same role checkbox list.
+	•	Maintain i18n keys (EN/AR) and support RTL when Arabic is active.
+
+6) Accessibility & responsive
+	•	All inputs have labels, aria-describedby for helper text, keyboard navigation, and escape/close buttons.
+	•	Works at 360px width; chips wrap; dropdown virtualized if projects > 50.
+
+7) Visual polish (shadcn + Tailwind)
+	•	Keep the new header: “Invite New User”.
+	•	Inputs: Email, Full Name, Personal Message (textarea).
+	•	Sections: Organization Roles and Project Roles in cards with icons and subtle descriptions.
+	•	Primary button right‑aligned: [✉️ Send Invite]; secondary Cancel.
+
+8) QA / Acceptance
+	•	Opening modal never shows the right‑side overlay on any page or width.
+	•	Can select 0 projects, or multiple projects, each with roles; validation prevents empty roles per selected project.
+	•	Duplicate email paths behave correctly (block vs. resend).
+	•	Arabic locale flips layout RTL and strings translate from i18n.
+
+⸻
+
+If you want, I can also provide a ready React snippet (shadcn Dialog + RHF + Zod + MultiCombobox) to drop in.
