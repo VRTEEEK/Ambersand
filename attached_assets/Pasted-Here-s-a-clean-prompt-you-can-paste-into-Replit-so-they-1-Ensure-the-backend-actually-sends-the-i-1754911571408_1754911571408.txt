@@ -1,0 +1,101 @@
+Here’s a clean prompt you can paste into Replit so they:
+	1.	Ensure the backend actually sends the invite email
+	2.	Create a proper email template for the new user
+
+⸻
+
+Prompt for Replit – Ensure Invite Email is Sent + Add Email Template
+
+1) Fix & verify invite email sending
+	•	In the backend inviteUser endpoint:
+	1.	After saving the new user + invite token to the DB, call the email sending service immediately.
+	2.	Use the configured SMTP or transactional API (SendGrid, AWS SES, Postmark) from production environment variables.
+	3.	If sending is async (via queue), ensure the worker is running in production.
+	4.	Log:
+	•	Email address
+	•	Invite link generated
+	•	Response from the email provider
+	5.	If sending fails, return a 400 with error message so the frontend can show a toast.
+
+Example backend snippet (Node.js + Nodemailer):
+
+import nodemailer from "nodemailer";
+
+async function sendInviteEmail(toEmail, inviteLink, inviterName) {
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || "587"),
+    secure: false,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  const mailOptions = {
+    from: process.env.MAIL_FROM || '"Ambersand" <no-reply@ambersand.com>',
+    to: toEmail,
+    subject: "You’ve been invited to Ambersand",
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #333;">
+        <h2>You’ve been invited to join Ambersand</h2>
+        <p>Hello,</p>
+        <p>${inviterName} has invited you to join <strong>Ambersand</strong>.</p>
+        <p>Click the button below to set up your account:</p>
+        <p>
+          <a href="${inviteLink}" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">
+            Accept Invitation
+          </a>
+        </p>
+        <p>If the button doesn’t work, copy and paste this link into your browser:</p>
+        <p style="word-break: break-all;">${inviteLink}</p>
+        <hr />
+        <p style="font-size: 12px; color: #777;">This invitation will expire in 7 days.</p>
+      </div>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+}
+
+
+⸻
+
+2) Email template specs
+
+Subject:
+You’ve been invited to join Ambersand
+
+Body:
+
+Hi [User Name or 'there'],
+
+[Inviter Name] has invited you to join Ambersand.
+
+Click the button below to accept your invitation and set up your account:
+[Accept Invitation Button]
+
+If the button doesn’t work, copy and paste this link into your browser:
+[Invite Link]
+
+This invitation will expire in 7 days.
+
+— The Ambersand Team
+
+HTML styling guidelines:
+	•	Header with Ambersand logo
+	•	Invitation message
+	•	Primary button in brand color (#2699A6)
+	•	Fallback plain link
+	•	Footer with support contact
+
+⸻
+
+✅ Expected behavior after change
+	•	When clicking Send Invite, backend creates user + token, sends email immediately.
+	•	Logs confirm sending and include email provider response.
+	•	Email arrives with button + fallback link.
+
+⸻
+
+If you want, I can also add a test route so you can send a test invite email to yourself without creating a user, to confirm the mail service works before connecting it to the real invite flow.

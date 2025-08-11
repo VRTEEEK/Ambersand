@@ -155,6 +155,136 @@ export const emailService = {
           </div>
         `
       };
+    },
+
+    userInvitation: (
+      inviterName: string, 
+      organizationName: string, 
+      personalMessage: string = '', 
+      inviteUrl: string
+    ) => {
+      return {
+        subject: `You've been invited to join ${organizationName}`,
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Invitation to ${organizationName}</title>
+          </head>
+          <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 0;">
+              <!-- Header -->
+              <div style="background-color: #2699A6; padding: 30px; text-align: center;">
+                <h1 style="color: white; margin: 0; font-size: 28px; font-weight: bold;">
+                  Ambersand
+                </h1>
+                <p style="color: #e0f7fa; margin: 10px 0 0 0; font-size: 16px;">
+                  Compliance Management Platform
+                </p>
+              </div>
+              
+              <!-- Content -->
+              <div style="padding: 40px 30px;">
+                <h2 style="color: #2699A6; margin: 0 0 20px 0; font-size: 24px;">
+                  You've been invited to join ${organizationName}
+                </h2>
+                
+                <p style="margin: 0 0 20px 0; font-size: 16px;">
+                  Hello,
+                </p>
+                
+                <p style="margin: 0 0 20px 0; font-size: 16px;">
+                  <strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> on the Ambersand compliance management platform.
+                </p>
+                
+                ${personalMessage ? `
+                <div style="background-color: #f8f9fa; border-left: 4px solid #2699A6; padding: 15px; margin: 20px 0;">
+                  <p style="margin: 0; font-style: italic; color: #555;">
+                    "${personalMessage}"
+                  </p>
+                </div>
+                ` : ''}
+                
+                <p style="margin: 20px 0; font-size: 16px;">
+                  Click the button below to accept your invitation and set up your account:
+                </p>
+                
+                <!-- CTA Button -->
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${inviteUrl}" 
+                     style="background-color: #2699A6; 
+                            color: white; 
+                            padding: 15px 30px; 
+                            text-decoration: none; 
+                            border-radius: 6px; 
+                            display: inline-block; 
+                            font-weight: bold; 
+                            font-size: 16px;
+                            box-shadow: 0 2px 4px rgba(38, 153, 166, 0.3);">
+                    Accept Invitation
+                  </a>
+                </div>
+                
+                <p style="margin: 20px 0; font-size: 14px; color: #666;">
+                  If the button doesn't work, copy and paste this link into your browser:
+                </p>
+                
+                <div style="background-color: #f8f9fa; 
+                            padding: 15px; 
+                            border: 1px solid #dee2e6; 
+                            border-radius: 4px; 
+                            word-break: break-all; 
+                            font-family: monospace; 
+                            font-size: 14px; 
+                            color: #495057;">
+                  ${inviteUrl}
+                </div>
+              </div>
+              
+              <!-- Footer -->
+              <div style="background-color: #f8f9fa; 
+                          padding: 30px; 
+                          text-align: center; 
+                          border-top: 1px solid #dee2e6;">
+                <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">
+                  <strong>Note:</strong> This invitation will expire in 7 days.
+                </p>
+                
+                <p style="margin: 10px 0 0 0; font-size: 12px; color: #999;">
+                  © ${new Date().getFullYear()} Ambersand. All rights reserved.
+                </p>
+                
+                <p style="margin: 10px 0 0 0; font-size: 12px; color: #999;">
+                  If you have any questions, please contact your system administrator.
+                </p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `
+      };
     }
+  },
+
+  // User invitation email
+  async sendInvitationEmail(toEmail: string, options: {
+    inviterName: string;
+    organizationName: string;
+    personalMessage?: string;
+    inviteUrl: string;
+  }) {
+    const { inviterName, organizationName, personalMessage, inviteUrl } = options;
+    
+    console.log('Sending invitation email:', { toEmail, inviterName, organizationName, inviteUrl });
+
+    const template = this.templates.userInvitation(inviterName, organizationName, personalMessage || '', inviteUrl);
+    
+    return await this.sendEmail({
+      to: toEmail,
+      subject: template.subject,
+      html: template.html,
+    });
   }
 };

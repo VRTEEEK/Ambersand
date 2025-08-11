@@ -855,16 +855,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send invitation email if email service is configured
       try {
+        // Auto-detect the base URL for the invitation link
+        const baseUrl = process.env.BASE_URL || 
+                       (process.env.REPLIT_CLUSTER ? `https://${process.env.REPL_SLUG}.${process.env.REPLIT_CLUSTER}.replit.app` : 'http://localhost:5000');
+        
         await emailService.sendInvitationEmail(email, {
-          inviterName: currentUser?.firstName || currentUser?.email || 'System',
+          inviterName: currentUser?.firstName || currentUser?.email?.split('@')[0] || 'System Admin',
           organizationName: 'Ambersand Compliance',
           personalMessage: personalMessage || '',
-          inviteUrl: `${process.env.BASE_URL || 'https://localhost:3000'}/join?token=${invitedUserId}`
+          inviteUrl: `${baseUrl}/join?token=${invitedUserId}&email=${encodeURIComponent(email)}`
         });
-        console.log(`Invitation email sent to ${email}`);
+        console.log(`✅ Invitation email sent successfully to ${email}`);
       } catch (emailError) {
-        console.warn("Failed to send invitation email:", emailError);
-        // Continue with user creation even if email fails
+        console.error("❌ Failed to send invitation email:", emailError);
+        // Continue with user creation even if email fails, but inform frontend
+        return res.status(201).json({
+          message: `User invited but email delivery failed. Please contact the user directly.`,
+          user: {
+            ...newUser,
+            userRoles: await storage.getUserRoles(invitedUserId),
+            projectRoles: projectAssignments
+          },
+          emailError: emailError instanceof Error ? emailError.message : 'Unknown email error'
+        });
       }
 
       // Return the created user with assigned roles
@@ -881,6 +894,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error inviting user:", error);
       res.status(500).json({ message: "Failed to send user invitation" });
+    }
+  });
+
+  // Test email endpoint - for debugging email service
+  app.post('/api/admin/test-email', isAuthenticated, async (req: any, res) => {
+    try {
+      const { email } = req.body;
+      const currentUser = req.user?.claims;
+      
+      if (!email) {
+        return res.status(400).json({ message: 'Email address is required' });
+      }
+
+      // Auto-detect the base URL
+      const baseUrl = process.env.BASE_URL || 
+                     (process.env.REPLIT_CLUSTER ? `https://${process.env.REPL_SLUG}.${process.env.REPLIT_CLUSTER}.replit.app` : 'http://localhost:5000');
+
+      await emailService.sendInvitationEmail(email, {
+        inviterName: currentUser?.email?.split('@')[0] || 'Test Admin',
+        organizationName: 'Ambersand Compliance (Test)',
+        personalMessage: 'This is a test email to verify the email service is working correctly.',
+        inviteUrl: `${baseUrl}/test-invite`
+      });
+
+      res.json({ 
+        message: `Test email sent successfully to ${email}`,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Test email failed:", error);
+      res.status(500).json({ 
+        message: "Failed to send test email",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
