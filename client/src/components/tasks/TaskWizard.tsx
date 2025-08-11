@@ -169,25 +169,72 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
         return task;
       }
     },
-    onSuccess: () => {
-      // Invalidate all task-related queries
+    onSuccess: (data) => {
+      console.log('✅ TaskWizard: Task creation successful, invalidating cache...', { data, selectedProjectId });
+      
+      // Invalidate all task-related queries with comprehensive patterns
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const key = query.queryKey[0];
-          return typeof key === 'string' && key.startsWith('/api/tasks');
+          const match = typeof key === 'string' && key.startsWith('/api/tasks');
+          if (match) {
+            console.log('🔄 TaskWizard: Invalidating task query:', query.queryKey);
+          }
+          return match;
         }
       });
+      
+      // Specifically invalidate project detail task queries
+      if (selectedProjectId) {
+        // Try different project ID formats (string and number)
+        const projectIdStr = String(selectedProjectId);
+        const projectIdNum = Number(selectedProjectId);
+        
+        queryClient.invalidateQueries({ queryKey: ['/api/tasks', { projectId: selectedProjectId }] });
+        queryClient.invalidateQueries({ queryKey: ['/api/tasks', { projectId: projectIdStr }] });
+        queryClient.invalidateQueries({ queryKey: ['/api/tasks', { projectId: projectIdNum }] });
+        
+        queryClient.invalidateQueries({ 
+          predicate: (query) => {
+            const key = query.queryKey;
+            const match = Array.isArray(key) && key[0] === '/api/tasks' && 
+              (key[1]?.projectId === selectedProjectId || 
+               key[1]?.projectId === projectIdStr || 
+               key[1]?.projectId === projectIdNum ||
+               key[1] === selectedProjectId ||
+               key[1] === projectIdStr ||
+               key[1] === projectIdNum);
+            if (match) {
+              console.log('🔄 TaskWizard: Invalidating project task query:', query.queryKey);
+            }
+            return match;
+          }
+        });
+      }
       
       // Invalidate project-related queries
       queryClient.invalidateQueries({ queryKey: ['/api/projects', selectedProjectId] });
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const key = query.queryKey;
-          return Array.isArray(key) && key[0] === '/api/projects' && key[1] === selectedProjectId;
+          const match = Array.isArray(key) && key[0] === '/api/projects' && key[1] === selectedProjectId;
+          if (match) {
+            console.log('🔄 TaskWizard: Invalidating project query:', query.queryKey);
+          }
+          return match;
         }
       });
       
+      // Force a manual refetch of all queries
+      queryClient.refetchQueries({
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && (key.startsWith('/api/tasks') || key.startsWith('/api/projects'));
+        }
+      });
+      
+      console.log('✅ TaskWizard: Cache invalidation complete');
       handleClose();
     },
   });
