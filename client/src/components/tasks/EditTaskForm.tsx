@@ -209,7 +209,17 @@ export default function EditTaskForm({
       return apiRequest(`/api/tasks/${task.id}/controls`, 'POST', { controlIds });
     },
     onSuccess: () => {
+      // Invalidate all task-related queries for this specific task
       queryClient.invalidateQueries({ queryKey: ['/api/tasks', task.id, 'controls'] });
+      
+      // Also invalidate the main task lists that might show this task
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/tasks');
+        }
+      });
+      
       toast({
         title: language === 'ar' ? 'تم إضافة الضوابط' : 'Controls Added',
         description: language === 'ar' ? 'تم إضافة الضوابط بنجاح' : 'Controls added successfully',
@@ -223,7 +233,17 @@ export default function EditTaskForm({
       return apiRequest(`/api/tasks/${task.id}/controls`, 'DELETE', { controlIds: [controlId] });
     },
     onSuccess: () => {
+      // Invalidate all task-related queries for this specific task
       queryClient.invalidateQueries({ queryKey: ['/api/tasks', task.id, 'controls'] });
+      
+      // Also invalidate the main task lists that might show this task
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/tasks');
+        }
+      });
+      
       toast({
         title: language === 'ar' ? 'تم حذف الضابط' : 'Control Removed',
         description: language === 'ar' ? 'تم حذف الضابط بنجاح' : 'Control removed successfully',

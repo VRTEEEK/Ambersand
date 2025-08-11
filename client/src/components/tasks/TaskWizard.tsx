@@ -170,8 +170,24 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
       }
     },
     onSuccess: () => {
+      // Invalidate all task-related queries
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/tasks');
+        }
+      });
+      
+      // Invalidate project-related queries
       queryClient.invalidateQueries({ queryKey: ['/api/projects', selectedProjectId] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && key[0] === '/api/projects' && key[1] === selectedProjectId;
+        }
+      });
+      
       handleClose();
     },
   });

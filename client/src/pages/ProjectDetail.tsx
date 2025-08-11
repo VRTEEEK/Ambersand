@@ -187,7 +187,16 @@ export default function ProjectDetail() {
       return await apiRequest('/api/tasks', 'POST', taskData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/tasks', { projectId: id }] });
+      // Invalidate all task-related queries to ensure immediate visibility
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/tasks');
+        }
+      });
+      
+      // Force refresh of project detail data
+      setRefreshKey(prev => prev + 1);
       setIsTaskWizardOpen(false);
       setSelectedControlId(null);
       toast({
@@ -221,6 +230,15 @@ export default function ProjectDetail() {
     },
     onSuccess: async (data, variables) => {
       console.log('✅ updateTaskMutation.onSuccess called with:', { data, variables });
+      
+      // Invalidate all task-related queries to ensure immediate visibility
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/tasks');
+        }
+      });
+      
       // Force complete refresh by incrementing refresh key
       setRefreshKey(prev => prev + 1);
       setIsTaskEditDialogOpen(false);
@@ -245,8 +263,14 @@ export default function ProjectDetail() {
       return await apiRequest(`/api/tasks/${taskId}`, 'DELETE');
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tasks', { projectId: id }] });
+      // Invalidate all task-related queries to ensure immediate visibility
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/tasks');
+        }
+      });
+      
       setRefreshKey(prev => prev + 1);
       toast({
         title: language === 'ar' ? 'تم حذف المهمة' : 'Task Deleted',
