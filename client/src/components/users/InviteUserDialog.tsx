@@ -238,10 +238,16 @@ function InviteUserDialog({ isOpen, onClose, onSuccess }: InviteUserDialogProps)
     return variants[roleCode as keyof typeof variants] || 'outline';
   };
 
-  const filteredProjects = projects.filter(project => 
-    project.name.toLowerCase().includes(projectSearch.toLowerCase()) ||
-    (project.nameAr && project.nameAr.toLowerCase().includes(projectSearch.toLowerCase()))
+  // Filtered projects based on search
+  const filteredProjects = (projects || []).filter(project => 
+    project.name?.toLowerCase().includes(projectSearch.toLowerCase()) ||
+    (project.nameAr && project.nameAr?.toLowerCase().includes(projectSearch.toLowerCase())) ||
+    (project.name_ar && project.name_ar?.toLowerCase().includes(projectSearch.toLowerCase()))
   );
+
+  // Debug logging
+  console.log('InviteDialog - Projects:', projects);
+  console.log('InviteDialog - FilteredProjects:', filteredProjects);
 
   // Disable body scroll when modal is open
   useEffect(() => {
