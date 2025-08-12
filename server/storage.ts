@@ -499,6 +499,46 @@ export class DatabaseStorage implements IStorage {
     console.log('🔥🔥🔥 STORAGE.createTask called with:', JSON.stringify(task, null, 2));
     const [newTask] = await db.insert(tasks).values(task).returning();
     console.log('🔥🔥🔥 STORAGE.createTask returning:', JSON.stringify(newTask, null, 2));
+    
+    // Send email notification if task is assigned to someone
+    if (newTask.assigneeId) {
+      console.log('📧 STORAGE: Task has assignee, sending email notification...');
+      try {
+        const { emailService } = await import("./emailService");
+        const assignedUser = await this.getUser(newTask.assigneeId);
+        console.log('📧 STORAGE: Found assigned user:', assignedUser?.email);
+        
+        if (assignedUser && assignedUser.email) {
+          const project = newTask.projectId ? await this.getProject(newTask.projectId) : null;
+          const dueDate = newTask.dueDate ? new Date(newTask.dueDate).toLocaleDateString() : 'Not set';
+          const projectName = project?.name || 'Untitled Project';
+          
+          const template = emailService.templates.taskAssignment(
+            assignedUser.firstName || assignedUser.name || 'User',
+            newTask.title,
+            dueDate,
+            projectName,
+            (assignedUser.language as 'en' | 'ar') || 'en',
+            newTask.id
+          );
+          
+          await emailService.sendEmail({
+            to: assignedUser.email,
+            subject: template.subject,
+            html: template.html,
+          });
+          
+          console.log(`✅ STORAGE: Task assignment email sent successfully to ${assignedUser.email}`);
+        } else {
+          console.log('❌ STORAGE: No email sent - missing user or email');
+        }
+      } catch (emailError) {
+        console.error('❌ STORAGE: Failed to send task assignment email:', emailError);
+      }
+    } else {
+      console.log('🔄 STORAGE: No email sent - task not assigned to any user');
+    }
+    
     return newTask;
   }
 
