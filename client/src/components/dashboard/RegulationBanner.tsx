@@ -90,7 +90,7 @@ export function RegulationBanner({ projectId = 39 }: RegulationBannerProps) {
         {regulationData?.domains.map((domain, index) => (
           <Link
             key={domain.name_en}
-            href={`/projects/${projectId}/regulations/ecc?domain=${encodeURIComponent(domain.name_en)}`}
+            href={`/projects/${projectId}?domain=${encodeURIComponent(domain.name_en)}`}
           >
             <Card className="bg-primary/8 border-primary/20 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer group hover:bg-primary/12">
               <CardContent className="p-6 text-center">

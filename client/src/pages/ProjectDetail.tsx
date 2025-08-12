@@ -77,7 +77,14 @@ type TaskFormData = z.infer<typeof taskSchema>;
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
+  
+  // Get domain from URL query parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  const domainFromUrl = urlParams.get('domain');
   const { t, language } = useI18n();
+  
+  // State for active tab - start with controls if domain specified
+  const [activeTab, setActiveTab] = useState(domainFromUrl ? 'controls' : 'tasks');
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isTaskWizardOpen, setIsTaskWizardOpen] = useState(false);
@@ -628,7 +635,7 @@ export default function ProjectDetail() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="tasks" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="tasks">
               {language === 'ar' ? 'المهام' : 'Tasks'}
@@ -890,7 +897,38 @@ export default function ProjectDetail() {
           </TabsContent>
 
           <TabsContent value="controls" className="space-y-6">
-            {Object.entries(groupedControls).map(([domain, controls]) => (
+            {/* Domain filter notice */}
+            {domainFromUrl && (
+              <Card className="bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-700">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-teal-500 rounded-full"></div>
+                      <span className="text-sm font-medium text-teal-800 dark:text-teal-200">
+                        {language === 'ar' ? `عرض ضوابط نطاق: ${domainFromUrl}` : `Showing controls for domain: ${domainFromUrl}`}
+                      </span>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        // Clear domain parameter from URL
+                        const newUrl = window.location.pathname;
+                        window.history.replaceState({}, '', newUrl);
+                        window.location.reload();
+                      }}
+                      className="text-teal-700 dark:text-teal-300 border-teal-300 dark:border-teal-600 hover:bg-teal-100 dark:hover:bg-teal-800"
+                    >
+                      {language === 'ar' ? 'عرض جميع النطاقات' : 'Show All Domains'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {Object.entries(groupedControls)
+              .filter(([domain]) => !domainFromUrl || domain === domainFromUrl)
+              .map(([domain, controls]) => (
               <div key={domain} className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
