@@ -234,23 +234,38 @@ export default function Regulations() {
 
   const deleteRegulationMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest(`/api/custom-regulations/${id}`, 'DELETE');
+      const response = await apiRequest(`/api/custom-regulations/${id}`, 'DELETE');
+      return response;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/custom-regulations'] });
+      // Force refetch instead of just invalidate to ensure fresh data
+      queryClient.refetchQueries({ queryKey: ['/api/custom-regulations'] });
+      
+      // Reset dialog state
       setIsDeleteDialogOpen(false);
       setDeletingRegulation(null);
+      
       toast({
         title: language === 'ar' ? 'تم حذف التنظيم' : 'Regulation Deleted',
         description: language === 'ar' ? 'تم حذف التنظيم المخصص بنجاح' : 'Custom regulation deleted successfully',
       });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Delete regulation error:', error);
+      
+      // Reset dialog state even on error
+      setIsDeleteDialogOpen(false);
+      setDeletingRegulation(null);
+      
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',
         description: language === 'ar' ? 'فشل في حذف التنظيم' : 'Failed to delete regulation',
         variant: 'destructive',
       });
+    },
+    onMutate: () => {
+      // Add loading state feedback
+      console.log('Starting deletion for regulation:', deletingRegulation?.id);
     },
   });
 
@@ -271,6 +286,7 @@ export default function Regulations() {
   };
 
   const handleDeleteRegulation = (regulation: any) => {
+    console.log('Opening delete dialog for regulation:', regulation.id, regulation.name);
     setDeletingRegulation(regulation);
     setIsDeleteDialogOpen(true);
   };
@@ -282,7 +298,8 @@ export default function Regulations() {
   };
 
   const onDeleteConfirm = () => {
-    if (deletingRegulation) {
+    if (deletingRegulation && !deleteRegulationMutation.isPending) {
+      console.log('Confirming deletion for regulation:', deletingRegulation.id);
       deleteRegulationMutation.mutate(deletingRegulation.id);
     }
   };
@@ -1343,19 +1360,27 @@ export default function Regulations() {
                             {regulation.status}
                           </Badge>
                         </div>
-                        <DropdownMenu>
+                        <DropdownMenu key={`dropdown-${regulation.id}`}>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEditRegulation(regulation)}>
+                            <DropdownMenuItem 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditRegulation(regulation);
+                              }}
+                            >
                               <Edit className="h-4 w-4 mr-2" />
                               {language === 'ar' ? 'تعديل' : 'Edit'}
                             </DropdownMenuItem>
                             <DropdownMenuItem 
-                              onClick={() => handleDeleteRegulation(regulation)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteRegulation(regulation);
+                              }}
                               className="text-red-600 hover:text-red-700"
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
@@ -1453,8 +1478,7 @@ export default function Regulations() {
                                 <div className="relative">
                                   <Checkbox
                                     checked={isSelected}
-                                    onCheckedChange={(e) => {
-                                      e?.stopPropagation?.();
+                                    onCheckedChange={(checked) => {
                                       toggleDomainSelection(category.en);
                                     }}
                                     onClick={(e) => e.stopPropagation()}
@@ -2149,7 +2173,17 @@ export default function Regulations() {
         </Dialog>
 
         {/* Delete Confirmation Dialog */}
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialog 
+          open={isDeleteDialogOpen} 
+          onOpenChange={(open) => {
+            console.log('Delete dialog state changing to:', open);
+            setIsDeleteDialogOpen(open);
+            if (!open) {
+              // Reset deletion state when dialog closes
+              setDeletingRegulation(null);
+            }
+          }}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
