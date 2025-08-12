@@ -1104,12 +1104,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/tasks', isAuthenticated, async (req: any, res) => {
     try {
+      console.log('🚀 POST /api/tasks called with body:', JSON.stringify(req.body, null, 2));
       const taskData = insertTaskSchema.parse({
         ...req.body,
         createdById: req.user.claims.sub,
       });
       
+      console.log('🎯 Task data after parsing:', JSON.stringify(taskData, null, 2));
       const task = await storage.createTask(taskData);
+      console.log('✨ Task created:', JSON.stringify(task, null, 2));
       
       // Send email notification if task is assigned to someone (including self)
       console.log('📧 Email check:', { 
