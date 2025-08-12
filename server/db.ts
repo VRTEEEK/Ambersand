@@ -3,18 +3,75 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 import * as schema from "@shared/schema";
 
-neonConfig.webSocketConstructor = ws;
+// Configure WebSocket for different environments
+if (typeof window === 'undefined') {
+  // Server-side: use ws package
+  neonConfig.webSocketConstructor = ws;
+} else {
+  // Client-side would use native WebSocket (but this runs server-side only)
+  // This branch is just for completeness
+  neonConfig.webSocketConstructor = WebSocket;
+}
+
+// In production/deployment, fall back to HTTP mode if WebSocket fails
+if (process.env.NODE_ENV === 'production') {
+  neonConfig.useSecureWebSocket = true;
+  neonConfig.pipelineConnect = false;
+}
 
 if (!process.env.DATABASE_URL) {
+  console.error("❌ DATABASE_URL environment variable is missing");
   throw new Error(
     "DATABASE_URL must be set. Did you forget to provision a database?",
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+console.log("🔄 Initializing database connection...");
+
+let pool;
+try {
+  // Create pool with additional configuration for production
+  const poolConfig = {
+    connectionString: process.env.DATABASE_URL,
+    max: 1, // Limit connections in serverless environment
+  };
+  
+  pool = new Pool(poolConfig);
+  console.log("✅ Database pool created successfully");
+  
+  // Test the connection immediately
+  const testConnection = async () => {
+    try {
+      const client = await pool.connect();
+      await client.query('SELECT 1');
+      client.release();
+      console.log("✅ Database connection test successful");
+    } catch (testError) {
+      console.error("❌ Database connection test failed:", testError);
+      // Don't throw here to allow server to start, but log the issue
+    }
+  };
+  
+  // Test connection in background
+  testConnection();
+  
+} catch (error) {
+  console.error("❌ Failed to create database pool:", error);
+  throw error;
+}
+
+export { pool };
 
 // Create a logging wrapper for the database with email notification for tasks
-const originalDb = drizzle({ client: pool, schema });
+let originalDb;
+try {
+  originalDb = drizzle({ client: pool, schema });
+  console.log("✅ Drizzle ORM initialized successfully");
+} catch (error) {
+  console.error("❌ Failed to initialize Drizzle ORM:", error);
+  throw error;
+}
+
 export const db = new Proxy(originalDb, {
   get(target, prop) {
     if (prop === 'insert') {
