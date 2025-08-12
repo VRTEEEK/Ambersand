@@ -6,12 +6,8 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Set environment defaults for deployment
-process.env.NODE_ENV = process.env.NODE_ENV || 'production';
+// Set APP_URL for email links
 process.env.APP_URL = process.env.APP_URL || `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
-
-console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
-console.log(`🔗 App URL: ${process.env.APP_URL}`);
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -50,28 +46,16 @@ app.use((req, res, next) => {
     await seedRBAC();
   } catch (error) {
     console.error("Failed to seed RBAC:", error);
-    // Don't exit in production, just log the error
-    if (process.env.NODE_ENV !== 'production') {
-      process.exit(1);
-    }
   }
 
-  console.log('🌟🌟🌟 SERVER STARTING WITH DEBUGGING ENABLED 🌟🌟🌟');
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    // Log the error for debugging
-    console.error("Server error:", err);
-    
     res.status(status).json({ message });
-    
-    // Only throw in development to see full stack traces
-    if (process.env.NODE_ENV === 'development') {
-      throw err;
-    }
+    throw err;
   });
 
   // importantly only setup vite in development and after

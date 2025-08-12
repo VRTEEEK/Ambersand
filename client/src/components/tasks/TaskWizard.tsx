@@ -16,7 +16,6 @@ import { X, ArrowLeft, ArrowRight, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { apiRequest } from '@/lib/queryClient';
 import { useI18n } from '@/hooks/use-i18n';
-import { useToast } from '@/hooks/use-toast';
 
 // Task creation schema
 const taskSchema = z.object({
@@ -44,7 +43,6 @@ interface TaskWizardProps {
 export default function TaskWizard({ isOpen, onClose, projectId, preselectedProjectId }: TaskWizardProps) {
   const { language } = useI18n();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const [step, setStep] = useState(preselectedProjectId ? 2 : 1); // Skip project selection if preselected
   const [selectedControls, setSelectedControls] = useState<number[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(preselectedProjectId || projectId || null);
@@ -98,23 +96,23 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
 
   // Get unique domains from project controls
   const domains = Array.from(new Set(
-    (projectControls as any[]).map((pc: any) => language === 'ar' ? pc.eccControl?.domainAr : pc.eccControl?.domainEn)
+    projectControls.map((pc: any) => language === 'ar' ? pc.eccControl?.domainAr : pc.eccControl?.domainEn)
   )).filter(Boolean).sort();
 
   // Auto-select first domain if project is preselected and only one domain exists
   useEffect(() => {
     if (preselectedProjectId && domains && domains.length === 1 && !selectedDomain) {
-      setSelectedDomain(domains[0] as string);
+      setSelectedDomain(domains[0]);
     }
   }, [preselectedProjectId, domains, selectedDomain]);
 
   // Filter domains based on search
-  const filteredDomains = domains.filter((domain: any) => 
-    domain?.toLowerCase().includes(domainSearch.toLowerCase())
+  const filteredDomains = domains.filter(domain => 
+    domain.toLowerCase().includes(domainSearch.toLowerCase())
   );
 
   // Get controls for selected domain
-  const domainControls = (projectControls as any[]).filter((pc: any) => {
+  const domainControls = projectControls.filter((pc: any) => {
     const controlDomain = language === 'ar' ? pc.eccControl?.domainAr : pc.eccControl?.domainEn;
     return controlDomain === selectedDomain;
   });
@@ -158,9 +156,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
         return tasks;
       } else {
         // Create single task with multiple controls
-        console.log('🌐 Client: Making API request to /api/tasks with data:', cleanTaskData);
         const taskResponse = await apiRequest('/api/tasks', 'POST', cleanTaskData);
-        console.log('🌐 Client: API response status:', taskResponse.status);
         const task = await taskResponse.json();
         console.log('Created task:', task);
 
@@ -170,15 +166,11 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
           await apiRequest(`/api/tasks/${task.id}/controls`, 'POST', { controlIds: controlIds.map(id => Number(id)) });
         }
 
-        // Email notification is handled server-side during task creation
-        console.log('📧 Client: Email notification will be sent by server during task creation');
-
         return task;
       }
     },
     onSuccess: (data) => {
       console.log('✅ TaskWizard: Task creation successful, invalidating cache...', { data, selectedProjectId });
-      console.log('✅ TaskWizard: onSuccess callback executing...');
       
       // Invalidate all task-related queries with comprehensive patterns
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
@@ -254,31 +246,13 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
       // Also trigger a refresh on the page by incrementing refresh keys
       if (typeof window !== 'undefined') {
         // Dispatch a custom event to trigger refresh on ProjectDetail
-        const taskId = Array.isArray(data) ? data[0]?.id : data?.id;
         window.dispatchEvent(new CustomEvent('taskCreated', { 
-          detail: { taskId, projectId: selectedProjectId } 
+          detail: { taskId: data.data.id, projectId: selectedProjectId } 
         }));
       }
       
       console.log('✅ TaskWizard: Cache invalidation complete');
-      
-      // Show success toast
-      toast({
-        title: language === 'ar' ? 'تم إنشاء المهمة' : 'Task Created',
-        description: language === 'ar' ? 'تم إنشاء المهمة بنجاح' : 'Task created successfully',
-      });
-      
-      console.log('✅ TaskWizard: Closing dialog...');
       handleClose();
-      console.log('✅ TaskWizard: Dialog closed');
-    },
-    onError: (error) => {
-      console.error('❌ TaskWizard: Task creation failed:', error);
-      toast({
-        title: language === 'ar' ? 'خطأ في إنشاء المهمة' : 'Task Creation Failed',
-        description: language === 'ar' ? 'حدث خطأ أثناء إنشاء المهمة' : 'An error occurred while creating the task',
-        variant: 'destructive',
-      });
     },
   });
 
@@ -440,7 +414,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {(projects as any[]).map((project: any) => (
+                  {projects.map((project: any) => (
                     <div 
                       key={project.id} 
                       className={`p-4 border rounded-lg cursor-pointer transition-all ${
@@ -516,7 +490,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
 
                   {/* Domain selection */}
                   <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {filteredDomains.map((domain: any) => (
+                    {filteredDomains.map((domain) => (
                       <div 
                         key={domain}
                         className={`p-4 border rounded-lg cursor-pointer transition-all ${
@@ -525,7 +499,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
                         onClick={() => {
-                          setSelectedDomain(domain as string);
+                          setSelectedDomain(domain);
                           // Update domain control counts before proceeding
                           updateDomainControlCounts();
                           // Automatically go to step 3 (control selection) for this domain
@@ -541,7 +515,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                             name="domain"
                             checked={selectedDomain === domain}
                             onChange={() => {
-                              setSelectedDomain(domain as string);
+                              setSelectedDomain(domain);
                               // Update domain control counts before proceeding
                               updateDomainControlCounts();
                               // Automatically go to step 3 (control selection) for this domain
@@ -557,7 +531,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                           >
                             {domain}
                           </Label>
-                          {domainControlCounts[domain as string] > 0 && (
+                          {domainControlCounts[domain] > 0 && (
                             <Badge variant="secondary" className="ml-2">
                               {domainControlCounts[domain]}
                             </Badge>
@@ -764,14 +738,14 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                     <div>
                       <Label htmlFor="assigneeId">{language === 'ar' ? 'المكلف' : 'Assignee'}</Label>
                       <Select
-                        value={form.watch('assigneeId') || undefined}
+                        value={form.watch('assigneeId')}
                         onValueChange={(value) => form.setValue('assigneeId', value)}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder={language === 'ar' ? 'اختر المكلف' : 'Select assignee'} />
                         </SelectTrigger>
                         <SelectContent>
-                          {(users as any[]).map((user: any) => (
+                          {users.map((user: any) => (
                             <SelectItem key={user.id} value={user.id}>
                               {user.firstName} {user.lastName} ({user.email})
                             </SelectItem>
@@ -786,7 +760,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                     <Label>{language === 'ar' ? 'الضوابط المختارة' : 'Selected Controls'}</Label>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {selectedControls.map(controlId => {
-                        const control = (projectControls as any[]).find((pc: any) => pc.eccControl?.id === controlId);
+                        const control = projectControls.find((pc: any) => pc.eccControl?.id === controlId);
                         return (
                           <Badge key={controlId} variant="secondary">
                             {control?.eccControl?.code || controlId}

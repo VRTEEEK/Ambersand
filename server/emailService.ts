@@ -1,193 +1,69 @@
-import { Resend } from "resend";
+import { Resend } from 'resend';
 
-type Lang = "en" | "ar";
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 interface EmailOptions {
   to: string | string[];
   subject: string;
   html: string;
   text?: string;
-  headers?: Record<string, string>;
 }
-
-interface SendResult {
-  id?: string;
-  object?: string;
-}
-
-const resendApiKey = process.env.RESEND_API_KEY;
-const FROM_NAME = process.env.FROM_NAME || "Ambersand";
-const FROM_EMAIL = process.env.FROM_EMAIL || "noreply@ambersand.com"; // MUST be a verified domain in Resend
-
-// ---------- Helpers ----------
-function getBaseUrl(): string {
-  // Prefer explicit prod URL if set; fall back to Replit prod; then local
-  const hinted = process.env.BASE_URL?.trim();
-  if (hinted) return hinted;
-  if (process.env.REPLIT_CLUSTER) return "https://ambersand-v1.replit.app";
-  return "http://localhost:5000";
-}
-
-function getFromAddress(): string {
-  return `${FROM_NAME} <${FROM_EMAIL}>`;
-}
-
-function stripHtml(html: string): string {
-  return html
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function classifyError(e: unknown): { code?: string; message: string } {
-  const msg =
-    typeof e === "string" ? e : (e as any)?.message || JSON.stringify(e ?? {});
-  const lower = msg.toLowerCase();
-
-  if (lower.includes("sandbox") || lower.includes("unverified")) {
-    return {
-      code: "SANDBOX_OR_UNVERIFIED",
-      message:
-        "Resend sandbox or unverified recipient/sender. Verify your domain & recipients and/or leave sandbox.",
-    };
-  }
-  if (
-    lower.includes("dmarc") ||
-    lower.includes("dkim") ||
-    lower.includes("spf")
-  ) {
-    return {
-      code: "AUTHENTICATION_DNS",
-      message:
-        "Sender domain authentication (SPF/DKIM/DMARC) failed. Ensure DNS records are set and domain is verified.",
-    };
-  }
-  if (lower.includes("rate") || lower.includes("429")) {
-    return { code: "RATE_LIMIT", message: "Email service rate-limited." };
-  }
-  if (lower.includes("5") && lower.includes("server")) {
-    return { code: "SERVER_ERROR", message: "Email service server error." };
-  }
-  return { code: undefined, message: msg };
-}
-
-async function sleep(ms: number) {
-  return new Promise((res) => setTimeout(res, ms));
-}
-
-// ---------- Core Service ----------
-const resend = new Resend(resendApiKey);
 
 export const emailService = {
-  // Generic sender with retry/backoff for transient errors
-  async sendEmail({
-    to,
-    subject,
-    html,
-    text,
-    headers,
-  }: EmailOptions): Promise<SendResult> {
-    if (!resendApiKey) {
-      throw new Error("RESEND_API_KEY is not configured");
-    }
-
-    const recipients = Array.isArray(to) ? to : [to];
-    const payload = {
-      from: getFromAddress(),
-      to: recipients,
-      subject,
-      html,
-      text: text || stripHtml(html),
-      headers,
-    };
-
-    const maxAttempts = 4;
-    let attempt = 0;
-    let lastErr: any = null;
-
-    while (attempt < maxAttempts) {
-      attempt++;
-      try {
-        console.log(`📧 [sendEmail] attempt=${attempt}`, {
-          to: recipients,
-          subject,
-          from: getFromAddress(),
-        });
-
-        const { data, error } = await resend.emails.send(payload as any);
-
-        if (error) {
-          const { code, message } = classifyError(error);
-          console.error("❌ Resend error:", {
-            attempt,
-            code,
-            message,
-            raw: error,
-          });
-          // Retry only on transient
-          if (code === "RATE_LIMIT" || code === "SERVER_ERROR") {
-            const backoff = Math.min(2000 * attempt, 8000);
-            await sleep(backoff);
-            continue;
-          }
-          throw new Error(message);
-        }
-
-        console.log("✅ Email sent:", data);
-        return data || {};
-      } catch (e) {
-        lastErr = e;
-        const { code, message } = classifyError(e);
-        console.error("🚨 sendEmail failure:", { attempt, code, message });
-
-        if (code === "RATE_LIMIT" || code === "SERVER_ERROR") {
-          const backoff = Math.min(2000 * attempt, 8000);
-          await sleep(backoff);
-          continue;
-        }
-        break; // non-retryable
+  async sendEmail({ to, subject, html, text }: EmailOptions) {
+    try {
+      console.log('Attempting to send email:', { to, subject, from: 'Ambersand <noreply@resend.dev>' });
+      
+      if (!process.env.RESEND_API_KEY) {
+        throw new Error('RESEND_API_KEY is not configured');
       }
+
+      const { data, error } = await resend.emails.send({
+        from: 'Ambersand <noreply@resend.dev>',
+        to: Array.isArray(to) ? to : [to],
+        subject,
+        html,
+        text: text || html.replace(/<[^>]*>/g, ''), // Strip HTML if no text provided
+      });
+
+      if (error) {
+        console.error('Resend API error:', error);
+        throw new Error(`Email service error: ${error.message || JSON.stringify(error)}`);
+      }
+
+      console.log('Email sent successfully:', data);
+      return data;
+    } catch (error) {
+      console.error('Failed to send email:', error);
+      throw error;
     }
-
-    // Optional: Hook for fallback provider (e.g., SES/Mailgun)
-    // console.warn('↩️ Falling back to secondary email provider...');
-    // await fallbackProvider.send({ to, subject, html, text });
-
-    throw lastErr || new Error("Unknown email send failure");
   },
 
-  // ---------- Templates ----------
+  // Email templates
   templates: {
-    taskAssignment(
-      userName: string,
-      taskTitle: string,
-      dueDate: string,
-      projectName: string,
-      language: Lang = "en",
-      taskId?: number,
-    ) {
-      const baseUrl = getBaseUrl();
-      const taskLink = taskId
-        ? `${baseUrl}/tasks/${taskId}`
-        : `${baseUrl}/my-tasks`;
-      if (language === "ar") {
+    taskAssignment: (userName: string, taskTitle: string, dueDate: string, projectName: string, language: 'en' | 'ar' = 'en', taskId?: number) => {
+      // Auto-detect production URL based on environment
+      const baseUrl = process.env.BASE_URL || 
+                     (process.env.REPLIT_CLUSTER ? 'https://ambersand-v1.replit.app' : 'http://localhost:5000');
+      const taskLink = taskId ? `${baseUrl}/tasks/${taskId}` : `${baseUrl}/my-tasks`;
+      
+      if (language === 'ar') {
         return {
           subject: `مهمة جديدة: ${taskTitle}`,
           html: `
-            <div dir="rtl" style="font-family: Arial, sans-serif;">
+            <div dir="rtl" style="font-family: Arial, sans-serif; direction: rtl;">
               <h2>مهمة جديدة مُسندة إليك</h2>
               <p>مرحباً ${userName}،</p>
+              <p>تم إسناد مهمة جديدة إليك:</p>
               <ul>
                 <li><strong>المهمة:</strong> ${taskTitle}</li>
                 <li><strong>المشروع:</strong> ${projectName}</li>
                 <li><strong>تاريخ الاستحقاق:</strong> ${dueDate}</li>
               </ul>
-              <p>يرجى تسجيل الدخول لعرض التفاصيل.</p>
-              <a href="${taskLink}" style="background:#2699A6;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;">عرض المهمة</a>
+              <p>يرجى تسجيل الدخول إلى منصة Ambersand لعرض التفاصيل.</p>
+              <a href="${taskLink}" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">عرض المهمة</a>
             </div>
-          `,
+          `
         };
       }
       return {
@@ -196,46 +72,42 @@ export const emailService = {
           <div style="font-family: Arial, sans-serif;">
             <h2>New Task Assigned to You</h2>
             <p>Hi ${userName},</p>
+            <p>You have been assigned a new task:</p>
             <ul>
               <li><strong>Task:</strong> ${taskTitle}</li>
               <li><strong>Project:</strong> ${projectName}</li>
               <li><strong>Due Date:</strong> ${dueDate}</li>
             </ul>
-            <p>Please log in to view details.</p>
-            <a href="${taskLink}" style="background:#2699A6;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;">View Task</a>
+            <p>Please log in to Ambersand platform to view details.</p>
+            <a href="${taskLink}" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View Task</a>
           </div>
-        `,
+        `
       };
     },
 
-    deadlineReminder(
-      userName: string,
-      taskTitle: string,
-      dueDate: string,
-      language: Lang = "en",
-      taskId?: number,
-    ) {
-      const baseUrl = getBaseUrl();
-      const taskLink = taskId
-        ? `${baseUrl}/tasks/${taskId}`
-        : `${baseUrl}/my-tasks`;
-      if (language === "ar") {
+    deadlineReminder: (userName: string, taskTitle: string, dueDate: string, language: 'en' | 'ar' = 'en', taskId?: number) => {
+      // Auto-detect production URL based on environment
+      const baseUrl = process.env.BASE_URL || 
+                     (process.env.REPLIT_CLUSTER ? 'https://ambersand-v1.replit.app' : 'http://localhost:5000');
+      const taskLink = taskId ? `${baseUrl}/tasks/${taskId}` : `${baseUrl}/my-tasks`;
+      
+      if (language === 'ar') {
         return {
-          subject: `تذكير: موعد تسليم "${taskTitle}" يقترب`,
+          subject: `تذكير: موعد تسليم المهمة "${taskTitle}" يقترب`,
           html: `
-            <div dir="rtl" style="font-family: Arial, sans-serif;">
+            <div dir="rtl" style="font-family: Arial, sans-serif; direction: rtl;">
               <h2>تذكير بموعد التسليم</h2>
               <p>مرحباً ${userName}،</p>
               <p>هذا تذكير بأن موعد تسليم المهمة التالية يقترب:</p>
               <p><strong>${taskTitle}</strong></p>
               <p>موعد التسليم: <strong>${dueDate}</strong></p>
-              <a href="${taskLink}" style="background:#ea580c;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;">عرض المهمة</a>
+              <a href="${taskLink}" style="background-color: #ea580c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">عرض المهمة</a>
             </div>
-          `,
+          `
         };
       }
       return {
-        subject: `Reminder: "${taskTitle}" Due Soon`,
+        subject: `Reminder: Task "${taskTitle}" Due Soon`,
         html: `
           <div style="font-family: Arial, sans-serif;">
             <h2>Task Deadline Reminder</h2>
@@ -243,37 +115,31 @@ export const emailService = {
             <p>This is a reminder that the following task is due soon:</p>
             <p><strong>${taskTitle}</strong></p>
             <p>Due Date: <strong>${dueDate}</strong></p>
-            <a href="${taskLink}" style="background:#ea580c;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;">View Task</a>
+            <a href="${taskLink}" style="background-color: #ea580c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View Task</a>
           </div>
-        `,
+        `
       };
     },
 
-    statusUpdate(
-      userName: string,
-      taskTitle: string,
-      oldStatus: string,
-      newStatus: string,
-      language: Lang = "en",
-      taskId?: number,
-    ) {
-      const baseUrl = getBaseUrl();
-      const taskLink = taskId
-        ? `${baseUrl}/tasks/${taskId}`
-        : `${baseUrl}/my-tasks`;
-      if (language === "ar") {
+    statusUpdate: (userName: string, taskTitle: string, oldStatus: string, newStatus: string, language: 'en' | 'ar' = 'en', taskId?: number) => {
+      // Auto-detect production URL based on environment
+      const baseUrl = process.env.BASE_URL || 
+                     (process.env.REPLIT_CLUSTER ? 'https://ambersand-v1.replit.app' : 'http://localhost:5000');
+      const taskLink = taskId ? `${baseUrl}/tasks/${taskId}` : `${baseUrl}/my-tasks`;
+      
+      if (language === 'ar') {
         return {
           subject: `تحديث حالة المهمة: ${taskTitle}`,
           html: `
-            <div dir="rtl" style="font-family: Arial, sans-serif;">
+            <div dir="rtl" style="font-family: Arial, sans-serif; direction: rtl;">
               <h2>تحديث حالة المهمة</h2>
               <p>مرحباً ${userName}،</p>
               <p>تم تحديث حالة المهمة "${taskTitle}":</p>
-              <p>من: <span style="color:#6b7280;">${oldStatus}</span></p>
-              <p>إلى: <span style="color:#2699A6;font-weight:bold;">${newStatus}</span></p>
-              <a href="${taskLink}" style="background:#2699A6;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;">عرض التفاصيل</a>
+              <p>من: <span style="color: #6b7280;">${oldStatus}</span></p>
+              <p>إلى: <span style="color: #2699A6; font-weight: bold;">${newStatus}</span></p>
+              <a href="${taskLink}" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">عرض التفاصيل</a>
             </div>
-          `,
+          `
         };
       }
       return {
@@ -283,133 +149,142 @@ export const emailService = {
             <h2>Task Status Updated</h2>
             <p>Hi ${userName},</p>
             <p>The status of task "${taskTitle}" has been updated:</p>
-            <p>From: <span style="color:#6b7280;">${oldStatus}</span></p>
-            <p>To: <span style="color:#2699A6;font-weight:bold;">${newStatus}</span></p>
-            <a href="${taskLink}" style="background:#2699A6;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;">View Details</a>
+            <p>From: <span style="color: #6b7280;">${oldStatus}</span></p>
+            <p>To: <span style="color: #2699A6; font-weight: bold;">${newStatus}</span></p>
+            <a href="${taskLink}" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View Details</a>
           </div>
-        `,
+        `
       };
     },
 
-    userInvitation(
-      inviterName: string,
-      organizationName: string,
-      personalMessage: string,
-      inviteUrl: string,
-    ) {
+    userInvitation: (
+      inviterName: string, 
+      organizationName: string, 
+      personalMessage: string = '', 
+      inviteUrl: string
+    ) => {
       return {
         subject: `You've been invited to join ${organizationName}`,
         html: `
-          <!doctype html>
-          <html><body style="margin:0;padding:0;font-family:Arial,sans-serif;line-height:1.6;color:#333;background:#f4f4f4;">
-            <div style="max-width:600px;margin:0 auto;background:#fff;">
-              <div style="background:#2699A6;padding:24px;text-align:center;color:#fff;">
-                <h1 style="margin:0;font-size:24px;">Ambersand</h1>
-                <p style="margin:6px 0 0;">Compliance Management Platform</p>
-              </div>
-              <div style="padding:28px;">
-                <h2 style="color:#2699A6;margin:0 0 16px;">You've been invited to join ${organizationName}</h2>
-                <p>Hello,</p>
-                <p><strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> on Ambersand.</p>
-                ${personalMessage ? `<blockquote style="margin:16px 0;padding:12px;border-left:4px solid #2699A6;background:#f8f9fa;">${personalMessage}</blockquote>` : ""}
-                <p>Click the button below to accept your invitation and set up your account:</p>
-                <p style="text-align:center;margin:24px 0;">
-                  <a href="${inviteUrl}" style="background:#2699A6;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;">Accept Invitation</a>
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Invitation to ${organizationName}</title>
+          </head>
+          <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 0;">
+              <!-- Header -->
+              <div style="background-color: #2699A6; padding: 30px; text-align: center;">
+                <h1 style="color: white; margin: 0; font-size: 28px; font-weight: bold;">
+                  Ambersand
+                </h1>
+                <p style="color: #e0f7fa; margin: 10px 0 0 0; font-size: 16px;">
+                  Compliance Management Platform
                 </p>
-                <p style="font-size:12px;color:#666;">If the button doesn't work, copy and paste this link:</p>
-                <code style="display:block;word-break:break-all;background:#f8f9fa;border:1px solid #e5e7eb;padding:8px;border-radius:4px;">${inviteUrl}</code>
               </div>
-              <div style="background:#f8f9fa;padding:16px;text-align:center;border-top:1px solid #e5e7eb;font-size:12px;color:#999;">
-                <p style="margin:0;">© ${new Date().getFullYear()} Ambersand. All rights reserved.</p>
-                <p style="margin:4px 0 0;">This invitation expires in 7 days.</p>
+              
+              <!-- Content -->
+              <div style="padding: 40px 30px;">
+                <h2 style="color: #2699A6; margin: 0 0 20px 0; font-size: 24px;">
+                  You've been invited to join ${organizationName}
+                </h2>
+                
+                <p style="margin: 0 0 20px 0; font-size: 16px;">
+                  Hello,
+                </p>
+                
+                <p style="margin: 0 0 20px 0; font-size: 16px;">
+                  <strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> on the Ambersand compliance management platform.
+                </p>
+                
+                ${personalMessage ? `
+                <div style="background-color: #f8f9fa; border-left: 4px solid #2699A6; padding: 15px; margin: 20px 0;">
+                  <p style="margin: 0; font-style: italic; color: #555;">
+                    "${personalMessage}"
+                  </p>
+                </div>
+                ` : ''}
+                
+                <p style="margin: 20px 0; font-size: 16px;">
+                  Click the button below to accept your invitation and set up your account:
+                </p>
+                
+                <!-- CTA Button -->
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${inviteUrl}" 
+                     style="background-color: #2699A6; 
+                            color: white; 
+                            padding: 15px 30px; 
+                            text-decoration: none; 
+                            border-radius: 6px; 
+                            display: inline-block; 
+                            font-weight: bold; 
+                            font-size: 16px;
+                            box-shadow: 0 2px 4px rgba(38, 153, 166, 0.3);">
+                    Accept Invitation
+                  </a>
+                </div>
+                
+                <p style="margin: 20px 0; font-size: 14px; color: #666;">
+                  If the button doesn't work, copy and paste this link into your browser:
+                </p>
+                
+                <div style="background-color: #f8f9fa; 
+                            padding: 15px; 
+                            border: 1px solid #dee2e6; 
+                            border-radius: 4px; 
+                            word-break: break-all; 
+                            font-family: monospace; 
+                            font-size: 14px; 
+                            color: #495057;">
+                  ${inviteUrl}
+                </div>
+              </div>
+              
+              <!-- Footer -->
+              <div style="background-color: #f8f9fa; 
+                          padding: 30px; 
+                          text-align: center; 
+                          border-top: 1px solid #dee2e6;">
+                <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">
+                  <strong>Note:</strong> This invitation will expire in 7 days.
+                </p>
+                
+                <p style="margin: 10px 0 0 0; font-size: 12px; color: #999;">
+                  © ${new Date().getFullYear()} Ambersand. All rights reserved.
+                </p>
+                
+                <p style="margin: 10px 0 0 0; font-size: 12px; color: #999;">
+                  If you have any questions, please contact your system administrator.
+                </p>
               </div>
             </div>
-          </body></html>
-        `,
+          </body>
+          </html>
+        `
       };
-    },
+    }
   },
 
-  // ---------- Convenience wrappers ----------
-  async sendTaskAssignmentEmail(
-    to: string | string[],
-    opts: {
-      userName: string;
-      taskTitle: string;
-      dueDate: string;
-      projectName: string;
-      language?: Lang;
-      taskId?: number;
-    },
-  ) {
-    const t = this.templates.taskAssignment(
-      opts.userName,
-      opts.taskTitle,
-      opts.dueDate,
-      opts.projectName,
-      opts.language ?? "en",
-      opts.taskId,
-    );
-    return this.sendEmail({ to, subject: t.subject, html: t.html });
-  },
+  // User invitation email
+  async sendInvitationEmail(toEmail: string, options: {
+    inviterName: string;
+    organizationName: string;
+    personalMessage?: string;
+    inviteUrl: string;
+  }) {
+    const { inviterName, organizationName, personalMessage, inviteUrl } = options;
+    
+    console.log('Sending invitation email:', { toEmail, inviterName, organizationName, inviteUrl });
 
-  async sendDeadlineReminderEmail(
-    to: string | string[],
-    opts: {
-      userName: string;
-      taskTitle: string;
-      dueDate: string;
-      language?: Lang;
-      taskId?: number;
-    },
-  ) {
-    const t = this.templates.deadlineReminder(
-      opts.userName,
-      opts.taskTitle,
-      opts.dueDate,
-      opts.language ?? "en",
-      opts.taskId,
-    );
-    return this.sendEmail({ to, subject: t.subject, html: t.html });
-  },
-
-  async sendStatusUpdateEmail(
-    to: string | string[],
-    opts: {
-      userName: string;
-      taskTitle: string;
-      oldStatus: string;
-      newStatus: string;
-      language?: Lang;
-      taskId?: number;
-    },
-  ) {
-    const t = this.templates.statusUpdate(
-      opts.userName,
-      opts.taskTitle,
-      opts.oldStatus,
-      opts.newStatus,
-      opts.language ?? "en",
-      opts.taskId,
-    );
-    return this.sendEmail({ to, subject: t.subject, html: t.html });
-  },
-
-  async sendInvitationEmail(
-    toEmail: string,
-    opts: {
-      inviterName: string;
-      organizationName: string;
-      personalMessage?: string;
-      inviteUrl: string;
-    },
-  ) {
-    const t = this.templates.userInvitation(
-      opts.inviterName,
-      opts.organizationName,
-      opts.personalMessage || "",
-      opts.inviteUrl,
-    );
-    return this.sendEmail({ to: toEmail, subject: t.subject, html: t.html });
-  },
+    const template = this.templates.userInvitation(inviterName, organizationName, personalMessage || '', inviteUrl);
+    
+    return await this.sendEmail({
+      to: toEmail,
+      subject: template.subject,
+      html: template.html,
+    });
+  }
 };

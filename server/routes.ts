@@ -415,7 +415,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           acc.push({
             projectId: pr.projectId,
             projectName: pr.projectName || '',
-            projectNameAr: pr.projectNameAr || '',
+            projectNameAr: pr.projectNameAr,
             roles: [pr.roleCode]
           });
         }
@@ -663,8 +663,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           aVal = a.firstName && a.lastName ? `${a.firstName} ${a.lastName}` : a.name || a.email || '';
           bVal = b.firstName && b.lastName ? `${b.firstName} ${b.lastName}` : b.name || b.email || '';
         } else if (sort_by === 'lastActive') {
-          aVal = new Date(a.lastActiveAt || a.updatedAt || new Date()).getTime();
-          bVal = new Date(b.lastActiveAt || b.updatedAt || new Date()).getTime();
+          aVal = new Date(a.lastActiveAt || a.updatedAt).getTime();
+          bVal = new Date(b.lastActiveAt || b.updatedAt).getTime();
         } else {
           return 0;
         }
@@ -1104,15 +1104,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/tasks', isAuthenticated, async (req: any, res) => {
     try {
-      console.log('🚀🚀🚀 POST /api/tasks ENDPOINT CALLED 🚀🚀🚀');
-      console.log('Request body:', JSON.stringify(req.body, null, 2));
       const taskData = insertTaskSchema.parse({
         ...req.body,
-        createdById: req.user?.id || req.user?.claims?.sub,
+        createdById: req.user.claims.sub,
       });
       
       const task = await storage.createTask(taskData);
-      console.log('✨ TASK CREATED:', JSON.stringify(task, null, 2));
       
       // Send email notification if task is assigned to someone (including self)
       console.log('📧 Email check:', { 
@@ -1125,12 +1122,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('📧 Attempting to send task assignment email...');
         try {
           const assignedUser = await storage.getUser(task.assigneeId);
-          console.log('📧 Assigned user details:', { 
-            id: assignedUser?.id, 
-            email: assignedUser?.email, 
-            firstName: assignedUser?.firstName,
-            hasEmail: !!assignedUser?.email 
-          });
           const project = task.projectId ? await storage.getProject(task.projectId) : null;
           
           if (assignedUser && assignedUser.email) {
@@ -1153,11 +1144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             console.log(`✅ Task assignment email sent successfully to ${assignedUser.email}`);
           } else {
-            console.log('❌ No email sent: Missing assigned user or email address', {
-              userExists: !!assignedUser,
-              emailExists: !!assignedUser?.email,
-              email: assignedUser?.email
-            });
+            console.log('❌ No email sent: Missing assigned user or email address');
           }
         } catch (emailError) {
           console.error('❌ Failed to send task assignment email:', emailError);
@@ -1214,7 +1201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('📧 Assignment check:', { 
           newAssigneeId: taskData.assigneeId, 
           oldAssigneeId: oldTask?.assigneeId,
-          currentUserId: req.user?.id || req.user?.claims?.sub,
+          currentUserId: req.user.claims.sub,
           isNewAssignment: taskData.assigneeId && oldTask?.assigneeId !== taskData.assigneeId
         });
         
@@ -1265,64 +1252,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting task:", error);
       res.status(500).json({ message: "Failed to delete task" });
-    }
-  });
-
-  // Send email notification for task assignment
-  app.post('/api/tasks/send-notification', isAuthenticated, async (req: any, res) => {
-    try {
-      console.log('📧📧📧 API: Send notification endpoint called 📧📧📧');
-      console.log('📧 API: Request body:', JSON.stringify(req.body, null, 2));
-      const { taskId } = req.body;
-      
-      if (!taskId) {
-        console.log('❌ API: No taskId provided');
-        return res.status(400).json({ message: "Task ID is required" });
-      }
-
-      const task = await storage.getTask(taskId);
-      console.log('📧 API: Found task:', task?.title, 'assignee:', task?.assigneeId);
-      
-      if (!task || !task.assigneeId) {
-        console.log('❌ API: Task not found or not assigned');
-        return res.status(404).json({ message: "Task not found or not assigned" });
-      }
-
-      const assignedUser = await storage.getUser(task.assigneeId);
-      console.log('📧 API: Found assigned user:', assignedUser?.email, 'name:', assignedUser?.name);
-      
-      if (!assignedUser || !assignedUser.email) {
-        console.log('❌ API: User not found or no email');
-        return res.status(404).json({ message: "Assigned user not found or has no email" });
-      }
-
-      const project = task.projectId ? await storage.getProject(task.projectId) : null;
-      const dueDate = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'Not set';
-      const projectName = project?.name || 'Untitled Project';
-      
-      console.log('📧 API: Preparing email template...');
-      const template = emailService.templates.taskAssignment(
-        assignedUser.firstName || assignedUser.first_name || assignedUser.name || 'User',
-        task.title,
-        dueDate,
-        projectName,
-        (assignedUser.language as 'en' | 'ar') || 'en',
-        task.id
-      );
-      
-      console.log('📧 API: Sending email to:', assignedUser.email);
-      await emailService.sendEmail({
-        to: assignedUser.email,
-        subject: template.subject,
-        html: template.html,
-      });
-      
-      console.log(`✅✅✅ API: Task assignment email sent successfully to ${assignedUser.email} ✅✅✅`);
-      res.json({ message: "Email notification sent successfully", userEmail: assignedUser.email });
-      
-    } catch (error) {
-      console.error("❌❌❌ API: Error sending email notification:", error);
-      res.status(500).json({ message: "Failed to send email notification", error: error.message });
     }
   });
 
