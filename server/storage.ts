@@ -83,6 +83,7 @@ export interface IStorage {
   removeUserRole(userId: string, roleId: string): Promise<void>;
   assignUserProjectRole(userId: string, projectId: number, roleId: string): Promise<void>;
   removeUserProjectRole(userId: string, projectId: number, roleId: string): Promise<void>;
+  getUserProjectRoles(userId: string): Promise<(UserProjectRole & { project: Project, role: Role })[]>;
   
   // Project operations
   getProjects(organizationId?: string): Promise<Project[]>;
@@ -300,23 +301,6 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async assignUserProjectRole(userId: string, projectId: number, roleId: string): Promise<void> {
-    await db
-      .insert(userProjectRoles)
-      .values({ userId, projectId, roleId })
-      .onConflictDoNothing();
-  }
-
-  async removeUserProjectRole(userId: string, projectId: number, roleId: string): Promise<void> {
-    await db
-      .delete(userProjectRoles)
-      .where(and(
-        eq(userProjectRoles.userId, userId),
-        eq(userProjectRoles.projectId, projectId),
-        eq(userProjectRoles.roleId, roleId)
-      ));
-  }
-
   async getUserPermissions(userId: string, projectId?: number): Promise<string[]> {
     // Get user's organization-wide roles
     const orgRoles = await db
@@ -354,7 +338,7 @@ export class DatabaseStorage implements IStorage {
       .map(r => r.permissionCode!);
 
     // Combine and dedupe permissions
-    return [...new Set([...orgPermissions, ...projectPermissions])];
+    return Array.from(new Set([...orgPermissions, ...projectPermissions]));
   }
 
   async assignUserRole(userId: string, roleId: string): Promise<void> {
@@ -388,6 +372,30 @@ export class DatabaseStorage implements IStorage {
         eq(userProjectRoles.projectId, projectId),
         eq(userProjectRoles.roleId, roleId)
       ));
+  }
+
+  async getUserProjectRoles(userId: string): Promise<(UserProjectRole & { project: Project, role: Role })[]> {
+    const result = await db
+      .select({
+        userId: userProjectRoles.userId,
+        projectId: userProjectRoles.projectId,
+        roleId: userProjectRoles.roleId,
+        project: projects,
+        role: roles,
+      })
+      .from(userProjectRoles)
+      .leftJoin(projects, eq(userProjectRoles.projectId, projects.id))
+      .leftJoin(roles, eq(userProjectRoles.roleId, roles.id))
+      .where(eq(userProjectRoles.userId, userId));
+    
+    return result.map(r => ({
+      userId: r.userId,
+      projectId: r.projectId,
+      roleId: r.roleId,
+      createdAt: null,
+      project: r.project!,
+      role: r.role!,
+    }));
   }
 
   // Project operations
@@ -478,6 +486,7 @@ export class DatabaseStorage implements IStorage {
     let query = db.select().from(tasks).leftJoin(projects, eq(tasks.projectId, projects.id));
     
     if (conditions.length > 0) {
+      // Apply conditions to the query
       query = query.where(and(...conditions));
     }
     
@@ -625,6 +634,7 @@ export class DatabaseStorage implements IStorage {
         .orderBy(desc(evidence.createdAt));
       
       if (conditions.length > 0) {
+        // Apply conditions to the query
         query = query.where(and(...conditions));
       }
       
@@ -638,6 +648,7 @@ export class DatabaseStorage implements IStorage {
       let fallbackQuery = db.select().from(evidence).orderBy(desc(evidence.createdAt));
       
       if (conditions.length > 0) {
+        // Apply conditions to the fallback query
         fallbackQuery = fallbackQuery.where(and(...conditions));
       }
       

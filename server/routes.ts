@@ -415,7 +415,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           acc.push({
             projectId: pr.projectId,
             projectName: pr.projectName || '',
-            projectNameAr: pr.projectNameAr,
+            projectNameAr: pr.projectNameAr || '',
             roles: [pr.roleCode]
           });
         }
@@ -663,8 +663,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           aVal = a.firstName && a.lastName ? `${a.firstName} ${a.lastName}` : a.name || a.email || '';
           bVal = b.firstName && b.lastName ? `${b.firstName} ${b.lastName}` : b.name || b.email || '';
         } else if (sort_by === 'lastActive') {
-          aVal = new Date(a.lastActiveAt || a.updatedAt).getTime();
-          bVal = new Date(b.lastActiveAt || b.updatedAt).getTime();
+          aVal = new Date(a.lastActiveAt || a.updatedAt || new Date()).getTime();
+          bVal = new Date(b.lastActiveAt || b.updatedAt || new Date()).getTime();
         } else {
           return 0;
         }
@@ -1108,7 +1108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Request body:', JSON.stringify(req.body, null, 2));
       const taskData = insertTaskSchema.parse({
         ...req.body,
-        createdById: req.user.claims.sub,
+        createdById: req.user?.id || req.user?.claims?.sub,
       });
       
       const task = await storage.createTask(taskData);
@@ -1128,7 +1128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log('📧 Assigned user details:', { 
             id: assignedUser?.id, 
             email: assignedUser?.email, 
-            firstName: assignedUser?.firstName || assignedUser?.first_name,
+            firstName: assignedUser?.firstName,
             hasEmail: !!assignedUser?.email 
           });
           const project = task.projectId ? await storage.getProject(task.projectId) : null;
@@ -1214,7 +1214,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('📧 Assignment check:', { 
           newAssigneeId: taskData.assigneeId, 
           oldAssigneeId: oldTask?.assigneeId,
-          currentUserId: req.user.claims.sub,
+          currentUserId: req.user?.id || req.user?.claims?.sub,
           isNewAssignment: taskData.assigneeId && oldTask?.assigneeId !== taskData.assigneeId
         });
         
