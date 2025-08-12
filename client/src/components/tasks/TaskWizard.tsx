@@ -173,6 +173,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
     },
     onSuccess: (data) => {
       console.log('✅ TaskWizard: Task creation successful, invalidating cache...', { data, selectedProjectId });
+      console.log('✅ TaskWizard: onSuccess callback executing...');
       
       // Invalidate all task-related queries with comprehensive patterns
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
@@ -248,8 +249,9 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
       // Also trigger a refresh on the page by incrementing refresh keys
       if (typeof window !== 'undefined') {
         // Dispatch a custom event to trigger refresh on ProjectDetail
+        const taskId = Array.isArray(data) ? data[0]?.id : data?.id;
         window.dispatchEvent(new CustomEvent('taskCreated', { 
-          detail: { taskId: data.data.id, projectId: selectedProjectId } 
+          detail: { taskId, projectId: selectedProjectId } 
         }));
       }
       
@@ -264,6 +266,14 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
       console.log('✅ TaskWizard: Closing dialog...');
       handleClose();
       console.log('✅ TaskWizard: Dialog closed');
+    },
+    onError: (error) => {
+      console.error('❌ TaskWizard: Task creation failed:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ في إنشاء المهمة' : 'Task Creation Failed',
+        description: language === 'ar' ? 'حدث خطأ أثناء إنشاء المهمة' : 'An error occurred while creating the task',
+        variant: 'destructive',
+      });
     },
   });
 
