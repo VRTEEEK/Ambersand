@@ -48,6 +48,7 @@ app.use((req, res, next) => {
     console.error("Failed to seed RBAC:", error);
   }
 
+  console.log('🌟🌟🌟 SERVER STARTING WITH DEBUGGING ENABLED 🌟🌟🌟');
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
