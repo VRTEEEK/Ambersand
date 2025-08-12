@@ -1,0 +1,130 @@
+2025-08-12 20:23:10.84
+abbf43f7
+User
+length: 219,
+2025-08-12 20:23:10.84
+abbf43f7
+User
+severity: 'ERROR',
+2025-08-12 20:23:10.84
+abbf43f7
+User
+code: '23505',
+2025-08-12 20:23:10.84
+abbf43f7
+User
+detail: 'Key (email)=(abdullah@ambersand.ai) already exists.',
+2025-08-12 20:23:10.84
+abbf43f7
+User
+position: undefined,
+2025-08-12 20:23:10.84
+abbf43f7
+User
+internalPosition: undefined,
+2025-08-12 20:23:10.84
+abbf43f7
+User
+internalQuery: undefined,
+2025-08-12 20:23:10.84
+abbf43f7
+User
+where: undefined,
+2025-08-12 20:23:10.84
+abbf43f7
+User
+schema: 'public',
+2025-08-12 20:23:10.84
+abbf43f7
+User
+table: 'users',
+2025-08-12 20:23:10.84
+abbf43f7
+User
+column: undefined,
+2025-08-12 20:23:10.84
+abbf43f7
+User
+dataType: undefined,
+2025-08-12 20:23:10.84
+abbf43f7
+User
+constraint: 'users_email_unique',
+2025-08-12 20:23:10.84
+abbf43f7
+User
+file: 'nbtinsert.c',
+2025-08-12 20:23:10.84
+abbf43f7
+User
+line: '666',
+2025-08-12 20:23:10.84
+abbf43f7
+User
+routine: '_bt_check_unique'
+2025-08-12 20:23:10.84
+abbf43f7
+User
+2025-08-12 20:23:10.84
+abbf43f7
+User
+Node.js v20.19.3
+2025-08-12 20:23:10.86
+abbf43f7
+User
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.5.2
+2025-08-12 20:23:10.87
+abbf43f7
+System
+command finished with error [npm run start]: exit status 1
+2025-08-12 20:23:10.84
+abbf43f7
+User
+file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345
+2025-08-12 20:23:10.84
+abbf43f7
+User
+2025-08-12 20:23:10.84
+abbf43f7
+User
+error: duplicate key value violates unique constraint "users_email_unique"
+2025-08-12 20:23:10.84
+abbf43f7
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2025-08-12 20:23:10.84
+abbf43f7
+User
+at async upsertUser (file:///home/runner/workspace/dist/index.js:1482:3)
+2025-08-12 20:23:10.84
+abbf43f7
+User
+hint: undefined,
+2025-08-12 20:23:10.84
+abbf43f7
+User
+}
+2025-08-12 20:23:10.86
+abbf43f7
+User
+npm notice
+2025-08-12 20:23:10.86
+abbf43f7
+User
+npm notice New major version of npm available! 10.8.2 -> 11.5.2
+2025-08-12 20:23:10.86
+abbf43f7
+User
+npm notice To update run: npm install -g npm@11.5.2
+2025-08-12 20:23:10.86
+abbf43f7
+User
+npm notice
+2025-08-12 20:23:26.19
+abbf43f7
+User
+> rest-express@1.0.0 start
+2025-08-12 20:23:26.19
+abbf43f7
+User
+> NODE_ENV=production node dist/index.js

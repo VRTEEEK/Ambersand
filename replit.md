@@ -6,6 +6,7 @@ Ambersand is a bilingual (Arabic/English) compliance management platform for mid
 
 ## Recent Changes (August 2025)
 
+- **CRITICAL: Fixed production email constraint error** - Enhanced upsertUser function to handle email unique constraint violations (Error 23505) by properly updating existing users instead of failing
 - **Fixed TaskWizard form submission** - Enhanced onSubmit function with proper logging and validation, resolved "Create Task" button not working
 - **Fixed React Query initialization** - Moved useEffect listener after query definitions to prevent "refetchTasks before initialization" error
 - **Completed React Query v5 migration** - Updated all remaining cacheTime references to gcTime for full compatibility
