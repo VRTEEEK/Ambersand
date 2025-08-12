@@ -12,4 +12,17 @@ if (!process.env.DATABASE_URL) {
 }
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle({ client: pool, schema });
+
+// Create a logging wrapper for the database
+const originalDb = drizzle({ client: pool, schema });
+export const db = new Proxy(originalDb, {
+  get(target, prop) {
+    if (prop === 'insert') {
+      return function(table: any) {
+        console.log('💾💾💾 DB.INSERT called on table:', table[Symbol.for('drizzle:Name')] || 'unknown');
+        return target.insert(table);
+      };
+    }
+    return target[prop as keyof typeof target];
+  }
+});
