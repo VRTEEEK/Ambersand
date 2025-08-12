@@ -191,10 +191,17 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
         const projectIdStr = String(selectedProjectId);
         const projectIdNum = Number(selectedProjectId);
         
+        // Invalidate the exact query keys used in ProjectDetail
         queryClient.invalidateQueries({ queryKey: ['/api/tasks', { projectId: selectedProjectId }] });
         queryClient.invalidateQueries({ queryKey: ['/api/tasks', { projectId: projectIdStr }] });
         queryClient.invalidateQueries({ queryKey: ['/api/tasks', { projectId: projectIdNum }] });
         
+        // Invalidate with-controls queries that depend on the refreshKey
+        queryClient.invalidateQueries({ queryKey: ['/api/tasks', projectIdStr, 'with-controls'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/tasks', projectIdNum, 'with-controls'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/tasks', selectedProjectId, 'with-controls'] });
+        
+        // More comprehensive predicate to match all variations of task queries
         queryClient.invalidateQueries({ 
           predicate: (query) => {
             const key = query.queryKey;
@@ -204,7 +211,9 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                key[1]?.projectId === projectIdNum ||
                key[1] === selectedProjectId ||
                key[1] === projectIdStr ||
-               key[1] === projectIdNum);
+               key[1] === projectIdNum ||
+               (typeof key[1] === 'string' && (key[1] === projectIdStr || key[1] === String(projectIdNum))) ||
+               (typeof key[1] === 'number' && (key[1] === projectIdNum || key[1] === Number(projectIdStr))));
             if (match) {
               console.log('🔄 TaskWizard: Invalidating project task query:', query.queryKey);
             }
@@ -226,13 +235,21 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
         }
       });
       
-      // Force a manual refetch of all queries
+      // Force a manual refetch of all task and project queries
       queryClient.refetchQueries({
         predicate: (query) => {
           const key = query.queryKey[0];
           return typeof key === 'string' && (key.startsWith('/api/tasks') || key.startsWith('/api/projects'));
         }
       });
+      
+      // Also trigger a refresh on the page by incrementing refresh keys
+      if (typeof window !== 'undefined') {
+        // Dispatch a custom event to trigger refresh on ProjectDetail
+        window.dispatchEvent(new CustomEvent('taskCreated', { 
+          detail: { taskId: data.data.id, projectId: selectedProjectId } 
+        }));
+      }
       
       console.log('✅ TaskWizard: Cache invalidation complete');
       handleClose();
