@@ -1268,6 +1268,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Send email notification for task assignment
+  app.post('/api/tasks/send-notification', isAuthenticated, async (req, res) => {
+    try {
+      console.log('📧 API: Send notification endpoint called');
+      const { taskId } = req.body;
+      
+      if (!taskId) {
+        return res.status(400).json({ message: "Task ID is required" });
+      }
+
+      const task = await storage.getTask(taskId);
+      console.log('📧 API: Found task:', task?.title, 'assignee:', task?.assigneeId);
+      
+      if (!task || !task.assigneeId) {
+        return res.status(404).json({ message: "Task not found or not assigned" });
+      }
+
+      const assignedUser = await storage.getUser(task.assigneeId);
+      console.log('📧 API: Found assigned user:', assignedUser?.email);
+      
+      if (!assignedUser || !assignedUser.email) {
+        return res.status(404).json({ message: "Assigned user not found or has no email" });
+      }
+
+      const project = task.projectId ? await storage.getProject(task.projectId) : null;
+      const dueDate = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'Not set';
+      const projectName = project?.name || 'Untitled Project';
+      
+      const template = emailService.templates.taskAssignment(
+        assignedUser.firstName || assignedUser.name || 'User',
+        task.title,
+        dueDate,
+        projectName,
+        (assignedUser.language as 'en' | 'ar') || 'en',
+        task.id
+      );
+      
+      await emailService.sendEmail({
+        to: assignedUser.email,
+        subject: template.subject,
+        html: template.html,
+      });
+      
+      console.log(`✅ API: Task assignment email sent successfully to ${assignedUser.email}`);
+      res.json({ message: "Email notification sent successfully" });
+      
+    } catch (error) {
+      console.error("❌ API: Error sending email notification:", error);
+      res.status(500).json({ message: "Failed to send email notification" });
+    }
+  });
+
   // Task Controls routes
   app.get('/api/tasks/:id/controls', isAuthenticated, async (req, res) => {
     try {

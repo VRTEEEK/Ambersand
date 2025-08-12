@@ -170,6 +170,19 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
           await apiRequest(`/api/tasks/${task.id}/controls`, 'POST', { controlIds: controlIds.map(id => Number(id)) });
         }
 
+        // Send email notification after task creation
+        if (task && task.id && task.assigneeId) {
+          console.log('📧 Client: Sending email notification for task assignment...');
+          try {
+            await apiRequest('/api/tasks/send-notification', 'POST', { 
+              taskId: task.id 
+            });
+            console.log('✅ Client: Email notification sent successfully');
+          } catch (emailError) {
+            console.error('❌ Client: Failed to send email notification:', emailError);
+          }
+        }
+
         return task;
       }
     },
