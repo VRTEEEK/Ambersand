@@ -6,6 +6,10 @@ Ambersand is a bilingual (Arabic/English) compliance management platform for mid
 
 ## Recent Changes (August 2025)
 
+- **Fixed TaskWizard form submission** - Enhanced onSubmit function with proper logging and validation, resolved "Create Task" button not working
+- **Fixed React Query initialization** - Moved useEffect listener after query definitions to prevent "refetchTasks before initialization" error
+- **Completed React Query v5 migration** - Updated all remaining cacheTime references to gcTime for full compatibility
+- **Fixed deployment build warnings** - Removed duplicate method definitions in storage.ts (assignUserProjectRole, removeUserProjectRole)
 - **Fixed custom regulation deletion bug** - Enhanced deletion mutation with proper state management, dialog cleanup, and error handling to support consecutive deletions
 - **Improved regulation routing** - Fixed 404 errors when clicking regulation domain cards by implementing proper URL parameter navigation
 - **Enhanced ProjectDetail navigation** - Added automatic Controls tab switching and domain filtering when accessed from regulation dashboard

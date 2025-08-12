@@ -373,23 +373,6 @@ export class DatabaseStorage implements IStorage {
       ));
   }
 
-  async assignUserProjectRole(userId: string, projectId: number, roleId: string): Promise<void> {
-    await db
-      .insert(userProjectRoles)
-      .values({ userId, projectId, roleId })
-      .onConflictDoNothing();
-  }
-
-  async removeUserProjectRole(userId: string, projectId: number, roleId: string): Promise<void> {
-    await db
-      .delete(userProjectRoles)
-      .where(and(
-        eq(userProjectRoles.userId, userId),
-        eq(userProjectRoles.projectId, projectId),
-        eq(userProjectRoles.roleId, roleId)
-      ));
-  }
-
   // Project operations
   async getProjects(organizationId?: string): Promise<Project[]> {
     const query = db.select().from(projects).orderBy(desc(projects.updatedAt));
