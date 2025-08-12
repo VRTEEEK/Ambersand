@@ -16,6 +16,7 @@ import { X, ArrowLeft, ArrowRight, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { apiRequest } from '@/lib/queryClient';
 import { useI18n } from '@/hooks/use-i18n';
+import { useToast } from '@/hooks/use-toast';
 
 // Task creation schema
 const taskSchema = z.object({
@@ -43,6 +44,7 @@ interface TaskWizardProps {
 export default function TaskWizard({ isOpen, onClose, projectId, preselectedProjectId }: TaskWizardProps) {
   const { language } = useI18n();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [step, setStep] = useState(preselectedProjectId ? 2 : 1); // Skip project selection if preselected
   const [selectedControls, setSelectedControls] = useState<number[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(preselectedProjectId || projectId || null);
@@ -252,7 +254,16 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
       }
       
       console.log('✅ TaskWizard: Cache invalidation complete');
+      
+      // Show success toast
+      toast({
+        title: language === 'ar' ? 'تم إنشاء المهمة' : 'Task Created',
+        description: language === 'ar' ? 'تم إنشاء المهمة بنجاح' : 'Task created successfully',
+      });
+      
+      console.log('✅ TaskWizard: Closing dialog...');
       handleClose();
+      console.log('✅ TaskWizard: Dialog closed');
     },
   });
 
