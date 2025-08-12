@@ -172,14 +172,17 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
 
         // Send email notification after task creation
         if (task && task.id && task.assigneeId) {
-          console.log('📧 Client: Sending email notification for task assignment...');
+          console.log('📧 Client: Sending email notification for task assignment to assignee:', task.assigneeId);
           try {
-            await apiRequest('/api/tasks/send-notification', 'POST', { 
+            const emailResponse = await apiRequest('/api/tasks/send-notification', 'POST', { 
               taskId: task.id 
             });
-            console.log('✅ Client: Email notification sent successfully');
+            console.log('📧 Client: Email API response status:', emailResponse.status);
+            const emailResult = await emailResponse.json();
+            console.log('✅ Client: Email notification sent successfully:', emailResult);
           } catch (emailError) {
             console.error('❌ Client: Failed to send email notification:', emailError);
+            console.error('❌ Client: Email error details:', emailError.message, emailError.stack);
           }
         }
 
