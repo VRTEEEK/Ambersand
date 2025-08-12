@@ -321,7 +321,30 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
   };
 
   const onSubmit = (data: TaskFormData) => {
-    createTaskMutation.mutate(data);
+    console.log('📝 TaskWizard: Form submitted with data:', data);
+    console.log('📝 TaskWizard: Selected controls:', selectedControls);
+    console.log('📝 TaskWizard: Selected project ID:', selectedProjectId);
+    
+    // Ensure we have the required data
+    if (!selectedProjectId) {
+      console.error('❌ No project selected');
+      return;
+    }
+    
+    if (selectedControls.length === 0) {
+      console.error('❌ No controls selected');
+      return;
+    }
+    
+    // Combine form data with selected controls and project
+    const submitData = {
+      ...data,
+      projectId: selectedProjectId,
+      controlIds: selectedControls,
+    };
+    
+    console.log('📝 TaskWizard: Submitting task with data:', submitData);
+    createTaskMutation.mutate(submitData);
   };
 
   const handleClose = () => {
