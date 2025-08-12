@@ -91,26 +91,7 @@ export default function ProjectDetail() {
   const [selectedControlId, setSelectedControlId] = useState<number | null>(null);
   const [isTaskEditDialogOpen, setIsTaskEditDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
-  
-  // Listen for task creation events to refresh data
-  useEffect(() => {
-    const handleTaskCreated = (event: CustomEvent) => {
-      console.log('📨 ProjectDetail: Received taskCreated event:', event.detail);
-      if (event.detail?.projectId === parseInt(id!)) {
-        console.log('🔄 ProjectDetail: Refreshing data for project:', id);
-        setRefreshKey(prev => prev + 1);
-        // Also manually refetch tasks
-        refetchTasks();
-        refetchTasksWithControls();
-      }
-    };
-    
-    window.addEventListener('taskCreated', handleTaskCreated as EventListener);
-    return () => {
-      window.removeEventListener('taskCreated', handleTaskCreated as EventListener);
-    };
-  }, [id, refetchTasks, refetchTasksWithControls]); // Force refresh key
+  const [refreshKey, setRefreshKey] = useState(0); // Force refresh key
   const [isControlInfoDialogOpen, setIsControlInfoDialogOpen] = useState(false);
   const [selectedControlForInfo, setSelectedControlForInfo] = useState<any>(null);
   const [taskSearchTerm, setTaskSearchTerm] = useState('');
@@ -148,7 +129,7 @@ export default function ProjectDetail() {
     },
     enabled: !!id,
     staleTime: 0, // Force fresh data
-    gcTime: 0, // Don't cache (updated from cacheTime)
+    gcTime: 0, // Don't cache
   });
 
   const { data: taskEvidence, refetch: refetchEvidence } = useQuery({
@@ -172,7 +153,7 @@ export default function ProjectDetail() {
       return response.json();
     },
     staleTime: 0, // Force fresh data
-    cacheTime: 0, // Don't cache
+    gcTime: 0, // Don't cache
   });
 
   const { data: tasksWithControls, refetch: refetchTasksWithControls } = useQuery({
@@ -198,8 +179,27 @@ export default function ProjectDetail() {
     },
     enabled: !!tasks && tasks.length > 0,
     staleTime: 0, // Force fresh data
-    cacheTime: 0, // Don't cache
+    gcTime: 0, // Don't cache
   });
+
+  // Listen for task creation events to refresh data - moved after queries are defined
+  useEffect(() => {
+    const handleTaskCreated = (event: CustomEvent) => {
+      console.log('📨 ProjectDetail: Received taskCreated event:', event.detail);
+      if (event.detail?.projectId === parseInt(id!)) {
+        console.log('🔄 ProjectDetail: Refreshing data for project:', id);
+        setRefreshKey(prev => prev + 1);
+        // Also manually refetch tasks
+        refetchTasks();
+        refetchTasksWithControls();
+      }
+    };
+    
+    window.addEventListener('taskCreated', handleTaskCreated as EventListener);
+    return () => {
+      window.removeEventListener('taskCreated', handleTaskCreated as EventListener);
+    };
+  }, [id, refetchTasks, refetchTasksWithControls]);
 
   // Task creation is now handled by TaskWizard component
 
