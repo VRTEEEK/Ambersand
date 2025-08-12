@@ -1122,6 +1122,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('📧 Attempting to send task assignment email...');
         try {
           const assignedUser = await storage.getUser(task.assigneeId);
+          console.log('📧 Assigned user details:', { 
+            id: assignedUser?.id, 
+            email: assignedUser?.email, 
+            firstName: assignedUser?.firstName || assignedUser?.first_name,
+            hasEmail: !!assignedUser?.email 
+          });
           const project = task.projectId ? await storage.getProject(task.projectId) : null;
           
           if (assignedUser && assignedUser.email) {
@@ -1144,7 +1150,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             console.log(`✅ Task assignment email sent successfully to ${assignedUser.email}`);
           } else {
-            console.log('❌ No email sent: Missing assigned user or email address');
+            console.log('❌ No email sent: Missing assigned user or email address', {
+              userExists: !!assignedUser,
+              emailExists: !!assignedUser?.email,
+              email: assignedUser?.email
+            });
           }
         } catch (emailError) {
           console.error('❌ Failed to send task assignment email:', emailError);
