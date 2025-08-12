@@ -158,7 +158,9 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
         return tasks;
       } else {
         // Create single task with multiple controls
+        console.log('🌐 Client: Making API request to /api/tasks with data:', cleanTaskData);
         const taskResponse = await apiRequest('/api/tasks', 'POST', cleanTaskData);
+        console.log('🌐 Client: API response status:', taskResponse.status);
         const task = await taskResponse.json();
         console.log('Created task:', task);
 
