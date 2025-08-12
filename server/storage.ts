@@ -496,7 +496,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTask(task: InsertTask): Promise<Task> {
+    console.log('🔥🔥🔥 STORAGE.createTask called with:', JSON.stringify(task, null, 2));
     const [newTask] = await db.insert(tasks).values(task).returning();
+    console.log('🔥🔥🔥 STORAGE.createTask returning:', JSON.stringify(newTask, null, 2));
     return newTask;
   }
 
