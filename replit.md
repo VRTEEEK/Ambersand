@@ -4,6 +4,13 @@
 
 Ambersand is a bilingual (Arabic/English) compliance management platform for mid-to-large Saudi organizations. Its primary purpose is to streamline adherence to key regulatory frameworks, including ECC (Essential Cybersecurity Controls), PDPL (Personal Data Protection Law), and NDMO (National Data Management Office). The project vision is to provide a comprehensive solution for managing organizational compliance efficiently and effectively.
 
+## Recent Changes (August 2025)
+
+- **Fixed custom regulation deletion bug** - Enhanced deletion mutation with proper state management, dialog cleanup, and error handling to support consecutive deletions
+- **Improved regulation routing** - Fixed 404 errors when clicking regulation domain cards by implementing proper URL parameter navigation
+- **Enhanced ProjectDetail navigation** - Added automatic Controls tab switching and domain filtering when accessed from regulation dashboard
+- **Added visual feedback** - Implemented domain filter notices and "Show All Domains" functionality in project controls view
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
