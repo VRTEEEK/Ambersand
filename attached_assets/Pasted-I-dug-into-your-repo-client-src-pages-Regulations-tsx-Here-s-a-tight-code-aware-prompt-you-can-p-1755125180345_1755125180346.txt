@@ -1,0 +1,206 @@
+I dug into your repo (client/src/pages/Regulations.tsx). Here’s a tight, code-aware prompt you can paste into Replit to implement the missing “Create Project from Custom Regulation” flow and stop the edit dialog freeze. It’s aligned to your current file structure and state names.
+
+⸻
+
+Replit Prompt — Fix Custom Regulations project flow + Edit freeze
+
+Target file: client/src/pages/Regulations.tsx
+
+1) Add state for custom‑project creation
+
+Right after the existing states (you already have selectedControlIds, etc.), add:
+
+// --- NEW: custom-regulation project state ---
+const [sourceType, setSourceType] = useState<'ecc' | 'custom' | null>(null);
+const [activeRegulation, setActiveRegulation] = useState<any | null>(null);
+const [activeRegulationControls, setActiveRegulationControls] = useState<any[]>([]);
+
+2) Create open handlers + resolver
+
+Place these near your other handlers:
+
+// Open ECC (existing behavior)
+const openEccProjectDialog = () => {
+  setSourceType('ecc');
+  setActiveRegulation(null);
+  setActiveRegulationControls([]);
+  setIsProjectDialogOpen(true);
+};
+
+// Open from a custom regulation card
+const openCustomProjectDialog = async (regulation: any) => {
+  setSourceType('custom');
+  setActiveRegulation(regulation);
+
+  // Use embedded controls if present; otherwise fetch details
+  let reg = regulation;
+  if (!Array.isArray(regulation.controls)) {
+    reg = await apiRequest(`/api/custom-regulations/${regulation.id}`, 'GET');
+  }
+  const ctrls = Array.isArray(reg.controls) ? reg.controls : [];
+  setActiveRegulationControls(ctrls);
+  setSelectedControlIds(ctrls.map((c: any) => c.id)); // default select all
+  setIsProjectDialogOpen(true);
+};
+
+// Resolve control data for Selected Controls UI
+const resolveControl = (id: number | string) => {
+  if (sourceType === 'custom') {
+    return activeRegulationControls.find((c: any) => c.id === id);
+  }
+  return controls?.find((c: any) => c.id === id); // ECC default
+};
+
+3) Wire the Custom Regulations card menu to open the wizard
+
+In the Custom Regulations list, add a menu item to the existing DropdownMenuContent (around where you already have “Edit” and “Delete”):
+
+<DropdownMenuItem
+  onClick={async (e) => {
+    e.stopPropagation();
+    await openCustomProjectDialog(regulation);
+  }}
+>
+  <Plus className="h-4 w-4 mr-2" />
+  {language === 'ar' ? 'إنشاء مشروع' : 'Create Project'}
+</DropdownMenuItem>
+
+4) Make the project creation payload dynamic (remove the hardcoded ‘ecc’)
+
+Find your mutation:
+
+const createProjectMutation = useMutation({
+  mutationFn: async (data: ProjectFormData) => {
+    const projectData = {
+      ...data,
+      controlIds: selectedControlIds,
+      // ❌ remove this:
+      // regulationType: 'ecc',
+      // ✅ replace with:
+      regulationType: sourceType, // 'ecc' | 'custom'
+      regulationId: sourceType === 'custom' ? activeRegulation?.id : undefined,
+    };
+    return await apiRequest('/api/projects', 'POST', projectData);
+  },
+  ...
+});
+
+5) Let users pick controls for custom inside the Project dialog
+
+Inside the Project dialog form (before the “Selected Controls Summary” block), show a checkbox list only when sourceType === 'custom':
+
+{sourceType === 'custom' && (
+  <FormField
+    control={projectForm.control}
+    name="controlSelection"
+    render={() => (
+      <FormItem>
+        <FormLabel>{language === 'ar' ? 'اختر الضوابط' : 'Choose Controls'}</FormLabel>
+        <div className="max-h-48 overflow-y-auto rounded-md border p-3 space-y-2 bg-slate-50">
+          {activeRegulationControls.map((ctrl: any) => {
+            const checked = selectedControlIds.includes(ctrl.id);
+            return (
+              <div key={ctrl.id} className="flex items-start gap-2">
+                <Checkbox
+                  checked={checked}
+                  onCheckedChange={(v) => {
+                    setSelectedControlIds(prev => v
+                      ? [...prev, ctrl.id]
+                      : prev.filter(id => id !== ctrl.id));
+                  }}
+                />
+                <div className="text-sm">
+                  <div className="font-medium">{ctrl.code ? `[${ctrl.code}] ` : ''}{ctrl.title || ctrl.name}</div>
+                  {ctrl.description && <div className="text-slate-600">{ctrl.description}</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <FormMessage />
+      </FormItem>
+    )}
+  />
+)}
+
+6) Update the “Selected Controls Summary” to use resolveControl
+
+Find where you render the selected controls list (currently:
+
+{selectedControlIds.map(id => {
+  const control = controls?.find((c: any) => c.id === id);
+  ...
+})}
+
+Replace the lookup with:
+
+{selectedControlIds.map(id => {
+  const control = resolveControl(id);
+  if (!control) return null;
+  return (
+    <Tooltip key={id}>
+      <TooltipTrigger asChild>
+        <Badge variant="outline" className="text-xs">
+          {control.code ? `[${control.code}] ` : ''}{control.title || control.name}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent>
+        <div className="max-w-xs text-sm">
+          {control.description || (language === 'ar' ? control.descriptionAr : '') || ''}
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  );
+})}
+
+7) Stop the Edit dialog from freezing
+
+Your handleEditRegulation currently sets form values but (in this file) doesn’t open the dialog until later. Make sure it opens immediately and avoid extra resets:
+
+const handleEditRegulation = (regulation: any) => {
+  setEditingRegulation(regulation);
+  editForm.reset({
+    name: regulation.name || '',
+    nameAr: regulation.nameAr || '',
+    description: regulation.description || '',
+    descriptionAr: regulation.descriptionAr || '',
+    category: regulation.category || 'internal',
+    framework: regulation.framework || '',
+    version: regulation.version || '1.0',
+    status: regulation.status || 'draft',
+  });
+  setIsEditDialogOpen(true); // <-- ensure we open here
+};
+
+Also ensure your <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}> does not contain effects that re‑reset() on every render. On success of the update mutation you already call:
+
+queryClient.invalidateQueries({ queryKey: ['/api/custom-regulations'] });
+setIsEditDialogOpen(false);
+editForm.reset();
+setEditingRegulation(null);
+
+That’s correct — keep it there and don’t duplicate resets elsewhere.
+
+8) Backend expectation (unchanged endpoints, just payload)
+
+POST /api/projects must accept:
+
+{
+  "name": "...",
+  "description": "...",
+  "controlIds": [1,2,3],
+  "regulationType": "ecc" | "custom",
+  "regulationId": "uuid-or-number (only when custom)"
+}
+
+For regulationType === 'custom', create project_controls referencing custom controls and auto‑create one task per selected control.
+
+⸻
+
+Acceptance checks
+	•	From a Custom Regulation card menu → Create Project opens the wizard with that regulation’s controls preselected.
+	•	Submit creates a project, project_controls, and tasks for the selected custom controls.
+	•	“Selected Controls” chips render for ECC and custom (using resolveControl).
+	•	Edit Custom Regulation dialog opens reliably, no freeze, saves updates, and closes with a toast.
+
+If you want, I can produce a minimal patch/diff for Regulations.tsx based on the exact lines in your file.
