@@ -300,18 +300,32 @@ export default function Regulations() {
 
   // Open from a custom regulation card
   const openCustomProjectDialog = async (regulation: any) => {
-    setSourceType('custom');
-    setActiveRegulation(regulation);
+    try {
+      console.log('Opening custom project dialog for regulation:', regulation);
+      setSourceType('custom');
+      setActiveRegulation(regulation);
 
-    // Use embedded controls if present; otherwise fetch details
-    let reg = regulation;
-    if (!Array.isArray(regulation.controls)) {
-      reg = await apiRequest(`/api/custom-regulations/${regulation.id}`, 'GET');
+      // Use embedded controls if present; otherwise fetch details
+      let reg = regulation;
+      if (!Array.isArray(regulation.controls)) {
+        console.log('Fetching regulation details for ID:', regulation.id);
+        reg = await apiRequest(`/api/custom-regulations/${regulation.id}`, 'GET');
+        console.log('Fetched regulation details:', reg);
+      }
+      const ctrls = Array.isArray(reg.controls) ? reg.controls : [];
+      console.log('Available controls:', ctrls);
+      setActiveRegulationControls(ctrls);
+      setSelectedControlIds(ctrls.map((c: any) => c.id)); // default select all
+      console.log('Opening project dialog...');
+      setIsProjectDialogOpen(true);
+    } catch (error) {
+      console.error('Error opening custom project dialog:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في فتح نموذج إنشاء المشروع' : 'Failed to open project creation form',
+        variant: 'destructive',
+      });
     }
-    const ctrls = Array.isArray(reg.controls) ? reg.controls : [];
-    setActiveRegulationControls(ctrls);
-    setSelectedControlIds(ctrls.map((c: any) => c.id)); // default select all
-    setIsProjectDialogOpen(true);
   };
 
   // Resolve control data for Selected Controls UI
@@ -343,6 +357,8 @@ export default function Regulations() {
 
 
 
+
+
   const createProjectMutation = useMutation({
     mutationFn: async (data: ProjectFormData) => {
       const projectData = {
@@ -351,6 +367,7 @@ export default function Regulations() {
         regulationType: sourceType, // 'ecc' | 'custom'
         regulationId: sourceType === 'custom' ? activeRegulation?.id : undefined,
       };
+      console.log('Creating project with payload:', projectData);
       return await apiRequest('/api/projects', 'POST', projectData);
     },
     onSuccess: () => {
