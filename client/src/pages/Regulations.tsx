@@ -88,6 +88,11 @@ export default function Regulations() {
   }>>([]);
   const [editingControlId, setEditingControlId] = useState<string | null>(null);
   
+  // --- NEW: custom-regulation project state ---
+  const [sourceType, setSourceType] = useState<'ecc' | 'custom' | null>(null);
+  const [activeRegulation, setActiveRegulation] = useState<any | null>(null);
+  const [activeRegulationControls, setActiveRegulationControls] = useState<any[]>([]);
+  
   // Edit regulation state
   const [editingRegulation, setEditingRegulation] = useState<any>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -282,7 +287,39 @@ export default function Regulations() {
       version: regulation.version || '1.0',
       status: regulation.status || 'draft',
     });
-    setIsEditDialogOpen(true);
+    setIsEditDialogOpen(true); // <-- ensure we open here
+  };
+
+  // Open ECC (existing behavior)
+  const openEccProjectDialog = () => {
+    setSourceType('ecc');
+    setActiveRegulation(null);
+    setActiveRegulationControls([]);
+    setIsProjectDialogOpen(true);
+  };
+
+  // Open from a custom regulation card
+  const openCustomProjectDialog = async (regulation: any) => {
+    setSourceType('custom');
+    setActiveRegulation(regulation);
+
+    // Use embedded controls if present; otherwise fetch details
+    let reg = regulation;
+    if (!Array.isArray(regulation.controls)) {
+      reg = await apiRequest(`/api/custom-regulations/${regulation.id}`, 'GET');
+    }
+    const ctrls = Array.isArray(reg.controls) ? reg.controls : [];
+    setActiveRegulationControls(ctrls);
+    setSelectedControlIds(ctrls.map((c: any) => c.id)); // default select all
+    setIsProjectDialogOpen(true);
+  };
+
+  // Resolve control data for Selected Controls UI
+  const resolveControl = (id: number | string) => {
+    if (sourceType === 'custom') {
+      return activeRegulationControls.find((c: any) => c.id === id);
+    }
+    return controls?.find((c: any) => c.id === id); // ECC default
   };
 
   const handleDeleteRegulation = (regulation: any) => {
@@ -304,12 +341,15 @@ export default function Regulations() {
     }
   };
 
+
+
   const createProjectMutation = useMutation({
     mutationFn: async (data: ProjectFormData) => {
       const projectData = {
         ...data,
         controlIds: selectedControlIds,
-        regulationType: 'ecc', // Since we're creating from ECC regulations page
+        regulationType: sourceType, // 'ecc' | 'custom'
+        regulationId: sourceType === 'custom' ? activeRegulation?.id : undefined,
       };
       return await apiRequest('/api/projects', 'POST', projectData);
     },
@@ -1367,6 +1407,15 @@ export default function Regulations() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                await openCustomProjectDialog(regulation);
+                              }}
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              {language === 'ar' ? 'إنشاء مشروع' : 'Create Project'}
+                            </DropdownMenuItem>
                             <DropdownMenuItem 
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1741,6 +1790,7 @@ export default function Regulations() {
                 <Button
                   size="lg"
                   className="bg-teal-600 hover:bg-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
+                  onClick={() => openEccProjectDialog()}
                 >
                   <Plus className="h-5 w-5" />
                   {language === 'ar' ? 'إنشاء مشروع' : 'Create Project'}
@@ -1913,6 +1963,34 @@ export default function Regulations() {
                       )}
                     />
 
+                    {/* Custom Control Selection */}
+                    {sourceType === 'custom' && (
+                      <div className="space-y-2">
+                        <FormLabel>{language === 'ar' ? 'اختر الضوابط' : 'Choose Controls'}</FormLabel>
+                        <div className="max-h-48 overflow-y-auto rounded-md border p-3 space-y-2 bg-slate-50">
+                          {activeRegulationControls.map((ctrl: any) => {
+                            const checked = selectedControlIds.includes(ctrl.id);
+                            return (
+                              <div key={ctrl.id} className="flex items-start gap-2">
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={(v) => {
+                                    setSelectedControlIds(prev => v
+                                      ? [...prev, ctrl.id]
+                                      : prev.filter(id => id !== ctrl.id));
+                                  }}
+                                />
+                                <div className="text-sm">
+                                  <div className="font-medium">{ctrl.code ? `[${ctrl.code}] ` : ''}{ctrl.title || ctrl.name}</div>
+                                  {ctrl.description && <div className="text-slate-600">{ctrl.description}</div>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Selected Controls Summary */}
                     <div className="border-t pt-4">
                       <h4 className="text-lg font-semibold mb-3 flex items-center gap-2">
@@ -1924,38 +2002,22 @@ export default function Regulations() {
                         <TooltipProvider>
                           <div className="flex flex-wrap gap-1">
                             {selectedControlIds.map(id => {
-                              const control = controls?.find((c: any) => c.id === id);
-                              return control ? (
+                              const control = resolveControl(id);
+                              if (!control) return null;
+                              return (
                                 <Tooltip key={id}>
                                   <TooltipTrigger asChild>
-                                    <div className="inline-block">
-                                      <Badge variant="outline" className="text-xs text-[#f8f7fc] bg-[#18b5a7] cursor-help">
-                                        {control.code}
-                                      </Badge>
-                                    </div>
+                                    <Badge variant="outline" className="text-xs">
+                                      {control.code ? `[${control.code}] ` : ''}{control.title || control.name}
+                                    </Badge>
                                   </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-sm p-3">
-                                    <div className="space-y-2">
-                                      <div className="font-semibold text-sm">
-                                        {control.code} - {language === 'ar' && control.subdomainAr ? control.subdomainAr : control.subdomainEn}
-                                      </div>
-                                      <div className="text-xs text-gray-600 leading-relaxed">
-                                        {language === 'ar' && control.controlAr ? control.controlAr : control.controlEn}
-                                      </div>
-                                      {(control.evidenceEn || control.evidenceAr) && (
-                                        <div className="pt-1 border-t">
-                                          <div className="text-xs font-medium text-blue-600">
-                                            {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
-                                          </div>
-                                          <div className="text-xs text-gray-600 mt-1">
-                                            {language === 'ar' && control.evidenceAr ? control.evidenceAr : control.evidenceEn}
-                                          </div>
-                                        </div>
-                                      )}
+                                  <TooltipContent>
+                                    <div className="max-w-xs text-sm">
+                                      {control.description || (language === 'ar' ? control.descriptionAr : '') || ''}
                                     </div>
                                   </TooltipContent>
                                 </Tooltip>
-                              ) : null;
+                              );
                             })}
                           </div>
                         </TooltipProvider>
