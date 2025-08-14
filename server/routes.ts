@@ -1713,7 +1713,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!regulation) {
         return res.status(404).json({ message: "Custom regulation not found" });
       }
-      res.json(regulation);
+      
+      // Fetch associated controls for this regulation
+      const controls = await storage.getCustomControls(id);
+      
+      // Return regulation with controls included
+      res.json({
+        ...regulation,
+        controls
+      });
     } catch (error) {
       console.error("Error fetching custom regulation:", error);
       res.status(500).json({ message: "Failed to fetch custom regulation" });

@@ -2072,12 +2072,12 @@ export default function Regulations() {
 
         {/* Edit Regulation Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl" aria-describedby="edit-regulation-description">
             <DialogHeader>
               <DialogTitle>
                 {language === 'ar' ? 'تعديل التنظيم المخصص' : 'Edit Custom Regulation'}
               </DialogTitle>
-              <DialogDescription>
+              <DialogDescription id="edit-regulation-description">
                 {language === 'ar' ? 'قم بتعديل تفاصيل التنظيم المخصص' : 'Modify the custom regulation details'}
               </DialogDescription>
             </DialogHeader>
