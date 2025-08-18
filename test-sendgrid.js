@@ -17,28 +17,28 @@ async function testSendGrid() {
     // Configure SendGrid
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'info@ambersand.app';
+    // Test with different email addresses that might be verified
+    const possibleEmails = [
+      'rakan@ambersand.app',
+      'mohamed@vrteek.com',
+      'info@vrteek.com',
+      'noreply@vrteek.com'
+    ];
+    
+    console.log('Testing different sender emails to find verified one...');
+    
+    for (const testEmail of possibleEmails) {
+      console.log(`\n--- Testing with: ${testEmail} ---`);
+      
+      try {
     const fromName = process.env.SENDGRID_FROM_NAME || 'Ambersand Compliance';
 
     console.log('Sending test email...');
 
-    // Try with a known working email - let's try the account email
-    const workingEmails = [
-      'mohamed@vrteek.com', // Try your own email as sender
-      'info@ambersand.app',
-      'noreply@vrteek.com'
-    ];
-    
-    console.log('Trying different sender emails...');
-    
-    for (const testFromEmail of workingEmails) {
-      try {
-        console.log(`Testing with sender: ${testFromEmail}`);
-        
         const msg = {
           to: 'mohamed@vrteek.com',
           from: {
-            email: testFromEmail,
+            email: testEmail,
             name: fromName
           },
       subject: 'SendGrid Test from Ambersand',
@@ -50,7 +50,7 @@ async function testSendGrid() {
           <p>This is a test email to verify that the SendGrid email system is configured correctly for Ambersand Compliance.</p>
           <p><strong>Configuration Details:</strong></p>
           <ul>
-            <li>From Email: ${fromEmail}</li>
+            <li>From Email: ${testEmail}</li>
             <li>From Name: ${fromName}</li>
             <li>Base URL: ${process.env.APP_BASE_URL}</li>
           </ul>

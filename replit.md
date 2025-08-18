@@ -7,7 +7,7 @@ Ambersand is a bilingual (Arabic/English) compliance management platform for mid
 ## Recent Changes (August 2025)
 
 - **CRITICAL: FIXED TaskWizard dialog dismissal issue** - Completely resolved the task creation form not closing after successful submission by moving handleClose() to the beginning of the onSuccess callback
-- **MAJOR: Completed SendGrid email configuration** - Successfully configured email system with verified sender (no-reply@ambersand.app), proper branding (Ambersand Compliance), and correct base URL for production deployment
+- **MAJOR: Completed SendGrid email configuration** - Successfully configured email system with verified sender (rakan@ambersand.app), proper branding (Ambersand Compliance), and correct base URL for production deployment
 - **Enhanced email service architecture** - Created centralized EmailService class with proper environment variable handling, base URL detection, and extensive template library
 - **Fixed task creation email notifications** - Resolved user ID handling issues and implemented proper error logging for email delivery during task assignments
 - **Resolved SendGrid FROM_EMAIL issue** - Set verified sender email to ensure email delivery works properly
