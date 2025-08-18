@@ -293,18 +293,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
 
+      // Format response to match frontend expectations
       res.json({
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          name: user.name
+        roles: {
+          org: orgRoles.map(r => r.code),
+          project: projectId ? projectRoles
+            .filter(pr => pr.project_id === projectId)
+            .flatMap(pr => pr.roles) : []
         },
-        organization_roles: orgRoles,
-        project_roles: projectRoles.filter(pr => !projectId || pr.project_id === projectId),
-        permissions: formattedPermissions,
-        project_context: projectContext
+        permissions: permissions // Just the permission codes array
       });
     } catch (error) {
       console.error("Error fetching user effective permissions:", error);

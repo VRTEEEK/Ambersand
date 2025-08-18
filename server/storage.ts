@@ -1062,6 +1062,44 @@ export class DatabaseStorage implements IStorage {
   async deleteCustomControl(id: number): Promise<void> {
     await db.delete(customControls).where(eq(customControls.id, id));
   }
+
+  // User Project Roles operations
+  async getUserProjectRoles(userId: string): Promise<Array<{
+    project_id: number;
+    project_name: string;
+    roles: string[];
+  }>> {
+    const results = await db
+      .select({
+        projectId: userProjectRoles.projectId,
+        projectName: projects.name,
+        roleCode: roles.code,
+      })
+      .from(userProjectRoles)
+      .innerJoin(projects, eq(userProjectRoles.projectId, projects.id))
+      .innerJoin(roles, eq(userProjectRoles.roleId, roles.id))
+      .where(eq(userProjectRoles.userId, userId));
+
+    // Group by project
+    const projectRolesMap = new Map<number, {
+      project_id: number;
+      project_name: string;
+      roles: string[];
+    }>();
+
+    for (const result of results) {
+      if (!projectRolesMap.has(result.projectId)) {
+        projectRolesMap.set(result.projectId, {
+          project_id: result.projectId,
+          project_name: result.projectName,
+          roles: []
+        });
+      }
+      projectRolesMap.get(result.projectId)!.roles.push(result.roleCode);
+    }
+
+    return Array.from(projectRolesMap.values());
+  }
 }
 
 const storage = new DatabaseStorage();

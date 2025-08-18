@@ -77,6 +77,7 @@ export default function UserRolesDrawer({ user, isOpen, onClose, onSuccess }: Us
   const [orgRoles, setOrgRoles] = useState<string[]>([]);
   const [projectRoles, setProjectRoles] = useState<Record<string, string[]>>({});
   const [previewProjectId, setPreviewProjectId] = useState<string>('');
+  const [hasChanges, setHasChanges] = useState(false);
 
   // Fetch available roles
   const { data: availableRoles = [] } = useQuery<Role[]>({
@@ -104,19 +105,27 @@ export default function UserRolesDrawer({ user, isOpen, onClose, onSuccess }: Us
     enabled: !!user?.id && !!previewProjectId,
   });
 
-  // Initialize state when user changes
+  // Initialize state when user changes - only when user changes or component opens
   useEffect(() => {
+    if (!isOpen || !user) return;
+    
     if (user?.userRoles) {
       setOrgRoles(user.userRoles.map(r => r.code));
+    } else {
+      setOrgRoles([]);
     }
-    if (userProjectRoles) {
-      const projectRoleMap: Record<string, string[]> = {};
-      userProjectRoles.forEach(pr => {
-        projectRoleMap[pr.projectId.toString()] = pr.roles;
-      });
-      setProjectRoles(projectRoleMap);
-    }
-  }, [user, userProjectRoles]);
+  }, [user?.id, isOpen]); // Only depend on user ID and open state
+
+  // Initialize project roles separately to avoid infinite updates
+  useEffect(() => {
+    if (!isOpen || !userProjectRoles) return;
+    
+    const projectRoleMap: Record<string, string[]> = {};
+    userProjectRoles.forEach(pr => {
+      projectRoleMap[pr.projectId.toString()] = pr.roles;
+    });
+    setProjectRoles(projectRoleMap);
+  }, [userProjectRoles, isOpen]);
 
   // Mutations
   const updateOrgRolesMutation = useMutation({
