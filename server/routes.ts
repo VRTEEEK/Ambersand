@@ -912,12 +912,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const baseUrl = process.env.BASE_URL || 
                      (process.env.REPLIT_CLUSTER ? `https://${process.env.REPL_SLUG}.${process.env.REPLIT_CLUSTER}.replit.app` : 'http://localhost:5000');
 
-      await emailService.sendInvitationEmail(email, {
-        inviterName: currentUser?.email?.split('@')[0] || 'Test Admin',
-        organizationName: 'Ambersand Compliance (Test)',
-        personalMessage: 'This is a test email to verify the email service is working correctly.',
-        inviteUrl: `${baseUrl}/test-invite`
-      });
+      await emailService.sendInvitationEmail(
+        email,
+        currentUser?.email?.split('@')[0] || 'Test Admin',
+        'Ambersand Compliance (Test)',
+        'This is a test email to verify the email service is working correctly.',
+        `${baseUrl}/test-invite`
+      );
 
       res.json({ 
         message: `Test email sent successfully to ${email}`,
@@ -935,7 +936,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard metrics
   app.get('/api/dashboard/metrics', isAuthenticated, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user?.id || (req.user as any)?.claims?.sub);
       const metrics = await storage.getDashboardMetrics(user?.organizationId || undefined);
       res.json(metrics);
     } catch (error) {
@@ -1107,28 +1108,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const taskData = insertTaskSchema.parse({
         ...req.body,
-        createdById: req.user.claims.sub,
+        createdById: req.user?.id || (req.user as any)?.claims?.sub,
       });
       
       const task = await storage.createTask(taskData);
       
       // Send email notification if task is assigned to someone (including self)
+      const currentUserId = req.user?.id || (req.user as any)?.claims?.sub;
       console.log('📧 Email check:', { 
         taskAssigneeId: task.assigneeId, 
-        currentUserId: req.user.claims.sub,
-        shouldSendEmail: !!task.assigneeId
+        currentUserId: currentUserId,
+        shouldSendEmail: !!task.assigneeId,
+        sendGridConfigured: !!process.env.SENDGRID_API_KEY
       });
       
-      if (task.assigneeId) {
+      if (task.assigneeId && process.env.SENDGRID_API_KEY) {
         console.log('📧 Attempting to send task assignment email...');
         try {
           const assignedUser = await storage.getUser(task.assigneeId);
           const project = task.projectId ? await storage.getProject(task.projectId) : null;
           
+          console.log('📧 Retrieved user for email:', { 
+            userId: task.assigneeId, 
+            userEmail: assignedUser?.email,
+            userName: assignedUser?.firstName || assignedUser?.name 
+          });
+          
           if (assignedUser && assignedUser.email) {
             const dueDate = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'Not set';
             const projectName = project?.name || 'Untitled Project';
-            const template = emailService.templates.taskAssignment(
+            
+            const result = await emailService.sendTaskAssignmentEmail(
+              assignedUser.email,
               assignedUser.firstName || assignedUser.name || 'User',
               task.title,
               dueDate,
@@ -1137,22 +1148,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
               task.id
             );
             
-            await emailService.sendEmail({
-              to: assignedUser.email,
-              subject: template.subject,
-              html: template.html,
-            });
-            
-            console.log(`✅ Task assignment email sent successfully to ${assignedUser.email}`);
+            if (result.success) {
+              console.log(`✅ Task assignment email sent successfully to ${assignedUser.email} (MessageID: ${result.messageId})`);
+            } else {
+              console.error(`❌ Failed to send task assignment email: ${result.error}`);
+            }
           } else {
-            console.log('❌ No email sent: Missing assigned user or email address');
+            console.log('❌ No email sent: Missing assigned user or email address', {
+              hasUser: !!assignedUser,
+              hasEmail: !!assignedUser?.email
+            });
           }
         } catch (emailError) {
           console.error('❌ Failed to send task assignment email:', emailError);
           // Don't fail the task creation if email fails
         }
       } else {
-        console.log('🔄 No email sent: Task not assigned to any user');
+        if (!task.assigneeId) {
+          console.log('🔄 No email sent: Task not assigned to any user');
+        } else if (!process.env.SENDGRID_API_KEY) {
+          console.log('🔄 No email sent: SendGrid not configured');
+        }
       }
       
       res.status(201).json(task);
