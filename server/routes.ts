@@ -1936,8 +1936,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Recipient email is required" });
       }
 
-      if (!process.env.RESEND_API_KEY) {
-        return res.status(500).json({ message: "Email service not configured. RESEND_API_KEY is missing." });
+      if (!process.env.SENDGRID_API_KEY) {
+        return res.status(500).json({ message: "Email service not configured. SENDGRID_API_KEY is missing." });
       }
 
       let template;
