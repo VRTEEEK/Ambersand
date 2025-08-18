@@ -19,10 +19,7 @@ async function testSendGrid() {
 
     // Test with different email addresses that might be verified
     const possibleEmails = [
-      'rakan@ambersand.app',
-      'mohamed@vrteek.com',
-      'info@vrteek.com',
-      'noreply@vrteek.com'
+      'rakan@ambersand.ai'
     ];
     
     console.log('Testing different sender emails to find verified one...');
