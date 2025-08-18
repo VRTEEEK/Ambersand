@@ -96,23 +96,23 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
 
   // Get unique domains from project controls
   const domains = Array.from(new Set(
-    projectControls.map((pc: any) => language === 'ar' ? pc.eccControl?.domainAr : pc.eccControl?.domainEn)
+    (projectControls as any[]).map((pc: any) => language === 'ar' ? pc.eccControl?.domainAr : pc.eccControl?.domainEn)
   )).filter(Boolean).sort();
 
   // Auto-select first domain if project is preselected and only one domain exists
   useEffect(() => {
     if (preselectedProjectId && domains && domains.length === 1 && !selectedDomain) {
-      setSelectedDomain(domains[0]);
+      setSelectedDomain(domains[0] as string);
     }
   }, [preselectedProjectId, domains, selectedDomain]);
 
   // Filter domains based on search
-  const filteredDomains = domains.filter(domain => 
-    domain.toLowerCase().includes(domainSearch.toLowerCase())
+  const filteredDomains = domains.filter((domain: any) => 
+    (domain as string).toLowerCase().includes(domainSearch.toLowerCase())
   );
 
   // Get controls for selected domain
-  const domainControls = projectControls.filter((pc: any) => {
+  const domainControls = (projectControls as any[]).filter((pc: any) => {
     const controlDomain = language === 'ar' ? pc.eccControl?.domainAr : pc.eccControl?.domainEn;
     return controlDomain === selectedDomain;
   });
@@ -124,8 +124,8 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
       // Clean up the task data - convert empty strings to null/undefined
       const cleanTaskData = {
         ...taskData,
-        dueDate: taskData.dueDate || null,
-        assigneeId: taskData.assigneeId || null,
+        dueDate: taskData.dueDate || undefined,
+        assigneeId: taskData.assigneeId || undefined,
         projectId: Number(taskData.projectId),
       };
       
@@ -414,7 +414,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {projects.map((project: any) => (
+                  {(projects as any[]).map((project: any) => (
                     <div 
                       key={project.id} 
                       className={`p-4 border rounded-lg cursor-pointer transition-all ${
@@ -490,16 +490,16 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
 
                   {/* Domain selection */}
                   <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {filteredDomains.map((domain) => (
+                    {filteredDomains.map((domain: any) => (
                       <div 
-                        key={domain}
+                        key={domain as string}
                         className={`p-4 border rounded-lg cursor-pointer transition-all ${
                           selectedDomain === domain
                             ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' 
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
                         onClick={() => {
-                          setSelectedDomain(domain);
+                          setSelectedDomain(domain as string);
                           // Update domain control counts before proceeding
                           updateDomainControlCounts();
                           // Automatically go to step 3 (control selection) for this domain
@@ -515,7 +515,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                             name="domain"
                             checked={selectedDomain === domain}
                             onChange={() => {
-                              setSelectedDomain(domain);
+                              setSelectedDomain(domain as string);
                               // Update domain control counts before proceeding
                               updateDomainControlCounts();
                               // Automatically go to step 3 (control selection) for this domain
@@ -529,11 +529,11 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                             htmlFor={`domain-${domain}`}
                             className="text-sm font-medium cursor-pointer flex-1"
                           >
-                            {domain}
+                            {domain as string}
                           </Label>
-                          {domainControlCounts[domain] > 0 && (
+                          {domainControlCounts[domain as string] > 0 && (
                             <Badge variant="secondary" className="ml-2">
-                              {domainControlCounts[domain]}
+                              {domainControlCounts[domain as string]}
                             </Badge>
                           )}
                         </div>
@@ -606,7 +606,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                       </Label>
                       <div className="flex flex-wrap gap-2 mt-2">
                         {selectedControls.map(controlId => {
-                          const control = projectControls.find((pc: any) => pc.eccControl?.id === controlId);
+                          const control = (projectControls as any[]).find((pc: any) => pc.eccControl?.id === controlId);
                           return (
                             <Badge key={controlId} variant="secondary" className="flex items-center gap-1">
                               {control?.eccControl?.code || controlId}
@@ -745,7 +745,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                           <SelectValue placeholder={language === 'ar' ? 'اختر المكلف' : 'Select assignee'} />
                         </SelectTrigger>
                         <SelectContent>
-                          {users.map((user: any) => (
+                          {(users as any[]).map((user: any) => (
                             <SelectItem key={user.id} value={user.id}>
                               {user.firstName} {user.lastName} ({user.email})
                             </SelectItem>
@@ -760,7 +760,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                     <Label>{language === 'ar' ? 'الضوابط المختارة' : 'Selected Controls'}</Label>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {selectedControls.map(controlId => {
-                        const control = projectControls.find((pc: any) => pc.eccControl?.id === controlId);
+                        const control = (projectControls as any[]).find((pc: any) => pc.eccControl?.id === controlId);
                         return (
                           <Badge key={controlId} variant="secondary">
                             {control?.eccControl?.code || controlId}
