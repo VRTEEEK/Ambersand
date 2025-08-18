@@ -1108,13 +1108,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const taskData = insertTaskSchema.parse({
         ...req.body,
-        createdById: req.user?.id || (req.user as any)?.claims?.sub,
+        createdById: (req.user as any)?.id || (req.user as any)?.claims?.sub,
       });
       
       const task = await storage.createTask(taskData);
       
       // Send email notification if task is assigned to someone (including self)
-      const currentUserId = req.user?.id || (req.user as any)?.claims?.sub;
+      const currentUserId = (req.user as any)?.id || (req.user as any)?.claims?.sub;
       console.log('📧 Email check:', { 
         taskAssigneeId: task.assigneeId, 
         currentUserId: currentUserId,
@@ -1235,7 +1235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('📧 Assignment check:', { 
           newAssigneeId: taskData.assigneeId, 
           oldAssigneeId: oldTask?.assigneeId,
-          currentUserId: req.user?.id || (req.user as any)?.claims?.sub,
+          currentUserId: (req.user as any)?.id || (req.user as any)?.claims?.sub,
           isNewAssignment: taskData.assigneeId && oldTask?.assigneeId !== taskData.assigneeId
         });
         
