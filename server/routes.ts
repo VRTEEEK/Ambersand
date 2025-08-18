@@ -1119,7 +1119,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         taskAssigneeId: task.assigneeId, 
         currentUserId: currentUserId,
         shouldSendEmail: !!task.assigneeId,
-        sendGridConfigured: !!process.env.SENDGRID_API_KEY
+        sendGridConfigured: !!process.env.SENDGRID_API_KEY,
+        fromEmail: process.env.SENDGRID_FROM_EMAIL
       });
       
       if (task.assigneeId && process.env.SENDGRID_API_KEY) {
@@ -1133,13 +1134,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log('📧 Retrieved user for email:', { 
             userId: task.assigneeId, 
             userEmail: assignedUser?.email,
-            userName: assignedUser?.firstName || assignedUser?.name 
+            userName: assignedUser?.firstName || assignedUser?.name,
+            userFound: !!assignedUser,
+            hasEmail: !!(assignedUser?.email)
           });
           
           if (assignedUser && assignedUser.email) {
             const dueDate = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'Not set';
             const projectName = project?.name || 'Untitled Project';
             
+            console.log('📧 About to call sendTaskAssignmentEmail with params:', {
+              email: assignedUser.email,
+              name: assignedUser.firstName || assignedUser.name || 'User',
+              taskTitle: task.title,
+              dueDate: dueDate,
+              projectName: projectName,
+              language: (assignedUser.language as 'en' | 'ar') || 'en',
+              taskId: task.id
+            });
+
             const result = await emailService.sendTaskAssignmentEmail(
               assignedUser.email,
               assignedUser.firstName || assignedUser.name || 'User',
@@ -1149,6 +1162,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               (assignedUser.language as 'en' | 'ar') || 'en',
               task.id
             );
+            
+            console.log('📧 Email send result:', result);
             
             if (result.success) {
               console.log(`✅ Task assignment email sent successfully to ${assignedUser.email} (MessageID: ${result.messageId})`);
