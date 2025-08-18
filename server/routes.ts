@@ -1124,6 +1124,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (task.assigneeId && process.env.SENDGRID_API_KEY) {
         console.log('📧 Attempting to send task assignment email...');
+        console.log('📧 SendGrid configured:', !!process.env.SENDGRID_API_KEY);
+        console.log('📧 FROM email:', process.env.SENDGRID_FROM_EMAIL);
         try {
           const assignedUser = await storage.getUser(task.assigneeId);
           const project = task.projectId ? await storage.getProject(task.projectId) : null;
