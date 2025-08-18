@@ -9,7 +9,7 @@ async function findVerifiedSender() {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
   const testEmails = [
-    'rakan@ambersand.ai'
+    'admin@ambersand.ai'
   ];
 
   console.log('🔍 Testing different sender emails to find verified one...\n');
