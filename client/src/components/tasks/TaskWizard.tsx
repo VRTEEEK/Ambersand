@@ -260,14 +260,20 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
       
       // Close the dialog immediately after successful task creation
       console.log('✅ TaskWizard: Closing dialog after successful task creation');
-      onClose();
       
-      // Reset form state
-      form.reset();
-      setSelectedControls([]);
-      setStep(preselectedProjectId ? 2 : 1);
-      setSelectedDomain('');
-      setDomainSearch('');
+      // Use setTimeout to ensure state updates complete before closing
+      setTimeout(() => {
+        // Reset form state first
+        form.reset();
+        setSelectedControls([]);
+        setStep(preselectedProjectId ? 2 : 1);
+        setSelectedDomain('');
+        setDomainSearch('');
+        setCreateSeparateTasks(false);
+        
+        // Then close the dialog
+        onClose();
+      }, 100);
     },
   });
 
