@@ -258,22 +258,9 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
       
       console.log('✅ TaskWizard: Cache invalidation complete');
       
-      // Close the dialog immediately after successful task creation
-      console.log('✅ TaskWizard: Closing dialog after successful task creation');
-      
-      // Reset form state first
-      form.reset();
-      setSelectedControls([]);
-      setStep(preselectedProjectId ? 2 : 1);
-      setSelectedDomain('');
-      setDomainSearch('');
-      setCreateSeparateTasks(false);
-      
-      // Close the dialog immediately - force close
-      console.log('🔄 TaskWizard: Force closing dialog');
-      if (typeof onClose === 'function') {
-        onClose();
-      }
+      // Close the dialog immediately - this MUST happen
+      console.log('🔄 TaskWizard: Force closing dialog NOW');
+      handleClose();
     },
   });
 
