@@ -172,6 +172,10 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
     onSuccess: (data) => {
       console.log('✅ TaskWizard: Task creation successful, invalidating cache...', { data, selectedProjectId });
       
+      // CRITICAL: Close dialog FIRST before any other operations
+      console.log('🔄 TaskWizard: IMMEDIATELY closing dialog');
+      handleClose();
+      
       // Show success toast to user
       if (typeof window !== 'undefined' && window.location) {
         console.log('✅ TaskWizard: Showing success notification');
@@ -257,10 +261,6 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
       }
       
       console.log('✅ TaskWizard: Cache invalidation complete');
-      
-      // Close the dialog immediately - this MUST happen
-      console.log('🔄 TaskWizard: Force closing dialog NOW');
-      handleClose();
     },
   });
 
