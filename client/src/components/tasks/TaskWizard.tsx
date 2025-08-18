@@ -261,19 +261,19 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
       // Close the dialog immediately after successful task creation
       console.log('✅ TaskWizard: Closing dialog after successful task creation');
       
-      // Use setTimeout to ensure state updates complete before closing
-      setTimeout(() => {
-        // Reset form state first
-        form.reset();
-        setSelectedControls([]);
-        setStep(preselectedProjectId ? 2 : 1);
-        setSelectedDomain('');
-        setDomainSearch('');
-        setCreateSeparateTasks(false);
-        
-        // Then close the dialog
+      // Reset form state first
+      form.reset();
+      setSelectedControls([]);
+      setStep(preselectedProjectId ? 2 : 1);
+      setSelectedDomain('');
+      setDomainSearch('');
+      setCreateSeparateTasks(false);
+      
+      // Close the dialog immediately - force close
+      console.log('🔄 TaskWizard: Force closing dialog');
+      if (typeof onClose === 'function') {
         onClose();
-      }, 100);
+      }
     },
   });
 
@@ -369,7 +369,9 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
   };
 
   const handleClose = () => {
-    onClose();
+    console.log('🔄 TaskWizard: handleClose called');
+    
+    // Reset all states first
     form.reset();
     setStep(preselectedProjectId ? 2 : 1);
     setSelectedControls([]);
@@ -377,10 +379,21 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
     setSelectedDomain('');
     setDomainSearch('');
     setCreateSeparateTasks(false);
+    
+    // Then call the parent's onClose
+    if (typeof onClose === 'function') {
+      console.log('🔄 TaskWizard: Calling parent onClose');
+      onClose();
+    }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      console.log('🔄 TaskWizard: Dialog onOpenChange triggered with:', open);
+      if (!open) {
+        handleClose();
+      }
+    }}>
       <DialogContent className="max-w-4xl h-[700px] flex flex-col">
         <DialogHeader>
           <DialogTitle>
