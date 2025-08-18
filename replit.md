@@ -6,7 +6,10 @@ Ambersand is a bilingual (Arabic/English) compliance management platform for mid
 
 ## Recent Changes (August 2025)
 
+- **MAJOR: Completed SendGrid email migration** - Successfully migrated entire email system from Resend to SendGrid Web API with retry logic, comprehensive error handling, and enhanced templates
+- **Enhanced email service architecture** - Created centralized EmailService class with proper environment variable handling, base URL detection, and extensive template library
 - **CRITICAL: Fixed production email constraint error** - Enhanced upsertUser function to handle email unique constraint violations (Error 23505) by properly updating existing users instead of failing
+- **Added comprehensive email testing** - Implemented /api/test-email endpoint with support for task assignments, invitations, deadline reminders, status updates, and password resets
 - **Fixed TaskWizard form submission** - Enhanced onSubmit function with proper logging and validation, resolved "Create Task" button not working
 - **Fixed React Query initialization** - Moved useEffect listener after query definitions to prevent "refetchTasks before initialization" error
 - **Completed React Query v5 migration** - Updated all remaining cacheTime references to gcTime for full compatibility
@@ -44,6 +47,7 @@ Preferred communication style: Simple, everyday language.
 ### Key Features
 - **Authentication**: Replit Auth integration, role-based access control (Admin, Manager, Viewer), PostgreSQL-backed session storage.
 - **Compliance Management**: Predefined regulatory frameworks (ECC, PDPL, NDMO), project management with hierarchical control selection, task assignment/monitoring, evidence management.
+- **Email Integration**: SendGrid Web API with comprehensive templates for task notifications, user invitations, deadline reminders, status updates, and password resets.
 - **Internationalization**: Bilingual support (Arabic/English) with RTL layout for Arabic content, custom i18n hook.
 - **Dashboard & Analytics**: Overview of compliance scores, project status, task tracking, Chart.js integration for trend visualization, quick actions.
 
@@ -61,6 +65,7 @@ Preferred communication style: Simple, everyday language.
 - `react`, `react-dom`: UI library.
 - `@tanstack/react-query`: Server state management.
 - `wouter`: Client-side routing.
+- `@sendgrid/mail`: Email delivery via SendGrid Web API.
 
 ### UI and Styling
 - `@radix-ui/*`: Accessible UI component primitives.

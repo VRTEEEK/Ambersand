@@ -412,7 +412,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           acc.push({
             projectId: pr.projectId,
             projectName: pr.projectName || '',
-            projectNameAr: pr.projectNameAr,
+            projectNameAr: pr.projectNameAr || undefined,
             roles: [pr.roleCode]
           });
         }
@@ -660,8 +660,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           aVal = a.firstName && a.lastName ? `${a.firstName} ${a.lastName}` : a.name || a.email || '';
           bVal = b.firstName && b.lastName ? `${b.firstName} ${b.lastName}` : b.name || b.email || '';
         } else if (sort_by === 'lastActive') {
-          aVal = new Date(a.lastActiveAt || a.updatedAt).getTime();
-          bVal = new Date(b.lastActiveAt || b.updatedAt).getTime();
+          aVal = new Date(a.lastActiveAt || a.updatedAt || new Date()).getTime();
+          bVal = new Date(b.lastActiveAt || b.updatedAt || new Date()).getTime();
         } else {
           return 0;
         }
@@ -852,16 +852,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send invitation email if email service is configured
       try {
-        // Auto-detect the base URL for the invitation link
-        const baseUrl = process.env.BASE_URL || 
-                       (process.env.REPLIT_CLUSTER ? `https://${process.env.REPL_SLUG}.${process.env.REPLIT_CLUSTER}.replit.app` : 'http://localhost:5000');
+        // Use the emailService's base URL method
+        const baseUrl = emailService.getBaseUrl();
         
-        await emailService.sendInvitationEmail(email, {
-          inviterName: currentUser?.firstName || currentUser?.email?.split('@')[0] || 'System Admin',
-          organizationName: 'Ambersand Compliance',
-          personalMessage: personalMessage || '',
-          inviteUrl: `${baseUrl}/join?token=${invitedUserId}&email=${encodeURIComponent(email)}`
-        });
+        const result = await emailService.sendInvitationEmail(
+          email,
+          currentUser?.firstName || currentUser?.email?.split('@')[0] || 'System Admin',
+          'Ambersand Compliance',
+          personalMessage || '',
+          `${baseUrl}/join?token=${invitedUserId}&email=${encodeURIComponent(email)}`
+        );
+        
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to send invitation email');
+        }
         console.log(`✅ Invitation email sent successfully to ${email}`);
       } catch (emailError) {
         console.error("❌ Failed to send invitation email:", emailError);
@@ -1198,7 +1202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('📧 Assignment check:', { 
           newAssigneeId: taskData.assigneeId, 
           oldAssigneeId: oldTask?.assigneeId,
-          currentUserId: req.user.claims.sub,
+          currentUserId: req.user?.id || (req.user as any)?.claims?.sub,
           isNewAssignment: taskData.assigneeId && oldTask?.assigneeId !== taskData.assigneeId
         });
         
@@ -1523,7 +1527,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         } catch (error) {
           // Continue if getEvidenceControls fails for this evidence
-          console.log(`Could not get controls for evidence ${evidence.id}:`, error.message);
+          console.log(`Could not get controls for evidence ${evidence.id}:`, (error as Error).message);
         }
       }
       
@@ -1926,11 +1930,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return domainMap[domainEn] || domainEn;
   }
 
-  // Email testing endpoint
+  // Email testing endpoint for SendGrid integration
   app.post('/api/test-email', isAuthenticated, async (req: any, res) => {
     try {
-      console.log('Test email request received:', req.body);
-      const { to, type } = req.body;
+      console.log('SendGrid test email request received:', req.body);
+      const { to, type = 'basic' } = req.body;
       
       if (!to) {
         return res.status(400).json({ message: "Recipient email is required" });
@@ -1940,56 +1944,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: "Email service not configured. SENDGRID_API_KEY is missing." });
       }
 
-      let template;
+      let result;
+      const baseUrl = emailService.getBaseUrl();
+
       switch (type) {
         case 'task-assignment':
-          template = emailService.templates.taskAssignment(
+          result = await emailService.sendTaskAssignmentEmail(
+            to,
             'Test User',
-            'Sample Task Assignment',
-            '2025-08-01',
-            'Sample Project',
+            'Sample Compliance Task - SendGrid Test',
+            new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+            'Test Project',
             'en',
-            123 // Sample task ID for testing
+            123
+          );
+          break;
+        case 'invitation':
+          result = await emailService.sendInvitationEmail(
+            to,
+            'Admin User',
+            'Ambersand Test Organization',
+            'Welcome to our compliance management platform! This is a test of the new SendGrid integration.',
+            `${baseUrl}/join?token=test123&email=${encodeURIComponent(to)}`
           );
           break;
         case 'deadline-reminder':
-          template = emailService.templates.deadlineReminder(
+          result = await emailService.sendDeadlineReminderEmail(
+            to,
             'Test User',
-            'Sample Task with Deadline',
-            '2025-08-01',
+            'Sample Task with Approaching Deadline',
+            new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toLocaleDateString(),
             'en',
-            456 // Sample task ID for testing
+            456
           );
           break;
         case 'status-update':
-          template = emailService.templates.statusUpdate(
+          result = await emailService.sendStatusUpdateEmail(
+            to,
             'Test User',
-            'Sample Task Status Change',
+            'Sample Compliance Task',
             'in-progress',
             'completed',
             'en',
-            789 // Sample task ID for testing
+            789
           );
           break;
+        case 'password-reset':
+          result = await emailService.sendPasswordResetEmail(
+            to,
+            'Test User',
+            `${baseUrl}/reset-password?token=test123`,
+            'en'
+          );
+          break;
+        case 'basic':
         default:
-          return res.status(400).json({ message: "Invalid email type. Use: task-assignment, deadline-reminder, or status-update" });
+          result = await emailService.sendEmail({
+            to,
+            subject: 'SendGrid Integration Test - Ambersand Platform',
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background-color: #2699A6; padding: 20px; text-align: center;">
+                  <h1 style="color: white; margin: 0;">Ambersand</h1>
+                  <p style="color: #e0f7fa; margin: 10px 0 0 0;">Compliance Management Platform</p>
+                </div>
+                <div style="padding: 30px;">
+                  <h2 style="color: #2699A6;">SendGrid Integration Test</h2>
+                  <p>This test email confirms that:</p>
+                  <ul>
+                    <li>✅ SendGrid Web API is properly configured</li>
+                    <li>✅ Email service successfully migrated from Resend</li>
+                    <li>✅ Base URL correctly set to: ${baseUrl}</li>
+                    <li>✅ Retry logic implemented for reliability</li>
+                    <li>✅ HTML and plain text content supported</li>
+                  </ul>
+                  <p><strong>Environment:</strong> ${process.env.NODE_ENV}</p>
+                  <p><strong>Test Type:</strong> ${type}</p>
+                  <p><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
+                </div>
+                <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #dee2e6;">
+                  <p style="margin: 0; font-size: 12px; color: #666;">
+                    © ${new Date().getFullYear()} Ambersand. All rights reserved.
+                  </p>
+                </div>
+              </div>
+            `
+          });
+          break;
       }
 
-      console.log('Sending test email with template:', { to, subject: template.subject });
-      await emailService.sendEmail({
-        to,
-        subject: template.subject,
-        html: template.html,
-      });
-
-      res.json({ message: "Test email sent successfully", to, subject: template.subject });
+      if (result.success) {
+        console.log(`✅ SendGrid test email sent successfully: ${type} to ${to}`);
+        res.json({ 
+          message: "Test email sent successfully via SendGrid",
+          messageId: result.messageId,
+          emailType: type,
+          recipient: to,
+          baseUrl,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        console.error(`❌ SendGrid test email failed: ${type} to ${to}`, result.error);
+        res.status(500).json({ 
+          message: "Failed to send test email",
+          error: result.error,
+          emailType: type,
+          recipient: to
+        });
+      }
     } catch (error) {
-      console.error("Error sending test email:", error);
+      console.error("SendGrid test email error:", error);
       const errorMessage = (error as Error)?.message || 'Unknown error';
       res.status(500).json({ 
         message: "Failed to send test email", 
         error: errorMessage,
-        details: error
+        emailType: req.body.type || 'unknown'
       });
     }
   });
