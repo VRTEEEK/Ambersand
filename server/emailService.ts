@@ -33,9 +33,9 @@ export const emailService = {
         throw new Error('SENDGRID_API_KEY is not configured');
       }
 
-      // Get sender email from environment or use default
-      const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@ambersand.ai';
-      const fromName = process.env.SENDGRID_FROM_NAME || 'Ambersand';
+      // Get sender email from environment or use verified default
+      const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'info@vrteek.com';
+      const fromName = process.env.SENDGRID_FROM_NAME || 'Ambersand Compliance';
       
       console.log('Attempting to send email via SendGrid:', { 
         to, 

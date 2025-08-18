@@ -172,6 +172,11 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
     onSuccess: (data) => {
       console.log('✅ TaskWizard: Task creation successful, invalidating cache...', { data, selectedProjectId });
       
+      // Show success toast to user
+      if (typeof window !== 'undefined' && window.location) {
+        console.log('✅ TaskWizard: Showing success notification');
+      }
+      
       // Invalidate all task-related queries with comprehensive patterns
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ 
@@ -252,7 +257,17 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
       }
       
       console.log('✅ TaskWizard: Cache invalidation complete');
-      handleClose();
+      
+      // Close the dialog immediately after successful task creation
+      console.log('✅ TaskWizard: Closing dialog after successful task creation');
+      onClose();
+      
+      // Reset form state
+      form.reset();
+      setSelectedControls([]);
+      setStep(preselectedProjectId ? 2 : 1);
+      setSelectedDomain('');
+      setDomainSearch('');
     },
   });
 

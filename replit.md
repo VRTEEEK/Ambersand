@@ -9,6 +9,8 @@ Ambersand is a bilingual (Arabic/English) compliance management platform for mid
 - **MAJOR: Completed SendGrid email migration** - Successfully migrated entire email system from Resend to SendGrid Web API with retry logic, comprehensive error handling, and enhanced templates
 - **Enhanced email service architecture** - Created centralized EmailService class with proper environment variable handling, base URL detection, and extensive template library
 - **Fixed task creation email notifications** - Resolved user ID handling issues and implemented proper error logging for email delivery during task assignments
+- **Fixed TaskWizard form dismissal** - Task creation form now properly closes after successful task creation with improved user feedback
+- **Resolved SendGrid FROM_EMAIL issue** - Set verified sender email to ensure email delivery works properly
 - **CRITICAL: Fixed production email constraint error** - Enhanced upsertUser function to handle email unique constraint violations (Error 23505) by properly updating existing users instead of failing
 - **Added comprehensive email testing** - Implemented /api/test-email endpoint with support for task assignments, invitations, deadline reminders, status updates, and password resets
 - **Fixed TaskWizard form submission** - Enhanced onSubmit function with proper logging and validation, resolved "Create Task" button not working
