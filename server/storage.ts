@@ -500,7 +500,60 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTask(task: InsertTask): Promise<Task> {
+    console.log('🚀🚀🚀 STORAGE: createTask called with:', JSON.stringify(task, null, 2));
     const [newTask] = await db.insert(tasks).values(task).returning();
+    console.log('🚀🚀🚀 STORAGE: Task inserted into database:', JSON.stringify(newTask, null, 2));
+    
+    // Send email notification if task is assigned to someone
+    if (newTask.assigneeId && process.env.SENDGRID_API_KEY) {
+      console.log('🚀🚀🚀 STORAGE: Attempting to send email for assigned task...');
+      try {
+        // Dynamic import to avoid circular dependency
+        const { EmailService } = await import('./emailService');
+        const emailService = new EmailService();
+        
+        const assignedUser = await this.getUser(newTask.assigneeId);
+        const project = newTask.projectId ? await this.getProject(newTask.projectId) : null;
+        
+        console.log('🚀🚀🚀 STORAGE: Retrieved user and project:', { 
+          userFound: !!assignedUser, 
+          userEmail: assignedUser?.email,
+          projectFound: !!project,
+          projectName: project?.name 
+        });
+        
+        if (assignedUser && assignedUser.email) {
+          const dueDate = newTask.dueDate ? new Date(newTask.dueDate).toLocaleDateString() : 'Not set';
+          const projectName = project?.name || 'Untitled Project';
+          
+          console.log('🚀🚀🚀 STORAGE: Sending task assignment email...');
+          const result = await emailService.sendTaskAssignmentEmail(
+            assignedUser.email,
+            assignedUser.firstName || assignedUser.name || 'User',
+            newTask.title,
+            dueDate,
+            projectName,
+            (assignedUser.language as 'en' | 'ar') || 'en',
+            newTask.id
+          );
+          
+          console.log('🚀🚀🚀 STORAGE: Email send result:', result);
+          
+          if (result.success) {
+            console.log(`✅ STORAGE: Task assignment email sent successfully to ${assignedUser.email}`);
+          } else {
+            console.error(`❌ STORAGE: Failed to send task assignment email: ${result.error}`);
+          }
+        } else {
+          console.log('❌ STORAGE: No email sent - missing user or email address');
+        }
+      } catch (emailError) {
+        console.error('❌ STORAGE: Error sending task assignment email:', emailError);
+      }
+    } else {
+      console.log('🚀🚀🚀 STORAGE: No email sent - task not assigned or SendGrid not configured');
+    }
+    
     return newTask;
   }
 
