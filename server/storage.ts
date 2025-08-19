@@ -505,6 +505,10 @@ export class DatabaseStorage implements IStorage {
     const [newTask] = await db.insert(tasks).values(task).returning();
     console.log('🚀🚀🚀 STORAGE: Task inserted into database:', JSON.stringify(newTask, null, 2));
     
+    // FORCE FLUSH LOGS TO ENSURE VISIBILITY
+    process.stdout.write('');
+    console.error('🚀🚀🚀 STORAGE: ERROR LOG - Task created with ID:', newTask.id);
+    
     // Send email notification if task is assigned to someone
     if (newTask.assigneeId && process.env.SENDGRID_API_KEY) {
       console.log('🚀🚀🚀 STORAGE: Attempting to send email for assigned task...');

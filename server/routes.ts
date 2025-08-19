@@ -1077,6 +1077,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Debug endpoint to check what routes are registered
+  app.get('/api/debug-routes', (req, res) => {
+    res.json({ message: 'Routes endpoint working', timestamp: new Date().toISOString() });
+  });
+
+  // Direct email test endpoint
+  app.post('/api/debug-send-email', isAuthenticated, async (req: any, res) => {
+    try {
+      console.log('🚀 DEBUG EMAIL ENDPOINT HIT');
+      const { EmailService } = await import('./emailService');
+      const emailService = new EmailService();
+      
+      const user = await storage.getUser((req.user as any)?.id || (req.user as any)?.claims?.sub);
+      if (!user || !user.email) {
+        return res.status(400).json({ error: 'User not found or no email' });
+      }
+      
+      const result = await emailService.sendTaskAssignmentEmail(
+        user.email,
+        user.firstName || user.name || 'User',
+        'Debug Test Task',
+        '2025-08-30',
+        'Debug Project',
+        'en',
+        999
+      );
+      
+      res.json({ success: result.success, error: result.error });
+    } catch (error) {
+      console.error('Debug email error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Debugging middleware to log ALL requests
+  app.use('/api/tasks*', (req, res, next) => {
+    console.log('\n🌟🌟🌟 MIDDLEWARE: Request to tasks endpoint detected');
+    console.log('🌟 URL:', req.url);
+    console.log('🌟 Method:', req.method);
+    console.log('🌟 Headers:', req.headers);
+    console.log('🌟 Body:', req.body);
+    console.log('🌟 User:', (req as any).user);
+    next();
+  });
+
   // Tasks routes
   app.get('/api/tasks', isAuthenticated, async (req, res) => {
     try {
