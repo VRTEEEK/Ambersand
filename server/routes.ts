@@ -1105,11 +1105,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post('/api/tasks', isAuthenticated, async (req: any, res) => {
+    console.log('\n🔥🔥🔥🔥🔥🔥🔥🔥🔥 TASK CREATION ROUTE HIT 🔥🔥🔥🔥🔥🔥🔥🔥🔥');
+    console.log('🔥🔥🔥 ROUTES: POST /api/tasks called with body:', JSON.stringify(req.body, null, 2));
+    console.log('🔥🔥🔥 ROUTES: Request user:', req.user);
+    console.log('🔥🔥🔥 ROUTES: URL requested:', req.url);
+    console.log('🔥🔥🔥 ROUTES: Method:', req.method);
+    console.log('🔥🔥🔥🔥🔥🔥🔥🔥🔥 ROUTE PROCESSING STARTING 🔥🔥🔥🔥🔥🔥🔥🔥🔥');
     try {
-      console.log('🔥🔥🔥 ROUTES: POST /api/tasks called with body:', JSON.stringify(req.body, null, 2));
-      console.log('🔥🔥🔥 ROUTES: Request user:', req.user);
-      console.log('🔥🔥🔥 ROUTES: URL requested:', req.url);
-      console.log('🔥🔥🔥 ROUTES: Method:', req.method);
       const taskData = insertTaskSchema.parse({
         ...req.body,
         createdById: (req.user as any)?.id || (req.user as any)?.claims?.sub,
