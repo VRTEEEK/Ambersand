@@ -1,6 +1,9 @@
 import type { Express } from "express";
-import reportsRouter from "./routes/reports";
 import express from "express";
+import { z } from "zod";
+import { getComplianceReportData } from "./reports/reportData";
+import { renderComplianceHTML } from "./reports/html";
+import { buildPDF, buildDOCX, buildXLSX, streamBundle } from "./reports/reportBuilders";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
@@ -2386,7 +2389,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reports router
-  app.use('/api/reports', isAuthenticated, reportsRouter);
+  // Export route
+  app.post("/api/reports/compliance/export", isAuthenticated, async (req: any, res) => {
+    const schema = z.object({
+      projectId: z.number(),
+      regulationCode: z.string().optional(),
+      formats: z.object({
+        pdf: z.boolean().optional(),
+        docx: z.boolean().optional(),
+        xlsx: z.boolean().optional(),
+      }),
+      evidenceMode: z.enum(["attach","link","both"]).default("both"),
+      controlStatus: z.union([z.literal("all"), z.literal("approved"), z.literal("unapproved")]).default("all"),
+      language: z.enum(["en","ar"]).default("en"),
+    });
+
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid payload", issues: parsed.error.issues });
+
+    const { projectId, regulationCode, formats, evidenceMode, controlStatus, language } = parsed.data;
+
+    try {
+      // Optional tenant check: ensure the project belongs to req.user.claims.org
+      const report = await getComplianceReportData({
+        projectId,
+        regulationCode,
+        controlStatusFilter: controlStatus,
+        organizationId: req.user?.claims?.org,
+      });
+
+      const html = renderComplianceHTML(report, language);
+      const selected = { pdf: !!formats?.pdf, docx: !!formats?.docx, xlsx: !!formats?.xlsx };
+      const count = Object.values(selected).filter(Boolean).length;
+
+      const needsZip = evidenceMode !== "link" || count !== 1;
+
+      if (needsZip) {
+        res.setHeader("Content-Type", "application/zip");
+        res.setHeader("Content-Disposition", `attachment; filename="Ambersand_Compliance_Report_${report.project.name}.zip"`);
+        await streamBundle({
+          report,
+          formats: selected,
+          includeEvidence: evidenceMode, // 'attach' | 'link' | 'both'
+          res,
+          htmlContent: html,
+        });
+        return;
+      }
+
+      // Single file + link-only → return file directly
+      if (selected.pdf) {
+        const buf = await buildPDF(html);
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `attachment; filename="Compliance_Report_${report.project.name}.pdf"`);
+        return res.send(buf);
+      }
+      if (selected.docx) {
+        const buf = await buildDOCX(report);
+        res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        res.setHeader("Content-Disposition", `attachment; filename="Compliance_Report_${report.project.name}.docx"`);
+        return res.send(buf);
+      }
+      if (selected.xlsx) {
+        const buf = await buildXLSX(report);
+        res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        res.setHeader("Content-Disposition", `attachment; filename="Compliance_Report_${report.project.name}.xlsx"`);
+        return res.send(buf);
+      }
+
+      return res.status(400).json({ message: "Select at least one format." });
+    } catch (err) {
+      console.error("Export error:", err);
+      return res.status(500).json({ message: "Failed to export compliance report" });
+    }
+  });
 
   // Serve uploaded files (profile pictures and evidence)
   app.use('/uploads', (req, res, next) => {
