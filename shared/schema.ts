@@ -12,6 +12,7 @@ import {
   date,
 } from "drizzle-orm/pg-core";
 import { comments, commentSubscriptions } from "./comments";
+import { risks } from "./risk";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -153,6 +154,7 @@ export const tasks = pgTable("tasks", {
   projectId: integer("project_id"),
   assigneeId: varchar("assignee_id"),
   pendingAssigneeInviteId: integer("pending_assignee_invite_id"), // For pending invites
+  isRisk: boolean("is_risk").default(false).notNull(), // Risk flag for risk register
   createdById: varchar("created_by_id").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

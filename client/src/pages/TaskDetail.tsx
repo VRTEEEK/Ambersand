@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, User, Flag, Clock, FileText, Upload, Download, MessageSquare, X, Plus, Grid, List } from "lucide-react";
+import { Calendar, User, Flag, Clock, FileText, Upload, Download, MessageSquare, X, Plus, Grid, List, AlertTriangle } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -18,6 +18,7 @@ import { apiRequest } from "@/lib/queryClient";
 import AppLayout from "@/components/layout/AppLayout";
 import type { Task, User as UserType, ProjectControl, Evidence, EvidenceVersion } from "@shared/schema";
 import Comments from '@/components/comments/Comments';
+import { toggleRisk } from "@/lib/api/risk";
 
 interface TaskWithDetails extends Task {
   project?: { id: number; name: string; nameAr: string };
@@ -242,6 +243,28 @@ export default function TaskDetail() {
     }
   };
 
+  // Risk toggle mutation
+  const riskToggleMutation = useMutation({
+    mutationFn: (makeRisk: boolean) => toggleRisk(parseInt(taskId!), makeRisk),
+    onSuccess: (data, makeRisk) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", taskId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/risks"] });
+      toast({
+        title: makeRisk ? 'Task converted to Risk' : 'Risk converted back to Task',
+        description: makeRisk 
+          ? 'This task is now tracked as a risk in the Risk Register' 
+          : 'This task is no longer considered a risk',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Toggle failed',
+        description: 'Failed to update risk status',
+        variant: 'destructive',
+      });
+    }
+  });
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "urgent": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
@@ -288,6 +311,15 @@ export default function TaskDetail() {
             <Badge className={getStatusColor(task.status)}>
               {task.status}
             </Badge>
+            <Button
+              variant={task.isRisk ? "destructive" : "outline"}
+              size="sm"
+              onClick={() => riskToggleMutation.mutate(!task.isRisk)}
+              disabled={riskToggleMutation.isPending}
+            >
+              <AlertTriangle className="h-4 w-4 mr-1" />
+              {task.isRisk ? 'Remove Risk' : 'Mark as Risk'}
+            </Button>
           </div>
         </div>
       </div>

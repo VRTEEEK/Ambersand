@@ -1,7 +1,7 @@
 import { pgTable, serial, integer, text, varchar, timestamp, boolean } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
-export const commentTargets = ["task","project"] as const;
+export const commentTargets = ["task","project","risk"] as const;
 export type CommentTarget = typeof commentTargets[number];
 
 export const comments = pgTable("comments", {

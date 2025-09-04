@@ -76,6 +76,7 @@ export const requireCreateProjects = () => requirePermissions(["create_projects_
 export const requireAssignProjects = (withProject = false) => requirePermissions(["assign_projects_to_users"], withProject);
 export const requireCreateTasks = () => requirePermissions(["create_tasks"]);
 export const requireCreateRisks = () => requirePermissions(["create_risks"]);
+export const requireEditRisks = () => requirePermissions(["edit_risks"]);
 export const requireViewEvidence = () => requirePermissions(["view_evidence_repository"]);
 export const requireEditEvidence = () => requirePermissions(["edit_evidence_repository"]);
 export const requireReviewEvidence = () => requirePermissions(["review_evidences_submitted"]);

@@ -24,6 +24,8 @@ import Users from "@/pages/Users";
 import EnhancedUsersPage from "@/components/users/EnhancedUsersPage";
 import Notifications from "@/pages/Notifications";
 import EmailTest from "@/pages/EmailTest";
+import RiskRegister from "@/pages/RiskRegister";
+import RiskDetailPage from "@/pages/RiskDetailPage";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -41,6 +43,8 @@ function Router() {
           <Route path="/my-tasks" component={MyTasks} />
           <Route path="/tasks" component={Tasks} />
           <Route path="/tasks/:id" component={TaskDetail} />
+          <Route path="/risks" component={RiskRegister} />
+          <Route path="/risks/:id" component={RiskDetailPage} />
           <Route path="/evidence" component={Evidence} />
           <Route path="/analytics" component={Analytics} />
           <Route path="/users" component={Users} />

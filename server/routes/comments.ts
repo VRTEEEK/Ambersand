@@ -24,7 +24,7 @@ async function canCommentTarget(user: any, targetType: string, targetId: number)
 // GET list (paginated)
 router.get("/", isAuthenticated, async (req: any, res) => {
   const schema = z.object({
-    targetType: z.enum(["task", "project"]),
+    targetType: z.enum(["task", "project", "risk"]),
     targetId: z.coerce.number(),
     cursor: z.coerce.number().optional(), // comment id before which to load
     limit: z.coerce.number().min(1).max(100).default(50),
@@ -83,7 +83,7 @@ router.get("/", isAuthenticated, async (req: any, res) => {
 // POST create
 router.post("/", isAuthenticated, async (req: any, res) => {
   const schema = z.object({
-    targetType: z.enum(["task", "project"]),
+    targetType: z.enum(["task", "project", "risk"]),
     targetId: z.number(),
     parentId: z.number().optional(),
     body: z.string().min(1).max(4000),

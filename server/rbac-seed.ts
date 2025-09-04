@@ -21,6 +21,7 @@ const permissionDefinitions: InsertPermission[] = [
   { code: "change_user_permissions", description: "Manage user roles and permissions" },
   { code: "create_tasks", description: "Create and manage compliance tasks" },
   { code: "create_risks", description: "Create and manage compliance risks" },
+  { code: "edit_risks", description: "Edit and update compliance risk details" },
   { code: "review_evidences_submitted", description: "Review and validate submitted evidence" },
   { code: "view_evidence_repository", description: "Access and browse the evidence repository" },
   { code: "edit_evidence_repository", description: "Edit and manage evidence files and metadata" },
@@ -47,6 +48,7 @@ const permissionMatrix: Record<string, string[]> = {
     "change_user_permissions",
     "create_tasks",
     "create_risks",
+    "edit_risks",
     "review_evidences_submitted",
     "view_evidence_repository",
     "edit_evidence_repository",
@@ -65,7 +67,8 @@ const permissionMatrix: Record<string, string[]> = {
     "export_compliance_reports"
   ],
   officer: [
-    "approve_controls"
+    "approve_controls",
+    "edit_risks"
   ],
   collaborator: [
     "view_regulations",

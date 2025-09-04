@@ -36,6 +36,7 @@ import {
   Bell,
   LayoutDashboard,
   CheckSquare,
+  AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -82,6 +83,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
       href: '/tasks',
       icon: ListTodo,
       current: location === '/tasks',
+    },
+    can(PERMISSIONS.CREATE_TASKS) && {
+      title: 'Risk Register',
+      href: '/risks',
+      icon: AlertTriangle,
+      current: location === '/risks' || location.startsWith('/risks/'),
     },
     can(PERMISSIONS.VIEW_EVIDENCE_REPOSITORY) && {
       title: t('nav.evidence'),
