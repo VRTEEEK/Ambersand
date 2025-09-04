@@ -1,0 +1,219 @@
+
+Goals
+	1.	Add an Export flow that lets a user generate a Compliance Report for a project/regulation as:
+	•	PDF (print-ready)
+	•	Word (.docx)
+	•	Excel (.xlsx)
+	2.	Include all Controls + per-control status + linked evidence.
+	3.	Package evidence files in an optional ZIP bundle with an auditor index (HTML) so auditors can browse evidence easily offline.
+	4.	Keep tenant/auth checks + RBAC.
+	5.	UX: frictionless—one modal, select scope + format(s) + evidence options, click Export, get a download.
+	6.	i18n-ready (EN first; wire a hook to support AR later).
+
+⸻
+
+Repo reconnaissance (confirm & align)
+	•	Frontend root: client/ (pages: Dashboard, Regulations, Projects, ProjectDetail, Evidence).
+	•	Backend: server/ (index.ts, routes.ts, storage.ts), Drizzle schema in shared/.
+	•	Evidence files live in uploads/; evidence.filePath points to stored file.
+
+⸻
+
+Packages to add (server)
+
+Install:
+	•	puppeteer – render HTML → PDF
+	•	docx – build .docx programmatically
+	•	exceljs – generate Excel workbooks
+	•	archiver – stream ZIPs
+	•	sanitize-filename – safe file names
+
+Keep server build with esbuild external packages (already configured). If Puppeteer needs Chromium in Replit, use default install (no headless flags changes).
+
+⸻
+
+Backend — data + builders + routes
+
+1) Data assembly service
+
+Create server/services/reportData.ts:
+	•	Export getComplianceReportData({ projectId, regulationCode, controlStatusFilter? }):
+	•	Pull:
+	•	Project summary (name, owner, dates)
+	•	Regulation summary (ECC-2:2024/custom)
+	•	Controls list (code, domain, title, status, approver, dates)
+	•	Linked tasks (optional)
+	•	Linked evidence: id, title, description, fileName, fileType, fileSize, filePath, versions? (latest only for now)
+	•	Use existing storage methods; add new ones if needed:
+	•	getProjectControls(projectId) with statuses
+	•	getControlLinkedEvidence(controlId)
+	•	Return a normalized JSON shape:
+
+interface ComplianceReport {
+  project: { id:number; name:string; owner?:string; organizationId:string; };
+  regulation: { code:string; name:string; version?:string; };
+  generatedAt: string; // ISO
+  totals: { controls:number; approved:number; pending:number; ... };
+  controls: Array<{
+    id:number; code:string; title:string; domain:string; subdomain?:string;
+    status:'pending'|'in-progress'|'review'|'completed'|'blocked';
+    approver?:string; updatedAt?:string;
+    evidence: Array<{
+      id:number; title:string; fileName:string; fileType?:string; fileSize?:number;
+      filePath:string; // absolute/relative on disk
+      description?:string;
+    }>;
+  }>;
+}
+
+
+
+2) HTML template for PDF
+
+Add server/templates/complianceReport.html with inline CSS (A4, headers/footers, table of contents, control tables). Use simple placeholders (Handlebars-like) but render via a tiny function:
+
+Create server/services/html.ts:
+	•	renderComplianceHTML(report: ComplianceReport, lang:'en'|'ar'='en') → returns full HTML string (LTR for EN; keep CSS ready for RTL later).
+
+3) Builders
+
+Create server/services/reportBuilders.ts:
+	•	PDF: buildPDF(html: string): Promise<Buffer>
+	•	Use puppeteer.launch({args:['--no-sandbox']}), open new page, setContent(html,{waitUntil:'networkidle0'}), pdf({ format:'A4', printBackground:true, margin:{top:'16mm',bottom:'16mm'} }).
+	•	DOCX: buildDOCX(report: ComplianceReport): Promise<Buffer>
+	•	Use docx to create:
+	•	Title page (project, regulation, date)
+	•	Summary table (counts)
+	•	Per-domain sections with control tables
+	•	Under each control: bullet list of Evidence with (Title, FileName, Description). Add hyperlinks to evidence file names (relative ./evidence/<safeName>).
+	•	XLSX: buildXLSX(report: ComplianceReport): Promise<Buffer>
+	•	Use exceljs:
+	•	Sheet “Overview”
+	•	Sheet “Controls” with columns: Code, Domain, Title, Status, Last Updated, Evidence Count
+	•	Sheet “Evidence Index”: Evidence Title, Control Code(s), FileName, Type, Size (KB), Hyperlink to ./evidence/<safeName>
+	•	Auto-filter + freeze header + column widths.
+	•	Evidence ZIP bundler: streamBundle({ report, formats, includeEvidence: 'attach'|'link'|'both' })
+	•	Use archiver to stream:
+	•	Add /reports/Report.<pdf|docx|xlsx> files (generated buffers)
+	•	If attach or both: create /evidence/ and pipe each evidence from filePath (sanitized name CODE__originalName.ext). If a file is missing, include a placeholder .txt.
+	•	Add /index.html (auditor viewer):
+	•	Simple searchable table (vanilla JS) listing all evidence with links to local files in /evidence/.
+	•	“Open Report (PDF)” and “Open Report (DOCX/XLSX)” buttons at top.
+	•	Return a Node stream to response.
+
+4) Routes
+
+Create server/routes/reports.ts and mount it in server/index.ts (after auth), e.g. app.use('/api/reports', reportsRouter).
+	•	RBAC: add export_compliance_reports permission; wire a guard:
+	•	In server/rbac-seed.ts: add the permission and map it to Admin/Manager roles.
+	•	In server/rbac-middleware.ts: export const requireExportReports = () => requirePermissions(['export_compliance_reports'], true);
+	•	POST /api/reports/compliance/export (protected: isAuthenticated, requireExportReports()):
+	•	Payload (zod):
+
+{
+  projectId: number,
+  regulationCode?: string, // e.g., "NCA-ECC-2:2024"
+  formats: { pdf: boolean; docx: boolean; xlsx: boolean },
+  evidenceMode: 'attach' | 'link' | 'both', // default 'both'
+  controlStatus?: 'all' | 'approved' | 'unapproved' | { in: string[] },
+  language?: 'en' | 'ar'
+}
+
+
+	•	Build report = await getComplianceReportData(...).
+	•	const html = renderComplianceHTML(report, language)
+	•	Conditionally build buffers for selected formats.
+	•	If evidenceMode==='attach' || 'both' → create a ZIP bundle with /reports/* and /evidence/* + /index.html; stream it with headers:
+
+Content-Type: application/zip
+Content-Disposition: attachment; filename="Ambersand_Compliance_Report_<project>.zip"
+
+
+	•	Else (link-only and single format) → send the single file buffer with proper content type and disposition.
+
+	•	Ensure tenant scoping: validate req.user.organizationId against project’s organization before exporting.
+	•	Performance:
+	•	For > 300 evidence files or > 250 MB total, fall back to async job:
+	•	Create a reports_jobs table (id, userId, projectId, params JSON, status, createdAt, completedAt, filePath)
+	•	Spawn the build, then notify via existing email service when ready.
+	•	Add GET /api/reports/jobs/:id and GET /api/reports/download/:id.
+
+⸻
+
+Frontend — Export UI
+
+1) Export button placement
+	•	Show an “Export Report” button in:
+	•	client/src/pages/ProjectDetail.tsx header actions
+	•	Optionally in Regulations.tsx top toolbar if a project is selected
+
+2) Dialog
+
+Create client/src/components/reports/ExportComplianceDialog.tsx (shadcn Dialog + RHF + zod):
+	•	Fields:
+	•	Formats: checkboxes [PDF, Word (.docx), Excel (.xlsx)] – at least one required
+	•	Evidence: radio [Attach files in ZIP, Link only, Both]
+	•	Scope: (pre-filled by page) projectId (and regulation if applicable)
+	•	Filter: control status selector [All, Approved, Unapproved, Custom (multi-select)]
+	•	Language: EN (default) / AR (disabled for now, but wire the prop)
+	•	Submit → call POST /api/reports/compliance/export
+	•	If server returns zip: stream blob → downloadAmbersand("Compliance_Report_<project>.zip")
+	•	If single file: same with correct extension
+	•	Show spinner; disable submit while loading; error toast on failure.
+
+3) Wiring
+	•	Add the button in ProjectDetail.tsx:
+
+import ExportComplianceDialog from '@/components/reports/ExportComplianceDialog';
+// ...
+<ExportComplianceDialog projectId={Number(params.id)} />
+
+
+	•	Make sure auth cookie is sent (fetch default with same-origin is fine).
+
+⸻
+
+Evidence + Auditor UX details
+	•	Evidence filenames in ZIP: CONTROL_<code>__<safe-original-name>.<ext>
+	•	/index.html includes:
+	•	Search box (client-side filter)
+	•	Columns: Control Code, Evidence Title, File Name (click to open), Type, Size (KB)
+	•	Sticky header, light CSS, works offline
+	•	In PDF/DOCX/XLSX:
+	•	For each control list evidence lines; when attach is selected, link to ./evidence/<file> (relative)
+	•	For images (png/jpg/webp) in PDF/DOCX: include a small 128px thumbnail below the evidence line (optional toggle in code)
+
+⸻
+
+Security & Limits
+	•	Only users with both view_evidence_repository and export_compliance_reports can export.
+	•	Sanitize every file name.
+	•	Stream files; do not buffer large evidence files in memory at once.
+	•	If a file path does not exist, emit a note into the report and skip attachment.
+
+⸻
+
+Acceptance Criteria
+	•	From Project Detail, clicking Export Report opens a dialog; choosing formats + evidence mode downloads either:
+	•	A ZIP containing Report.pdf, Report.docx, Report.xlsx and /evidence/* + /index.html, or
+	•	A single file (if link-only & one format).
+	•	Controls section lists every control (code, title, domain, status, approver/date) with linked evidence.
+	•	Excel has Overview, Controls, Evidence Index sheets with filters + hyperlinks.
+	•	PDF is clean A4, print-ready (page numbers, header with logo/name, footer with date).
+	•	RBAC enforced; unauthorized users get 403.
+	•	Handles projects with 100+ controls, 100+ evidence without timing out (streams/async job used when necessary).
+
+⸻
+
+Nice-to-have (add if time permits)
+	•	Background job with notification + “Downloads” tab under Analytics & Reports.
+	•	Arabic RTL switch in template.
+	•	Watermark option (“CONFIDENTIAL – For Audit Only”).
+
+⸻
+
+Commit Messages
+
+feat(reports): compliance report export (PDF/DOCX/XLSX) with evidence bundle + auditor index
+feat(rbac): add export_compliance_reports permission and guards
+
