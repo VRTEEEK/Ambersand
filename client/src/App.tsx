@@ -56,23 +56,30 @@ function Router() {
   );
 }
 
-function App() {
+function AppContent() {
+  const { isAuthenticated } = useAuth();
+  
   return (
     <>
-      <QueryClientProvider client={queryClient}>
-        <NotificationProvider>
-          <PermissionsProvider>
-            <TooltipProvider>
-              <Router />
-              <Toaster />
-            </TooltipProvider>
-          </PermissionsProvider>
-        </NotificationProvider>
-      </QueryClientProvider>
-
-      {/* Global floating Support button */}
-      <SupportButton />
+      <Router />
+      <Toaster />
+      {/* Floating Support button at bottom-left - outside router context */}
+      {isAuthenticated && <SupportButton />}
     </>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <NotificationProvider>
+        <PermissionsProvider>
+          <TooltipProvider>
+            <AppContent />
+          </TooltipProvider>
+        </PermissionsProvider>
+      </NotificationProvider>
+    </QueryClientProvider>
   );
 }
 
