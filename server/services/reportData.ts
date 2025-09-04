@@ -55,13 +55,14 @@ export async function getComplianceReportData(params: {
   const { projectId, regulationCode, controlStatusFilter, organizationId } = params;
 
   // Get project details
-  const projectQuery = db.select().from(projects).where(eq(projects.id, projectId));
+  let projectQuery = db.select().from(projects).where(eq(projects.id, projectId));
   
   // Add organization filter only if organizationId is provided
-  const project = await (organizationId 
-    ? projectQuery.where(eq(projects.organizationId, organizationId))
-    : projectQuery
-  ).limit(1);
+  if (organizationId) {
+    projectQuery = projectQuery.where(eq(projects.organizationId, organizationId));
+  }
+  
+  const project = await projectQuery.limit(1);
 
   if (!project[0]) {
     throw new Error(`Project ${projectId} not found or access denied`);
