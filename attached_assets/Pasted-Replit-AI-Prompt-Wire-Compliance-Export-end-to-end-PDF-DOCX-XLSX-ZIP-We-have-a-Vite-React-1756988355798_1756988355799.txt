@@ -1,0 +1,157 @@
+Replit AI Prompt — “Wire Compliance Export end to end (PDF/DOCX/XLSX + ZIP)”
+
+We have a Vite + React client and a TypeScript Express server under server/. The dialog posts to /api/reports/compliance/export. Do the following:
+
+1) Install server deps
+
+npm i puppeteer docx exceljs archiver sanitize-filename
+
+Launch Puppeteer with --no-sandbox.
+
+2) Move report services under server/ and fix imports
+
+Create server/reports/ and move these files from services/:
+	•	services/reportData.ts → server/reports/reportData.ts
+	•	services/html.ts → server/reports/html.ts
+	•	services/reportBuilders.ts → server/reports/reportBuilders.ts
+
+Then fix imports inside them:
+	•	import { db } from "../db" (relative to server/reports/)
+	•	import { projects, projectControls, eccControls, evidence, tasks, users } from "@shared/schema"
+
+IMPORTANT: Remove any ... truncation that slipped into these files and ensure they compile. The following functions must exist and be exported:
+	•	getComplianceReportData(args): Promise<ComplianceReport>
+	•	renderComplianceHTML(report, lang): string
+	•	buildPDF(html): Promise<Buffer>
+	•	buildDOCX(report): Promise<Buffer>
+	•	buildXLSX(report): Promise<Buffer>
+	•	streamBundle({ report, formats, includeEvidence, res, htmlContent }): Promise<void>
+
+Where formats is e.g. { pdf: boolean, docx: boolean, xlsx: boolean } and includeEvidence is 'attach' | 'link' | 'both'.
+
+3) Add the export route
+
+Edit server/routes.ts:
+
+Imports (top):
+
+import { z } from "zod";
+import { getComplianceReportData } from "./reports/reportData";
+import { renderComplianceHTML } from "./reports/html";
+import { buildPDF, buildDOCX, buildXLSX, streamBundle } from "./reports/reportBuilders";
+import { isAuthenticated } from "./replitAuth";
+
+Route (after auth setup, before static handlers):
+
+app.post("/api/reports/compliance/export", isAuthenticated, async (req: any, res) => {
+  const schema = z.object({
+    projectId: z.number(),
+    regulationCode: z.string().optional(),
+    formats: z.object({
+      pdf: z.boolean().optional(),
+      docx: z.boolean().optional(),
+      xlsx: z.boolean().optional(),
+    }),
+    evidenceMode: z.enum(["attach","link","both"]).default("both"),
+    controlStatus: z.union([z.literal("all"), z.literal("approved"), z.literal("unapproved")]).default("all"),
+    language: z.enum(["en","ar"]).default("en"),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: "Invalid payload", issues: parsed.error.issues });
+
+  const { projectId, regulationCode, formats, evidenceMode, controlStatus, language } = parsed.data;
+
+  try {
+    // Optional tenant check: ensure the project belongs to req.user.claims.org
+    const report = await getComplianceReportData({
+      projectId,
+      regulationCode,
+      controlStatusFilter: controlStatus,
+      organizationId: req.user?.claims?.org,
+    });
+
+    const html = renderComplianceHTML(report, language);
+    const selected = { pdf: !!formats?.pdf, docx: !!formats?.docx, xlsx: !!formats?.xlsx };
+    const count = Object.values(selected).filter(Boolean).length;
+
+    const needsZip = evidenceMode !== "link" || count !== 1;
+
+    if (needsZip) {
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="Ambersand_Compliance_Report_${report.project.name}.zip"`);
+      await streamBundle({
+        report,
+        formats: selected,
+        includeEvidence: evidenceMode, // 'attach' | 'link' | 'both'
+        res,
+        htmlContent: html,
+      });
+      return;
+    }
+
+    // Single file + link-only → return file directly
+    if (selected.pdf) {
+      const buf = await buildPDF(html);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="Compliance_Report_${report.project.name}.pdf"`);
+      return res.send(buf);
+    }
+    if (selected.docx) {
+      const buf = await buildDOCX(report);
+      res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+      res.setHeader("Content-Disposition", `attachment; filename="Compliance_Report_${report.project.name}.docx"`);
+      return res.send(buf);
+    }
+    if (selected.xlsx) {
+      const buf = await buildXLSX(report);
+      res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="Compliance_Report_${report.project.name}.xlsx"`);
+      return res.send(buf);
+    }
+
+    return res.status(400).json({ message: "Select at least one format." });
+  } catch (err) {
+    console.error("Export error:", err);
+    return res.status(500).json({ message: "Failed to export compliance report" });
+  }
+});
+
+4) Evidence file paths
+
+Inside getComplianceReportData, ensure each evidence has a real filePath on disk. If your DB stores relative paths, normalize them:
+
+import path from "path";
+const absPath = path.isAbsolute(ev.filePath) ? ev.filePath : path.join(process.cwd(), ev.filePath);
+
+Return that as filePath so streamBundle can read the file.
+
+5) Client dialog (your ExportComplianceDialog.tsx is fine)
+
+It already:
+	•	posts JSON to /api/reports/compliance/export
+	•	reads Content-Disposition and downloads the blob
+
+If you ever split client/server across ports in dev, add to the fetch:
+
+credentials: 'include'
+
+6) Quick manual test
+
+After login, run:
+
+curl -X POST http://localhost:5000/api/reports/compliance/export \
+  -H "Content-Type: application/json" \
+  --cookie "connect.sid=<your-session-cookie>" \
+  -o report.zip \
+  -d '{"projectId":1,"regulationCode":"NCA-ECC-2:2024","formats":{"pdf":true,"docx":true,"xlsx":true},"evidenceMode":"both","controlStatus":"all","language":"en"}'
+
+You should get a ZIP with /reports/Report.*, /evidence/*, and /index.html.
+
+⸻
+
+TL;DR — why it failed
+	•	UI calls an endpoint that doesn’t exist → 404.
+	•	The generator code lives in services/ and is never imported → server can’t use it.
+	•	Missing libraries for PDF/DOCX/XLSX/ZIP.
+	•	Truncated service files contain ... → won’t compile/run.
