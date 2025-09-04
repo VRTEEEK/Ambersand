@@ -87,7 +87,7 @@ export function ExportComplianceDialog({
 
   const exportMutation = useMutation({
     mutationFn: async (data: ExportFormData) => {
-      const response = await apiRequest(`/api/reports/compliance/export`, {
+      const response = await fetch(`/api/reports/compliance/export`, {
         method: 'POST',
         body: JSON.stringify(data),
         headers: {
