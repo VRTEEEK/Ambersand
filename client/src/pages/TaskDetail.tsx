@@ -238,9 +238,9 @@ export default function TaskDetail() {
 
   // Risk toggle mutation
   const riskToggleMutation = useMutation({
-    mutationFn: (makeRisk: boolean) => toggleRisk(parseInt(taskId!), makeRisk),
+    mutationFn: (makeRisk: boolean) => toggleRisk(parseInt(taskId || "0"), makeRisk),
     onSuccess: (data, makeRisk) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks", taskId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", taskId || "0"] });
       queryClient.invalidateQueries({ queryKey: ["/api/risks"] });
       toast({
         title: makeRisk ? 'Task converted to Risk' : 'Risk converted back to Task',
