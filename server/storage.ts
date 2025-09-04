@@ -513,9 +513,8 @@ export class DatabaseStorage implements IStorage {
     if (newTask.assigneeId && process.env.SENDGRID_API_KEY) {
       console.log('🚀🚀🚀 STORAGE: Attempting to send email for assigned task...');
       try {
-        // Dynamic import to avoid circular dependency
-        const { EmailService } = await import('./emailService');
-        const emailService = new EmailService();
+        // Use simple email service to avoid template conflicts
+        const { simpleEmailService } = await import('./simpleEmailService');
         
         const assignedUser = await this.getUser(newTask.assigneeId);
         const project = newTask.projectId ? await this.getProject(newTask.projectId) : null;
@@ -531,23 +530,31 @@ export class DatabaseStorage implements IStorage {
           const dueDate = newTask.dueDate ? new Date(newTask.dueDate).toLocaleDateString() : 'Not set';
           const projectName = project?.name || 'Untitled Project';
           
-          console.log('🚀🚀🚀 STORAGE: Sending task assignment email...');
-          const result = await emailService.sendTaskAssignmentEmail(
-            assignedUser.email,
-            assignedUser.firstName || assignedUser.name || 'User',
-            newTask.title,
-            dueDate,
-            projectName,
-            (assignedUser.language as 'en' | 'ar') || 'en',
-            newTask.id
-          );
+          console.log('🚀🚀🚀 STORAGE: Sending task assignment email using simple service...');
+          const userName = assignedUser.firstName || assignedUser.name || 'User';
+          const emailResult = await simpleEmailService.sendEmail({
+            to: assignedUser.email,
+            subject: `[Ambersand] New Task Assigned: ${newTask.title}`,
+            html: `
+              <h2>New Task Assigned</h2>
+              <p>Hello ${userName},</p>
+              <p>You have been assigned a new task:</p>
+              <h3>${newTask.title}</h3>
+              <p><strong>Project:</strong> ${projectName}</p>
+              <p><strong>Due Date:</strong> ${dueDate}</p>
+              <p><strong>Priority:</strong> ${newTask.priority}</p>
+              ${newTask.description ? `<p><strong>Description:</strong> ${newTask.description}</p>` : ''}
+              <p>Please log in to view and manage this task.</p>
+              <p>Best regards,<br>Ambersand Team</p>
+            `
+          });
           
-          console.log('🚀🚀🚀 STORAGE: Email send result:', result);
+          console.log('🚀🚀🚀 STORAGE: Email send result:', emailResult);
           
-          if (result.success) {
+          if (emailResult.success) {
             console.log(`✅ STORAGE: Task assignment email sent successfully to ${assignedUser.email}`);
           } else {
-            console.error(`❌ STORAGE: Failed to send task assignment email: ${result.error}`);
+            console.error(`❌ STORAGE: Failed to send task assignment email: ${emailResult.error}`);
           }
         } else {
           console.log('❌ STORAGE: No email sent - missing user or email address');
