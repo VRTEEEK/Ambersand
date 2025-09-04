@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { NotificationProvider } from "@/hooks/useNotifications";
 import { PermissionsProvider } from "@/hooks/use-permissions";
+import { SupportButton } from "@/components/support/SupportButton";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/Dashboard";
 import Landing from "@/pages/Landing";
@@ -55,14 +56,25 @@ function Router() {
   );
 }
 
+function AppContent() {
+  const { isAuthenticated } = useAuth();
+  
+  return (
+    <>
+      <Router />
+      <Toaster />
+      {isAuthenticated && <SupportButton />}
+    </>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <NotificationProvider>
         <PermissionsProvider>
           <TooltipProvider>
-            <Router />
-            <Toaster />
+            <AppContent />
           </TooltipProvider>
         </PermissionsProvider>
       </NotificationProvider>

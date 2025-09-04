@@ -2287,6 +2287,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Technical Support route
+  app.post('/api/support', isAuthenticated, async (req: any, res) => {
+    try {
+      const { title, description, path } = req.body || {};
+      const t = String(title || '').trim();
+      const d = String(description || '').trim();
+
+      // Validation
+      if (t.length < 3 || t.length > 120) {
+        return res.status(400).json({ error: 'Title must be between 3-120 characters' });
+      }
+      if (d.length < 10 || d.length > 4000) {
+        return res.status(400).json({ error: 'Description must be between 10-4000 characters' });
+      }
+
+      // Check environment configuration
+      if (!process.env.SENDGRID_API_KEY || !process.env.SENDGRID_FROM_EMAIL) {
+        console.error('SendGrid not configured: Missing SENDGRID_API_KEY or SENDGRID_FROM_EMAIL');
+        return res.status(500).json({ error: 'Email service not configured' });
+      }
+
+      // Get user info for context
+      const user = await storage.getUser(req.user?.id || req.user?.claims?.sub);
+      const userEmail = user?.email || 'Unknown user';
+      const userName = user?.firstName && user?.lastName 
+        ? `${user.firstName} ${user.lastName}` 
+        : userEmail;
+
+      // Use existing email service
+      const { emailService } = await import('./emailService');
+
+      const recipients = ['abdullah@ambersand.ai', 'rakan@ambersand.ai'];
+      
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px;">
+          <h2 style="color: #333;">Technical Support Request</h2>
+          
+          <div style="background-color: #f5f5f5; padding: 15px; margin: 10px 0; border-left: 4px solid #007bff;">
+            <h3 style="margin: 0; color: #007bff;">Title:</h3>
+            <p style="margin: 5px 0 0 0; font-weight: bold;">${t}</p>
+          </div>
+          
+          <div style="background-color: #f9f9f9; padding: 15px; margin: 10px 0;">
+            <h3 style="margin: 0; color: #333;">Description:</h3>
+            <p style="margin: 10px 0 0 0; white-space: pre-line;">${d.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+          </div>
+          
+          <div style="padding: 15px; background-color: #f0f0f0; margin: 10px 0;">
+            <h3 style="margin: 0; color: #666;">Request Details:</h3>
+            <p style="margin: 5px 0;"><strong>User:</strong> ${userName}</p>
+            <p style="margin: 5px 0;"><strong>Email:</strong> ${userEmail}</p>
+            <p style="margin: 5px 0;"><strong>Page:</strong> ${path || 'Not specified'}</p>
+            <p style="margin: 5px 0;"><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
+          </div>
+          
+          <hr style="margin: 20px 0;">
+          <p style="color: #666; font-size: 12px;">
+            This support request was sent from the Ambersand Compliance Management System.
+          </p>
+        </div>
+      `;
+
+      // Send to both recipients
+      for (const recipient of recipients) {
+        await emailService.sendEmail({
+          to: recipient,
+          subject: `[Ambersand Support] ${t}`,
+          html: htmlContent
+        });
+      }
+
+      console.log(`Support request sent to ${recipients.join(', ')} from user ${userEmail}`);
+      res.json({ status: 'ok' });
+    } catch (error) {
+      console.error('Support request error:', error);
+      res.status(500).json({ error: 'Failed to send support request' });
+    }
+  });
+
   // Serve uploaded files
   app.get('/api/evidence/:id/download', isAuthenticated, async (req, res) => {
     try {
