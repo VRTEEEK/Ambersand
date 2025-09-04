@@ -63,6 +63,7 @@ function AppContent() {
     <>
       <Router />
       <Toaster />
+      {/* Floating Support button at bottom-left - outside router context */}
       {isAuthenticated && <SupportButton />}
     </>
   );
