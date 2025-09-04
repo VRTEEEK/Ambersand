@@ -95,7 +95,12 @@ async function sendWithSmtp(opts: EmailOptions): Promise<EmailResult> {
 
 export const emailService = {
   getBaseUrl(): string {
-    return process.env.APP_BASE_URL || "http://localhost:5000";
+    const baseUrl = process.env.APP_BASE_URL || "http://localhost:5000";
+    // Fix missing protocol for Replit apps
+    if (baseUrl.startsWith("//")) {
+      return `https:${baseUrl}`;
+    }
+    return baseUrl;
   },
 
   async sendTaskAssignmentEmail(toEmail: string, userName: string, taskTitle: string, dueDate: string, projectName: string, language: 'en'|'ar'='en', taskId?: number): Promise<EmailResult> {
