@@ -991,16 +991,16 @@ export class DatabaseStorage implements IStorage {
     // Get all projects count (including planning, active, completed)
     let activeProjects: number;
     if (organizationId) {
-      const [{ count }] = await db
+      const [{ count: projectCount }] = await db
         .select({ count: count() })
         .from(projects)
         .where(eq(projects.organizationId, organizationId));
-      activeProjects = count;
+      activeProjects = projectCount;
     } else {
-      const [{ count }] = await db
+      const [{ count: projectCount }] = await db
         .select({ count: count() })
         .from(projects);
-      activeProjects = count;
+      activeProjects = projectCount;
     }
 
     // Get pending tasks count (including pending, in-progress)
