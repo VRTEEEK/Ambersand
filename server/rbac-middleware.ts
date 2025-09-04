@@ -87,3 +87,4 @@ export const requireUserPermissions = () => requirePermissions(["change_user_per
 export const requireEvidenceAccess = () => requirePermissions(["view_evidence_repository", "review_evidences_submitted"]);
 export const requireProjectManagement = () => requirePermissions(["create_projects_from_regulations", "assign_projects_to_users"]);
 export const requireAdminAccess = () => requirePermissions(["change_organization_settings", "change_user_permissions"]);
+export const requireExportReports = () => requirePermissions(["export_compliance_reports", "view_evidence_repository"]);

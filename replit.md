@@ -4,7 +4,15 @@
 
 Ambersand is a bilingual (Arabic/English) compliance management platform for mid-to-large Saudi organizations. Its primary purpose is to streamline adherence to key regulatory frameworks, including ECC (Essential Cybersecurity Controls), PDPL (Personal Data Protection Law), and NDMO (National Data Management Office). The project vision is to provide a comprehensive solution for managing organizational compliance efficiently and effectively.
 
-## Recent Changes (August 2025)
+## Recent Changes (September 2025)
+
+- **MAJOR: Completed comprehensive compliance report export system** - Built complete export functionality with PDF, DOCX, XLSX, and ZIP bundle generation, supporting evidence file attachment and proper RBAC permissions
+- **Added advanced export dialog** - Created sophisticated ExportComplianceDialog component with format selection, evidence handling options, control status filtering, and language selection
+- **Implemented report generation services** - Built reportData.ts for data assembly, HTML template renderer, and report builders for all formats using puppeteer, docx, exceljs, and archiver libraries
+- **Enhanced RBAC with export permissions** - Added export_compliance_reports permission for admin, user, and officer roles with proper middleware protection
+- **Created API routes with proper security** - Built /api/reports/compliance/export endpoint with tenant scoping, organization access control, and comprehensive error handling
+
+## Previous Changes (August 2025)
 
 - **CRITICAL: FIXED TaskWizard dialog dismissal issue** - Completely resolved the task creation form not closing after successful submission by moving handleClose() to the beginning of the onSuccess callback
 - **MAJOR: Completed SendGrid email configuration** - Successfully configured email system with verified sender (admin@ambersand.ai), proper branding (Ambersand Compliance), and correct base URL for production deployment

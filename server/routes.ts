@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import reportsRouter from "./routes/reports";
 import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -1087,7 +1088,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('🚀 DEBUG EMAIL ENDPOINT HIT');
       const { EmailService } = await import('./emailService');
-      const emailService = new EmailService();
+      const emailServiceInstance = new EmailService();
       
       const user = await storage.getUser((req.user as any)?.id || (req.user as any)?.claims?.sub);
       if (!user || !user.email) {
@@ -2383,6 +2384,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to download evidence" });
     }
   });
+
+  // Reports router
+  app.use('/api/reports', isAuthenticated, reportsRouter);
 
   // Serve uploaded files (profile pictures and evidence)
   app.use('/uploads', (req, res, next) => {

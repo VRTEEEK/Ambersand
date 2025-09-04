@@ -23,6 +23,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import TaskWizard from '@/components/tasks/TaskWizard';
 import { ControlInfoDialog } from '@/components/tasks/ControlInfoDialog';
+import { ExportComplianceDialog } from '@/components/export/ExportComplianceDialog';
 import { 
   ArrowLeft, 
   Plus, 
@@ -39,7 +40,8 @@ import {
   MessageSquare,
   History,
   ChevronDown,
-  Search
+  Search,
+  Download
 } from 'lucide-react';
 
 const taskSchema = z.object({
@@ -1129,6 +1131,7 @@ function EditTaskForm({
   const [uploading, setUploading] = useState(false);
   const [selectedControlId, setSelectedControlId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'controls' | 'evidence'>('details');
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [uploadComment, setUploadComment] = useState('');
   const [selectedControlForView, setSelectedControlForView] = useState<number | null>(null);
   const [showEvidenceForControl, setShowEvidenceForControl] = useState<boolean>(false);

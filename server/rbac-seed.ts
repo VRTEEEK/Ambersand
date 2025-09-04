@@ -25,6 +25,7 @@ const permissionDefinitions: InsertPermission[] = [
   { code: "view_evidence_repository", description: "Access and browse the evidence repository" },
   { code: "edit_evidence_repository", description: "Edit and manage evidence files and metadata" },
   { code: "approve_controls", description: "Approve compliance control implementations" },
+  { code: "export_compliance_reports", description: "Export compliance reports in various formats" },
 ];
 
 // Role definitions
@@ -49,7 +50,8 @@ const permissionMatrix: Record<string, string[]> = {
     "review_evidences_submitted",
     "view_evidence_repository",
     "edit_evidence_repository",
-    "approve_controls"
+    "approve_controls",
+    "export_compliance_reports"
   ],
   user: [
     "view_regulations",
@@ -59,7 +61,8 @@ const permissionMatrix: Record<string, string[]> = {
     "create_risks",
     "review_evidences_submitted",
     "view_evidence_repository",
-    "edit_evidence_repository"
+    "edit_evidence_repository",
+    "export_compliance_reports"
   ],
   officer: [
     "approve_controls"
