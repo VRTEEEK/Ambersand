@@ -520,8 +520,8 @@ export class DatabaseStorage implements IStorage {
     if (newTask.assigneeId && process.env.SENDGRID_API_KEY) {
       console.log('🚀🚀🚀 STORAGE: Attempting to send email for assigned task...');
       try {
-        // Use unified email facade
-        const email = await import('./email');
+        // Use the updated emailService
+        const { emailService } = await import('./emailService');
         
         const assignedUser = await this.getUser(newTask.assigneeId);
         const project = newTask.projectId ? await this.getProject(newTask.projectId) : null;
@@ -537,23 +537,24 @@ export class DatabaseStorage implements IStorage {
           const dueDate = newTask.dueDate ? new Date(newTask.dueDate).toLocaleDateString() : 'Not set';
           const projectName = project?.name || 'Untitled Project';
           
-          console.log('🚀🚀🚀 STORAGE: Sending task assignment email using email facade...');
+          console.log('🚀🚀🚀 STORAGE: Sending task assignment email using updated emailService...');
           const userName = assignedUser.firstName || assignedUser.name || 'User';
           const taskUrl = `${process.env.APP_BASE_URL || "http://localhost:5000"}/tasks/${newTask.id}`;
           
-          const emailResult = await email.default.send({
+          const emailResult = await emailService.sendEmailWithRetry({
             to: assignedUser.email,
             subject: `[Ambersand] New Task Assigned: ${newTask.title}`,
-            templateName: 'task-assigned',
-            data: {
-              assigneeName: userName,
-              taskTitle: newTask.title,
-              projectName: projectName,
-              dueDate: dueDate,
-              priority: newTask.priority,
-              description: newTask.description,
-              taskUrl: taskUrl
-            }
+            html: `
+              <h2>New Task Assigned</h2>
+              <p>Hello ${userName},</p>
+              <p>You have been assigned a new task: <strong>${newTask.title}</strong></p>
+              <p><strong>Project:</strong> ${projectName}</p>
+              <p><strong>Due Date:</strong> ${dueDate}</p>
+              <p><strong>Priority:</strong> ${newTask.priority}</p>
+              <p><strong>Description:</strong> ${newTask.description || 'No description provided'}</p>
+              <p><a href="${taskUrl}">View Task</a></p>
+              <p>Best regards,<br>Ambersand Team</p>
+            `
           });
           
           console.log('🚀🚀🚀 STORAGE: Email send result:', emailResult);
