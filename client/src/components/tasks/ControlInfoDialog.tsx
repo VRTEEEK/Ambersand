@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { 
   Dialog, 
   DialogContent, 
+  DialogDescription,
   DialogHeader, 
   DialogTitle 
 } from '@/components/ui/dialog';
@@ -127,6 +128,9 @@ export function ControlInfoDialog({
               <DialogTitle className="text-xl font-semibold leading-tight">
                 {getControlDescription()}
               </DialogTitle>
+              <DialogDescription className="sr-only">
+                Control details and evidence management for {control.code}
+              </DialogDescription>
             </div>
             <Button 
               variant="ghost" 
