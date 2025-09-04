@@ -51,6 +51,8 @@ export default function AssigneeSmartInput({ onResolve, disabled }: {
     if (res.status === 409) {
       const { userId } = await res.json();
       onResolve({ type: "existing", userId, email });
+      setOpen(false);
+      setQuery("");
       return;
     }
     if (!res.ok) {
@@ -60,6 +62,8 @@ export default function AssigneeSmartInput({ onResolve, disabled }: {
     }
     const { inviteId } = await res.json();
     onResolve({ type: "invite", inviteId, email });
+    setOpen(false);
+    setQuery("");
   }
 
   return (
@@ -71,7 +75,7 @@ export default function AssigneeSmartInput({ onResolve, disabled }: {
           value={query}
           onChange={e => setQuery(e.target.value)}
           onFocus={() => setOpen(true)}
-          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onBlur={() => setTimeout(() => setOpen(false), 300)}
           disabled={disabled}
           aria-autocomplete="list"
           aria-expanded={open}
@@ -88,8 +92,12 @@ export default function AssigneeSmartInput({ onResolve, disabled }: {
                 <li
                   key={u.id}
                   className="cursor-pointer px-3 py-2 hover:bg-neutral-50"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => onResolve({ type: "existing", userId: u.id, email: u.email, name: u.name })}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onResolve({ type: "existing", userId: u.id, email: u.email, name: u.name });
+                    setOpen(false);
+                    setQuery("");
+                  }}
                 >
                   <div className="text-sm font-medium">{u.name || u.email}</div>
                   <div className="text-xs text-neutral-500">{u.email}</div>
@@ -106,8 +114,10 @@ export default function AssigneeSmartInput({ onResolve, disabled }: {
             <button
               type="button"
               className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-neutral-50"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => invite(query.trim())}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                invite(query.trim());
+              }}
             >
               <span className="text-sm">
                 Invite <span className="font-semibold">{query.trim()}</span>
