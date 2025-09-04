@@ -1,0 +1,141 @@
+Replit AI Prompt — “Fix Smart Assignee + Invite (mount router, schema, client types)”
+
+We’re in a Vite + React + Tailwind + shadcn client and an Express + TypeScript + Drizzle backend.
+
+1) Mount the users router (the missing piece)
+
+Edit server/routes.ts (or your server entry that registers routes):
+	•	Add at the top:
+
+import usersRouter from "./users"; // path is correct: file is /server/users.ts
+
+	•	In registerRoutes(app) before other catch-alls/static handlers, add:
+
+app.use("/api/users", usersRouter);
+
+This enables GET /api/users/search, POST /api/users/invite, and POST /api/users/invite/accept that already exist in users.ts.
+
+⸻
+
+2) Allow pending invite on insert (schema)
+
+Edit shared/schema.ts:
+	•	Keep the tasks column (already present):
+
+pendingAssigneeInviteId: integer("pending_assignee_invite_id"),
+
+	•	Extend the insert schema to include the field (currently missing):
+
+export const insertTaskSchema = createInsertSchema(tasks)
+  .omit({ id: true, createdAt: true, updatedAt: true })
+  .extend({
+    status: z.enum(['pending','in-progress','review','completed','blocked']).default('pending'),
+    assigneeEmail: z.string().email().optional(),
+    pendingAssigneeInviteId: z.number().int().optional().nullable(), // <-- add this
+  });
+
+If you validate with this schema before insert, the field will now pass through and persist.
+
+⸻
+
+3) Make sure user IDs stay strings end-to-end
+
+Server (users.ts): in the /search response, keep id as a string (do not parseInt). If any conversion to numbers exists, remove it.
+
+Client (AssigneeSmartInput.tsx):
+
+type FoundUser = { id: string; email: string; name?: string; avatarUrl?: string | null };
+
+type Resolve =
+  | { type: "existing"; userId: string; email: string; name?: string }
+  | { type: "invite"; inviteId: number; email: string };
+
+When user chooses a match:
+
+onResolve({ type: "existing", userId: user.id, email: user.email, name: user.name })
+
+When user chooses “Invite ”:
+
+const r = await fetch("/api/users/invite", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ email })});
+if (r.status === 409) {
+  // already exists → switch to existing
+  const { userId } = await r.json();
+  onResolve({ type: "existing", userId, email });
+} else if (r.ok) {
+  const { inviteId } = await r.json();
+  onResolve({ type: "invite", inviteId, email });
+}
+
+Task form wiring (e.g., TaskWizard.tsx):
+
+<AssigneeSmartInput
+  onResolve={(r) => {
+    if (r.type === "existing") {
+      form.setValue("assigneeId", r.userId);      // string
+      form.setValue("assigneeEmail", "");         // clear
+      setAssigneeDisplay(r.name || r.email);
+    } else {
+      form.setValue("assigneeId", undefined as any);
+      form.setValue("assigneeEmail", r.email);    // <-- only email
+      setAssigneeDisplay(`${r.email} (invited)`);
+      toast.success(`Invitation sent to ${r.email}.`);
+    }
+  }}
+/>
+
+Important: when inviting, do not also send an assigneeId. The server prefers assigneeId and will skip the invite flow.
+
+⸻
+
+4) Verify /api/tasks create logic prefers email when provided
+
+In server/routes.ts POST /api/tasks:
+	•	The flow already checks assigneeId then assigneeEmail. That’s fine.
+	•	Confirm the section that creates the invite sets:
+	•	pendingAssigneeInviteId = invite.id
+	•	sends the email via emailService
+	•	Confirm you pass both assigneeId and pendingAssigneeInviteId into your storage layer (e.g., storage.createTask(taskData)), and that the underlying insert includes both (not just the zod body).
+
+If your storage uses the zod insert schema to filter fields, it will now accept pendingAssigneeInviteId after step 2.
+
+⸻
+
+5) (Optional but recommended) Accept-invite path
+
+Your users.ts already implements POST /api/users/invite/accept to mark the invite accepted and move tasks from pendingAssigneeInviteId → assigneeId. Ensure:
+	•	It checks org match.
+	•	It sets assigneeId = req.user.id and pendingAssigneeInviteId = null.
+	•	(Optional) Sends assignment emails for those tasks.
+
+⸻
+
+6) Sanity checks
+	•	Try the user search endpoint directly:
+
+GET /api/users/search?q=mo
+
+Should return [{ id: "auth0|xyz", email: "...", name: "..." }, ...].
+
+	•	Try inviting a brand-new email:
+
+POST /api/users/invite { "email": "newperson@example.com" }
+
+Should return { inviteId: <number> } and send an email.
+
+	•	Create a task by typing an email not in DB:
+	•	Payload should contain assigneeEmail only.
+	•	The created task should have pendingAssigneeInviteId set (and assigneeId null).
+	•	Accept the invite:
+
+POST /api/users/invite/accept { "token": "<from-email-link>" }
+
+Tasks with that pendingAssigneeInviteId should flip to the new user as assigneeId.
+
+⸻
+
+Why it didn’t work before (plain English)
+	•	The router wasn’t mounted, so your autocomplete and invite calls hit 404.
+	•	Even when the server created an invite, the task insert schema dropped pendingAssigneeInviteId, so auto-assignment could never complete later.
+	•	A couple of places still treated user IDs as numbers, but your IDs are strings.
+
+Do the steps above and the Smart Assignee + Invite will work end-to-end. If anything still fails, share the exact network response (status + JSON) from /api/users/search, /api/users/invite, and /api/tasks and I’ll pinpoint the line.
