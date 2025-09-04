@@ -1093,8 +1093,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/debug-send-email', isAuthenticated, async (req: any, res) => {
     try {
       console.log('🚀 DEBUG EMAIL ENDPOINT HIT');
-      const { EmailService } = await import('./emailService');
-      const emailServiceInstance = new EmailService();
+      // emailService is already imported and available
       
       const user = await storage.getUser((req.user as any)?.id || (req.user as any)?.claims?.sub);
       if (!user || !user.email) {
@@ -1114,7 +1113,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: result.success, error: result.error });
     } catch (error) {
       console.error('Debug email error:', error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
@@ -1212,7 +1211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Create invite per specification
           const token = crypto.randomUUID().replace(/-/g, "");
           const [invite] = await db.insert(userInvites).values({
-            organizationId: req.user.claims.org,
+            organizationId: req.user.claims?.org || null, // Handle null org for now
             email: normalized,
             role: "member",
             token,
@@ -1221,12 +1220,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           pendingAssigneeInviteId = invite.id;
 
           const acceptUrl = `${process.env.APP_BASE_URL || "http://localhost:5000"}/accept-invite?token=${token}`;
-          await emailService.sendEmailWithRetry({
-            to: normalized,
-            subject: "You're invited to Ambersand (Task Assignment Pending)",
-            html: `<p>You've been invited to join Ambersand. You have a task waiting.</p>
-                   <p><a href="${acceptUrl}">Accept your invite</a></p>`
-          });
+          try {
+            await emailService.sendEmailWithRetry({
+              to: normalized,
+              subject: "You're invited to Ambersand (Task Assignment Pending)",
+              html: `<p>You've been invited to join Ambersand. You have a task waiting.</p>
+                     <p><a href="${acceptUrl}">Accept your invite</a></p>`
+            });
+          } catch (emailError) {
+            console.error('Failed to send invite email, continuing with task creation:', emailError);
+            // Continue with task creation even if email fails
+          }
         }
       }
 
@@ -1240,7 +1244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         projectId: body.projectId,
         assigneeId,
         pendingAssigneeInviteId,
-        createdById: req.user.id,
+        createdById: req.user.claims?.sub || req.user.id,
       });
       
       console.log('🔥🔥🔥 Parsed task data:', JSON.stringify(taskData, null, 2));
@@ -1249,11 +1253,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create task-control relationships
       if (body.controlIds.length > 0) {
-        const taskControlsData = body.controlIds.map(controlId => ({
-          taskId: task.id,
-          eccControlId: controlId
-        }));
-        await storage.createTaskControls(taskControlsData);
+        await storage.addControlsToTask(task.id, body.controlIds);
       }
       
       // Send assignment email if assigneeId set (per specification)

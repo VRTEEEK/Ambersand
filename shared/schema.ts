@@ -583,6 +583,7 @@ export const insertTaskSchema = createInsertSchema(tasks).omit({
 }).extend({
   status: z.enum(['pending', 'in-progress', 'review', 'completed', 'blocked']).default('pending'),
   assigneeEmail: z.string().email().optional(), // New field for email invites
+  pendingAssigneeInviteId: z.number().int().optional().nullable(), // Allow pending invite ID
 });
 
 export const insertEvidenceSchema = createInsertSchema(evidence).omit({

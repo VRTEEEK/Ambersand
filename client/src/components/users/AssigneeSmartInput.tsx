@@ -54,30 +54,44 @@ export default function AssigneeSmartInput({
     enabled: query.length >= 2 && open,
   });
 
-  // Invite mutation
+  // Invite mutation per specification
   const inviteMutation = useMutation({
-    mutationFn: (email: string) => apiRequest('/api/users/invite', 'POST', { email, role: 'member' }),
-    onSuccess: (data, email) => {
-      toast({ 
-        title: 'Invitation sent', 
-        description: `Invitation sent to ${email}. The task will be assigned when they join.` 
+    mutationFn: async (email: string) => {
+      const r = await fetch("/api/users/invite", { 
+        method: "POST", 
+        headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify({ email }) 
       });
-      onResolve({ type: 'invite', inviteId: data.inviteId, email });
+      
+      if (r.status === 409) {
+        // already exists → switch to existing
+        const { userId } = await r.json();
+        return { type: 'existing', userId, email };
+      } else if (r.ok) {
+        const { inviteId } = await r.json();
+        return { type: 'invite', inviteId, email };
+      } else {
+        throw new Error(await r.text());
+      }
+    },
+    onSuccess: (result, email) => {
+      if (result.type === 'existing') {
+        // User already exists, resolve as existing
+        onResolve({ type: "existing", userId: result.userId, email });
+      } else {
+        // New invite created
+        toast({ 
+          title: 'Invitation sent', 
+          description: `Invitation sent to ${email}. The task will be assigned when they join.` 
+        });
+        onResolve({ type: 'invite', inviteId: result.inviteId, email });
+      }
       setOpen(false);
     },
     onError: (error: any) => {
-      // Handle case where user already exists
-      if (error?.status === 409 && error?.data?.userId) {
-        const existingUser = searchResults.items.find((u: User) => u.id === error.data.userId);
-        if (existingUser) {
-          handleUserSelect(existingUser);
-          return;
-        }
-      }
-      
       toast({ 
         title: 'Failed to send invitation', 
-        description: error?.data?.message || 'Something went wrong',
+        description: error?.message || 'Something went wrong',
         variant: 'destructive' 
       });
     }

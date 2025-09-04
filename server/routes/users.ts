@@ -106,7 +106,7 @@ router.post("/invite", isAuthenticated, async (req: any, res) => {
     // Create invite
     const token = crypto.randomUUID().replace(/-/g, "");
     const [invite] = await db.insert(userInvites).values({
-      organizationId: req.user.claims?.org || '',
+      organizationId: req.user.claims?.org || null, // Allow null for now  
       email: normalizedEmail,
       role,
       token,
