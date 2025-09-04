@@ -222,14 +222,14 @@ export class DatabaseStorage implements IStorage {
 
   // User Management operations
   async getAllUsers(organizationId?: string): Promise<User[]> {
-    let query = db.select().from(users);
-    
     if (organizationId) {
-      query = query.where(eq(users.organizationId, organizationId));
+      return await db.select().from(users)
+        .where(eq(users.organizationId, organizationId))
+        .orderBy(desc(users.createdAt));
+    } else {
+      return await db.select().from(users)
+        .orderBy(desc(users.createdAt));
     }
-    
-    const result = await query.orderBy(desc(users.createdAt));
-    return result;
   }
 
   async createUser(userData: Omit<UpsertUser, 'id'> & { id: string }): Promise<User> {
@@ -375,7 +375,8 @@ export class DatabaseStorage implements IStorage {
       .map(r => r.permissionCode!);
 
     // Combine and dedupe permissions
-    return [...new Set([...orgPermissions, ...projectPermissions])];
+    const allPermissions = [...orgPermissions, ...projectPermissions];
+    return Array.from(new Set(allPermissions));
   }
 
   async assignUserRole(userId: string, roleId: string): Promise<void> {
@@ -479,13 +480,19 @@ export class DatabaseStorage implements IStorage {
     if (projectId) conditions.push(eq(tasks.projectId, projectId));
     if (assigneeId) conditions.push(eq(tasks.assigneeId, assigneeId));
     
-    let query = db.select().from(tasks).leftJoin(projects, eq(tasks.projectId, projects.id));
-    
+    let results;
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      results = await db.select()
+        .from(tasks)
+        .leftJoin(projects, eq(tasks.projectId, projects.id))
+        .where(and(...conditions))
+        .orderBy(desc(tasks.updatedAt));
+    } else {
+      results = await db.select()
+        .from(tasks)
+        .leftJoin(projects, eq(tasks.projectId, projects.id))
+        .orderBy(desc(tasks.updatedAt));
     }
-    
-    const results = await query.orderBy(desc(tasks.updatedAt));
     
     // Transform the results to include project information
     return results.map(result => ({
@@ -623,52 +630,69 @@ export class DatabaseStorage implements IStorage {
   // Evidence operations
   async getEvidence(projectId?: number): Promise<Evidence[]> {
     try {
-      const conditions = [];
-      if (projectId) conditions.push(eq(evidence.projectId, projectId));
-      
-      let query = db
-        .select({
-          id: evidence.id,
-          title: evidence.title,
-          titleAr: evidence.titleAr,
-          description: evidence.description,
-          descriptionAr: evidence.descriptionAr,
-          fileName: evidence.fileName,
-          fileSize: evidence.fileSize,
-          fileType: evidence.fileType,
-          filePath: evidence.filePath,
-          version: evidence.version,
-          projectId: evidence.projectId,
-          taskId: evidence.taskId,
-          eccControlId: evidence.eccControlId,
-          uploadedById: evidence.uploadedById,
-          createdAt: evidence.createdAt,
-          uploaderName: users.name,
-          uploaderEmail: users.email,
-          uploaderProfilePicture: users.profilePicture,
-        })
-        .from(evidence)
-        .leftJoin(users, eq(evidence.uploadedById, users.id))
-        .orderBy(desc(evidence.createdAt));
-      
-      if (conditions.length > 0) {
-        query = query.where(and(...conditions));
+      if (projectId) {
+        return await db
+          .select({
+            id: evidence.id,
+            title: evidence.title,
+            titleAr: evidence.titleAr,
+            description: evidence.description,
+            descriptionAr: evidence.descriptionAr,
+            fileName: evidence.fileName,
+            fileSize: evidence.fileSize,
+            fileType: evidence.fileType,
+            filePath: evidence.filePath,
+            version: evidence.version,
+            projectId: evidence.projectId,
+            taskId: evidence.taskId,
+            eccControlId: evidence.eccControlId,
+            uploadedById: evidence.uploadedById,
+            createdAt: evidence.createdAt,
+            uploaderName: users.name,
+            uploaderEmail: users.email,
+            uploaderProfilePicture: users.profilePicture,
+          })
+          .from(evidence)
+          .leftJoin(users, eq(evidence.uploadedById, users.id))
+          .where(eq(evidence.projectId, projectId))
+          .orderBy(desc(evidence.createdAt));
+      } else {
+        return await db
+          .select({
+            id: evidence.id,
+            title: evidence.title,
+            titleAr: evidence.titleAr,
+            description: evidence.description,
+            descriptionAr: evidence.descriptionAr,
+            fileName: evidence.fileName,
+            fileSize: evidence.fileSize,
+            fileType: evidence.fileType,
+            filePath: evidence.filePath,
+            version: evidence.version,
+            projectId: evidence.projectId,
+            taskId: evidence.taskId,
+            eccControlId: evidence.eccControlId,
+            uploadedById: evidence.uploadedById,
+            createdAt: evidence.createdAt,
+            uploaderName: users.name,
+            uploaderEmail: users.email,
+            uploaderProfilePicture: users.profilePicture,
+          })
+          .from(evidence)
+          .leftJoin(users, eq(evidence.uploadedById, users.id))
+          .orderBy(desc(evidence.createdAt));
       }
-      
-      return await query;
     } catch (error) {
       console.error('Error in getEvidence:', error);
       // Fallback to simple query without user join if there's an issue
-      const conditions = [];
-      if (projectId) conditions.push(eq(evidence.projectId, projectId));
-      
-      let fallbackQuery = db.select().from(evidence).orderBy(desc(evidence.createdAt));
-      
-      if (conditions.length > 0) {
-        fallbackQuery = fallbackQuery.where(and(...conditions));
+      if (projectId) {
+        return await db.select().from(evidence)
+          .where(eq(evidence.projectId, projectId))
+          .orderBy(desc(evidence.createdAt));
+      } else {
+        return await db.select().from(evidence)
+          .orderBy(desc(evidence.createdAt));
       }
-      
-      return await fallbackQuery;
     }
   }
 
@@ -965,18 +989,19 @@ export class DatabaseStorage implements IStorage {
     regulationStatus: Array<{ name: string; nameAr: string; progress: number; total: number; percentage: number }>;
   }> {
     // Get all projects count (including planning, active, completed)
-    let allProjectsQuery = db
-      .select({ count: count() })
-      .from(projects);
-    
+    let activeProjects: number;
     if (organizationId) {
-      allProjectsQuery = db
+      const [{ count }] = await db
         .select({ count: count() })
         .from(projects)
         .where(eq(projects.organizationId, organizationId));
+      activeProjects = count;
+    } else {
+      const [{ count }] = await db
+        .select({ count: count() })
+        .from(projects);
+      activeProjects = count;
     }
-    
-    const [{ count: activeProjects }] = await allProjectsQuery;
 
     // Get pending tasks count (including pending, in-progress)
     const pendingTasksQuery = db
