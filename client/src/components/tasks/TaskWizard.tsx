@@ -764,15 +764,14 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                     <div>
                       <Label htmlFor="assignee">{language === 'ar' ? 'المكلف' : 'Assignee'}</Label>
                       <AssigneeSmartInput
-                        value={assigneeDisplay}
                         placeholder={language === 'ar' ? 'اكتب اسماً أو بريداً إلكترونياً...' : 'Type a name or email...'}
                         onResolve={(r) => {
                           if (r.type === "existing") {
                             form.setValue("assigneeId", r.userId);      // string
-                            form.setValue("assigneeEmail", "");         // clear
+                            form.setValue("assigneeEmail", undefined);  // undefined, not empty string
                             setAssigneeDisplay(r.name || r.email);
                           } else {
-                            form.setValue("assigneeId", undefined as any);
+                            form.setValue("assigneeId", null);
                             form.setValue("assigneeEmail", r.email);    // only email
                             setAssigneeDisplay(`${r.email} (invited)`);
                             toast({ 
@@ -782,8 +781,8 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                           }
                         }}
                         onClear={() => {
-                          form.setValue('assigneeId', '');
-                          form.setValue('assigneeEmail', '');
+                          form.setValue('assigneeId', null);
+                          form.setValue('assigneeEmail', undefined);
                           setAssigneeDisplay('');
                         }}
                       />

@@ -1183,26 +1183,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let pendingAssigneeInviteId: number | null = null;
 
       if (body.assigneeId) {
-        // Validate user belongs to same org
+        // Validate user belongs to same org (or both have null org for admin users)
+        const orgId = req.user.claims?.org || req.user?.organizationId;
+        const whereCondition = orgId 
+          ? and(eq(users.id, body.assigneeId), eq(users.organizationId, orgId))
+          : eq(users.id, body.assigneeId); // For admin users with no org, just check user exists
+        
         const u = await db.select({ id: users.id })
           .from(users)
-          .where(and(
-            eq(users.id, body.assigneeId),
-            eq(users.organizationId, req.user.claims.org)
-          ))
+          .where(whereCondition)
           .limit(1);
         
         if (u.length > 0) assigneeId = u[0].id;
       } else if (body.assigneeEmail) {
         const normalized = body.assigneeEmail.toLowerCase().trim();
         
-        // Try existing user first
+        // Try existing user first (handle null org for admin users)
+        const orgId = req.user.claims?.org || req.user?.organizationId;
+        const whereCondition = orgId 
+          ? and(eq(users.organizationId, orgId), eq(users.email, normalized))
+          : eq(users.email, normalized); // For admin users with no org
+        
         const u = await db.select({ id: users.id })
           .from(users)
-          .where(and(
-            eq(users.organizationId, req.user.claims.org),
-            eq(users.email, normalized)
-          ))
+          .where(whereCondition)
           .limit(1);
         
         if (u.length > 0) {
