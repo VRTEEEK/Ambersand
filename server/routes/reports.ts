@@ -35,7 +35,9 @@ router.post('/compliance/export', requireExportReports(), async (req: Request, r
     
     // Get user organization for tenant scoping
     const userId = (req.user as any)?.claims?.sub || (req.user as any)?.id;
-    const organizationId = req.user?.organizationId;
+    const { storage } = await import('../storage');
+    const currentUser = await storage.getUser(userId);
+    const organizationId = currentUser?.organizationId;
     
     if (!organizationId) {
       return res.status(403).json({ message: "Organization access required" });
