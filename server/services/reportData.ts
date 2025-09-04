@@ -50,15 +50,18 @@ export async function getComplianceReportData(params: {
   projectId: number;
   regulationCode?: string;
   controlStatusFilter?: 'all' | 'approved' | 'unapproved' | { in: string[] };
-  organizationId: string;
+  organizationId?: string;
 }): Promise<ComplianceReport> {
   const { projectId, regulationCode, controlStatusFilter, organizationId } = params;
 
   // Get project details
-  const project = await db.select()
-    .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.organizationId, organizationId)))
-    .limit(1);
+  const projectQuery = db.select().from(projects).where(eq(projects.id, projectId));
+  
+  // Add organization filter only if organizationId is provided
+  const project = await (organizationId 
+    ? projectQuery.where(eq(projects.organizationId, organizationId))
+    : projectQuery
+  ).limit(1);
 
   if (!project[0]) {
     throw new Error(`Project ${projectId} not found or access denied`);

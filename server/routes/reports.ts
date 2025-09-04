@@ -44,17 +44,16 @@ router.post('/compliance/export', requireExportReports(), async (req: Request, r
     
     const organizationId = currentUser?.organizationId;
     
-    if (!organizationId) {
-      console.log('❌ Export Error - No organization ID found');
-      return res.status(403).json({ message: "Organization access required" });
-    }
+    // Allow export for users without specific organization (admin users, etc.)
+    // This matches how other routes handle organization access
+    console.log('✅ Export proceeding with organizationId:', organizationId || 'null (admin access)');
     
     // Get report data
     const report = await getComplianceReportData({
       projectId,
       regulationCode,
       controlStatusFilter: controlStatus,
-      organizationId
+      organizationId: organizationId || undefined
     });
     
     // Generate HTML content for PDF
