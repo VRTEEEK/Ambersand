@@ -11,7 +11,7 @@ export function SupportButton() {
         <button
           onClick={() => setOpen(true)}
           aria-label="Open technical support"
-          className="fixed left-4 bottom-4 z-[9999] rounded-full px-4 py-2 shadow bg-black/80 text-white hover:bg-black"
+          className="fixed left-6 bottom-6 z-[9999] rounded-full px-4 py-2 shadow bg-black/80 text-white hover:bg-black lg:left-72"
         >
           Support
         </button>,
