@@ -40,7 +40,7 @@ export const emailService = {
         to, 
         subject, 
         from: `${fromName} <${fromEmail}>`,
-        templateId: templateId || 'custom'
+        templateId: templateId || 'none'
       });
 
       const recipients = Array.isArray(to) ? to : [to];

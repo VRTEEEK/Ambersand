@@ -4,7 +4,7 @@ import { db } from "../db";
 import { users, userInvites, tasks } from "@shared/schema";
 import { isAuthenticated } from "../replitAuth";
 import { and, eq, ilike, or } from "drizzle-orm";
-import { emailService } from "../emailService";
+import { simpleEmailService } from "../simpleEmailService";
 import crypto from "crypto";
 
 const router = Router();
@@ -75,7 +75,7 @@ router.post("/invite", isAuthenticated, async (req: any, res) => {
   const acceptUrl = `${process.env.APP_BASE_URL || "http://localhost:3000"}/accept-invite?token=${token}`;
 
   try {
-    const result = await emailService.sendEmail({
+    const result = await simpleEmailService.sendEmail({
       to: email,
       subject: "You're invited to Ambersand",
       html: `<p>You've been invited to Ambersand.</p>
