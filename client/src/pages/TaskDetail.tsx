@@ -51,44 +51,37 @@ export default function TaskDetail() {
 
   // Get task details
   const { data: task, isLoading: taskLoading } = useQuery<TaskWithDetails>({
-    queryKey: ["/api/tasks", taskId],
-    enabled: !!taskId
+    queryKey: ["/api/tasks", taskId || "0"]
   });
 
   // Get all projects to find the task's project
   const { data: projects = [] } = useQuery<any[]>({
-    queryKey: ["/api/projects"],
-    enabled: !!task?.projectId
+    queryKey: ["/api/projects"]
   });
 
   // Get all users to find assignee and creator
   const { data: users = [] } = useQuery<UserType[]>({
-    queryKey: ["/api/users"],
-    enabled: !!task
+    queryKey: ["/api/users"]
   });
 
   // Get task controls with ECC control details
   const { data: controls = [] } = useQuery<any[]>({
-    queryKey: ["/api/tasks", taskId, "controls"],
-    enabled: !!taskId
+    queryKey: ["/api/tasks", taskId || "0", "controls"]
   });
 
   // Get evidence for this task
   const { data: evidence = [] } = useQuery<Evidence[]>({
-    queryKey: ["/api/evidence/task", taskId],
-    enabled: !!taskId
+    queryKey: ["/api/evidence/task", taskId || "0"]
   });
 
   // Get evidence versions
   const { data: versions = [] } = useQuery<EvidenceVersion[]>({
-    queryKey: ["/api/evidence/versions", taskId],
-    enabled: !!taskId
+    queryKey: ["/api/evidence/versions", taskId || "0"]
   });
 
   // Get evidence linked to specific control
   const { data: controlLinkedEvidence = [] } = useQuery<Evidence[]>({
-    queryKey: ["/api/evidence/control", selectedControlForView],
-    enabled: !!selectedControlForView
+    queryKey: ["/api/evidence/control", selectedControlForView || 0]
   });
 
   // Get all evidence for linking
@@ -297,6 +290,7 @@ export default function TaskDetail() {
 {language === 'ar' ? 'العودة للمهام ←' : '← Back to Tasks'}
         </Button>
         
+        {task && (
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">{task.title}</h1>
@@ -322,6 +316,7 @@ export default function TaskDetail() {
             </Button>
           </div>
         </div>
+        )}
       </div>
 
       <Tabs defaultValue="details" className="w-full">
