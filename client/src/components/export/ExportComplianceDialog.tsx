@@ -30,7 +30,7 @@ import {
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Download, FileText, FileSpreadsheet, Zip, Loader2 } from 'lucide-react';
+import { Download, FileText, FileSpreadsheet, Archive, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -334,7 +334,7 @@ export function ExportComplianceDialog({
               {selectedFormatCount > 0 && (
                 <div className="rounded-lg border p-4 bg-blue-50 dark:bg-blue-950/20">
                   <div className="flex items-center gap-2 mb-2">
-                    {willCreateZip && <Zip className="h-4 w-4" />}
+                    {willCreateZip && <Archive className="h-4 w-4" />}
                     <h4 className="font-medium text-sm">Export Summary</h4>
                   </div>
                   <ul className="text-sm text-muted-foreground space-y-1">
