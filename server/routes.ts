@@ -1287,19 +1287,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (oldTask && taskData.status && oldTask.status !== taskData.status && task.assigneeId) {
           const assignedUser = await storage.getUser(task.assigneeId);
           if (assignedUser && assignedUser.email) {
-            const template = emailService.templates.statusUpdate(
+            await emailService.sendStatusUpdateEmail(
+              assignedUser.email,
               assignedUser.firstName || assignedUser.name || 'User',
               task.title,
               oldTask.status,
               taskData.status,
-              (assignedUser.language as 'en' | 'ar') || 'en'
+              (assignedUser.language as 'en' | 'ar') || 'en',
+              task.id
             );
-            
-            await emailService.sendEmail({
-              to: assignedUser.email,
-              subject: template.subject,
-              html: template.html,
-            });
             
             console.log(`Task status update email sent to ${assignedUser.email}`);
           }
@@ -1321,7 +1317,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (assignedUser && assignedUser.email) {
             const dueDate = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'Not set';
             const projectName = project?.name || 'Untitled Project';
-            const template = emailService.templates.taskAssignment(
+            await emailService.sendTaskAssignmentEmail(
+              assignedUser.email,
               assignedUser.firstName || assignedUser.name || 'User',
               task.title,
               dueDate,
@@ -1329,12 +1326,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               (assignedUser.language as 'en' | 'ar') || 'en',
               task.id
             );
-            
-            await emailService.sendEmail({
-              to: assignedUser.email,
-              subject: template.subject,
-              html: template.html,
-            });
             
             console.log(`✅ Task reassignment email sent successfully to ${assignedUser.email}`);
           } else {
