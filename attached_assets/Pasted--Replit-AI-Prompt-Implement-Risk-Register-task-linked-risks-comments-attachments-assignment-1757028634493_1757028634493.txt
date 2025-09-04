@@ -1,0 +1,413 @@
+
+
+Replit AI Prompt — Implement “Risk Register” (task-linked risks, comments, attachments, assignment)
+
+Context (stack + conventions)
+	•	Frontend: Vite + React + Tailwind + shadcn/Radix, React Hook Form, React Query.
+	•	Backend: Express (TypeScript), Drizzle ORM. Auth via req.user with id (string) and claims.org (organization).
+	•	Existing features to reuse: tasks table & routes, unified comments (used by tasks/projects), attachments/uploads service, email service, WS updates if available.
+	•	IDs: user IDs are strings; keep them strings end-to-end.
+
+Goal
+
+Add a Risk Register with these behaviors:
+	1.	Task → Risk toggle: any task can be marked “Risk” (toggle on the task).
+	2.	Risk item is created and linked to the original task; shown in a dedicated Risk Register screen.
+	3.	Risk fields (editable by compliance officer):
+	•	Risk Description
+	•	Risk Status: Not started, In Progress, Mitigated, Under Review, Completed
+	•	Risk Severity: Low, Medium, High, Critical, Urgent
+	•	Mitigation Plan Description
+	•	Assignee (any collaborator in the org)
+	•	Attachments (upload files)
+	•	Comments (same component/behavior as tasks)
+	4.	Toggle off risk: when mitigated/resolved, officer can “Remove risk” which closes the risk & clears the flag on the task.
+	5.	Permissions:
+	•	View: users who can view the original task.
+	•	Edit risk fields / assign / close risk: compliance officer role or admins; task creator can view & comment.
+	6.	Notifications: when a risk is created or assigned, email the assignee and watchers (reuse email service). (If email envs are missing, fail gracefully.)
+
+⸻
+
+1) Database (Drizzle)
+
+Create shared/risk.ts with a new table risks (one risk row per task when toggled):
+
+// shared/risk.ts
+import {
+  pgTable, serial, integer, varchar, text, timestamp, boolean
+} from "drizzle-orm/pg-core";
+
+export const riskStatus = ["not-started","in-progress","mitigated","under-review","completed"] as const;
+export type RiskStatus = typeof riskStatus[number];
+
+export const riskSeverity = ["low","medium","high","critical","urgent"] as const;
+export type RiskSeverity = typeof riskSeverity[number];
+
+export const risks = pgTable("risks", {
+  id: serial("id").primaryKey(),
+
+  organizationId: varchar("organization_id", { length: 64 }).notNull(),
+
+  // Link to the original task
+  taskId: integer("task_id").notNull(),
+
+  // Assignment (string user id)
+  assigneeId: varchar("assignee_id", { length: 128 }), // nullable
+
+  // Core fields
+  title: varchar("title", { length: 256 }).notNull(), // copy from task title at creation
+  riskDescription: text("risk_description"),
+  mitigationPlan: text("mitigation_plan"),
+
+  status: varchar("status", { length: 32 }).$type<RiskStatus>().default("not-started").notNull(),
+  severity: varchar("severity", { length: 32 }).$type<RiskSeverity>().default("medium").notNull(),
+
+  // Lifecycle
+  isOpen: boolean("is_open").default(true).notNull(),
+  createdById: varchar("created_by_id", { length: 128 }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+});
+
+Add a boolean to tasks so the list can quickly show which tasks are risks:
+
+// shared/schema.ts (tasks table)
+isRisk: boolean("is_risk").default(false).notNull(),
+
+Run a migration:
+
+ALTER TABLE tasks ADD COLUMN is_risk boolean NOT NULL DEFAULT false;
+CREATE TABLE risks ( ... ) -- as defined above
+
+
+⸻
+
+2) Server routes
+
+Create server/routes/risks.ts and mount it at /api/risks.
+
+Helpers (permissions)
+
+Create server/services/permissions.ts (or extend yours):
+
+export function canViewTask(user:any, task:any) { /* reuse your existing logic */ }
+export function canEditRisk(user:any) {
+  return !!(user?.isAdmin || user?.roles?.includes?.("compliance-officer"));
+}
+
+Routes
+
+import { Router } from "express";
+import { z } from "zod";
+import { db } from "../db";
+import { risks, riskStatus, riskSeverity } from "@shared/risk";
+import { tasks } from "@shared/schema"; // your tasks table
+import { and, eq, desc } from "drizzle-orm";
+import emailService from "../emailService"; // unified service
+
+const router = Router();
+
+// GET /api/risks?status=&severity=&assigneeId=&q=&limit=&cursor=
+router.get("/", async (req:any, res) => {
+  if (!req.user?.claims?.org) return res.status(401).end();
+  const org = req.user.claims.org;
+
+  const schema = z.object({
+    status: z.enum(riskStatus).optional(),
+    severity: z.enum(riskSeverity).optional(),
+    assigneeId: z.string().optional(),
+    q: z.string().optional(),
+    limit: z.coerce.number().min(1).max(100).default(50),
+    cursor: z.coerce.number().optional(), // risk.id for pagination
+  });
+  const q = schema.parse(req.query);
+
+  // basic where
+  let where: any = and(eq(risks.organizationId, org));
+  // add filters if provided (status/severity/assignee)
+  if (q.status) where = and(where, eq(risks.status, q.status));
+  if (q.severity) where = and(where, eq(risks.severity, q.severity));
+  if (q.assigneeId) where = and(where, eq(risks.assigneeId, q.assigneeId));
+  if (q.cursor) where = and(where, desc(risks.id).lt(q.cursor as any));
+
+  const rows = await db.select().from(risks)
+    .where(where)
+    .orderBy(desc(risks.id))
+    .limit(q.limit);
+
+  res.json({ items: rows, nextCursor: rows.length ? rows[rows.length - 1].id : null });
+});
+
+// POST /api/risks/toggle  { taskId, makeRisk:boolean }
+router.post("/toggle", async (req:any, res) => {
+  if (!req.user?.claims?.org) return res.status(401).end();
+  const org = req.user.claims.org;
+
+  const body = z.object({
+    taskId: z.number(),
+    makeRisk: z.boolean(),
+  }).parse(req.body);
+
+  // fetch task (ensure org & view permissions)
+  const [task] = await db.select().from(tasks).where(and(eq(tasks.id, body.taskId), eq(tasks.organizationId, org)));
+  if (!task) return res.status(404).json({ message: "Task not found" });
+  // TODO: canViewTask check if you have one
+
+  if (body.makeRisk) {
+    // set task.is_risk true
+    await db.update(tasks).set({ isRisk: true, updatedAt: new Date() }).where(eq(tasks.id, task.id));
+
+    // create risk if not exists for this task & still open
+    const existing = await db.select().from(risks)
+      .where(and(eq(risks.organizationId, org), eq(risks.taskId, task.id), eq(risks.isOpen, true)));
+    if (existing.length) return res.json(existing[0]);
+
+    const [risk] = await db.insert(risks).values({
+      organizationId: org,
+      taskId: task.id,
+      title: task.title,
+      createdById: req.user.id,
+      status: "not-started",
+      severity: "medium",
+      isOpen: true,
+    }).returning();
+
+    // Optional: notify task assignee/owner
+    try {
+      if (task.assigneeEmail) {
+        await emailService.sendEmailWithRetry({
+          to: task.assigneeEmail,
+          subject: `[Ambersand] Task marked as Risk: ${task.title}`,
+          html: `<p>The task <strong>${task.title}</strong> has been marked as a risk.</p>`,
+        });
+      }
+    } catch {}
+
+    return res.status(201).json(risk);
+  } else {
+    // turning off: close open risk(s) & set task.is_risk false
+    await db.update(tasks).set({ isRisk: false, updatedAt: new Date() }).where(eq(tasks.id, task.id));
+    const [closed] = await db.update(risks).set({
+      isOpen: false, closedAt: new Date(), status: "mitigated", updatedAt: new Date(),
+    }).where(and(eq(risks.organizationId, org), eq(risks.taskId, task.id), eq(risks.isOpen, true)))
+      .returning();
+    return res.json(closed || { ok: true });
+  }
+});
+
+// PATCH /api/risks/:id  (edit risk fields) — compliance officer/admin
+router.patch("/:id", async (req:any, res) => {
+  if (!req.user?.claims?.org) return res.status(401).end();
+  const org = req.user.claims.org;
+
+  const id = Number(req.params.id);
+  const schema = z.object({
+    title: z.string().min(1).max(256).optional(),
+    riskDescription: z.string().optional(),
+    mitigationPlan: z.string().optional(),
+    status: z.enum(riskStatus).optional(),
+    severity: z.enum(riskSeverity).optional(),
+    assigneeId: z.string().optional().nullable(),
+    isOpen: z.boolean().optional(),
+  });
+  const body = schema.parse(req.body);
+
+  // permission: only compliance officer/admin
+  if (!(req.user?.isAdmin || req.user?.roles?.includes?.("compliance-officer"))) {
+    return res.status(403).end();
+  }
+
+  const [updated] = await db.update(risks).set({
+    ...body,
+    updatedAt: new Date(),
+  }).where(and(eq(risks.id, id), eq(risks.organizationId, org)))
+    .returning();
+
+  if (!updated) return res.status(404).end();
+  res.json(updated);
+});
+
+export default router;
+
+Mount the router in your server/routes.ts:
+
+import risksRouter from "./risks";
+app.use("/api/risks", isAuthenticated, risksRouter);
+
+
+⸻
+
+3) Comments & Attachments on risks
+	•	Comments: reuse your unified comments system. Wherever you register comment targets, add "risk".
+	•	DB: if your comments table already has targetType ('task'|'project'), expand the enum to include 'risk'.
+	•	Frontend: <Comments targetType="risk" targetId={risk.id} />
+	•	Attachments: reuse your uploads service. Add a targetType='risk' path alongside the existing task path so files can be uploaded from the risk detail page. Server should save with metadata: { organizationId, targetType: 'risk', targetId: risk.id, fileName, size, mime }.
+
+⸻
+
+4) Frontend UI
+
+4.1 Task page: add Risk toggle
+	•	On Task details (or overflow menu), add a toggle “Mark as risk”.
+	•	POST /api/risks/toggle { taskId, makeRisk: true } to create the risk; update task state isRisk=true.
+	•	When isRisk=true, show a small badge “Risk” next to the task title with a link “Open risk”.
+	•	When risk is mitigated, allow “Remove risk” → POST /api/risks/toggle { taskId, makeRisk: false }.
+
+4.2 Risk Register screen
+
+Create client/src/pages/RiskRegister.tsx:
+	•	Filters: Status, Severity, Assignee, text query.
+	•	Table/list of risks: title, task link, severity (color-coded), status, assignee, updatedAt.
+	•	Click row → Risk Detail drawer/page.
+
+4.3 Risk Detail
+
+Create client/src/components/risk/RiskDetail.tsx:
+	•	Header: Title (editable), status (shadcn Select), severity (Select with colored dots), assignee (SmartAssignee input you already built).
+	•	Fields:
+	•	Risk Description (textarea)
+	•	Mitigation Plan (textarea)
+	•	Actions:
+	•	Save (PATCH /api/risks/:id)
+	•	Close Risk (sets isOpen=false, status='mitigated', and also offers to un-toggle the task)
+	•	Tabs:
+	•	Attachments (dropzone + list) → uploads to targetType='risk'
+	•	Comments (just reuse <Comments targetType="risk" targetId={risk.id} />)
+
+Tailwind visual cues:
+	•	Severity chip:
+	•	low=gray, medium=amber, high=orange, critical=red, urgent=rose
+	•	Status chip:
+	•	not-started=slate, in-progress=blue, mitigated=emerald, under-review=violet, completed=green
+
+⸻
+
+5) Client hooks & types
+
+Create client/src/lib/api/risk.ts:
+
+export type RiskStatus = "not-started"|"in-progress"|"mitigated"|"under-review"|"completed";
+export type RiskSeverity = "low"|"medium"|"high"|"critical"|"urgent";
+
+export interface RiskItem {
+  id: number;
+  organizationId: string;
+  taskId: number;
+  assigneeId?: string | null;
+  title: string;
+  riskDescription?: string | null;
+  mitigationPlan?: string | null;
+  status: RiskStatus;
+  severity: RiskSeverity;
+  isOpen: boolean;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  closedAt?: string | null;
+}
+
+// Queries
+export async function listRisks(params: URLSearchParams) {
+  const res = await fetch(`/api/risks?${params.toString()}`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to list risks");
+  return res.json();
+}
+
+export async function toggleRisk(taskId:number, makeRisk:boolean) {
+  const res = await fetch(`/api/risks/toggle`, {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ taskId, makeRisk })
+  });
+  if (!res.ok) throw new Error("Failed to toggle risk");
+  return res.json();
+}
+
+export async function updateRisk(id:number, patch: Partial<RiskItem>) {
+  const res = await fetch(`/api/risks/${id}`, {
+    method: "PATCH", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error("Failed to update risk");
+  return res.json();
+}
+
+
+⸻
+
+6) Assignment UX on risks
+
+Use your existing AssigneeSmartInput for risks:
+
+<AssigneeSmartInput
+  onResolve={(r) => {
+    if (r.type === "existing") {
+      setForm((f)=>({ ...f, assigneeId: r.userId }));
+    } else {
+      // Optional: allow inviting here too, then update risk.assigneeId when they accept.
+      setForm((f)=>({ ...f, assigneeId: undefined }));
+      toast.success(`Invite sent to ${r.email}. You can assign after they join.`);
+    }
+  }}
+/>
+
+On Save, call updateRisk(risk.id, { assigneeId, ... }).
+
+⸻
+
+7) Comments on risks
+
+On the Risk Detail page:
+
+<Comments targetType="risk" targetId={risk.id} />
+
+Server: ensure /api/comments allows targetType='risk' in z.enum(...) and permission checks follow the linked task visibility.
+
+⸻
+
+8) Attachments on risks
+	•	Frontend: reuse your file upload component, pointing at /api/uploads?targetType=risk&targetId=${risk.id}.
+	•	Server: the upload handler should accept targetType='risk' and record metadata with org, risk id, uploader id.
+
+⸻
+
+9) Emails (optional but recommended)
+
+When risk is created or assigned:
+	•	If assigneeId is set → email assignee:
+	•	Subject: [Ambersand] Risk Assigned: <title>
+	•	Body: link to risk detail page: ${APP_BASE_URL}/risks/${risk.id}
+	•	If toggled off → optionally email task assignee/creator.
+
+Use your emailService.sendEmailWithRetry with simple HTML; templates can be added later.
+
+⸻
+
+10) Navigation
+	•	Add a “Risk Register” item in the main nav for users with view permission (or for everyone if viewing is allowed).
+	•	Badge with count of open risks is a plus (optional aggregate endpoint; or compute in client from first page).
+
+⸻
+
+11) Acceptance Criteria
+	•	From any Task, you can toggle Mark as risk → a Risk row is created and task.isRisk=true.
+	•	Risk appears in Risk Register with editable fields: Description, Status, Severity, Mitigation Plan, Assignee.
+	•	Risk supports Attachments (upload/list/download) and Comments (same system as tasks).
+	•	Only compliance officer/admin can edit risk fields and close/open the risk. Others with task access can view and comment.
+	•	Toggle off returns the task to normal: risk is closed (isOpen=false, status='mitigated'), task.isRisk=false.
+	•	String user IDs are preserved everywhere.
+	•	No TypeScript or ESLint errors. DB migration applied.
+
+⸻
+
+12) Commit messages
+
+feat(risk): introduce risk register linked to tasks (schema, routes, UI)
+feat(comments): enable comments for risk targetType
+feat(uploads): allow attachments for risk items
+feat(tasks): add isRisk toggle + risk badge
+
+If any path or import differs in this repo, adapt paths but keep API shapes and the risk model as specified.
