@@ -24,6 +24,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import TaskWizard from '@/components/tasks/TaskWizard';
 import { ControlInfoDialog } from '@/components/tasks/ControlInfoDialog';
 import { ExportComplianceDialog } from '@/components/export/ExportComplianceDialog';
+import Comments from '@/components/comments/Comments';
 import { 
   ArrowLeft, 
   Plus, 
@@ -669,12 +670,15 @@ export default function ProjectDetail() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="tasks">
               {language === 'ar' ? 'المهام' : 'Tasks'}
             </TabsTrigger>
             <TabsTrigger value="controls">
               {language === 'ar' ? 'الضوابط' : 'Controls'}
+            </TabsTrigger>
+            <TabsTrigger value="comments">
+              {language === 'ar' ? 'التعليقات' : 'Comments'}
             </TabsTrigger>
           </TabsList>
 
@@ -1048,6 +1052,10 @@ export default function ProjectDetail() {
                 </div>
               </div>
             ))}
+          </TabsContent>
+
+          <TabsContent value="comments" className="space-y-4">
+            <Comments targetType="project" targetId={project?.id || 0} />
           </TabsContent>
         </Tabs>
 

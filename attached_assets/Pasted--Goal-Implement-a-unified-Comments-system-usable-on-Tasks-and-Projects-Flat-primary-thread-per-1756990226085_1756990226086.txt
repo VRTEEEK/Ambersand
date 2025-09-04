@@ -1,0 +1,366 @@
+
+
+Goal
+
+Implement a unified Comments system usable on Tasks and Projects:
+	•	Flat primary thread per target (Task or Project), with optional short replies (1 level deep).
+	•	Mentions (@name) with auto-complete from org users; notify mentioned users.
+	•	Real-time updates via WebSocket broadcast.
+	•	Email notifications (optional toggle) for mentions and for subscribers (assignee, owner).
+	•	Attachments (optional later): keep DB-ready now, UI can come later.
+	•	Permissions: only users who can view the target can read; only users who can edit/comment the target can post/edit/delete their own comments; admins can delete.
+
+⸻
+
+1) Database (Drizzle)
+
+Create a new schema file under shared/ (or extend existing): shared/comments.ts
+
+// shared/comments.ts
+import { pgTable, serial, integer, text, varchar, timestamp, boolean } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+
+export const commentTargets = ["task","project"] as const;
+export type CommentTarget = typeof commentTargets[number];
+
+export const comments = pgTable("comments", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id", { length: 64 }).notNull(),
+  targetType: varchar("target_type", { length: 16 }).$type<CommentTarget>().notNull(), // 'task' | 'project'
+  targetId: integer("target_id").notNull(),
+  parentId: integer("parent_id"), // for replies (1-level)
+  authorId: integer("author_id").notNull(),
+  body: text("body").notNull(),
+  mentions: text("mentions").default(sql`'[]'::text`).notNull(), // JSON stringified array of userIds
+  hasAttachments: boolean("has_attachments").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
+// Optional “watchers/subscribers” for notifications
+export const commentSubscriptions = pgTable("comment_subscriptions", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id", { length: 64 }).notNull(),
+  targetType: varchar("target_type", { length: 16 }).$type<CommentTarget>().notNull(),
+  targetId: integer("target_id").notNull(),
+  userId: integer("user_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+	•	Run migration (drizzle-kit push).
+	•	Ensure foreign key constraints if you have users/tasks/projects tables; otherwise enforce in code.
+
+⸻
+
+2) Backend routes (Express, TypeScript)
+
+Create server/routes/comments.ts and mount in server/index.ts as /api/comments.
+
+Permissions helpers
+	•	Add canViewTarget(req.user, { targetType, targetId }) and canCommentTarget(...) using your existing RBAC. For now:
+	•	View if user can view that task/project.
+	•	Comment if user is assignee, owner, or has write on the target.
+	•	Edit/Delete if author or admin.
+
+Routes
+
+// server/routes/comments.ts
+import { Router } from "express";
+import { z } from "zod";
+import { db } from "../db";
+import { comments, commentSubscriptions } from "@shared/comments";
+import { isAuthenticated } from "../replitAuth";
+import { and, eq, desc, isNull } from "drizzle-orm";
+import { parseMentions } from "../services/mentions"; // implement below
+import { notifyComment } from "../services/notifications"; // implement below
+
+const router = Router();
+
+// GET list (paginated)
+router.get("/", isAuthenticated, async (req:any, res) => {
+  const schema = z.object({
+    targetType: z.enum(["task","project"]),
+    targetId: z.coerce.number(),
+    cursor: z.coerce.number().optional(), // comment id before which to load
+    limit: z.coerce.number().min(1).max(100).default(50),
+  });
+  const q = schema.parse(req.query);
+  // TODO: canViewTarget check
+  const whereBase = and(
+    eq(comments.organizationId, req.user.claims.org),
+    eq(comments.targetType, q.targetType),
+    eq(comments.targetId, q.targetId),
+    isNull(comments.deletedAt)
+  );
+  const where = q.cursor ? and(whereBase, desc(comments.id).lt(q.cursor as any)) : whereBase;
+  const rows = await db.select().from(comments)
+    .where(where as any)
+    .orderBy(desc(comments.id))
+    .limit(q.limit);
+  res.json({ items: rows, nextCursor: rows.length ? rows[rows.length-1].id : null });
+});
+
+// POST create
+router.post("/", isAuthenticated, async (req:any, res) => {
+  const schema = z.object({
+    targetType: z.enum(["task","project"]),
+    targetId: z.number(),
+    parentId: z.number().optional(),
+    body: z.string().min(1).max(4000),
+  });
+  const body = schema.parse(req.body);
+  // TODO: canCommentTarget check
+  const mentions = await parseMentions(body.body, req.user.claims.org);
+
+  const [row] = await db.insert(comments).values({
+    organizationId: req.user.claims.org,
+    targetType: body.targetType,
+    targetId: body.targetId,
+    parentId: body.parentId ?? null,
+    authorId: req.user.id,
+    body: body.body,
+    mentions: JSON.stringify(mentions.userIds),
+  }).returning();
+
+  // auto-subscribe author; also ensure assignee/owner subscribed elsewhere
+  await db.insert(commentSubscriptions).values({
+    organizationId: req.user.claims.org,
+    targetType: body.targetType,
+    targetId: body.targetId,
+    userId: req.user.id,
+  }).onConflictDoNothing();
+
+  // notify via ws + email
+  await notifyComment({ comment: row, mentions });
+
+  res.status(201).json(row);
+});
+
+// PATCH edit (author only)
+router.patch("/:id", isAuthenticated, async (req:any, res) => {
+  const schema = z.object({ body: z.string().min(1).max(4000) });
+  const { body } = schema.parse(req.body);
+  const id = Number(req.params.id);
+  const [existing] = await db.select().from(comments)
+    .where(and(eq(comments.id, id), eq(comments.organizationId, req.user.claims.org)));
+  if (!existing) return res.sendStatus(404);
+  if (existing.authorId !== req.user.id && !req.user.isAdmin) return res.sendStatus(403);
+
+  const mentions = await parseMentions(body, req.user.claims.org);
+  const [row] = await db.update(comments).set({
+    body, mentions: JSON.stringify(mentions.userIds),
+    updatedAt: new Date(),
+  }).where(eq(comments.id, id)).returning();
+
+  await notifyComment({ comment: row, mentions, edited: true });
+  res.json(row);
+});
+
+// DELETE (soft delete; author or admin)
+router.delete("/:id", isAuthenticated, async (req:any, res) => {
+  const id = Number(req.params.id);
+  const [existing] = await db.select().from(comments)
+    .where(and(eq(comments.id, id), eq(comments.organizationId, req.user.claims.org)));
+  if (!existing) return res.sendStatus(404);
+  if (existing.authorId !== req.user.id && !req.user.isAdmin) return res.sendStatus(403);
+
+  await db.update(comments).set({ deletedAt: new Date() }).where(eq(comments.id, id));
+  res.sendStatus(204);
+});
+
+export default router;
+
+Mount in server/index.ts:
+
+import commentsRouter from "./routes/comments";
+app.use("/api/comments", commentsRouter);
+
+
+⸻
+
+3) Mentions & notifications (service stubs)
+
+server/services/mentions.ts
+
+// parse @mentions in the body -> return { userIds: number[], tokens: Array<{id:number, name:string}> }
+export async function parseMentions(body:string, orgId:string) {
+  // Regex for @mentions (alnum, dots, underscores). Replace with your user directory lookup.
+  const handles = Array.from(new Set((body.match(/@[\w.\-]+/g) || []).map(s => s.slice(1))));
+  // Lookup users by handle/name within orgId
+  const users = await findUsersByHandles(handles, orgId); // implement according to your users table
+  return { userIds: users.map(u => u.id), users };
+}
+
+server/services/notifications.ts
+
+import { broadcastComment } from "../ws/comments"; // ws broadcast
+import { emailService } from "../emailService";
+import { db } from "../db";
+import { commentSubscriptions } from "@shared/comments";
+
+export async function notifyComment({ comment, mentions, edited = false }:{
+  comment: any,
+  mentions: { userIds: number[], users?: any[] },
+  edited?: boolean
+}) {
+  // 1) WebSocket broadcast to room `${orgId}:${targetType}:${targetId}`
+  await broadcastComment(comment);
+
+  // 2) Email: to mentioned users + subscribers (excluding author)
+  const orgRoom = `${comment.organizationId}:${comment.targetType}:${comment.targetId}`;
+  const subs = await db.select().from(commentSubscriptions)
+    .where(/* filter same target */);
+  const recipientIds = new Set<number>([...mentions.userIds, ...subs.map(s => s.userId)]);
+  recipientIds.delete(comment.authorId);
+
+  if (recipientIds.size) {
+    // map ids->emails
+    const recipients = await loadUserEmails(Array.from(recipientIds));
+    await emailService.sendEmailWithRetry({
+      to: recipients,
+      subject: edited ? `[Ambersand] Comment edited` : `[Ambersand] New comment`,
+      html: `<p>${comment.body}</p><p>Open: ${buildDeepLink(comment)}</p>`,
+    });
+  }
+}
+
+
+⸻
+
+4) WebSocket (real-time)
+
+Use your existing ws server. Create a small hub:
+
+server/ws/comments.ts
+
+import { wss } from "./wss"; // your existing ws server singleton
+import type { WebSocket } from "ws";
+
+export function roomFor(orgId:string, targetType:"task"|"project", targetId:number) {
+  return `${orgId}:${targetType}:${targetId}`;
+}
+
+export async function broadcastComment(c:any) {
+  const room = roomFor(c.organizationId, c.targetType, c.targetId);
+  wss.clients.forEach((client:WebSocket & { room?:string }) => {
+    if (client.readyState === 1 && client.room === room) {
+      client.send(JSON.stringify({ type: "comment:new", payload: c }));
+    }
+  });
+}
+
+// In your ws connection handler, let clients `join` a room by sending
+// {type:"join", room:"<orgId>:task:123"}; set client.room = room.
+
+Frontend: when opening a Task/Project page, connect WS and join its room; update list on comment:new.
+
+⸻
+
+5) Frontend UI (shadcn)
+
+Create client/src/components/comments/Comments.tsx:
+	•	Props: { targetType: 'task'|'project', targetId: number }
+	•	Features:
+	•	Fetch paginated comments (GET /api/comments)
+	•	Composer with textarea, send button, mentions autocomplete (basic: @ triggers a popover querying /api/users?query=... within org)
+	•	Add reply (1-level), edit (own), delete (own/admin)
+	•	Live updates via WS
+	•	Keyboard: Enter to send, Shift+Enter newline
+	•	Sanitization: simple newline-to-<br/>, escape HTML
+
+Sketch:
+
+export default function Comments({ targetType, targetId }: Props) {
+  const [items, setItems] = useState<Comment[]>([]);
+  const [text, setText] = useState("");
+
+  useEffect(() => {
+    fetch(`/api/comments?targetType=${targetType}&targetId=${targetId}&limit=50`)
+      .then(r => r.json()).then(d => setItems(d.items));
+    // ws join...
+  }, [targetType, targetId]);
+
+  async function send() {
+    const body = text.trim();
+    if (!body) return;
+    setText("");
+    const res = await fetch(`/api/comments`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ targetType, targetId, body }),
+    });
+    if (res.ok) {
+      const c = await res.json();
+      setItems(prev => [c, ...prev]);
+    } else {
+      // toast error
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start gap-2">
+        <textarea
+          className="w-full rounded border p-2"
+          placeholder="Write a comment… Use @ to mention someone"
+          value={text}
+          onChange={(e)=>setText(e.target.value)}
+          onKeyDown={(e)=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); send(); }}}
+        />
+        <button className="rounded bg-black px-4 py-2 text-white" onClick={send}>Send</button>
+      </div>
+
+      <ul className="space-y-2">
+        {items.map(c => (
+          <li key={c.id} className="rounded border p-3">
+            <div className="text-sm text-neutral-500">
+              <b>{c.authorName}</b> · {new Date(c.createdAt).toLocaleString()}
+            </div>
+            <div className="prose prose-sm" dangerouslySetInnerHTML={{ __html: renderBody(c.body) }} />
+            {/* actions: Reply, Edit (if owner), Delete (owner/admin) */}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+Mount on pages:
+	•	Task detail: show <Comments targetType="task" targetId={task.id} />
+	•	Project detail: show <Comments targetType="project" targetId={project.id} />
+
+⸻
+
+6) Acceptance Criteria
+	•	Users who can view a Task/Project see its Comments; they can post if they have write permission.
+	•	Create/Edit/Delete works; author can edit/delete, admin can delete any.
+	•	Mentions parse and notify (WS + email) mentioned users; assignee/owner auto-subscribed.
+	•	Real-time: comments appear to all viewers of the same target without page refresh.
+	•	Pagination works (load older).
+	•	No XSS (escape HTML; only allow @handles, newlines → <br/>).
+	•	Unit tests for:
+	•	POST validation
+	•	Permissions
+	•	Mentions parsing (handles → user IDs)
+	•	Soft delete (hidden from list)
+
+⸻
+
+7) Nice-to-haves (optional if time permits)
+	•	Reactions (👍 ✅ ❗): comment_reactions table; simple POST/DELETE.
+	•	Attachments to comments: reuse existing file service; mark hasAttachments = true, list under the comment.
+	•	Pin comment on target (e.g., decisions).
+	•	Email preferences per user: notify on mentions only vs all.
+
+⸻
+
+Commit messages
+
+feat(comments): unified comments for tasks & projects with mentions, ws, and email notifications
+chore(db): add comments and comment_subscriptions tables
+
+
+⸻
+
+Please implement all of the above. If an import path differs in this repo, adapt paths but preserve the API contracts and behavior.

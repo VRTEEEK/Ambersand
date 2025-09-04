@@ -11,6 +11,7 @@ import {
   decimal,
   date,
 } from "drizzle-orm/pg-core";
+import { comments, commentSubscriptions } from "./comments";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -698,3 +699,7 @@ export type EvidenceControl = typeof evidenceControls.$inferSelect;
 export type InsertEvidenceControl = z.infer<typeof insertEvidenceControlSchema>;
 export type EvidenceTask = typeof evidenceTasks.$inferSelect;
 export type InsertEvidenceTask = z.infer<typeof insertEvidenceTaskSchema>;
+
+// Re-export comments tables
+export { comments, commentSubscriptions } from "./comments";
+export type { Comment, CommentSubscription, CommentTarget } from "./comments";

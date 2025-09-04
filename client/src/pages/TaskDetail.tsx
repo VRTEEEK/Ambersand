@@ -17,6 +17,7 @@ import { useI18n } from "@/hooks/use-i18n";
 import { apiRequest } from "@/lib/queryClient";
 import AppLayout from "@/components/layout/AppLayout";
 import type { Task, User as UserType, ProjectControl, Evidence, EvidenceVersion } from "@shared/schema";
+import Comments from '@/components/comments/Comments';
 
 interface TaskWithDetails extends Task {
   project?: { id: number; name: string; nameAr: string };
@@ -811,6 +812,14 @@ export default function TaskDetail() {
           </Dialog>
         </TabsContent>
       </Tabs>
+      
+      {/* Comments Section */}
+      <div className="mt-8">
+        <h2 className="text-lg font-semibold mb-4">
+          {language === 'ar' ? 'التعليقات' : 'Comments'}
+        </h2>
+        <Comments targetType="task" targetId={parseInt(taskId || '0')} />
+      </div>
       </div>
     </AppLayout>
   );

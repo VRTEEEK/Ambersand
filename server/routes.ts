@@ -2389,6 +2389,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reports router
+  // Comments routes
+  const commentsRouter = (await import("./routes/comments")).default;
+  app.use("/api/comments", commentsRouter);
+
   // Export route
   app.post("/api/reports/compliance/export", isAuthenticated, async (req: any, res) => {
     const schema = z.object({
