@@ -1,0 +1,312 @@
+
+
+Replit AI Prompt — “Smart Assignee Autocomplete + Email Invite (end-to-end)”
+
+You’re editing a monorepo with Vite + React + Tailwind + shadcn/Radix (client) and Express + TypeScript + Drizzle (server). Replace the Assignee dropdown in the Task wizard with a smart autocomplete that:
+	•	Suggests existing org users as you type.
+	•	Accepts any email; if not found in DB, it sends an invite and saves a pendingAssigneeInviteId on the task.
+	•	Preserves org scoping and existing email notifications.
+
+Do the following exactly.
+
+⸻
+
+0) Conventions & Assumptions
+	•	users.id is a string in our DB. Keep it as string across server & client.
+	•	Auth puts req.user with id (string) and claims.org (org ID).
+	•	We already have emailService.sendEmailWithRetry(...) (SendGrid).
+	•	Existing Task creation endpoint is POST /api/tasks.
+
+⸻
+
+1) Database & Schema
+
+1.1 Add user_invites table
+
+Create shared/invites.ts:
+
+import { pgTable, serial, varchar, timestamp, boolean } from "drizzle-orm/pg-core";
+
+export const userInvites = pgTable("user_invites", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id", { length: 64 }).notNull(),
+  email: varchar("email", { length: 256 }).notNull(),
+  token: varchar("token", { length: 128 }).notNull(), // random single-use
+  role: varchar("role", { length: 32 }).default("member").notNull(),
+  accepted: boolean("accepted").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+});
+
+1.2 Add pendingAssigneeInviteId to tasks
+	•	Migration (SQL):
+
+ALTER TABLE tasks ADD COLUMN pending_assignee_invite_id integer NULL;
+
+	•	Extend shared/schema.ts:
+
+export const tasks = pgTable("tasks", {
+  // ...existing cols...
+  pendingAssigneeInviteId: integer("pending_assignee_invite_id"),
+});
+
+	•	Extend insertTaskSchema (or your zod insert schema):
+
+export const insertTaskSchema = createInsertSchema(tasks)
+  .omit({ id: true, createdAt: true, updatedAt: true })
+  .extend({
+    status: z.enum(['pending','in-progress','review','completed','blocked']).default('pending'),
+    assigneeEmail: z.string().email().optional(),
+    pendingAssigneeInviteId: z.number().int().optional().nullable(),
+  });
+
+Run drizzle-kit push (or your migration runner).
+
+⸻
+
+2) Server — Users search & Invite APIs
+
+Create/extend server/routes/users.ts and mount as /api/users.
+
+2.1 Search existing users (return string IDs)
+
+router.get("/search", isAuthenticated, async (req:any, res) => {
+  const q = String(req.query.q || "").trim();
+  const limit = Math.min(Number(req.query.limit || 8), 25);
+  if (!q) return res.json({ items: [] });
+
+  // Search by email and/or name, same org
+  const rows = await db.query.users.findMany({
+    where: (u, { and, eq, or, ilike }) => and(
+      eq(u.organizationId, req.user.claims.org),
+      or(ilike(u.email, `%${q}%`), ilike(u.name, `%${q}%`))
+    ),
+    limit,
+    columns: { id: true, email: true, name: true, avatarUrl: true }
+  });
+
+  // IMPORTANT: keep id as string
+  const items = rows.map(u => ({
+    id: u.id, email: u.email || "", name: u.name || u.email || "User", avatarUrl: u.avatarUrl || null
+  }));
+
+  res.json({ items });
+});
+
+2.2 Invite a new user (send email)
+
+router.post("/invite", isAuthenticated, async (req:any, res) => {
+  const { email, role } = z.object({
+    email: z.string().email(),
+    role: z.string().optional()
+  }).parse(req.body);
+
+  const normalized = email.trim().toLowerCase();
+
+  // If user already exists in org, return conflict
+  const existing = await db.query.users.findFirst({
+    where: (u, { and, eq }) => and(eq(u.organizationId, req.user.claims.org), eq(u.email, normalized)),
+    columns: { id: true }
+  });
+  if (existing) return res.status(409).json({ message: "Already a user", userId: existing.id });
+
+  const token = crypto.randomUUID().replace(/-/g, "");
+  const [invite] = await db.insert(userInvites).values({
+    organizationId: req.user.claims.org,
+    email: normalized,
+    role: role || "member",
+    token,
+  }).returning();
+
+  const acceptUrl = `${process.env.APP_BASE_URL || "http://localhost:3000"}/accept-invite?token=${token}`;
+  await emailService.sendEmailWithRetry({
+    to: normalized,
+    subject: "You’re invited to Ambersand",
+    html: `<p>You’ve been invited to join Ambersand.</p>
+           <p><a href="${acceptUrl}">Accept your invite</a></p>`
+  });
+
+  res.status(201).json({ inviteId: invite.id });
+});
+
+2.3 Accept invite → finalize task assignment
+
+router.post("/invite/accept", isAuthenticated, async (req:any, res) => {
+  const { token } = z.object({ token: z.string().min(10) }).parse(req.body);
+
+  const [invite] = await db.select().from(userInvites)
+    .where(and(eq(userInvites.token, token), eq(userInvites.accepted, false)));
+  if (!invite) return res.status(400).json({ message: "Invalid or expired invite" });
+
+  // Ensure current user belongs to same org
+  if (req.user.claims.org !== invite.organizationId) {
+    return res.status(403).json({ message: "Wrong organization" });
+  }
+
+  await db.update(userInvites).set({ accepted: true, acceptedAt: new Date() })
+    .where(eq(userInvites.id, invite.id));
+
+  // Move all tasks with pendingAssigneeInviteId -> assigneeId = current user
+  const updated = await db.update(tasks)
+    .set({ assigneeId: req.user.id, pendingAssigneeInviteId: null, updatedAt: new Date() })
+    .where(eq(tasks.pendingAssigneeInviteId, invite.id))
+    .returning({ id: tasks.id, title: tasks.title });
+
+  // (Optional) send assignment emails for each updated task…
+  res.json({ success: true, assignedTasks: updated });
+});
+
+
+⸻
+
+3) Server — Task creation accepts assigneeId or assigneeEmail
+
+In server/routes/tasks.ts (create/update):
+
+3.1 Extend payload schema
+
+const payloadSchema = z.object({
+  // ...existing fields...
+  assigneeId: z.string().optional(),        // string
+  assigneeEmail: z.string().email().optional(),
+});
+
+3.2 Logic inside create
+
+let assigneeId: string | null = null;
+let pendingAssigneeInviteId: number | null = null;
+
+if (body.assigneeId) {
+  // Validate user belongs to same org
+  const u = await db.query.users.findFirst({
+    where: (u, { and, eq }) => and(eq(u.id, body.assigneeId!), eq(u.organizationId, req.user.claims.org)),
+    columns: { id: true }
+  });
+  if (u) assigneeId = u.id;
+} else if (body.assigneeEmail) {
+  const normalized = body.assigneeEmail.toLowerCase().trim();
+  // Try existing
+  const u = await db.query.users.findFirst({
+    where: (u, { and, eq }) => and(eq(u.organizationId, req.user.claims.org), eq(u.email, normalized)),
+    columns: { id: true }
+  });
+  if (u) {
+    assigneeId = u.id;
+  } else {
+    // Create invite
+    const token = crypto.randomUUID().replace(/-/g, "");
+    const [invite] = await db.insert(userInvites).values({
+      organizationId: req.user.claims.org,
+      email: normalized,
+      role: "member",
+      token,
+    }).returning();
+    pendingAssigneeInviteId = invite.id;
+
+    const acceptUrl = `${process.env.APP_BASE_URL || "http://localhost:3000"}/accept-invite?token=${token}`;
+    await emailService.sendEmailWithRetry({
+      to: normalized,
+      subject: "You’re invited to Ambersand (Task Assignment Pending)",
+      html: `<p>You’ve been invited to join Ambersand. You have a task waiting.</p>
+             <p><a href="${acceptUrl}">Accept your invite</a></p>`
+    });
+  }
+}
+
+// …create the task
+const [task] = await db.insert(tasks).values({
+  // ...other fields,
+  assigneeId,
+  pendingAssigneeInviteId,
+}).returning();
+
+// Existing: if assigneeId set, send assignment email
+if (assigneeId) {
+  await emailService.sendEmailWithRetry({
+    to: await emailOf(assigneeId),
+    subject: `[Ambersand] New Task Assigned: ${task.title}`,
+    html: `<p>You were assigned: ${task.title}</p>`,
+  });
+}
+
+res.status(201).json(task);
+
+
+⸻
+
+4) Client — Replace dropdown with Smart Autocomplete
+
+4.1 New component client/src/components/users/AssigneeSmartInput.tsx
+	•	Uses shadcn Combobox/Command inside a Popover (or Radix Combobox).
+	•	Debounced search to /api/users/search?q=.
+	•	If typed value is a valid email and not in results → show menu item “Invite ”.
+	•	onResolve returns either { type:'existing', userId:string, email } or { type:'invite', inviteId:number, email }.
+
+type Resolve =
+  | { type: "existing"; userId: string; email: string; name?: string }
+  | { type: "invite"; inviteId: number; email: string };
+
+export default function AssigneeSmartInput({
+  value, onResolve, disabled
+}: { value?: string; onResolve: (r:Resolve)=>void; disabled?:boolean }) {
+  // state: query, results, loading, open
+  // debounce 250ms -> fetch(`/api/users/search?q=${encodeURIComponent(query)}&limit=8`)
+  // render list <UserRow> for results
+  // detect valid email regex -> show "Invite <email>" option if not in results
+  // on click existing -> onResolve({type:'existing', userId, email, name})
+  // on click invite -> POST /api/users/invite { email } -> onResolve({type:'invite', inviteId, email})
+}
+
+4.2 Wire into Task Wizard (Step 3)
+
+In client/src/components/tasks/TaskWizardStep3.tsx (or similar):
+	•	Remove the old <Select> dropdown.
+	•	Add:
+
+<AssigneeSmartInput
+  onResolve={(r) => {
+    if (r.type === "existing") {
+      form.setValue("assigneeId", r.userId);       // string
+      form.setValue("assigneeEmail", "");
+      setAssigneeDisplay(r.name || r.email);
+    } else {
+      form.setValue("assigneeId", undefined as any);
+      form.setValue("assigneeEmail", r.email);
+      setAssigneeDisplay(`${r.email} (invited)`);
+      toast.success(`Invitation sent to ${r.email}. The task will auto-assign when they join.`);
+    }
+  }}
+/>
+
+	•	Ensure your form schema includes both assigneeId?: string and assigneeEmail?: string.
+
+⸻
+
+5) UX Polish
+	•	Placeholder: “Type a name or email…”
+	•	Keyboard: Up/Down, Enter to select; Esc to close.
+	•	Show avatar + name + email in results.
+	•	Show a “Pending invite” chip in Task details if pendingAssigneeInviteId is present.
+
+⸻
+
+6) Acceptance Criteria
+	•	Typing shows existing users within the same org; selecting sets assigneeId (string).
+	•	Typing a new valid email shows Invite <email>; selecting sends invite and saves pendingAssigneeInviteId on the new task.
+	•	Task creation:
+	•	With existing user → assigneeId set, assignment email sent.
+	•	With new email → invite email sent; task saved with assigneeId=null, pendingAssigneeInviteId set.
+	•	Invite acceptance (POST /api/users/invite/accept with token) moves any tasks with that pendingAssigneeInviteId to the new user’s assigneeId.
+	•	All IDs for users remain strings across API and UI.
+	•	Org scoping enforced.
+	•	TypeScript passes; no lint errors.
+
+⸻
+
+7) Commit messages
+
+feat(tasks): smart assignee autocomplete with user search + email invite
+chore(db): add user_invites and pendingAssigneeInviteId on tasks
+feat(users): search, invite, and accept-invite endpoints (auto-assign pending tasks)
+
+Please implement exactly as above. If a file path differs in this repo, adapt the paths but keep the contracts (string user IDs, dual assigneeId/assigneeEmail, pending invite column, accept flow).
