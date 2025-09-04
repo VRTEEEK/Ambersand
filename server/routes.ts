@@ -2489,6 +2489,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Email template test route
+  app.post('/api/email/test-template', isAuthenticated, async (req: any, res) => {
+    const to = String(req.body?.to || "").trim();
+    if (!to) return res.status(400).json({ message: "Missing 'to'" });
+
+    try {
+      const email = (await import('./email')).default;
+      const result = await email.send({
+        to,
+        subject: "Template Test",
+        // try both knobs:
+        templateId: process.env.SENDGRID_TASK_TEMPLATE_ID, // ignored if smtp
+        templateName: "task-assigned",                     // used if smtp
+        data: {
+          assigneeName: req.user?.firstName || req.user?.name || "Member",
+          taskTitle: "Demo task",
+          projectName: "Demo project",
+          dueDate: "Not set",
+          priority: "medium",
+          description: "This is a test task created for email template testing.",
+          taskUrl: `${process.env.APP_BASE_URL || "http://localhost:5000"}/tasks/123`,
+        },
+      });
+
+      if (!result.success) return res.status(502).json(result);
+      res.json({ ok: true, driver: process.env.EMAIL_DRIVER || "sendgrid", ...result });
+    } catch (error) {
+      console.error('Email template test error:', error);
+      res.status(500).json({ message: "Test failed", error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
   // Serve uploaded files (profile pictures and evidence)
   app.use('/uploads', (req, res, next) => {
     // Add CORS headers for uploaded files

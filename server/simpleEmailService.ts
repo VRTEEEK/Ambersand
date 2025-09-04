@@ -14,7 +14,7 @@ interface SimpleEmailOptions {
 }
 
 export const simpleEmailService = {
-  async sendEmail(options: SimpleEmailOptions): Promise<{ success: boolean; error?: string }> {
+  async sendEmail(options: SimpleEmailOptions): Promise<{ success: boolean; error?: string; messageId?: string }> {
     try {
       const msg = {
         to: options.to,
@@ -33,10 +33,12 @@ export const simpleEmailService = {
 
       await sgMail.send(msg);
       console.log('Email sent successfully');
-      return { success: true };
+      return { success: true, messageId: 'simple-email-sent' };
     } catch (error: any) {
       console.error('SendGrid simple email error:', error?.response?.body || error);
       return { success: false, error: error?.message || 'Unknown error' };
     }
   }
 };
+
+export default simpleEmailService;

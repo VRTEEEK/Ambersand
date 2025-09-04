@@ -1,0 +1,11 @@
+<h2>New Task Assigned</h2>
+<p><strong>{{assigneeName}}</strong>, you were assigned a new task:</p>
+<p>Title: <strong>{{taskTitle}}</strong></p>
+<p>Project: {{projectName}}</p>
+<p>Due Date: {{dueDate}}</p>
+<p>Priority: {{priority}}</p>
+{{#if description}}
+<p>Description: {{description}}</p>
+{{/if}}
+<p><a href="{{taskUrl}}">Open the task</a></p>
+<p>Best regards,<br>Ambersand Team</p>

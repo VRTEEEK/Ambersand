@@ -372,3 +372,5 @@ export const emailService = {
     });
   }
 };
+
+export default emailService;

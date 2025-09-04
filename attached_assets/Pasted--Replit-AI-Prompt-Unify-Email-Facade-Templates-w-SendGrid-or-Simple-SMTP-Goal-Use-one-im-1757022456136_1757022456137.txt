@@ -1,0 +1,321 @@
+
+
+Replit AI Prompt — “Unify Email (Facade + Templates) w/ SendGrid or Simple SMTP”
+
+Goal:
+Use one import (email) everywhere. Support:
+	•	Plain emails (subject + html/text)
+	•	Templated emails (either SendGrid dynamic templates or local Handlebars rendering)
+	•	No breaking changes for existing callers
+	•	Easy driver switch: EMAIL_DRIVER=sendgrid or EMAIL_DRIVER=smtp
+
+0) Install template dependency
+
+npm i handlebars
+
+
+⸻
+
+1) Create a single facade: server/email/index.ts
+
+// server/email/index.ts
+import path from "path";
+import fs from "fs/promises";
+import Handlebars from "handlebars";
+
+export type EmailTo = string | string[];
+
+export interface EmailSendInput {
+  to: EmailTo;
+  subject?: string;
+  html?: string;
+  text?: string;
+
+  // New, optional template API:
+  templateId?: string;                    // SendGrid dynamic template id
+  templateName?: string;                  // local hbs name (e.g., "task-assigned")
+  data?: Record<string, any>;             // vars for the template
+
+  fromEmailOverride?: string;
+  fromNameOverride?: string;
+}
+
+export interface EmailResult {
+  success: boolean;
+  statusCode?: number;
+  messageId?: string;
+  error?: string;
+}
+
+const DRIVER = (process.env.EMAIL_DRIVER || "sendgrid").toLowerCase(); // "sendgrid" | "smtp"
+
+// ---------- Local Handlebars renderer (used when DRIVER=smtp or when templateName provided) ----------
+const TPL_DIR = path.join(process.cwd(), "server", "email", "templates"); // server/email/templates/*.hbs
+const hbsCache: Record<string, Handlebars.TemplateDelegate> = {};
+
+async function renderLocalTemplate(templateName: string, data: Record<string, any> = {}) {
+  const key = templateName.replace(/\.hbs$/, "");
+  if (!hbsCache[key]) {
+    const file = path.join(TPL_DIR, `${key}.hbs`);
+    const src = await fs.readFile(file, "utf8");
+    hbsCache[key] = Handlebars.compile(src);
+  }
+  return hbsCache[key](data);
+}
+
+// ---------- Driver loaders ----------
+async function sendWithSendgrid(input: EmailSendInput): Promise<EmailResult> {
+  const mod = await import("../emailService"); // your SendGrid service
+  const svc = (mod.default || mod.emailService) as {
+    sendEmail: (o: any) => Promise<EmailResult>;
+    sendEmailWithRetry: (o: any, n?: number) => Promise<EmailResult>;
+  };
+  if (!svc?.sendEmail) return { success: false, error: "SendGrid service missing sendEmail" };
+
+  // If templateId is provided -> use dynamic template (SendGrid)
+  if (input.templateId) {
+    return svc.sendEmail({
+      to: input.to,
+      subject: input.subject, // optional; SG template can set it
+      templateId: input.templateId,
+      dynamicTemplateData: input.data || {},
+      fromEmailOverride: input.fromEmailOverride,
+      fromNameOverride: input.fromNameOverride,
+    });
+  }
+
+  // If templateName is provided -> render locally and send as html/text
+  if (input.templateName) {
+    const html = await renderLocalTemplate(input.templateName, input.data || {});
+    return svc.sendEmail({
+      to: input.to,
+      subject: input.subject || "[Ambersand]",
+      html,
+      text: input.text || html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim(),
+      fromEmailOverride: input.fromEmailOverride,
+      fromNameOverride: input.fromNameOverride,
+    });
+  }
+
+  // Plain legacy path
+  return svc.sendEmail({
+    to: input.to,
+    subject: input.subject || "[Ambersand]",
+    html: input.html,
+    text: input.text,
+    fromEmailOverride: input.fromEmailOverride,
+    fromNameOverride: input.fromNameOverride,
+  });
+}
+
+async function sendWithSmtp(input: EmailSendInput): Promise<EmailResult> {
+  const mod = await import("../simpleEmailService"); // your working simple service (SMTP/Nodemailer)
+  const svc = (mod.default || mod.emailService) as {
+    sendEmail: (o: any) => Promise<EmailResult>;
+    sendEmailWithRetry: (o: any, n?: number) => Promise<EmailResult>;
+  };
+  if (!svc?.sendEmail) return { success: false, error: "SimpleEmailService missing sendEmail" };
+
+  // SMTP doesn't know SendGrid templateId → render locally if templateName provided
+  if (input.templateName) {
+    const html = await renderLocalTemplate(input.templateName, input.data || {});
+    return svc.sendEmail({
+      to: input.to,
+      subject: input.subject || "[Ambersand]",
+      html,
+      text: input.text || html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim(),
+      fromEmailOverride: input.fromEmailOverride,
+      fromNameOverride: input.fromNameOverride,
+    });
+  }
+
+  // If caller passed templateId only, allow fallback: render a minimal notice
+  if (input.templateId && !input.templateName) {
+    const html = `<p>Template not supported on SMTP. Data:</p><pre>${JSON.stringify(input.data || {}, null, 2)}</pre>`;
+    return svc.sendEmail({
+      to: input.to,
+      subject: input.subject || "[Ambersand]",
+      html,
+      text: input.text || JSON.stringify(input.data || {}),
+      fromEmailOverride: input.fromEmailOverride,
+      fromNameOverride: input.fromNameOverride,
+    });
+  }
+
+  // Plain legacy path
+  return svc.sendEmail({
+    to: input.to,
+    subject: input.subject || "[Ambersand]",
+    html: input.html,
+    text: input.text,
+    fromEmailOverride: input.fromEmailOverride,
+    fromNameOverride: input.fromNameOverride,
+  });
+}
+
+export const email = {
+  async send(input: EmailSendInput): Promise<EmailResult> {
+    if (DRIVER === "smtp") return sendWithSmtp(input);
+    return sendWithSendgrid(input);
+  },
+
+  // backwards-compat alias
+  async sendWithRetry(input: EmailSendInput, maxRetries = 3): Promise<EmailResult> {
+    let last: EmailResult = { success: false, error: "not attempted" };
+    for (let i = 1; i <= maxRetries; i++) {
+      const res = await this.send(input);
+      if (res.success) return res;
+      last = res;
+      await new Promise(r => setTimeout(r, Math.min(1000 * Math.pow(2, i - 1), 8000)));
+    }
+    return { success: false, error: `Failed after ${maxRetries} retries: ${last.error}` };
+  },
+};
+
+export default email;
+
+
+⸻
+
+2) Make both drivers implement the same API (small edits only)
+
+2.1 server/emailService.ts (SendGrid)
+
+Ensure it accepts templateId + dynamicTemplateData and exports default and named:
+
+// keep your working sendgrid code, but confirm:
+// - exports: export const emailService = {...}; export default emailService;
+// - accepts: templateId, dynamicTemplateData, html/text paths
+// - verified FROM checks; await sgMail.send(...)
+
+(If you want the exact hardened version I provided earlier, reuse it.)
+
+2.2 server/simpleEmailService.ts (SMTP)
+
+Ensure it accepts html/text and exports default and named with the same result shape. No need to know templates; the facade renders for it.
+
+⸻
+
+3) Put your local templates here
+
+Create folder: server/email/templates/
+
+Add a couple of .hbs examples you need right now:
+
+server/email/templates/task-assigned.hbs
+
+<h2>New Task Assigned</h2>
+<p><strong>{{assigneeName}}</strong>, you were assigned a new task:</p>
+<p>Title: <strong>{{taskTitle}}</strong></p>
+<p>Project: {{projectName}}</p>
+<p><a href="{{taskUrl}}">Open the task</a></p>
+
+server/email/templates/user-invite.hbs
+
+<h2>You’re invited to Ambersand</h2>
+<p>Hello,</p>
+<p>You’ve been invited to join Ambersand.</p>
+<p><a href="{{acceptUrl}}">Accept your invite</a></p>
+
+
+⸻
+
+4) Update all call sites to the facade (non-breaking)
+
+Search the repo for:
+	•	from "./emailService" or from "../emailService"
+	•	from "./simpleEmailService"
+and replace imports with the facade:
+
+import email from "@/server/email"; // or relative: import email from "../email";
+
+Then call:
+	•	Plain (legacy stays the same):
+
+await email.send({ to, subject, html, text });
+
+	•	Templated (SendGrid or SMTP local):
+
+// If you have a SendGrid dynamic template, set templateId
+await email.send({
+  to,
+  templateId: process.env.SENDGRID_TASK_TEMPLATE_ID, // optional
+  data: { taskTitle, projectName, taskUrl, assigneeName },
+});
+
+// Or use local Handlebars template (works for both drivers)
+await email.send({
+  to,
+  subject: "[Ambersand] New Task Assigned",
+  templateName: "task-assigned",
+  data: { taskTitle, projectName, taskUrl, assigneeName },
+});
+
+You can include both templateId and templateName:
+	•	With SendGrid driver → uses templateId (dynamic template)
+	•	With SMTP driver → uses templateName (local .hbs)
+
+⸻
+
+5) Environment
+	•	Choose a driver:
+	•	EMAIL_DRIVER=sendgrid or EMAIL_DRIVER=smtp
+	•	SendGrid (if using):
+	•	SENDGRID_API_KEY=...
+	•	SENDGRID_FROM_EMAIL=verified@yourdomain
+	•	SENDGRID_FROM_NAME=Ambersand
+	•	(optional) SENDGRID_TASK_TEMPLATE_ID=... etc
+	•	SMTP (if using):
+	•	SMTP_HOST=...
+	•	SMTP_PORT=587
+	•	SMTP_USER=...
+	•	SMTP_PASS=...
+	•	SMTP_FROM_EMAIL=...
+	•	SMTP_FROM_NAME=Ambersand
+	•	Common:
+	•	APP_BASE_URL=https://app.yourdomain.com
+
+⸻
+
+6) Quick test route
+
+Add once to your server routes:
+
+import email from "./email";
+
+app.post("/api/email/test-template", isAuthenticated, async (req:any, res) => {
+  const to = String(req.body?.to || "").trim();
+  if (!to) return res.status(400).json({ message: "Missing 'to'" });
+
+  const result = await email.send({
+    to,
+    subject: "Template Test",
+    // try both knobs:
+    templateId: process.env.SENDGRID_TASK_TEMPLATE_ID, // ignored if smtp
+    templateName: "task-assigned",                     // used if smtp
+    data: {
+      assigneeName: req.user?.name || "Member",
+      taskTitle: "Demo task",
+      projectName: "Demo project",
+      taskUrl: `${process.env.APP_BASE_URL || "http://localhost:3000"}/t/123`,
+    },
+  });
+
+  if (!result.success) return res.status(502).json(result);
+  res.json({ ok: true, driver: process.env.EMAIL_DRIVER || "sendgrid", ...result });
+});
+
+
+⸻
+
+7) Acceptance
+	•	You can switch drivers by changing one env (EMAIL_DRIVER) — no code changes.
+	•	Old calls (subject+html) still work.
+	•	New templated calls work:
+	•	With SendGrid: uses dynamic templates (and subject is optional if defined in template).
+	•	With SMTP: renders local Handlebars .hbs and sends as HTML.
+	•	All call sites now import email facade (single source of truth).
+
+⸻
+
+If you paste this prompt to Replit and run the /api/email/test-template with both drivers, you’ll confirm templates render in both modes without breaking existing sends.
