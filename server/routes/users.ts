@@ -9,160 +9,87 @@ import crypto from "crypto";
 
 const router = Router();
 
-// GET /api/users/search?q=<query>&limit=8
-// Returns existing org users for autocomplete
 router.get("/search", isAuthenticated, async (req: any, res) => {
-  try {
-    const q = String(req.query.q || "").trim();
-    const limit = Math.min(Number(req.query.limit || 8), 25);
-    
-    if (!q) {
-      return res.json({ items: [] });
-    }
+  const q = String(req.query.q || "").trim();
+  const limit = Math.min(Number(req.query.limit || 8), 25);
 
-    // Lookup by name or email in same org
-    const items = await db.select({
-      id: users.id,
-      email: users.email,
-      name: users.name,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      profileImageUrl: users.profileImageUrl,
-    })
-      .from(users)
-      .where(and(
-        eq(users.organizationId, req.user.claims?.org || ''),
+  if (!q || q.length < 2) return res.json({ items: [] });
+  // Use organization from claims.org, user.organizationId, or default for development
+  const orgId = req.user?.claims?.org || req.user?.organizationId || 'default-org';
+  if (!orgId) return res.status(400).json({ items: [], message: "Organization missing" });
+
+  const rows = await db.query.users.findMany({
+    where: (u, { and, eq, or, ilike }) =>
+      and(
+        eq(u.organizationId, orgId),
         or(
-          ilike(users.email, `%${q}%`),
-          ilike(users.name, `%${q}%`),
-          ilike(users.firstName, `%${q}%`),
-          ilike(users.lastName, `%${q}%`)
+          ilike(u.email, `%${q}%`),
+          ilike(u.name, `%${q}%`)
         )
-      ))
-      .limit(limit);
+      ),
+    limit,
+    columns: { id: true, email: true, name: true, profileImageUrl: true }
+  });
 
-    const formattedItems = items.map(user => ({
-      id: user.id, // Keep as string per specification
-      email: user.email || '',
-      name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User',
-      avatarUrl: user.profileImageUrl || null,
-    }));
+  const items = rows.map(u => ({
+    id: u.id,                       // keep string
+    email: u.email || "",
+    name: u.name || u.email || "User",
+    avatarUrl: u.profileImageUrl || null,
+  }));
 
-    res.json({ items: formattedItems });
-  } catch (error) {
-    console.error("Error searching users:", error);
-    res.status(500).json({ message: "Failed to search users" });
-  }
+  res.json({ items });
 });
 
 // POST /api/users/invite { email, role? }
 router.post("/invite", isAuthenticated, async (req: any, res) => {
-  try {
-    
-    // Use organization from claims.org, user.organizationId, or default for development
-    const orgId = req.user?.claims?.org || req.user?.organizationId || 'default-org';
-    if (!orgId) {
-      return res.status(400).json({ message: "Organization missing" });
-    }
-
-    const schema = z.object({
-      email: z.string().email("Invalid email format"),
-      role: z.string().default("member"),
-    });
-
-    const { email, role } = schema.parse(req.body);
-    const normalizedEmail = email.trim().toLowerCase();
-
-    // If user already exists in org, return conflict with userId
-    const existing = await db.select({
-      id: users.id,
-    })
-      .from(users)
-      .where(and(
-        eq(users.organizationId, orgId),
-        eq(users.email, normalizedEmail)
-      ))
-      .limit(1);
-
-    if (existing.length > 0) {
-      return res.status(409).json({ 
-        message: "Already a user", 
-        userId: existing[0].id // Keep as string per specification
-      });
-    }
-
-    // Check if there's already a pending invite for this email
-    const existingInvite = await db.select({
-      id: userInvites.id,
-    })
-      .from(userInvites)
-      .where(and(
-        eq(userInvites.organizationId, orgId),
-        eq(userInvites.email, normalizedEmail),
-        eq(userInvites.accepted, false)
-      ))
-      .limit(1);
-
-    if (existingInvite.length > 0) {
-      return res.status(409).json({
-        message: "Invite already sent to this email",
-        inviteId: existingInvite[0].id
-      });
-    }
-
-    // Create invite
-    const token = crypto.randomUUID().replace(/-/g, "");
-    const [invite] = await db.insert(userInvites).values({
-      organizationId: orgId,
-      email: normalizedEmail,
-      role,
-      token,
-    }).returning();
-
-    // Send email
-    const acceptUrl = `${process.env.APP_BASE_URL || "http://localhost:5000"}/accept-invite?token=${token}`;
-    
-    try {
-      await emailService.sendEmailWithRetry({
-        to: normalizedEmail,
-        subject: "You're invited to Ambersand",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #2699A6;">You're invited to Ambersand</h2>
-            <p>You've been invited to join the Ambersand compliance management platform.</p>
-            <p>Ambersand helps organizations manage their cybersecurity compliance efficiently with automated workflows, task management, and comprehensive reporting.</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${acceptUrl}" style="background: #2699A6; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
-                Accept Your Invite
-              </a>
-            </div>
-            <p style="color: #666; font-size: 14px;">
-              This invitation link will expire in 7 days. If you have any questions, please contact your organization administrator.
-            </p>
-            <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
-            <p style="color: #666; font-size: 12px;">
-              If you're unable to click the button above, copy and paste this URL into your browser:<br>
-              <a href="${acceptUrl}">${acceptUrl}</a>
-            </p>
-          </div>
-        `,
-      });
-    } catch (emailError) {
-      console.error("Failed to send invite email:", emailError);
-      // Continue anyway - the invite is created, email can be retried
-    }
-
-    res.status(201).json({ 
-      inviteId: invite.id,
-      message: "Invitation sent successfully" 
-    });
-  } catch (error) {
-    console.error("Error creating invite:", error);
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ message: "Invalid request data", errors: error.issues });
-    }
-    res.status(500).json({ message: "Failed to create invite" });
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ message: "Invalid email" });
   }
+  // Use organization from claims.org, user.organizationId, or default for development  
+  const orgId = req.user?.claims?.org || req.user?.organizationId || 'default-org';
+  if (!orgId) {
+    return res.status(400).json({ message: "Organization missing" });
+  }
+
+  const existing = await db.query.users.findFirst({
+    where: (u, { and, eq }) => and(eq(u.organizationId, orgId), eq(u.email, email)),
+    columns: { id: true }
+  });
+  if (existing) return res.status(409).json({ message: "Already a user", userId: existing.id });
+
+  const token = crypto.randomUUID().replace(/-/g, "");
+  const [invite] = await db.insert(userInvites).values({
+    organizationId: orgId,
+    email,
+    role: "member",
+    token,
+  }).returning();
+
+  // Mailer preflight
+  if (!process.env.SENDGRID_API_KEY || !process.env.SENDGRID_FROM_EMAIL) {
+    return res.status(500).json({ message: "Email not configured (SENDGRID_API_KEY / SENDGRID_FROM_EMAIL)" });
+  }
+
+  const acceptUrl = `${process.env.APP_BASE_URL || "http://localhost:3000"}/accept-invite?token=${token}`;
+
+  try {
+    const result = await emailService.sendEmail({
+      to: email,
+      subject: "You're invited to Ambersand",
+      html: `<p>You've been invited to Ambersand.</p>
+             <p><a href="${acceptUrl}">Accept your invite</a></p>`,
+    });
+    if (!result?.success) {
+      return res.status(502).json({ message: `Failed to send invite email: ${result?.error || "unknown"}` });
+    }
+  } catch (e: any) {
+    console.error("Invite email error:", e?.response?.body || e?.message || e);
+    return res.status(502).json({ message: "Failed to send invite email" });
+  }
+
+  res.status(201).json({ inviteId: invite.id });
 });
 
 // POST /api/users/invite/accept { token }

@@ -1,250 +1,121 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { Check, ChevronDown, Mail, UserPlus, X } from 'lucide-react';
-import { apiRequest } from '@/lib/queryClient';
-import { cn } from '@/lib/utils';
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
-interface User {
-  id: string; // string per specification
-  email: string;
-  name: string;
-  avatarUrl?: string | null;
-}
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Per specification: resolve returns either existing user or invite
-type Resolve =
-  | { type: "existing"; userId: string; email: string; name?: string }
-  | { type: "invite"; inviteId: number; email: string };
-
-interface AssigneeSmartInputProps {
-  value?: string;
-  onResolve: (result: Resolve) => void;
-  onClear?: () => void;
-  placeholder?: string;
+export default function AssigneeSmartInput({ onResolve, disabled }: {
+  onResolve: (r:
+    | { type: "existing"; userId: string; email: string; name?: string }
+    | { type: "invite"; inviteId: number; email: string }
+  ) => void;
   disabled?: boolean;
-}
-
-export default function AssigneeSmartInput({ 
-  value = '', 
-  onResolve, 
-  onClear,
-  placeholder = "Type a name or email...",
-  disabled = false
-}: AssigneeSmartInputProps) {
+}) {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState(value);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  
-  const { toast } = useToast();
+  const [query, setQuery] = useState("");
 
-  // Debounced search for users
-  const { data: searchResults = { items: [] }, isLoading } = useQuery({
-    queryKey: ['/api/users/search', query],
-    queryFn: ({ queryKey }) => {
-      const [, searchQuery] = queryKey;
-      if (!searchQuery || searchQuery.length < 2) return { items: [] };
-      return fetch(`/api/users/search?q=${encodeURIComponent(searchQuery)}&limit=8`, {
-        credentials: 'include' // Send cookies for authentication
-      }).then(r => r.json());
-    },
-    enabled: query.length >= 2 && open,
-  });
+  const enabled = open && query.trim().length >= 2;
 
-  // Invite mutation per specification
-  const inviteMutation = useMutation({
-    mutationFn: async (email: string) => {
-      const r = await fetch("/api/users/invite", { 
-        method: "POST", 
-        headers: { "Content-Type": "application/json" }, 
-        body: JSON.stringify({ email }) 
-      });
-      
-      if (r.status === 409) {
-        // already exists → switch to existing
-        const { userId } = await r.json();
-        return { type: 'existing', userId, email };
-      } else if (r.ok) {
-        const { inviteId } = await r.json();
-        return { type: 'invite', inviteId, email };
-      } else {
-        throw new Error(await r.text());
-      }
-    },
-    onSuccess: (result, email) => {
-      if (result.type === 'existing') {
-        // User already exists, resolve as existing
-        onResolve({ type: "existing", userId: result.userId, email });
-      } else {
-        // New invite created
-        toast({ 
-          title: 'Invitation sent', 
-          description: `Invitation sent to ${email}. The task will be assigned when they join.` 
-        });
-        onResolve({ type: 'invite', inviteId: result.inviteId, email });
-      }
-      setOpen(false);
-    },
-    onError: (error: any) => {
-      toast({ 
-        title: 'Failed to send invitation', 
-        description: error?.message || 'Something went wrong',
-        variant: 'destructive' 
-      });
-    }
-  });
-
-  const handleUserSelect = useCallback((user: User) => {
-    setSelectedUser(user);
-    setQuery(user.name);
-    onResolve({ type: 'existing', userId: user.id, email: user.email, name: user.name });
-    setOpen(false);
-    toast({ title: 'Assignee set', description: `Assignee set to ${user.name}` });
-  }, [onResolve, toast]);
-
-  const handleInviteEmail = useCallback((email: string) => {
-    inviteMutation.mutate(email);
-  }, [inviteMutation]);
-
-  const handleClear = useCallback(() => {
-    setSelectedUser(null);
-    setQuery('');
-    onClear?.();
-  }, [onClear]);
-
-  // Update query when value prop changes
-  useEffect(() => {
-    if (value !== query) {
-      setQuery(value);
-    }
-  }, [value]);
-
-  // Check if query looks like a valid email
-  const isValidEmail = (str: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(str.trim());
+  const fetchUsers = async () => {
+    const q = query.trim();
+    if (q.length < 2) return { items: [] };
+    
+    // Use raw fetch WITH CREDENTIALS so cookies are sent in dev:
+    const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}&limit=8`, {
+      method: "GET",
+      credentials: "include",   // ← IMPORTANT
+      headers: { "Accept": "application/json" },
+    });
+    if (!res.ok) return { items: [] };
+    return res.json();
   };
 
-  const showInviteOption = query.length >= 5 && 
-    isValidEmail(query) && 
-    !searchResults.items.some((user: User) => 
-      user.email.toLowerCase() === query.toLowerCase().trim()
-    );
+  const { data, isFetching } = useQuery({
+    queryKey: ["users-search", query], // stable key that changes only with query
+    queryFn: fetchUsers,
+    enabled,
+    staleTime: 30_000,
+  });
 
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-  };
+  const items: Array<{ id: string; email: string; name?: string; avatarUrl?: string | null }> =
+    (data?.items ?? []).filter(Boolean);
+
+  const canInvite = EMAIL_RE.test(query.trim()) && !items.some(u => u.email.toLowerCase() === query.trim().toLowerCase());
+
+  async function invite(email: string) {
+    const res = await fetch("/api/users/invite", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    if (res.status === 409) {
+      const { userId } = await res.json();
+      onResolve({ type: "existing", userId, email });
+      return;
+    }
+    if (!res.ok) {
+      const err = await res.text();
+      alert(`Failed to send invite: ${err || res.status}`);
+      return;
+    }
+    const { inviteId } = await res.json();
+    onResolve({ type: "invite", inviteId, email });
+  }
 
   return (
-    <div className="flex items-center gap-2">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className={cn(
-              "w-full justify-between",
-              selectedUser && "border-green-500 bg-green-50 dark:bg-green-900/20"
-            )}
-            disabled={disabled}
-          >
-            {selectedUser ? (
-              <div className="flex items-center gap-2">
-                <Avatar className="h-5 w-5">
-                  <AvatarImage src={selectedUser.avatarUrl || undefined} />
-                  <AvatarFallback className="text-xs">
-                    {getInitials(selectedUser.name)}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="truncate">{selectedUser.name}</span>
-                <Badge variant="outline" className="text-xs">Assigned</Badge>
-              </div>
-            ) : (
-              <span className="text-muted-foreground truncate">
-                {query || placeholder}
-              </span>
-            )}
-            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-full p-0" align="start">
-          <Command>
-            <CommandInput 
-              placeholder="Search users or enter email..."
-              value={query}
-              onValueChange={setQuery}
-            />
-            <CommandEmpty>
-              {isLoading ? 'Searching...' : 'No users found.'}
-            </CommandEmpty>
-            
-            {searchResults.items.length > 0 && (
-              <CommandGroup heading="Existing Users">
-                {searchResults.items.map((user: User) => (
-                  <CommandItem
-                    key={user.id}
-                    onSelect={() => handleUserSelect(user)}
-                    className="cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2 w-full">
-                      <Avatar className="h-6 w-6">
-                        <AvatarImage src={user.avatarUrl || undefined} />
-                        <AvatarFallback className="text-xs">
-                          {getInitials(user.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{user.name}</div>
-                        <div className="text-xs text-muted-foreground truncate">{user.email}</div>
-                      </div>
-                      <Check className="h-4 w-4 opacity-0 group-data-[selected]:opacity-100" />
-                    </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-            
-            {showInviteOption && (
-              <CommandGroup heading="Invite New User">
-                <CommandItem
-                  onSelect={() => handleInviteEmail(query.trim())}
-                  className="cursor-pointer"
-                  disabled={inviteMutation.isPending}
+    <div className="relative w-full">
+      <div className="flex items-center gap-2">
+        <input
+          className="w-full rounded border p-2"
+          placeholder="Type a name or email…"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          disabled={disabled}
+          aria-autocomplete="list"
+          aria-expanded={open}
+        />
+      </div>
+
+      {open && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow">
+          {isFetching && <div className="p-2 text-sm text-neutral-500">Searching…</div>}
+
+          {!isFetching && items.length > 0 && (
+            <ul className="max-h-64 overflow-auto py-1">
+              {items.map(u => (
+                <li
+                  key={u.id}
+                  className="cursor-pointer px-3 py-2 hover:bg-neutral-50"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => onResolve({ type: "existing", userId: u.id, email: u.email, name: u.name })}
                 >
-                  <div className="flex items-center gap-2 w-full">
-                    <div className="h-6 w-6 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                      <UserPlus className="h-3 w-3 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium">Invite {query.trim()}</div>
-                      <div className="text-xs text-muted-foreground">
-                        Send an invite and assign later
-                      </div>
-                    </div>
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </CommandItem>
-              </CommandGroup>
-            )}
-          </Command>
-        </PopoverContent>
-      </Popover>
-      
-      {selectedUser && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleClear}
-          className="h-8 w-8 p-0"
-        >
-          <X className="h-4 w-4" />
-        </Button>
+                  <div className="text-sm font-medium">{u.name || u.email}</div>
+                  <div className="text-xs text-neutral-500">{u.email}</div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {!isFetching && items.length === 0 && !canInvite && (
+            <div className="p-2 text-sm text-neutral-500">No users found. Keep typing…</div>
+          )}
+
+          {!isFetching && canInvite && (
+            <button
+              type="button"
+              className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-neutral-50"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => invite(query.trim())}
+            >
+              <span className="text-sm">
+                Invite <span className="font-semibold">{query.trim()}</span>
+              </span>
+              <span className="text-xs text-neutral-500">Send email invite</span>
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

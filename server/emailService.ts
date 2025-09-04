@@ -1,11 +1,10 @@
 import sgMail from '@sendgrid/mail';
 
-// Configure SendGrid
-if (process.env.SENDGRID_API_KEY) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-} else {
-  console.warn('SENDGRID_API_KEY is not configured');
-}
+// Configure SendGrid - Require verified sender
+if (!process.env.SENDGRID_API_KEY) throw new Error("SENDGRID_API_KEY missing");
+if (!process.env.SENDGRID_FROM_EMAIL) throw new Error("SENDGRID_FROM_EMAIL missing (must be verified)");
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 interface EmailOptions {
   to: string | string[];
