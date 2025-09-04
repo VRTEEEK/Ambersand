@@ -56,14 +56,15 @@ export async function getComplianceReportData(params: {
   const { projectId, regulationCode, controlStatusFilter, organizationId } = params;
 
   // Get project details
-  let projectQuery = db.select().from(projects).where(eq(projects.id, projectId));
-  
-  // Add organization filter only if organizationId is provided
+  const projectConditions = [eq(projects.id, projectId)];
   if (organizationId) {
-    projectQuery = projectQuery.where(eq(projects.organizationId, organizationId));
+    projectConditions.push(eq(projects.organizationId, organizationId));
   }
   
-  const project = await projectQuery.limit(1);
+  const project = await db.select()
+    .from(projects)
+    .where(and(...projectConditions))
+    .limit(1);
 
   if (!project[0]) {
     throw new Error(`Project ${projectId} not found or access denied`);
@@ -150,7 +151,7 @@ export async function getComplianceReportData(params: {
       id: project[0].id,
       name: project[0].name,
       nameAr: project[0].nameAr,
-      organizationId: project[0].organizationId
+      organizationId: project[0].organizationId || ''
     },
     regulation: {
       code: regulationCode || 'NCA-ECC-2:2024',
