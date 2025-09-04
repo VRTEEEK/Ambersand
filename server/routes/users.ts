@@ -14,31 +14,32 @@ router.get("/search", isAuthenticated, async (req: any, res) => {
   const limit = Math.min(Number(req.query.limit || 8), 25);
 
   if (!q || q.length < 2) return res.json({ items: [] });
-  // Use organization from claims.org, user.organizationId, or default for development
-  const orgId = req.user?.claims?.org || req.user?.organizationId || 'default-org';
-  if (!orgId) return res.status(400).json({ items: [], message: "Organization missing" });
 
-  const rows = await db.query.users.findMany({
-    where: (u, { and, eq, or, ilike }) =>
-      and(
-        eq(u.organizationId, orgId),
+  try {
+    // Search users by email, firstName, lastName
+    const rows = await db.query.users.findMany({
+      where: (u, { or, ilike }) =>
         or(
           ilike(u.email, `%${q}%`),
-          ilike(u.name, `%${q}%`)
-        )
-      ),
-    limit,
-    columns: { id: true, email: true, name: true, profileImageUrl: true }
-  });
+          ilike(u.firstName, `%${q}%`),
+          ilike(u.lastName, `%${q}%`)
+        ),
+      limit,
+      columns: { id: true, email: true, name: true, firstName: true, lastName: true, profileImageUrl: true }
+    });
 
-  const items = rows.map(u => ({
-    id: u.id,                       // keep string
-    email: u.email || "",
-    name: u.name || u.email || "User",
-    avatarUrl: u.profileImageUrl || null,
-  }));
-
-  res.json({ items });
+    const items = rows.map(u => ({
+      id: u.id,
+      email: u.email || "",
+      name: u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email || "User",
+      avatarUrl: u.profileImageUrl || null,
+    }));
+    
+    res.json({ items });
+  } catch (error) {
+    console.error("User search error:", error);
+    res.status(500).json({ items: [], message: "Search failed" });
+  }
 });
 
 // POST /api/users/invite { email, role? }
