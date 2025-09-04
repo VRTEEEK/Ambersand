@@ -541,21 +541,15 @@ export class DatabaseStorage implements IStorage {
           const userName = assignedUser.firstName || assignedUser.name || 'User';
           const taskUrl = `${process.env.APP_BASE_URL || "http://localhost:5000"}/tasks/${newTask.id}`;
           
-          const emailResult = await emailService.sendEmailWithRetry({
-            to: assignedUser.email,
-            subject: `[Ambersand] New Task Assigned: ${newTask.title}`,
-            html: `
-              <h2>New Task Assigned</h2>
-              <p>Hello ${userName},</p>
-              <p>You have been assigned a new task: <strong>${newTask.title}</strong></p>
-              <p><strong>Project:</strong> ${projectName}</p>
-              <p><strong>Due Date:</strong> ${dueDate}</p>
-              <p><strong>Priority:</strong> ${newTask.priority}</p>
-              <p><strong>Description:</strong> ${newTask.description || 'No description provided'}</p>
-              <p><a href="${taskUrl}">View Task</a></p>
-              <p>Best regards,<br>Ambersand Team</p>
-            `
-          });
+          const emailResult = await emailService.sendTaskAssignmentEmail(
+            assignedUser.email,
+            userName,
+            newTask.title,
+            dueDate,
+            projectName,
+            'en', // TODO: get user's preferred language
+            newTask.id
+          );
           
           console.log('🚀🚀🚀 STORAGE: Email send result:', emailResult);
           

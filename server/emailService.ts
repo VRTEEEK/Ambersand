@@ -1,5 +1,6 @@
 // server/emailService.ts
 import sgMail from "@sendgrid/mail";
+import { renderTemplate } from "./email/templateRenderer";
 
 export interface EmailOptions {
   to: string | string[];
@@ -81,9 +82,9 @@ async function sendWithSmtp(opts: EmailOptions): Promise<EmailResult> {
   const simple = (mod.default || (mod as any).emailService);
   if (!simple?.sendEmail) return { success: false, error: "simpleEmailService missing sendEmail" };
   return simple.sendEmail({
-    to: opts.to,
-    subject: opts.subject,
-    html: opts.html,
+    to: Array.isArray(opts.to) ? opts.to[0] : opts.to,
+    subject: opts.subject || 'No Subject',
+    html: opts.html || '',
     text: opts.text,
     // templateId/dynamicTemplateData are ignored by SMTP; if you need templates with SMTP,
     // render them before calling or add a facade (we can do this later).
@@ -93,6 +94,50 @@ async function sendWithSmtp(opts: EmailOptions): Promise<EmailResult> {
 }
 
 export const emailService = {
+  getBaseUrl(): string {
+    return process.env.APP_BASE_URL || "http://localhost:5000";
+  },
+
+  async sendTaskAssignmentEmail(toEmail: string, userName: string, taskTitle: string, dueDate: string, projectName: string, language: 'en'|'ar'='en', taskId?: number): Promise<EmailResult> {
+    const baseUrl = this.getBaseUrl();
+    const taskLink = taskId ? `${baseUrl}/tasks/${taskId}` : `${baseUrl}/my-tasks`;
+    const tpl = language === 'ar' ? "task-assigned.ar" : "task-assigned.en";
+    const html = await renderTemplate(tpl, { userName, taskTitle, projectName, dueDate, taskLink });
+    const subject = language === 'ar' ? `مهمة جديدة: ${taskTitle}` : `New Task Assignment: ${taskTitle}`;
+    return this.sendEmailWithRetry({ to: toEmail, subject, html });
+  },
+
+  async sendDeadlineReminderEmail(toEmail: string, userName: string, taskTitle: string, dueDate: string, language:'en'|'ar'='en', taskId?: number): Promise<EmailResult> {
+    const baseUrl = this.getBaseUrl();
+    const taskLink = taskId ? `${baseUrl}/tasks/${taskId}` : `${baseUrl}/my-tasks`;
+    const tpl = language === 'ar' ? "deadline-reminder.ar" : "deadline-reminder.en";
+    const html = await renderTemplate(tpl, { userName, taskTitle, dueDate, taskLink });
+    const subject = language === 'ar' ? `تذكير: موعد تسليم المهمة "${taskTitle}" يقترب` : `Reminder: Task "${taskTitle}" Due Soon`;
+    return this.sendEmailWithRetry({ to: toEmail, subject, html });
+  },
+
+  async sendStatusUpdateEmail(toEmail: string, userName: string, taskTitle: string, oldStatus:string, newStatus:string, language:'en'|'ar'='en', taskId?: number): Promise<EmailResult> {
+    const baseUrl = this.getBaseUrl();
+    const taskLink = taskId ? `${baseUrl}/tasks/${taskId}` : `${baseUrl}/my-tasks`;
+    const tpl = language === 'ar' ? "status-update.ar" : "status-update.en";
+    const html = await renderTemplate(tpl, { userName, taskTitle, oldStatus, newStatus, taskLink });
+    const subject = language === 'ar' ? `تحديث حالة المهمة: ${taskTitle}` : `Task Status Update: ${taskTitle}`;
+    return this.sendEmailWithRetry({ to: toEmail, subject, html });
+  },
+
+  async sendInvitationEmail(toEmail: string, inviterName: string, organizationName: string, personalMessage = '', inviteUrl: string): Promise<EmailResult> {
+    const html = await renderTemplate("user-invitation.en", { inviterName, organizationName, personalMessage, inviteUrl });
+    const subject = `You've been invited to join ${organizationName}`;
+    return this.sendEmailWithRetry({ to: toEmail, subject, html });
+  },
+
+  async sendPasswordResetEmail(toEmail: string, userName: string, resetUrl: string, language:'en'|'ar'='en'): Promise<EmailResult> {
+    const tpl = language === 'ar' ? "password-reset.ar" : "password-reset.en";
+    const html = await renderTemplate(tpl, { userName, resetUrl });
+    const subject = language === 'ar' ? 'إعادة تعيين كلمة المرور' : 'Password Reset Request';
+    return this.sendEmailWithRetry({ to: toEmail, subject, html });
+  },
+
   async sendEmail(opts: EmailOptions): Promise<EmailResult> {
     if ((process.env.EMAIL_DRIVER || "sendgrid").toLowerCase() === "smtp") {
       return sendWithSmtp(opts);

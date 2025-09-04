@@ -1,0 +1,20 @@
+<div style="font-family: Arial, sans-serif; color:#0f172a; line-height:1.5;">
+  <h2 style="margin:0 0 12px;">Welcome to {{organizationName}}</h2>
+  <p style="margin:0 0 12px;">Hi there,</p>
+  <p style="margin:0 0 12px;">
+    {{inviterName}} has invited you to join <strong>{{organizationName}}</strong> on Ambersand.
+  </p>
+  {{#if personalMessage}}
+  <p style="margin:16px 0; color:#475569;">{{personalMessage}}</p>
+  {{/if}}
+  <p style="margin:16px 0;">
+    <a href="{{inviteUrl}}"
+       style="background:#2699A6; color:#fff; text-decoration:none; padding:10px 16px; border-radius:6px; display:inline-block;">
+       Accept your invite
+    </a>
+  </p>
+  <p style="margin:16px 0; color:#64748b; font-size:12px;">
+    If the button doesn't work, copy and paste this URL:<br/>
+    <span style="word-break:break-all;">{{inviteUrl}}</span>
+  </p>
+</div>

@@ -1,0 +1,296 @@
+
+⸻
+
+Replit AI Prompt — “Extract email templates from emailService.ts into files (+ Handlebars renderer)”
+
+We currently have inline HTML inside emailService.ts (e.g., templates.taskAssignment, etc.). Please:
+
+0) Install dependency
+
+npm i handlebars
+
+
+⸻
+
+1) Add a small template renderer
+
+Create server/email/templateRenderer.ts:
+
+import path from "path";
+import fs from "fs/promises";
+import Handlebars from "handlebars";
+
+const TPL_DIR = path.join(process.cwd(), "server", "email", "templates");
+
+const cache: Record<string, Handlebars.TemplateDelegate> = {};
+
+export async function renderTemplate(name: string, data: Record<string, any> = {}) {
+  const key = name.replace(/\.hbs$/i, "");
+  if (!cache[key]) {
+    const filePath = path.join(TPL_DIR, `${key}.hbs`);
+    const src = await fs.readFile(filePath, "utf8");
+    cache[key] = Handlebars.compile(src);
+  }
+  return cache[key](data);
+}
+
+
+⸻
+
+2) Create the template files
+
+Create folder: server/email/templates/
+
+task-assigned.en.hbs
+
+<div style="font-family: Arial, sans-serif;">
+  <h2>New Task Assigned to You</h2>
+  <p>Hi {{userName}},</p>
+  <p>You have been assigned a new task:</p>
+  <ul>
+    <li><strong>Task:</strong> {{taskTitle}}</li>
+    <li><strong>Project:</strong> {{projectName}}</li>
+    <li><strong>Due Date:</strong> {{dueDate}}</li>
+  </ul>
+  <p>Please log in to Ambersand platform to view details.</p>
+  <a href="{{taskLink}}" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View Task</a>
+</div>
+
+task-assigned.ar.hbs
+
+<div dir="rtl" style="font-family: Arial, sans-serif; direction: rtl;">
+  <h2>مهمة جديدة مُسندة إليك</h2>
+  <p>مرحباً {{userName}}،</p>
+  <p>تم إسناد مهمة جديدة إليك:</p>
+  <ul>
+    <li><strong>المهمة:</strong> {{taskTitle}}</li>
+    <li><strong>المشروع:</strong> {{projectName}}</li>
+    <li><strong>تاريخ الاستحقاق:</strong> {{dueDate}}</li>
+  </ul>
+  <p>يرجى تسجيل الدخول إلى منصة Ambersand لعرض التفاصيل.</p>
+  <a href="{{taskLink}}" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">عرض المهمة</a>
+</div>
+
+deadline-reminder.en.hbs
+
+<div style="font-family: Arial, sans-serif;">
+  <h2>Task Deadline Reminder</h2>
+  <p>Hi {{userName}},</p>
+  <p>This is a reminder that the following task is due soon:</p>
+  <p><strong>{{taskTitle}}</strong></p>
+  <p>Due Date: <strong>{{dueDate}}</strong></p>
+  <a href="{{taskLink}}" style="background-color: #ea580c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View Task</a>
+</div>
+
+deadline-reminder.ar.hbs
+
+<div dir="rtl" style="font-family: Arial, sans-serif; direction: rtl;">
+  <h2>تذكير بموعد التسليم</h2>
+  <p>مرحباً {{userName}}،</p>
+  <p>هذا تذكير بأن موعد تسليم المهمة التالية يقترب:</p>
+  <p><strong>{{taskTitle}}</strong></p>
+  <p>موعد التسليم: <strong>{{dueDate}}</strong></p>
+  <a href="{{taskLink}}" style="background-color: #ea580c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">عرض المهمة</a>
+</div>
+
+status-update.en.hbs
+
+<div style="font-family: Arial, sans-serif;">
+  <h2>Task Status Updated</h2>
+  <p>Hi {{userName}},</p>
+  <p>The status of task "{{taskTitle}}" has been updated:</p>
+  <p>From: <span style="color: #6b7280;">{{oldStatus}}</span></p>
+  <p>To: <span style="color: #2699A6; font-weight: bold;">{{newStatus}}</span></p>
+  <a href="{{taskLink}}" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">View Details</a>
+</div>
+
+status-update.ar.hbs
+
+<div dir="rtl" style="font-family: Arial, sans-serif; direction: rtl;">
+  <h2>تحديث حالة المهمة</h2>
+  <p>مرحباً {{userName}}،</p>
+  <p>تم تحديث حالة المهمة "{{taskTitle}}":</p>
+  <p>من: <span style="color: #6b7280;">{{oldStatus}}</span></p>
+  <p>إلى: <span style="color: #2699A6; font-weight: bold;">{{newStatus}}</span></p>
+  <a href="{{taskLink}}" style="background-color: #2699A6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">عرض التفاصيل</a>
+</div>
+
+user-invitation.en.hbs
+
+<div style="font-family: Arial, sans-serif; color:#0f172a; line-height:1.5;">
+  <h2 style="margin:0 0 12px;">Welcome to {{organizationName}}</h2>
+  <p style="margin:0 0 12px;">Hi there,</p>
+  <p style="margin:0 0 12px;">
+    {{inviterName}} has invited you to join <strong>{{organizationName}}</strong> on Ambersand.
+  </p>
+  {{#if personalMessage}}
+  <p style="margin:16px 0; color:#475569;">{{personalMessage}}</p>
+  {{/if}}
+  <p style="margin:16px 0;">
+    <a href="{{inviteUrl}}"
+       style="background:#2699A6; color:#fff; text-decoration:none; padding:10px 16px; border-radius:6px; display:inline-block;">
+       Accept your invite
+    </a>
+  </p>
+  <p style="margin:16px 0; color:#64748b; font-size:12px;">
+    If the button doesn't work, copy and paste this URL:<br/>
+    <span style="word-break:break-all;">{{inviteUrl}}</span>
+  </p>
+</div>
+
+password-reset.en.hbs
+
+<div style="font-family: Arial, sans-serif;">
+  <h2>Password Reset</h2>
+  <p>Hi {{userName}},</p>
+  <p>We received a request to reset your password.</p>
+  <p>Click the button below to reset it:</p>
+  <p>
+    <a href="{{resetUrl}}" style="background:#2699A6; color:#fff; padding:10px 16px; border-radius:6px; text-decoration:none; display:inline-block;">
+      Reset Password
+    </a>
+  </p>
+  <p style="color:#64748b; font-size:12px;">If you didn't request this, you can safely ignore this email.</p>
+</div>
+
+password-reset.ar.hbs
+
+<div dir="rtl" style="font-family: Arial, sans-serif; direction: rtl;">
+  <h2>إعادة تعيين كلمة المرور</h2>
+  <p>مرحباً {{userName}}،</p>
+  <p>لقد تلقّينا طلباً لإعادة تعيين كلمة المرور الخاصة بك.</p>
+  <p>اضغط على الزر أدناه لإعادة التعيين:</p>
+  <p>
+    <a href="{{resetUrl}}" style="background:#2699A6; color:#fff; padding:10px 16px; border-radius:6px; text-decoration:none; display:inline-block;">
+      إعادة تعيين كلمة المرور
+    </a>
+  </p>
+  <p style="color:#64748b; font-size:12px;">إن لم تطلب ذلك، يمكنك تجاهل هذه الرسالة.</p>
+</div>
+
+
+⸻
+
+3) Update emailService.ts to use files (and still support SendGrid Dynamic Templates)
+
+Keep your SendGrid sending logic, but:
+	•	stop embedding long HTML in this file,
+	•	add a tiny resolver that chooses a template file based on the language,
+	•	use html/text fields (not content array) for the non-template path.
+
+Edit emailService.ts:
+	1.	Import the renderer:
+
+import { renderTemplate } from "./email/templateRenderer";
+
+	2.	Replace the three helpers to render from files:
+
+getBaseUrl(): string { /* keep your existing function */ },
+
+async sendTaskAssignmentEmail(toEmail: string, userName: string, taskTitle: string, dueDate: string, projectName: string, language: 'en'|'ar'='en', taskId?: number) {
+  const baseUrl = this.getBaseUrl();
+  const taskLink = taskId ? `${baseUrl}/tasks/${taskId}` : `${baseUrl}/my-tasks`;
+  const tpl = language === 'ar' ? "task-assigned.ar" : "task-assigned.en";
+  const html = await renderTemplate(tpl, { userName, taskTitle, projectName, dueDate, taskLink });
+  const subject = language === 'ar' ? `مهمة جديدة: ${taskTitle}` : `New Task Assignment: ${taskTitle}`;
+  return this.sendEmailWithRetry({ to: toEmail, subject, html });
+},
+
+async sendDeadlineReminderEmail(toEmail: string, userName: string, taskTitle: string, dueDate: string, language:'en'|'ar'='en', taskId?: number) {
+  const baseUrl = this.getBaseUrl();
+  const taskLink = taskId ? `${baseUrl}/tasks/${taskId}` : `${baseUrl}/my-tasks`;
+  const tpl = language === 'ar' ? "deadline-reminder.ar" : "deadline-reminder.en";
+  const html = await renderTemplate(tpl, { userName, taskTitle, dueDate, taskLink });
+  const subject = language === 'ar' ? `تذكير: موعد تسليم المهمة "${taskTitle}" يقترب` : `Reminder: Task "${taskTitle}" Due Soon`;
+  return this.sendEmailWithRetry({ to: toEmail, subject, html });
+},
+
+async sendStatusUpdateEmail(toEmail: string, userName: string, taskTitle: string, oldStatus:string, newStatus:string, language:'en'|'ar'='en', taskId?: number) {
+  const baseUrl = this.getBaseUrl();
+  const taskLink = taskId ? `${baseUrl}/tasks/${taskId}` : `${baseUrl}/my-tasks`;
+  const tpl = language === 'ar' ? "status-update.ar" : "status-update.en";
+  const html = await renderTemplate(tpl, { userName, taskTitle, oldStatus, newStatus, taskLink });
+  const subject = language === 'ar' ? `تحديث حالة المهمة: ${taskTitle}` : `Task Status Update: ${taskTitle}`;
+  return this.sendEmailWithRetry({ to: toEmail, subject, html });
+},
+
+async sendInvitationEmail(toEmail: string, inviterName: string, organizationName: string, personalMessage = '', inviteUrl: string) {
+  const html = await renderTemplate("user-invitation.en", { inviterName, organizationName, personalMessage, inviteUrl });
+  const subject = `You've been invited to join ${organizationName}`;
+  return this.sendEmailWithRetry({ to: toEmail, subject, html });
+},
+
+async sendPasswordResetEmail(toEmail: string, userName: string, resetUrl: string, language:'en'|'ar'='en') {
+  const tpl = language === 'ar' ? "password-reset.ar" : "password-reset.en";
+  const html = await renderTemplate(tpl, { userName, resetUrl });
+  const subject = language === 'ar' ? 'إعادة تعيين كلمة المرور' : 'Password Reset Request';
+  return this.sendEmailWithRetry({ to: toEmail, subject, html });
+},
+
+	3.	In your core sendEmail method, switch away from content[] and use helper fields:
+
+Replace:
+
+mailOptions.content = [{ type: 'text/html', value: html }, ...]
+
+With:
+
+const msg: any = {
+  from: { email: fromEmail, name: fromName },
+  to: recipients,
+};
+
+if (templateId) {
+  msg.templateId = templateId;
+  if (dynamicTemplateData) msg.dynamic_template_data = dynamicTemplateData;
+  if (subject) msg.subject = subject;
+} else {
+  msg.subject = subject;
+  msg.html = html;
+  msg.text = text || html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+const [response] = await sgMail.send(msg);
+
+This matches @sendgrid/mail’s recommended shape and avoids subtle errors.
+
+	4.	Optional safety: remove module-level throws and validate inside sendEmail, returning a clear error if SENDGRID_API_KEY or SENDGRID_FROM_EMAIL are missing. (Prevents import-time crashes.)
+
+⸻
+
+4) (Optional) If you also use SendGrid Dynamic Templates
+
+For any of the helper methods above, if you’ve created a SendGrid dynamic template, add:
+
+const TEMPLATE_ID = process.env.SENDGRID_TASK_ASSIGNED_TEMPLATE_ID;
+if (TEMPLATE_ID) {
+  return this.sendEmailWithRetry({
+    to: toEmail,
+    templateId: TEMPLATE_ID,
+    dynamicTemplateData: { userName, taskTitle, projectName, dueDate, taskLink },
+    subject, // optional if SG template defines it
+  });
+}
+// fallback to file-based render:
+
+Do this pattern per email type.
+
+⸻
+
+5) Quick test
+	•	Call a helper (e.g., task assignment) and confirm:
+	•	HTML is loaded from server/email/templates/*.hbs
+	•	Email renders with correct links and text
+	•	If you set a SENDGRID_*_TEMPLATE_ID, it uses the dynamic template instead
+
+⸻
+
+Why this solves your issue
+	•	You asked to “extract the template from service email and update the template files.”
+→ All big HTML is now in template files you can edit safely without touching send logic.
+	•	You keep both worlds:
+	•	File-based (Handlebars) templates for flexibility and local dev,
+	•	SendGrid dynamic templates if you configure templateId envs.
+	•	The SendGrid message format is the helper format (to, from, subject, html/text or templateId + dynamic_template_data), which is the stable, well-documented path.
+
+If you want me to generate Arabic/English variants for any other emails, tell me the names and I’ll add the .hbs quickly.
