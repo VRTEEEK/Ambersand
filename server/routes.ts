@@ -1211,7 +1211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Create invite per specification
           const token = crypto.randomUUID().replace(/-/g, "");
           const [invite] = await db.insert(userInvites).values({
-            organizationId: req.user.claims?.org || null, // Handle null org for now
+            organizationId: req.user.claims?.org || req.user?.organizationId || 'default-org',
             email: normalized,
             role: "member",
             token,

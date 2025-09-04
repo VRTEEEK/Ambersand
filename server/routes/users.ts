@@ -58,6 +58,13 @@ router.get("/search", isAuthenticated, async (req: any, res) => {
 // POST /api/users/invite { email, role? }
 router.post("/invite", isAuthenticated, async (req: any, res) => {
   try {
+    
+    // Use organization from claims.org, user.organizationId, or default for development
+    const orgId = req.user?.claims?.org || req.user?.organizationId || 'default-org';
+    if (!orgId) {
+      return res.status(400).json({ message: "Organization missing" });
+    }
+
     const schema = z.object({
       email: z.string().email("Invalid email format"),
       role: z.string().default("member"),
@@ -72,7 +79,7 @@ router.post("/invite", isAuthenticated, async (req: any, res) => {
     })
       .from(users)
       .where(and(
-        eq(users.organizationId, req.user.claims?.org || ''),
+        eq(users.organizationId, orgId),
         eq(users.email, normalizedEmail)
       ))
       .limit(1);
@@ -90,7 +97,7 @@ router.post("/invite", isAuthenticated, async (req: any, res) => {
     })
       .from(userInvites)
       .where(and(
-        eq(userInvites.organizationId, req.user.claims?.org || ''),
+        eq(userInvites.organizationId, orgId),
         eq(userInvites.email, normalizedEmail),
         eq(userInvites.accepted, false)
       ))
@@ -106,7 +113,7 @@ router.post("/invite", isAuthenticated, async (req: any, res) => {
     // Create invite
     const token = crypto.randomUUID().replace(/-/g, "");
     const [invite] = await db.insert(userInvites).values({
-      organizationId: req.user.claims?.org || null, // Allow null for now  
+      organizationId: orgId,
       email: normalizedEmail,
       role,
       token,

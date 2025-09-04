@@ -2,7 +2,7 @@ import { pgTable, serial, varchar, timestamp, boolean } from "drizzle-orm/pg-cor
 
 export const userInvites = pgTable("user_invites", {
   id: serial("id").primaryKey(),
-  organizationId: varchar("organization_id", { length: 64 }), // Allow null for now
+  organizationId: varchar("organization_id", { length: 64 }).notNull(),
   email: varchar("email", { length: 256 }).notNull(),
   token: varchar("token", { length: 128 }).notNull(), // random, single-use
   role: varchar("role", { length: 32 }).default("member").notNull(),

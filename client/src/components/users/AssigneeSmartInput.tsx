@@ -49,7 +49,9 @@ export default function AssigneeSmartInput({
     queryFn: ({ queryKey }) => {
       const [, searchQuery] = queryKey;
       if (!searchQuery || searchQuery.length < 2) return { items: [] };
-      return fetch(`/api/users/search?q=${encodeURIComponent(searchQuery)}&limit=8`).then(r => r.json());
+      return fetch(`/api/users/search?q=${encodeURIComponent(searchQuery)}&limit=8`, {
+        credentials: 'include' // Send cookies for authentication
+      }).then(r => r.json());
     },
     enabled: query.length >= 2 && open,
   });
