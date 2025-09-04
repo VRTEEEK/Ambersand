@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -157,6 +158,9 @@ export function ExportComplianceDialog({
             <Download className="h-5 w-5" />
             Export Compliance Report
           </DialogTitle>
+          <DialogDescription>
+            Generate and download compliance reports in multiple formats with evidence files.
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
