@@ -87,6 +87,7 @@ export default function ProjectDetail() {
   
   // State for active tab - start with controls if domain specified
   const [activeTab, setActiveTab] = useState(domainFromUrl ? 'controls' : 'tasks');
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isTaskWizardOpen, setIsTaskWizardOpen] = useState(false);
@@ -452,6 +453,14 @@ export default function ProjectDetail() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setExportDialogOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              {language === 'ar' ? 'تصدير التقرير' : 'Export Report'}
+            </Button>
             <Button onClick={() => handleCreateTask()} className="bg-teal-600 hover:bg-teal-700 text-white">
               <Plus className="h-4 w-4 mr-2" />
               {language === 'ar' ? 'مهمة جديدة' : 'New Task'}
@@ -1101,6 +1110,15 @@ export default function ProjectDetail() {
           }}
           control={selectedControlForInfo}
           projectId={project?.id || 0}
+        />
+
+        {/* Export Dialog */}
+        <ExportComplianceDialog
+          open={exportDialogOpen}
+          onOpenChange={setExportDialogOpen}
+          projectId={parseInt(id)}
+          projectName={project.name}
+          regulationCode="ecc"
         />
       </div>
     </AppLayout>
