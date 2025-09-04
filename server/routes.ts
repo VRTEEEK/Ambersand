@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getComplianceReportData } from "./reports/reportData";
 import { renderComplianceHTML } from "./reports/html";
 import { buildPDF, buildDOCX, buildXLSX, streamBundle } from "./reports/reportBuilders";
+import crypto from "crypto";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
@@ -13,6 +14,8 @@ import {
   insertEvidenceSchema,
   insertComplianceAssessmentSchema,
   insertControlAssessmentSchema,
+  users,
+  userInvites,
 } from "@shared/schema";
 import multer from "multer";
 import path from "path";
@@ -1161,8 +1164,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log('🔥🔥🔥 ROUTES: Method:', req.method);
     console.log('🔥🔥🔥🔥🔥🔥🔥🔥🔥 ROUTE PROCESSING STARTING 🔥🔥🔥🔥🔥🔥🔥🔥🔥');
     try {
+      const { assigneeEmail, ...taskBody } = req.body;
+      let finalAssigneeId = taskBody.assigneeId;
+      let pendingAssigneeInviteId = null;
+
+      // Handle assignee email logic
+      if (assigneeEmail && !finalAssigneeId) {
+        console.log('🔥🔥🔥 Processing assignee email:', assigneeEmail);
+        
+        // Check if user already exists in org
+        const existingUser = await db.select({ id: users.id })
+          .from(users)
+          .where(and(
+            eq(users.organizationId, req.user.claims?.org || ''),
+            eq(users.email, assigneeEmail.toLowerCase().trim())
+          ))
+          .limit(1);
+
+        if (existingUser.length > 0) {
+          finalAssigneeId = existingUser[0].id;
+          console.log('🔥🔥🔥 Found existing user, setting assigneeId:', finalAssigneeId);
+        } else {
+          // Create invite and store pendingAssigneeInviteId
+          console.log('🔥🔥🔥 Creating invite for:', assigneeEmail);
+          const token = crypto.randomUUID().replace(/-/g, "");
+          const [invite] = await db.insert(userInvites).values({
+            organizationId: req.user.claims?.org || '',
+            email: assigneeEmail.toLowerCase().trim(),
+            role: 'member',
+            token,
+          }).returning();
+          
+          pendingAssigneeInviteId = invite.id;
+          console.log('🔥🔥🔥 Created invite with ID:', pendingAssigneeInviteId);
+          
+          // Send invite email
+          try {
+            const acceptUrl = `${process.env.APP_BASE_URL || "http://localhost:5000"}/accept-invite?token=${token}`;
+            await emailService.sendEmailWithRetry({
+              to: assigneeEmail,
+              subject: "You're invited to Ambersand",
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h2 style="color: #2699A6;">You're invited to Ambersand</h2>
+                  <p>You've been invited to join the Ambersand compliance management platform and assigned to a task.</p>
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="${acceptUrl}" style="background: #2699A6; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                      Accept Your Invite
+                    </a>
+                  </div>
+                  <p style="color: #666; font-size: 14px;">
+                    Once you join, you'll automatically be assigned to the task and can start working on it.
+                  </p>
+                </div>
+              `,
+            });
+            console.log('🔥🔥🔥 Invite email sent successfully');
+          } catch (emailError) {
+            console.error('🔥🔥🔥 Failed to send invite email:', emailError);
+          }
+        }
+      }
+
       const taskData = insertTaskSchema.parse({
-        ...req.body,
+        ...taskBody,
+        assigneeId: finalAssigneeId,
+        pendingAssigneeInviteId,
         createdById: (req.user as any)?.id || (req.user as any)?.claims?.sub,
       });
       
@@ -2392,6 +2459,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Comments routes
   const commentsRouter = (await import("./routes/comments")).default;
   app.use("/api/comments", commentsRouter);
+
+  // Users routes (search, invite)
+  const usersRouter = (await import("./routes/users")).default;
+  app.use("/api/users", usersRouter);
 
   // Export route
   app.post("/api/reports/compliance/export", isAuthenticated, async (req: any, res) => {

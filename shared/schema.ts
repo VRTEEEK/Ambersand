@@ -581,6 +581,7 @@ export const insertTaskSchema = createInsertSchema(tasks).omit({
   updatedAt: true,
 }).extend({
   status: z.enum(['pending', 'in-progress', 'review', 'completed', 'blocked']).default('pending'),
+  assigneeEmail: z.string().email().optional(), // New field for email invites
 });
 
 export const insertEvidenceSchema = createInsertSchema(evidence).omit({
@@ -703,3 +704,7 @@ export type InsertEvidenceTask = z.infer<typeof insertEvidenceTaskSchema>;
 // Re-export comments tables
 export { comments, commentSubscriptions } from "./comments";
 export type { Comment, CommentSubscription, CommentTarget } from "./comments";
+
+// Re-export invites tables
+export { userInvites } from "./invites";
+export type { UserInvite } from "./invites";

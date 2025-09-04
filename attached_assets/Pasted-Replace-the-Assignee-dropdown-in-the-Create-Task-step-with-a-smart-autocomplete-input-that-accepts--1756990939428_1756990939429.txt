@@ -1,0 +1,203 @@
+Replace the Assignee dropdown in the Create Task step with a smart autocomplete input that accepts:
+	1.	Existing users → autocomplete list (type-ahead).
+	2.	New emails (not in DB) → show “Invite ” action; clicking sends invite email and stores a pending invite.
+
+Result on submit:
+	•	If existing user picked → send assigneeId in payload.
+	•	If a new email entered → call invite, then create task with assigneeId = null and a pendingAssigneeInviteId on the task (for follow-up when the user accepts).
+
+⸻
+
+Backend
+
+1) DB: invites table
+
+Create shared/invites.ts and push migration.
+
+// shared/invites.ts
+import { pgTable, serial, varchar, timestamp, boolean } from "drizzle-orm/pg-core";
+
+export const userInvites = pgTable("user_invites", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id", { length: 64 }).notNull(),
+  email: varchar("email", { length: 256 }).notNull(),
+  token: varchar("token", { length: 128 }).notNull(), // random, single-use
+  role: varchar("role", { length: 32 }).default("member").notNull(),
+  accepted: boolean("accepted").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+});
+
+If the tasks table exists, add a nullable column pendingAssigneeInviteId:
+
+// migration: ALTER TABLE tasks ADD COLUMN pending_assignee_invite_id integer NULL;
+
+2) Routes
+
+Add to server/routes/users.ts (or new router) and mount under /api/users.
+
+a) Users search
+
+// GET /api/users/search?q=<query>&limit=8
+// Returns existing org users for autocomplete
+router.get("/search", isAuthenticated, async (req:any, res) => {
+  const q = String(req.query.q || "").trim();
+  const limit = Math.min(Number(req.query.limit || 8), 25);
+  if (!q) return res.json({ items: [] });
+
+  // Lookup by name or email in same org
+  const items = await db.query.users.findMany({
+    where: (u, { and, eq, ilike }) => and(
+      eq(u.organizationId, req.user.claims.org),
+      ilike(u.email, `%${q}%`) // OR name ilike
+    ),
+    limit,
+    columns: { id: true, email: true, name: true, avatarUrl: true }
+  });
+
+  res.json({ items });
+});
+
+b) Invite endpoint
+
+// POST /api/users/invite { email, role? }
+router.post("/invite", isAuthenticated, async (req:any, res) => {
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const role = (req.body.role || "member") as string;
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ message: "Invalid email." });
+  }
+
+  // If user already exists in org, return conflict with userId
+  const existing = await db.query.users.findFirst({
+    where: (u, { and, eq }) => and(eq(u.organizationId, req.user.claims.org), eq(u.email, email)),
+    columns: { id: true }
+  });
+  if (existing) return res.status(409).json({ message: "Already a user", userId: existing.id });
+
+  // Create invite
+  const token = crypto.randomUUID().replace(/-/g, "");
+  const [invite] = await db.insert(userInvites).values({
+    organizationId: req.user.claims.org,
+    email,
+    role,
+    token,
+  }).returning();
+
+  // Send email
+  const acceptUrl = `${process.env.APP_BASE_URL || "http://localhost:3000"}/accept-invite?token=${token}`;
+  await emailService.sendEmailWithRetry({
+    to: email,
+    subject: "You’re invited to Ambersand",
+    html: `<p>You’ve been invited to join Ambersand.</p>
+           <p><a href="${acceptUrl}">Accept your invite</a></p>`,
+  });
+
+  res.status(201).json({ inviteId: invite.id });
+});
+
+c) Accept invite (stub if not present)
+Add GET /api/users/invite/:token or use your existing signup flow to consume token, create user, mark accepted=true, and optionally migrate any tasks with pendingAssigneeInviteId to the new assigneeId.
+
+3) Task creation accepts assignee by email or id
+
+In server/routes/tasks.ts (create/update), modify schema:
+
+const payloadSchema = z.object({
+  // ...existing fields...
+  assigneeId: z.number().optional(),
+  assigneeEmail: z.string().email().optional(), // new
+});
+
+Logic:
+	•	If assigneeId present → use it (must belong to same org).
+	•	Else if assigneeEmail present:
+	•	Lookup org user; if found → set assigneeId.
+	•	If not found → call internal invite create (without sending email twice) or expect the client to have already created an invite; set pendingAssigneeInviteId and leave assigneeId = null.
+
+Also fire your existing task assignment email when assigneeId is set.
+
+⸻
+
+Frontend
+
+1) Replace dropdown with SmartAutocomplete
+
+In the Create Task → Step 3 component, remove the assignee <Select> and add a new component:
+
+client/src/components/users/AssigneeSmartInput.tsx
+
+Features:
+	•	Single-value combobox with free typing (not restricted to results).
+	•	Debounced search to /api/users/search?q=.
+	•	If input looks like a valid email and no exact user match → show a special option “Invite ”.
+	•	On select:
+	•	If existing user chosen → onResolve({ type:'existing', userId, email })
+	•	If Invite option chosen → calls POST /api/users/invite then onResolve({ type:'invite', inviteId, email })
+
+Minimal shape:
+
+type Resolve =
+  | { type: "existing"; userId: number; email: string; name?: string }
+  | { type: "invite"; inviteId: number; email: string };
+
+export default function AssigneeSmartInput({ value, onResolve }: {
+  value?: string;
+  onResolve: (r: Resolve) => void;
+}) {
+  // state: query, results, loading
+  // fetch /api/users/search?q=..., debounce 250ms
+  // render shadcn Combobox (Command/Popover) listing results
+  // if valid email but not listed → add "Invite <email>" option
+}
+
+UI guidelines:
+	•	Input placeholder: “Type a name or email…”
+	•	Show avatar + name + email for results.
+	•	Show trailing hint for invite option: “Send an invite and assign later”.
+
+2) Hook into RHF in the Task wizard
+
+In your CreateTaskStep3 form:
+	•	Keep internal fields assigneeId (hidden) and assigneeEmail (hidden).
+	•	When AssigneeSmartInput.onResolve fires:
+	•	If existing → set assigneeId = userId, clear assigneeEmail
+	•	If invite → set assigneeId = undefined, set assigneeEmail = email, and store pendingInviteId in local state (optional)
+
+On submit:
+	•	Send both fields; backend decides:
+	•	If assigneeId provided → assign now.
+	•	Else if assigneeEmail provided → store pendingAssigneeInviteId and leave assigneeId null.
+
+3) UX/Toasts
+	•	After inviting, show toast: “Invitation sent to . The task will be assigned automatically when they join.”
+	•	If user picks an existing user, show: “Assignee set to ”.
+
+⸻
+
+Edge cases & Validation
+	•	Email regex on client and server.
+	•	Prevent inviting an email that already exists in this org (server returns 409 with userId; client should switch to “existing” path).
+	•	If network fails during invite, keep the typed email in the field and show retry toast.
+	•	On task details page, if pendingAssigneeInviteId exists, show a small badge: “Waiting for invite acceptance by ”.
+
+⸻
+
+Acceptance Criteria
+	•	The dropdown is removed; replaced by a smart autocomplete that accepts both users and new emails.
+	•	Typing shows autocomplete results; selecting an email not in DB triggers invite and stores a pending invite on the task.
+	•	Task creation:
+	•	With existing user → assigneeId set; assignment email sent (existing behavior).
+	•	With new email → invite email sent; task saved with pendingAssigneeInviteId (and no assigneeId yet).
+	•	If the invited user accepts, we can later auto-assign any tasks referencing that invite (follow-up hook, optional).
+	•	All actions respect organization scope and auth.
+	•	No TypeScript errors; UI is keyboard accessible.
+
+⸻
+
+Commit messages
+
+feat(tasks): smart assignee input with user search + email invite
+chore(db): add user_invites and pendingAssigneeInviteId on tasks
+feat(users): search and invite endpoints; invite email via SendGrid

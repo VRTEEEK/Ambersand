@@ -16,6 +16,8 @@ import { X, ArrowLeft, ArrowRight, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { apiRequest } from '@/lib/queryClient';
 import { useI18n } from '@/hooks/use-i18n';
+import { useToast } from '@/hooks/use-toast';
+import AssigneeSmartInput from '@/components/users/AssigneeSmartInput';
 
 // Task creation schema
 const taskSchema = z.object({
@@ -26,6 +28,7 @@ const taskSchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
   dueDate: z.string().optional().nullable().transform(val => val || null),
   assigneeId: z.string().optional().nullable().transform(val => val || null),
+  assigneeEmail: z.string().optional(), // For new email invites
   projectId: z.number(),
   controlIds: z.array(z.number()).min(1, 'At least one control must be selected'),
   createSeparateTasks: z.boolean().default(false),
@@ -42,6 +45,7 @@ interface TaskWizardProps {
 
 export default function TaskWizard({ isOpen, onClose, projectId, preselectedProjectId }: TaskWizardProps) {
   const { language } = useI18n();
+  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [step, setStep] = useState(preselectedProjectId ? 2 : 1); // Skip project selection if preselected
   const [selectedControls, setSelectedControls] = useState<number[]>([]);
@@ -50,6 +54,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
   const [domainSearch, setDomainSearch] = useState('');
   const [createSeparateTasks, setCreateSeparateTasks] = useState(false);
   const [domainControlCounts, setDomainControlCounts] = useState<Record<string, number>>({});
+  const [assigneeDisplay, setAssigneeDisplay] = useState<string>('');
 
   const form = useForm<TaskFormData>({
     resolver: zodResolver(taskSchema),
@@ -757,22 +762,27 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                     </div>
 
                     <div>
-                      <Label htmlFor="assigneeId">{language === 'ar' ? 'المكلف' : 'Assignee'}</Label>
-                      <Select
-                        value={form.watch('assigneeId')}
-                        onValueChange={(value) => form.setValue('assigneeId', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={language === 'ar' ? 'اختر المكلف' : 'Select assignee'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(users as any[]).map((user: any) => (
-                            <SelectItem key={user.id} value={user.id}>
-                              {user.firstName} {user.lastName} ({user.email})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="assignee">{language === 'ar' ? 'المكلف' : 'Assignee'}</Label>
+                      <AssigneeSmartInput
+                        value={assigneeDisplay}
+                        placeholder={language === 'ar' ? 'اكتب اسماً أو بريداً إلكترونياً...' : 'Type a name or email...'}
+                        onResolve={(result) => {
+                          if (result.type === 'existing') {
+                            form.setValue('assigneeId', result.userId.toString());
+                            form.setValue('assigneeEmail', '');
+                            setAssigneeDisplay(result.name);
+                          } else if (result.type === 'invite') {
+                            form.setValue('assigneeId', '');
+                            form.setValue('assigneeEmail', result.email);
+                            setAssigneeDisplay(result.email);
+                          }
+                        }}
+                        onClear={() => {
+                          form.setValue('assigneeId', '');
+                          form.setValue('assigneeEmail', '');
+                          setAssigneeDisplay('');
+                        }}
+                      />
                     </div>
                   </div>
 
