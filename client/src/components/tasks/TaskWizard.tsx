@@ -768,13 +768,14 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                         placeholder={language === 'ar' ? 'اكتب اسماً أو بريداً إلكترونياً...' : 'Type a name or email...'}
                         onResolve={(result) => {
                           if (result.type === 'existing') {
-                            form.setValue('assigneeId', result.userId.toString());
+                            form.setValue('assigneeId', result.userId); // Already string per spec
                             form.setValue('assigneeEmail', '');
-                            setAssigneeDisplay(result.name);
+                            setAssigneeDisplay(result.name || result.email);
                           } else if (result.type === 'invite') {
                             form.setValue('assigneeId', '');
                             form.setValue('assigneeEmail', result.email);
                             setAssigneeDisplay(result.email);
+                            toast.success(`Invitation sent to ${result.email}. The task will auto-assign when they join.`);
                           }
                         }}
                         onClear={() => {

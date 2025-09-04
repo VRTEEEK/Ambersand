@@ -152,6 +152,7 @@ export const tasks = pgTable("tasks", {
   completedAt: timestamp("completed_at"),
   projectId: integer("project_id"),
   assigneeId: varchar("assignee_id"),
+  pendingAssigneeInviteId: integer("pending_assignee_invite_id"), // For pending invites
   createdById: varchar("created_by_id").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

@@ -1164,81 +1164,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log('🔥🔥🔥 ROUTES: Method:', req.method);
     console.log('🔥🔥🔥🔥🔥🔥🔥🔥🔥 ROUTE PROCESSING STARTING 🔥🔥🔥🔥🔥🔥🔥🔥🔥');
     try {
-      const { assigneeEmail, ...taskBody } = req.body;
-      let finalAssigneeId = taskBody.assigneeId;
-      let pendingAssigneeInviteId = null;
+      // Parse and validate request body per specification
+      const body = z.object({
+        title: z.string().min(1),
+        titleAr: z.string().optional(),
+        description: z.string().optional(),
+        descriptionAr: z.string().optional(),
+        priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
+        dueDate: z.string().optional(),
+        assigneeId: z.string().optional(),        // string per spec
+        assigneeEmail: z.string().email().optional(),
+        projectId: z.number(),
+        controlIds: z.array(z.number()).min(1),
+        createSeparateTasks: z.boolean().default(false),
+      }).parse(req.body);
 
-      // Handle assignee email logic
-      if (assigneeEmail && !finalAssigneeId) {
-        console.log('🔥🔥🔥 Processing assignee email:', assigneeEmail);
-        
-        // Check if user already exists in org
-        const existingUser = await db.select({ id: users.id })
+      // Logic per specification
+      let assigneeId: string | null = null;
+      let pendingAssigneeInviteId: number | null = null;
+
+      if (body.assigneeId) {
+        // Validate user belongs to same org
+        const u = await db.select({ id: users.id })
           .from(users)
           .where(and(
-            eq(users.organizationId, req.user.claims?.org || ''),
-            eq(users.email, assigneeEmail.toLowerCase().trim())
+            eq(users.id, body.assigneeId),
+            eq(users.organizationId, req.user.claims.org)
           ))
           .limit(1);
-
-        if (existingUser.length > 0) {
-          finalAssigneeId = existingUser[0].id;
-          console.log('🔥🔥🔥 Found existing user, setting assigneeId:', finalAssigneeId);
+        
+        if (u.length > 0) assigneeId = u[0].id;
+      } else if (body.assigneeEmail) {
+        const normalized = body.assigneeEmail.toLowerCase().trim();
+        
+        // Try existing user first
+        const u = await db.select({ id: users.id })
+          .from(users)
+          .where(and(
+            eq(users.organizationId, req.user.claims.org),
+            eq(users.email, normalized)
+          ))
+          .limit(1);
+        
+        if (u.length > 0) {
+          assigneeId = u[0].id;
         } else {
-          // Create invite and store pendingAssigneeInviteId
-          console.log('🔥🔥🔥 Creating invite for:', assigneeEmail);
+          // Create invite per specification
           const token = crypto.randomUUID().replace(/-/g, "");
           const [invite] = await db.insert(userInvites).values({
-            organizationId: req.user.claims?.org || '',
-            email: assigneeEmail.toLowerCase().trim(),
-            role: 'member',
+            organizationId: req.user.claims.org,
+            email: normalized,
+            role: "member",
             token,
           }).returning();
           
           pendingAssigneeInviteId = invite.id;
-          console.log('🔥🔥🔥 Created invite with ID:', pendingAssigneeInviteId);
-          
-          // Send invite email
-          try {
-            const acceptUrl = `${process.env.APP_BASE_URL || "http://localhost:5000"}/accept-invite?token=${token}`;
-            await emailService.sendEmailWithRetry({
-              to: assigneeEmail,
-              subject: "You're invited to Ambersand",
-              html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                  <h2 style="color: #2699A6;">You're invited to Ambersand</h2>
-                  <p>You've been invited to join the Ambersand compliance management platform and assigned to a task.</p>
-                  <div style="text-align: center; margin: 30px 0;">
-                    <a href="${acceptUrl}" style="background: #2699A6; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
-                      Accept Your Invite
-                    </a>
-                  </div>
-                  <p style="color: #666; font-size: 14px;">
-                    Once you join, you'll automatically be assigned to the task and can start working on it.
-                  </p>
-                </div>
-              `,
-            });
-            console.log('🔥🔥🔥 Invite email sent successfully');
-          } catch (emailError) {
-            console.error('🔥🔥🔥 Failed to send invite email:', emailError);
-          }
+
+          const acceptUrl = `${process.env.APP_BASE_URL || "http://localhost:5000"}/accept-invite?token=${token}`;
+          await emailService.sendEmailWithRetry({
+            to: normalized,
+            subject: "You're invited to Ambersand (Task Assignment Pending)",
+            html: `<p>You've been invited to join Ambersand. You have a task waiting.</p>
+                   <p><a href="${acceptUrl}">Accept your invite</a></p>`
+          });
         }
       }
 
       const taskData = insertTaskSchema.parse({
-        ...taskBody,
-        assigneeId: finalAssigneeId,
+        title: body.title,
+        titleAr: body.titleAr,
+        description: body.description,
+        descriptionAr: body.descriptionAr,
+        priority: body.priority,
+        dueDate: body.dueDate || null,
+        projectId: body.projectId,
+        assigneeId,
         pendingAssigneeInviteId,
-        createdById: (req.user as any)?.id || (req.user as any)?.claims?.sub,
+        createdById: req.user.id,
       });
       
       console.log('🔥🔥🔥 Parsed task data:', JSON.stringify(taskData, null, 2));
       const task = await storage.createTask(taskData);
       console.log('🔥🔥🔥 Task created successfully:', JSON.stringify(task, null, 2));
       
-      // Send email notification if task is assigned to someone (including self)
-      const currentUserId = (req.user as any)?.id || (req.user as any)?.claims?.sub;
+      // Create task-control relationships
+      if (body.controlIds.length > 0) {
+        const taskControlsData = body.controlIds.map(controlId => ({
+          taskId: task.id,
+          eccControlId: controlId
+        }));
+        await storage.createTaskControls(taskControlsData);
+      }
+      
+      // Send assignment email if assigneeId set (per specification)
+      if (assigneeId) {
+        try {
+          const assignedUser = await storage.getUser(assigneeId);
+          if (assignedUser?.email) {
+            await emailService.sendEmailWithRetry({
+              to: assignedUser.email,
+              subject: `[Ambersand] New Task Assigned: ${task.title}`,
+              html: `<p>You were assigned: ${task.title}</p>`,
+            });
+          }
+        } catch (emailError) {
+          console.error('Failed to send assignment email:', emailError);
+        }
+      }
+      
+      const currentUserId = req.user.id;
       console.log('📧 Email check:', { 
         taskAssigneeId: task.assigneeId, 
         currentUserId: currentUserId,

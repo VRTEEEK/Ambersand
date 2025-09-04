@@ -11,14 +11,15 @@ import { apiRequest } from '@/lib/queryClient';
 import { cn } from '@/lib/utils';
 
 interface User {
-  id: number;
+  id: string; // string per specification
   email: string;
   name: string;
   avatarUrl?: string | null;
 }
 
-type Resolve = 
-  | { type: "existing"; userId: number; email: string; name: string }
+// Per specification: resolve returns either existing user or invite
+type Resolve =
+  | { type: "existing"; userId: string; email: string; name?: string }
   | { type: "invite"; inviteId: number; email: string };
 
 interface AssigneeSmartInputProps {

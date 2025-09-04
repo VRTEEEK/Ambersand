@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { db } from "../db";
-import { users, userInvites } from "@shared/schema";
+import { users, userInvites, tasks } from "@shared/schema";
 import { isAuthenticated } from "../replitAuth";
 import { and, eq, ilike, or } from "drizzle-orm";
 import { emailService } from "../emailService";
@@ -42,7 +42,7 @@ router.get("/search", isAuthenticated, async (req: any, res) => {
       .limit(limit);
 
     const formattedItems = items.map(user => ({
-      id: parseInt(user.id),
+      id: user.id, // Keep as string per specification
       email: user.email || '',
       name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User',
       avatarUrl: user.profileImageUrl || null,
@@ -79,8 +79,8 @@ router.post("/invite", isAuthenticated, async (req: any, res) => {
 
     if (existing.length > 0) {
       return res.status(409).json({ 
-        message: "User already exists in organization", 
-        userId: parseInt(existing[0].id) 
+        message: "Already a user", 
+        userId: existing[0].id // Keep as string per specification
       });
     }
 
@@ -158,7 +158,51 @@ router.post("/invite", isAuthenticated, async (req: any, res) => {
   }
 });
 
-// GET /api/users/invite/:token (stub for accepting invites)
+// POST /api/users/invite/accept { token }
+// Accept invite and auto-assign pending tasks per specification
+router.post("/invite/accept", isAuthenticated, async (req: any, res) => {
+  try {
+    const { token } = z.object({ token: z.string().min(10) }).parse(req.body);
+
+    const [invite] = await db.select().from(userInvites)
+      .where(and(eq(userInvites.token, token), eq(userInvites.accepted, false)));
+    
+    if (!invite) {
+      return res.status(400).json({ message: "Invalid or expired invite" });
+    }
+
+    // Ensure current user belongs to same org
+    if (req.user.claims.org !== invite.organizationId) {
+      return res.status(403).json({ message: "Wrong organization" });
+    }
+
+    // Mark invite as accepted
+    await db.update(userInvites).set({ 
+      accepted: true, 
+      acceptedAt: new Date() 
+    }).where(eq(userInvites.id, invite.id));
+
+    // Move all tasks with pendingAssigneeInviteId → assigneeId = current user
+    const updated = await db.update(tasks)
+      .set({ 
+        assigneeId: req.user.id, 
+        pendingAssigneeInviteId: null, 
+        updatedAt: new Date() 
+      })
+      .where(eq(tasks.pendingAssigneeInviteId, invite.id))
+      .returning({ id: tasks.id, title: tasks.title });
+
+    res.json({ success: true, assignedTasks: updated });
+  } catch (error) {
+    console.error("Error accepting invite:", error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid request data" });
+    }
+    res.status(500).json({ message: "Failed to accept invite" });
+  }
+});
+
+// GET /api/users/invite/:token (get invite details)
 router.get("/invite/:token", async (req: any, res) => {
   try {
     const { token } = req.params;
