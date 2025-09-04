@@ -251,17 +251,6 @@ export default function UserProfile() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="bio">
-                  {language === 'ar' ? 'نبذة شخصية' : 'Bio'}
-                </Label>
-                <Textarea
-                  id="bio"
-                  disabled={!isEditing}
-                  rows={4}
-                  placeholder={language === 'ar' ? 'أدخل نبذة شخصية' : 'Enter bio'}
-                />
-              </div>
             </CardContent>
           </Card>
 
