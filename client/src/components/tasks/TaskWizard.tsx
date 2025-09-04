@@ -146,6 +146,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
             title: `${cleanTaskData.title} - ${control?.eccControl?.code}`,
             titleAr: cleanTaskData.titleAr ? `${cleanTaskData.titleAr} - ${control?.eccControl?.code}` : '',
             description: cleanTaskData.description ? `${cleanTaskData.description}\n\nControl: ${controlTitle}` : `Control: ${controlTitle}`,
+            controlIds: [Number(controlId)]
           });
           const task = await taskResponse.json();
           console.log('Created separate task:', task);
@@ -160,16 +161,16 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
         }
         return tasks;
       } else {
-        // Create single task with multiple controls
-        const taskResponse = await apiRequest('/api/tasks', 'POST', cleanTaskData);
+        // Create single task with multiple controls - include controlIds in the request
+        const taskWithControls = {
+          ...cleanTaskData,
+          controlIds: controlIds.map(id => Number(id))
+        };
+        
+        console.log('📝 Sending task data to server:', taskWithControls);
+        const taskResponse = await apiRequest('/api/tasks', 'POST', taskWithControls);
         const task = await taskResponse.json();
         console.log('Created task:', task);
-
-        // Associate all controls with the task
-        if (controlIds.length > 0 && task && task.id) {
-          console.log('Adding controls to task:', task.id, controlIds);
-          await apiRequest(`/api/tasks/${task.id}/controls`, 'POST', { controlIds: controlIds.map(id => Number(id)) });
-        }
 
         return task;
       }
