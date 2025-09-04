@@ -1,0 +1,127 @@
+Replit AI Prompt — Make Support Button truly global (Portal + fixed + global mount)
+
+You’re editing a Vite + React + Tailwind + Radix app. The Support button occasionally renders inside page content (e.g., over the profile block). Fix it so it always floats at the viewport’s bottom-left, regardless of parent layout, transforms, or scroll containers.
+
+Do this exactly
+
+1) Mount globally in client/src/App.tsx
+	•	Import and render the button outside the router/content so it’s created once for the whole app.
+
+import { SupportButton } from "@/components/support/SupportButton";
+
+function App() {
+  return (
+    <>
+      {/* existing providers */}
+      <QueryClientProvider client={queryClient}>
+        <NotificationProvider>
+          <PermissionsProvider>
+            <TooltipProvider>
+              <Router />
+              <Toaster />
+            </TooltipProvider>
+          </PermissionsProvider>
+        </NotificationProvider>
+      </QueryClientProvider>
+
+      {/* Global floating Support button */}
+      <SupportButton />
+    </>
+  );
+}
+export default App;
+
+	•	If <SupportButton /> exists anywhere else (pages/layouts), remove those duplicates.
+
+2) In client/src/components/support/SupportButton.tsx
+	•	Ensure the button itself is rendered via a React Portal to document.body, so it escapes any ancestor with transform, filter, perspective, or overflow rules.
+	•	Ensure the button has fixed positioning and a high z-index.
+	•	Wrap with a Radix Tooltip for UX polish.
+
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
+import * as Tooltip from "@radix-ui/react-tooltip";
+import { SupportModal } from "./SupportModal";
+
+export function SupportButton() {
+  const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const portalRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    portalRef.current = document.body; // always portal to body
+    setMounted(true);
+  }, []);
+
+  const btn = (
+    <Tooltip.Provider delayDuration={200} skipDelayDuration={400}>
+      <Tooltip.Root>
+        <Tooltip.Trigger asChild>
+          <button
+            onClick={() => setOpen(true)}
+            aria-label="Open technical support"
+            className="fixed left-4 bottom-4 z-[1000] rounded-full px-3 py-1.5 shadow
+                       bg-neutral-800 text-white hover:bg-neutral-700
+                       focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-400"
+          >
+            Support
+          </button>
+        </Tooltip.Trigger>
+        <Tooltip.Portal>
+          <Tooltip.Content
+            side="top"
+            align="start"
+            className="select-none rounded-md bg-neutral-900 px-2 py-1 text-xs text-white shadow"
+          >
+            Contact Technical Support
+            <Tooltip.Arrow className="fill-neutral-900" />
+          </Tooltip.Content>
+        </Tooltip.Portal>
+      </Tooltip.Root>
+    </Tooltip.Provider>
+  );
+
+  return (
+    <>
+      {mounted && portalRef.current ? createPortal(btn, portalRef.current) : null}
+      {/* Modal also portals to body (see step 3) */}
+      <SupportModal open={open} onClose={() => setOpen(false)} />
+    </>
+  );
+}
+
+3) In client/src/components/support/SupportModal.tsx
+	•	Make sure the modal also uses a portal to document.body (Radix Dialog already does, but ensure you’re using Dialog.Portal).
+	•	Keep the overlay/content fixed so it centers on screen, not inside a page panel.
+
+import * as Dialog from "@radix-ui/react-dialog";
+import { useEffect } from "react";
+
+export function SupportModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <Dialog.Root open={open} onOpenChange={(v) => !v && onClose()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-[1100] bg-black/40" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-[1110] w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white p-6 shadow">
+          {/* …title, inputs, buttons… */}
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+4) Safety checks
+	•	Search the codebase for any other position: fixed elements that might set extreme z-index; if something sits above the button, raise the button to z-[2000].
+	•	Verify no global CSS sets transform on html, body, or the app root. If it does (e.g., for subtle GPU hacks), portaling to document.body still works, but avoid transforms on body/html.
+
+Acceptance criteria
+	•	Support button always sits bottom-left of the viewport on every page.
+	•	It never re-flows into profile/content sections, even when containers use transform, overflow, or framer-motion.
+	•	Modal centers on screen; overlay covers full viewport.
+	•	Tooltip appears on hover/focus.

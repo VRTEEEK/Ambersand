@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 interface SupportModalProps {
@@ -12,6 +12,12 @@ export function SupportModal({ open, onClose }: SupportModalProps) {
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   const handleSubmit = async () => {
     const t = title.trim();
@@ -90,9 +96,9 @@ export function SupportModal({ open, onClose }: SupportModalProps) {
   return (
     <Dialog.Root open={open} onOpenChange={(value) => !value && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/40 z-40" />
+        <Dialog.Overlay className="fixed inset-0 z-[1100] bg-black/40" />
         <Dialog.Content 
-          className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white dark:bg-gray-800 p-6 shadow-lg border"
+          className="fixed left-1/2 top-1/2 z-[1110] w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white dark:bg-gray-800 p-6 shadow-lg border"
           onKeyDown={handleKeyDown}
         >
           <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
