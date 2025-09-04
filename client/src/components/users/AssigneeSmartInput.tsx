@@ -52,7 +52,7 @@ export default function AssigneeSmartInput({ onResolve, disabled }: {
       const { userId } = await res.json();
       onResolve({ type: "existing", userId, email });
       setOpen(false);
-      setQuery("");
+      setQuery(email);
       return;
     }
     if (!res.ok) {
@@ -63,7 +63,7 @@ export default function AssigneeSmartInput({ onResolve, disabled }: {
     const { inviteId } = await res.json();
     onResolve({ type: "invite", inviteId, email });
     setOpen(false);
-    setQuery("");
+    setQuery(`Invited: ${email}`);
   }
 
   return (
@@ -96,7 +96,7 @@ export default function AssigneeSmartInput({ onResolve, disabled }: {
                     e.preventDefault();
                     onResolve({ type: "existing", userId: u.id, email: u.email, name: u.name });
                     setOpen(false);
-                    setQuery("");
+                    setQuery(u.name || u.email || "Selected User");
                   }}
                 >
                   <div className="text-sm font-medium">{u.name || u.email}</div>
