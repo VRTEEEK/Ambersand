@@ -32,6 +32,8 @@ export default function TaskDetail() {
   const { toast } = useToast();
   const { language } = useI18n();
   const queryClient = useQueryClient();
+  
+  // All useState hooks first
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [linkExistingDialogOpen, setLinkExistingDialogOpen] = useState(false);
   const [selectedControlId, setSelectedControlId] = useState<number | null>(null);
@@ -44,70 +46,44 @@ export default function TaskDetail() {
     file: null as File | null
   });
 
-  // Get current user
+  // All useQuery hooks
   const { data: currentUser } = useQuery<UserType>({
     queryKey: ["/api/auth/user"]
   });
 
-  // Get task details
   const { data: task, isLoading: taskLoading } = useQuery<TaskWithDetails>({
     queryKey: ["/api/tasks", taskId || "0"]
   });
 
-  // Get all projects to find the task's project
   const { data: projects = [] } = useQuery<any[]>({
     queryKey: ["/api/projects"]
   });
 
-  // Get all users to find assignee and creator
   const { data: users = [] } = useQuery<UserType[]>({
     queryKey: ["/api/users"]
   });
 
-  // Get task controls with ECC control details
   const { data: controls = [] } = useQuery<any[]>({
     queryKey: ["/api/tasks", taskId || "0", "controls"]
   });
 
-  // Get evidence for this task
   const { data: evidence = [] } = useQuery<Evidence[]>({
     queryKey: ["/api/evidence/task", taskId || "0"]
   });
 
-  // Get evidence versions
   const { data: versions = [] } = useQuery<EvidenceVersion[]>({
     queryKey: ["/api/evidence/versions", taskId || "0"]
   });
 
-  // Get evidence linked to specific control
   const { data: controlLinkedEvidence = [] } = useQuery<Evidence[]>({
     queryKey: ["/api/evidence/control", selectedControlForView || 0]
   });
 
-  // Get all evidence for linking
   const { data: allEvidence = [] } = useQuery<Evidence[]>({
     queryKey: ["/api/evidence"]
   });
 
-  // Auto-select first control when controls are loaded
-  useEffect(() => {
-    if (controls.length > 0 && !selectedControlId) {
-      const firstControl = controls[0];
-      if (firstControl?.eccControl?.id) {
-        setSelectedControlId(firstControl.eccControl.id);
-        setSelectedControlForView(firstControl.eccControl.id);
-      }
-    }
-  }, [controls, selectedControlId]);
-
-  // Calculate derived data
-  const taskProject = projects.find((p: any) => p.id === task?.projectId);
-  const assignedUser = users.find((u: any) => u.id === task?.assigneeId);
-  const createdByUser = users.find((u: any) => u.id === task?.createdById);
-
-
-
-  // Upload evidence mutation
+  // All useMutation hooks
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
       const response = await fetch(`/api/evidence`, {
@@ -137,41 +113,86 @@ export default function TaskDetail() {
     }
   });
 
+  const riskToggleMutation = useMutation({
+    mutationFn: (makeRisk: boolean) => toggleRisk(parseInt(taskId || "0"), makeRisk),
+    onSuccess: (data, makeRisk) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", taskId || "0"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/risks"] });
+      toast({
+        title: makeRisk ? 'Task converted to Risk' : 'Risk converted back to Task',
+        description: makeRisk 
+          ? 'This task is now tracked as a risk in the Risk Register' 
+          : 'This task is no longer considered a risk',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Toggle failed',
+        description: 'Failed to update risk status',
+        variant: 'destructive',
+      });
+    }
+  });
+
+  // All useEffect hooks
+  useEffect(() => {
+    if (controls.length > 0 && !selectedControlId) {
+      const firstControl = controls[0];
+      if (firstControl?.eccControl?.id) {
+        setSelectedControlId(firstControl.eccControl.id);
+        setSelectedControlForView(firstControl.eccControl.id);
+      }
+    }
+  }, [controls, selectedControlId]);
+
+  // Early returns AFTER all hooks
   if (!taskId) {
     return (
-      <div className="container mx-auto p-6">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">Invalid task ID</p>
-          </CardContent>
-        </Card>
-      </div>
+      <AppLayout>
+        <div className="container mx-auto p-6">
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-center text-muted-foreground">Invalid task ID</p>
+            </CardContent>
+          </Card>
+        </div>
+      </AppLayout>
     );
   }
 
   if (taskLoading) {
     return (
-      <div className="container mx-auto p-6">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">Loading task details...</p>
-          </CardContent>
-        </Card>
-      </div>
+      <AppLayout>
+        <div className="container mx-auto p-6">
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-center text-muted-foreground">Loading task details...</p>
+            </CardContent>
+          </Card>
+        </div>
+      </AppLayout>
     );
   }
 
   if (!task) {
     return (
-      <div className="container mx-auto p-6">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">Task not found</p>
-          </CardContent>
-        </Card>
-      </div>
+      <AppLayout>
+        <div className="container mx-auto p-6">
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-center text-muted-foreground">Task not found</p>
+            </CardContent>
+          </Card>
+        </div>
+      </AppLayout>
     );
   }
+
+  // Calculate derived data
+  const taskProject = projects.find((p: any) => p.id === task?.projectId);
+  const assignedUser = users.find((u: any) => u.id === task?.assigneeId);
+  const createdByUser = users.find((u: any) => u.id === task?.createdById);
+
 
   // Check if user can upload evidence (assigned to task or admin/manager)
   const canUploadEvidence = currentUser && (
@@ -236,27 +257,6 @@ export default function TaskDetail() {
     }
   };
 
-  // Risk toggle mutation
-  const riskToggleMutation = useMutation({
-    mutationFn: (makeRisk: boolean) => toggleRisk(parseInt(taskId || "0"), makeRisk),
-    onSuccess: (data, makeRisk) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks", taskId || "0"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/risks"] });
-      toast({
-        title: makeRisk ? 'Task converted to Risk' : 'Risk converted back to Task',
-        description: makeRisk 
-          ? 'This task is now tracked as a risk in the Risk Register' 
-          : 'This task is no longer considered a risk',
-      });
-    },
-    onError: () => {
-      toast({
-        title: 'Toggle failed',
-        description: 'Failed to update risk status',
-        variant: 'destructive',
-      });
-    }
-  });
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
