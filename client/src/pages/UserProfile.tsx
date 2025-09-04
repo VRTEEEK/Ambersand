@@ -85,7 +85,7 @@ export default function UserProfile() {
                 }
               </CardTitle>
               <CardDescription>
-                {user?.email || language === 'ar' ? 'لا يوجد بريد إلكتروني' : 'No email available'}
+                {user?.email || (language === 'ar' ? 'لا يوجد بريد إلكتروني' : 'No email available')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
