@@ -37,9 +37,15 @@ router.post('/compliance/export', requireExportReports(), async (req: Request, r
     const userId = (req.user as any)?.claims?.sub || (req.user as any)?.id;
     const { storage } = await import('../storage');
     const currentUser = await storage.getUser(userId);
+    
+    console.log('🔍 Export Debug - User ID:', userId);
+    console.log('🔍 Export Debug - Current User:', currentUser);
+    console.log('🔍 Export Debug - Organization ID:', currentUser?.organizationId);
+    
     const organizationId = currentUser?.organizationId;
     
     if (!organizationId) {
+      console.log('❌ Export Error - No organization ID found');
       return res.status(403).json({ message: "Organization access required" });
     }
     
