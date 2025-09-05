@@ -1214,9 +1214,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           assigneeId = u[0].id;
         } else {
           // Create invite per specification
+          const orgId = req.user.claims?.org || req.user?.organizationId;
+          if (!orgId) {
+            return res.status(400).json({ message: "Organization missing" });
+          }
+          
           const token = crypto.randomUUID().replace(/-/g, "");
           const [invite] = await db.insert(userInvites).values({
-            organizationId: req.user.claims?.org || req.user?.organizationId || 'default-org',
+            organizationId: orgId,
             email: normalized,
             role: "member",
             token,
@@ -2516,8 +2521,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Serve uploaded files (profile pictures and evidence)
-  app.use('/uploads', (req, res, next) => {
+  // Serve uploaded files (profile pictures and evidence) - require authentication
+  // TODO: implement signed download route for proper security
+  app.use('/uploads', isAuthenticated, (req, res, next) => {
     // Add CORS headers for uploaded files
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');

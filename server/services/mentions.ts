@@ -3,8 +3,8 @@ import { users } from "@shared/schema";
 import { and, eq, ilike, or } from "drizzle-orm";
 
 export interface ParsedMentions {
-  userIds: number[];
-  users: Array<{ id: number; name: string; email: string }>;
+  userIds: string[];
+  users: Array<{ id: string; name: string; email: string }>;
 }
 
 // Parse @mentions in the body -> return { userIds: number[], users: Array<{id:number, name:string, email:string}> }
@@ -26,7 +26,7 @@ export async function parseMentions(body: string, orgId: string): Promise<Parsed
 }
 
 // Find users by handles (name patterns) within organization
-async function findUsersByHandles(handles: string[], orgId: string): Promise<Array<{ id: number; name: string; email: string }>> {
+async function findUsersByHandles(handles: string[], orgId: string): Promise<Array<{ id: string; name: string; email: string }>> {
   if (handles.length === 0) return [];
 
   // Build OR conditions for each handle to match against name or email
@@ -50,17 +50,16 @@ async function findUsersByHandles(handles: string[], orgId: string): Promise<Arr
       or(...searchConditions)
     ));
 
-  // Convert string ID to number for compatibility
   return foundUsers.map(user => ({
     ...user,
-    id: parseInt(user.id),
+    id: user.id,
     name: user.name || user.email || 'Unknown User',
     email: user.email || '',
   }));
 }
 
 // API endpoint to search users for mentions autocomplete
-export async function searchUsersForMentions(query: string, orgId: string, limit: number = 10): Promise<Array<{ id: number; name: string; email: string; handle: string }>> {
+export async function searchUsersForMentions(query: string, orgId: string, limit: number = 10): Promise<Array<{ id: string; name: string; email: string; handle: string }>> {
   if (!query || query.length < 2) return [];
 
   const foundUsers = await db.select({
@@ -87,7 +86,7 @@ export async function searchUsersForMentions(query: string, orgId: string, limit
     const handle = user.email?.split('@')[0] || user.name?.toLowerCase().replace(/\s+/g, '.') || 'unknown';
     
     return {
-      id: parseInt(user.id),
+      id: user.id,
       name: displayName,
       email: user.email || '',
       handle: handle,

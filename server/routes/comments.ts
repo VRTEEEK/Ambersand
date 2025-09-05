@@ -65,7 +65,7 @@ router.get("/", isAuthenticated, async (req: any, res) => {
       authorEmail: users.email,
     })
       .from(comments)
-      .leftJoin(users, eq(comments.authorId.toString(), users.id))
+      .leftJoin(users, eq(comments.authorId, users.id))
       .where(whereCondition)
       .orderBy(desc(comments.id))
       .limit(q.limit);
@@ -105,9 +105,9 @@ router.post("/", isAuthenticated, async (req: any, res) => {
       targetType: body.targetType,
       targetId: body.targetId,
       parentId: body.parentId ?? null,
-      authorId: parseInt(req.user.id),
+      authorId: req.user.claims?.sub || req.user.id,
       body: body.body,
-      mentions: JSON.stringify(mentions),
+      mentions: JSON.stringify(mentions.userIds),
     }).returning();
 
     // Auto-subscribe author
@@ -115,7 +115,7 @@ router.post("/", isAuthenticated, async (req: any, res) => {
       organizationId: req.user.claims?.org || '',
       targetType: body.targetType,
       targetId: body.targetId,
-      userId: parseInt(req.user.id),
+      userId: req.user.claims?.sub || req.user.id,
     }).onConflictDoNothing();
 
     // Get the created comment with author info
@@ -135,7 +135,7 @@ router.post("/", isAuthenticated, async (req: any, res) => {
       authorEmail: users.email,
     })
       .from(comments)
-      .leftJoin(users, eq(comments.authorId.toString(), users.id))
+      .leftJoin(users, eq(comments.authorId, users.id))
       .where(eq(comments.id, row.id));
 
     // Notify via WebSocket and email
@@ -169,7 +169,7 @@ router.patch("/:id", isAuthenticated, async (req: any, res) => {
       return res.status(404).json({ message: "Comment not found" });
     }
     
-    if (existing.authorId !== parseInt(req.user.id) && req.user.role !== 'admin') {
+    if (existing.authorId !== (req.user.claims?.sub || req.user.id) && req.user.role !== 'admin') {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -208,7 +208,7 @@ router.delete("/:id", isAuthenticated, async (req: any, res) => {
       return res.status(404).json({ message: "Comment not found" });
     }
     
-    if (existing.authorId !== parseInt(req.user.id) && req.user.role !== 'admin') {
+    if (existing.authorId !== (req.user.claims?.sub || req.user.id) && req.user.role !== 'admin') {
       return res.status(403).json({ message: "Access denied" });
     }
 

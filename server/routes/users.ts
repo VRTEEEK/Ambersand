@@ -4,7 +4,7 @@ import { db } from "../db";
 import { users, userInvites, tasks } from "@shared/schema";
 import { isAuthenticated } from "../replitAuth";
 import { and, eq, ilike, or } from "drizzle-orm";
-import { simpleEmailService } from "../simpleEmailService";
+import email from "../email";
 import crypto from "crypto";
 
 const router = Router();
@@ -12,17 +12,25 @@ const router = Router();
 router.get("/search", isAuthenticated, async (req: any, res) => {
   const q = String(req.query.q || "").trim();
   const limit = Math.min(Number(req.query.limit || 8), 25);
+  const orgId = req.user?.claims?.org || req.user?.organizationId;
+  
+  if (!orgId) {
+    return res.status(400).json({ message: "Organization missing" });
+  }
 
   if (!q || q.length < 2) return res.json({ items: [] });
 
   try {
-    // Search users by email, firstName, lastName
+    // Search users by email, firstName, lastName within organization
     const rows = await db.query.users.findMany({
-      where: (u, { or, ilike }) =>
-        or(
-          ilike(u.email, `%${q}%`),
-          ilike(u.firstName, `%${q}%`),
-          ilike(u.lastName, `%${q}%`)
+      where: (u, { and, or, ilike, eq }) =>
+        and(
+          eq(u.organizationId, orgId),
+          or(
+            ilike(u.email, `%${q}%`),
+            ilike(u.firstName, `%${q}%`),
+            ilike(u.lastName, `%${q}%`)
+          )
         ),
       limit,
       columns: { id: true, email: true, name: true, firstName: true, lastName: true, profileImageUrl: true }
@@ -48,8 +56,8 @@ router.post("/invite", isAuthenticated, async (req: any, res) => {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ message: "Invalid email" });
   }
-  // Use organization from claims.org, user.organizationId, or default for development  
-  const orgId = req.user?.claims?.org || req.user?.organizationId || 'default-org';
+  // Use organization from claims.org or user.organizationId - no fallbacks
+  const orgId = req.user?.claims?.org || req.user?.organizationId;
   if (!orgId) {
     return res.status(400).json({ message: "Organization missing" });
   }
@@ -76,11 +84,15 @@ router.post("/invite", isAuthenticated, async (req: any, res) => {
   const acceptUrl = `${process.env.APP_BASE_URL || "http://localhost:3000"}/accept-invite?token=${token}`;
 
   try {
-    const result = await simpleEmailService.sendEmail({
+    const result = await email.send({
       to: email,
       subject: "You're invited to Ambersand",
-      html: `<p>You've been invited to Ambersand.</p>
-             <p><a href="${acceptUrl}">Accept your invite</a></p>`,
+      templateName: "user-invitation.en",
+      data: {
+        acceptUrl,
+        organizationName: "Ambersand",
+        inviterName: req.user?.firstName || req.user?.email?.split('@')[0] || 'Someone'
+      }
     });
     if (!result?.success) {
       return res.status(502).json({ message: `Failed to send invite email: ${result?.error || "unknown"}` });

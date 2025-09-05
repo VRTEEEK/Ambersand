@@ -5,7 +5,7 @@ import { emailService } from "../emailService";
 
 export interface CommentNotificationData {
   comment: any;
-  mentions: { userIds: number[]; users?: any[] };
+  mentions: { userIds: string[]; users?: any[] };
   edited?: boolean;
 }
 
@@ -23,7 +23,7 @@ export async function notifyComment({ comment, mentions, edited = false }: Comme
         eq(commentSubscriptions.targetId, comment.targetId)
       ));
 
-    const recipientIds = new Set<number>([
+    const recipientIds = new Set<string>([
       ...mentions.userIds,
       ...subscribers.map(s => s.userId)
     ]);
@@ -41,7 +41,7 @@ export async function notifyComment({ comment, mentions, edited = false }: Comme
       })
         .from(users)
         .where(and(
-          inArray(users.id, Array.from(recipientIds).map(String)),
+          inArray(users.id, Array.from(recipientIds)),
           eq(users.organizationId, comment.organizationId)
         ));
 

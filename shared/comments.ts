@@ -10,7 +10,7 @@ export const comments = pgTable("comments", {
   targetType: varchar("target_type", { length: 16 }).$type<CommentTarget>().notNull(), // 'task' | 'project'
   targetId: integer("target_id").notNull(),
   parentId: integer("parent_id"), // for replies (1-level)
-  authorId: integer("author_id").notNull(),
+  authorId: varchar("author_id", { length: 128 }).notNull(),
   body: text("body").notNull(),
   mentions: text("mentions").default(sql`'[]'::text`).notNull(), // JSON stringified array of userIds
   hasAttachments: boolean("has_attachments").default(false).notNull(),
@@ -25,7 +25,7 @@ export const commentSubscriptions = pgTable("comment_subscriptions", {
   organizationId: varchar("organization_id", { length: 64 }).notNull(),
   targetType: varchar("target_type", { length: 16 }).$type<CommentTarget>().notNull(),
   targetId: integer("target_id").notNull(),
-  userId: integer("user_id").notNull(),
+  userId: varchar("user_id", { length: 128 }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
