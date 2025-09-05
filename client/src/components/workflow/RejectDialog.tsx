@@ -8,7 +8,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@
 type Props = {
   open: boolean;
   onOpenChange: (v:boolean)=>void;
-  candidates: Array<{ userId:string; name:string }>;
+  candidates: Array<{ userId:string; name:string; email?:string }>;
   onConfirm: (p:{ toUserId:string; comment:string })=>void;
 };
 

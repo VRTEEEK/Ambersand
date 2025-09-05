@@ -191,9 +191,11 @@ export default function EditTaskForm({
   });
 
   // Fetch all users for assignee dropdown
-  const { data: users = [] } = useQuery({
+  const { data: users = [] } = useQuery<any[]>({
     queryKey: ['/api/users'],
   });
+  
+  console.log('🔍 Users loaded for workflow:', users.length, users);
 
   // Fetch evidence versions and comments for each evidence
   const { data: evidenceVersions = [] } = useQuery({
@@ -1193,7 +1195,7 @@ export default function EditTaskForm({
                   <Label>Review route (in order)</Label>
                   <div className="space-y-2">
                     {routeDraft.map((s, idx) => {
-                      const selectedUser = users.find(u => u.id === s.userId);
+                      const selectedUser = Array.isArray(users) ? users.find((u: any) => u.id === s.userId) : undefined;
                       return (
                         <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-2">
                           <Select
@@ -1223,7 +1225,7 @@ export default function EditTaskForm({
                               </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
-                              {users.map((user) => (
+                              {Array.isArray(users) ? users.map((user: any) => (
                                 <SelectItem key={user.id} value={user.id}>
                                   <div className="flex items-center gap-2">
                                     <UserAvatar 
@@ -1233,7 +1235,7 @@ export default function EditTaskForm({
                                         email: user.email,
                                         profilePicture: user.profilePicture
                                       }} 
-                                      size="xs" 
+                                      size="sm" 
                                     />
                                     <div className="flex flex-col">
                                       <span className="text-sm font-medium">
@@ -1245,7 +1247,7 @@ export default function EditTaskForm({
                                     </div>
                                   </div>
                                 </SelectItem>
-                              ))}
+                              )) : null}
                             </SelectContent>
                           </Select>
                         <Input
@@ -1289,7 +1291,7 @@ export default function EditTaskForm({
                 <Label>Route</Label>
                 <ol className="list-decimal pl-5 space-y-1">
                   {(wfData?.route || []).sort((a,b)=>a.stepIndex-b.stepIndex).map(r=>{
-                    const user = users.find(u => u.id === r.userId);
+                    const user = Array.isArray(users) ? users.find((u: any) => u.id === r.userId) : undefined;
                     return (
                       <li key={r.id} className="flex items-center gap-3 py-2">
                         <div className="flex items-center gap-2">
