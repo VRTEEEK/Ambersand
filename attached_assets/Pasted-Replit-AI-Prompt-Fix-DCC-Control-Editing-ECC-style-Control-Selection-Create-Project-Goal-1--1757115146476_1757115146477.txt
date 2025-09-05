@@ -1,0 +1,261 @@
+Replit AI Prompt — Fix DCC Control Editing + ECC-style Control Selection → Create Project
+
+Goal
+	1.	Make uploaded DCC regulations fully editable at the control level, including Domain (Main Category) and Subdomain (Sub Category) fields.
+	2.	Add an ECC-style 3-pane selector (Domain → Subdomain → Controls with checkboxes) so users can create a Project from selected controls.
+	3.	Ensure task creation later can tie to a selected controlId.
+
+⸻
+
+Assumptions / Paths (use these)
+	•	DB schema: packages/shared/src/schema.ts (Drizzle + Postgres)
+	•	Server routes:
+	•	server/routes/regulations.ts
+	•	server/routes/projects.ts
+	•	Client:
+	•	client/src/pages/regulations/RegulationDetail.tsx
+	•	client/src/components/regulations/ControlEditorDialog.tsx
+	•	client/src/components/projects/ProjectCreateDialog.tsx
+	•	client/src/lib/api/regulations.ts
+	•	client/src/lib/api/projects.ts
+	•	UI: shadcn/ui, wouter, React Query, sonner
+	•	Permissions: use-permissions.tsx (regulation:edit, project:create)
+
+⸻
+
+1) Importer: confirm DCC → unified fields
+
+Update the importer mapping so DCC .xlsx columns populate these fields (already used by ECC):
+	•	mainCategoryEn ← “Main Category”
+	•	mainCategoryAr ← “المكون الأساسي ”
+	•	subCategoryEn  ← “Sub Category”
+	•	subCategoryAr  ← “المكون الفرعي ”
+	•	mainControlEn, mainControlAr, subControlEn, subControlAr
+	•	descEn, descAr
+	•	evidenceTypes (split on $)
+	•	weight
+	•	clause
+Trim header names and values; normalize Arabic digits in clause to ASCII.
+
+If your importer already does this, keep as-is. Just ensure these fields are persisted for DCC rows.
+
+⸻
+
+2) Server — regulations API (edit controls + distinct domain/subdomain lists)
+
+Edit server/routes/regulations.ts:
+	•	PATCH control (enable domain/subdomain edits)
+Allow updates to:
+mainCategoryEn, mainCategoryAr, subCategoryEn, subCategoryAr, mainControlEn, mainControlAr, subControlEn, subControlAr, descEn, descAr, evidenceTypes, weight.
+Validate clause stays unique per regulation.
+
+router.patch("/:id/controls/:controlId", isAuthenticated, isAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const controlId = Number(req.params.controlId);
+  const patch = req.body;
+
+  // server-side input guard
+  const allowed = [
+    "mainCategoryEn","mainCategoryAr","subCategoryEn","subCategoryAr",
+    "mainControlEn","mainControlAr","subControlEn","subControlAr",
+    "descEn","descAr","evidenceTypes","weight"
+  ];
+  const update: any = {};
+  for (const k of allowed) if (k in patch) update[k] = patch[k];
+
+  await db.update(regulationControls).set(update)
+    .where(and(eq(regulationControls.id, controlId), eq(regulationControls.regulationId, id)));
+
+  const updated = await db.query.regulationControls.findFirst({ where: eq(regulationControls.id, controlId) });
+  res.json(updated);
+});
+
+	•	GET distinct domains/subdomains for one regulation (faster filtering for UI):
+
+router.get("/:id/domains", isAuthenticated, async (req, res) => {
+  const id = Number(req.params.id);
+  const rows = await db.execute(sql`
+    SELECT DISTINCT main_category_en AS "mainCategoryEn", main_category_ar AS "mainCategoryAr"
+    FROM regulation_controls WHERE regulation_id = ${id}
+    ORDER BY 1 NULLS LAST
+  `);
+  res.json(rows);
+});
+
+router.get("/:id/subdomains", isAuthenticated, async (req, res) => {
+  const id = Number(req.params.id);
+  const domainEn = req.query.domainEn as string | undefined;
+  const domainAr = req.query.domainAr as string | undefined;
+
+  const rows = await db.execute(sql`
+    SELECT DISTINCT sub_category_en AS "subCategoryEn", sub_category_ar AS "subCategoryAr"
+    FROM regulation_controls
+    WHERE regulation_id = ${id}
+      AND (${domainEn ? sql`main_category_en = ${domainEn}` : sql`1=1`})
+      AND (${domainAr ? sql`main_category_ar = ${domainAr}` : sql`1=1`})
+    ORDER BY 1 NULLS LAST
+  `);
+  res.json(rows);
+});
+
+If you prefer Drizzle’s query builder over raw SQL, implement equivalents. Add indexes on (regulation_id, main_category_en, sub_category_en) for speed if missing.
+
+⸻
+
+3) Server — projects API (create project from selected controls)
+
+Create/ensure server/routes/projects.ts:
+
+router.post("/", isAuthenticated, async (req:any, res) => {
+  const orgId = req.user?.claims?.org as string;
+  const userId = req.user?.id as string;
+  const { name, description, regulationId, controlIds } = req.body;
+
+  if (!name || !Array.isArray(controlIds) || controlIds.length === 0) {
+    return res.status(400).json({ message: "Name and at least one control are required" });
+  }
+
+  const [project] = await db.insert(projects).values({
+    orgId, name, description, regulationId, createdBy: userId
+  }).returning();
+
+  // validate controls belong to regulation
+  const valid = await db.select({ id: regulationControls.id })
+    .from(regulationControls)
+    .where(and(eq(regulationControls.regulationId, regulationId), inArray(regulationControls.id, controlIds)));
+
+  if (valid.length === 0) {
+    return res.status(400).json({ message: "No valid controls for this regulation" });
+  }
+
+  await db.insert(projectControls).values(valid.map(v => ({ projectId: project.id, controlId: v.id })));
+  res.json({ projectId: project.id });
+});
+
+Ensure projects and project_controls tables exist; add unique index (project_id, control_id).
+
+⸻
+
+4) Client APIs
+
+client/src/lib/api/regulations.ts — add helpers:
+
+export async function getRegulation(id:number) { /* (already exists) */ }
+export async function patchControl(regId:number, controlId:number, data:any) {
+  const r = await fetch(`/api/regulations/${regId}/controls/${controlId}`, {
+    method:"PATCH", credentials:"include",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify(data)
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+export async function getDomains(regId:number) {
+  const r = await fetch(`/api/regulations/${regId}/domains`, { credentials:"include" });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+export async function getSubdomains(regId:number, p:{domainEn?:string;domainAr?:string}={}) {
+  const qs = new URLSearchParams();
+  if (p.domainEn) qs.set("domainEn", p.domainEn);
+  if (p.domainAr) qs.set("domainAr", p.domainAr);
+  const r = await fetch(`/api/regulations/${regId}/subdomains?${qs.toString()}`, { credentials:"include" });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+client/src/lib/api/projects.ts:
+
+export async function createProject(payload:{ name:string; description?:string; regulationId:number; controlIds:number[] }) {
+  const r = await fetch(`/api/projects`, {
+    method:"POST", credentials:"include",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json(); // { projectId }
+}
+
+
+⸻
+
+5) Client UI — RegulationDetail (edit domain/subdomain + selector + create project)
+
+Update client/src/pages/regulations/RegulationDetail.tsx:
+	•	Ensure regulation actually loads via:
+
+const { id } = useParams();
+const { data, isLoading, error } = useQuery({
+  queryKey:["regulation", Number(id)],
+  queryFn: () => getRegulation(Number(id)),
+  enabled: !!id,
+});
+const regulation = data?.regulation;
+const controls = data?.controls ?? [];
+
+	•	Left filter pane:
+	•	Use useQuery(["reg-domains", id], () => getDomains(Number(id))).
+	•	On domain select, fetch subdomains: useQuery(["reg-subdomains", id, selectedDomainEn, selectedDomainAr], () => getSubdomains(...), { enabled: !!selectedDomain }).
+	•	Keep selectedDomain, selectedSubdomain state.
+	•	Right controls pane (checkbox list):
+	•	Filter controls by selected domain/subdomain:
+
+const filtered = useMemo(() => controls.filter(c => {
+  const matchDomain = !selectedDomain || c.mainCategoryEn === selectedDomain || c.mainCategoryAr === selectedDomain;
+  const matchSub = !selectedSubdomain || c.subCategoryEn === selectedSubdomain || c.subCategoryAr === selectedSubdomain;
+  return matchDomain && matchSub;
+}), [controls, selectedDomain, selectedSubdomain]);
+
+
+	•	Render each with a checkbox; maintain selectedControlIds: number[].
+
+	•	Edit control dialog:
+	•	Provide “Edit” button per row → open ControlEditorDialog with fields:
+	•	mainCategoryEn/ar, subCategoryEn/ar
+	•	mainControlEn/ar, subControlEn/ar
+	•	descEn/ar, evidenceTypes (chip editor; joins with $), weight
+	•	On save: call patchControl(regulation.id, control.id, patch), then invalidateQueries(["regulation", id]).
+	•	Create Project:
+	•	Floating/action bar: “Create Project from Selected (X)”.
+	•	Opens ProjectCreateDialog → form: Name, Description.
+	•	On confirm: createProject({ name, description, regulationId: regulation.id, controlIds: selectedControlIds }).
+	•	On success: toast, navigate to /projects/:projectId.
+	•	Permissions:
+	•	Show Edit control button only if can("regulation:edit").
+	•	Show Create Project only if can("project:create").
+	•	Accessibility:
+	•	All dialogs include DialogTitle and DialogDescription.
+
+⸻
+
+6) Small fixes to avoid “blank UI”
+	•	Add loading and error states at the top:
+
+if (isLoading) return <div className="p-4 text-sm text-muted-foreground">Loading regulation…</div>;
+if (error || !regulation) return <div className="p-4 text-sm text-destructive">Failed to load regulation.</div>;
+
+	•	Make sure there are no <a> nested inside <a> in list items.
+
+⸻
+
+7) DB indexes (performance)
+
+Add (if missing) in schema.ts:
+	•	index("reg_controls_lookup").on(regulationControls.regulationId, regulationControls.mainCategoryEn, regulationControls.subCategoryEn)
+	•	index("project_controls_project_idx").on(projectControls.projectId)
+
+Run migration.
+
+⸻
+
+8) Acceptance criteria
+	•	Upload DCC .xlsx as regulation.
+	•	Open regulation detail → Domain/Subdomain lists are populated from DCC data.
+	•	Click a control → Edit dialog lets me change Domain/Subdomain and other fields; saving persists and re-filters correctly.
+	•	Filter by Domain → Subdomain, select multiple controls, click Create Project → new project created with those controls.
+	•	Later, I can create Tasks tied to any control (existing task flow with controlId).
+	•	Permissions enforced and dialogs have proper titles/descriptions (no Radix a11y warnings).
+
+⸻
+
+Please implement exactly as described. Keep file paths and route names consistent, and invalidate React Query caches after PATCH/POST.
