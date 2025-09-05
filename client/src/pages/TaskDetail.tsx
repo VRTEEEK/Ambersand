@@ -20,6 +20,7 @@ import type { Task, User as UserType, ProjectControl, Evidence, EvidenceVersion,
 import Comments from '@/components/comments/Comments';
 import { toggleRisk } from "@/lib/api/risk";
 import { getWorkflow, setRoute, submitStep, returnTo, approve, reject } from "@/lib/api/workflows";
+import RejectDialog from '@/components/workflow/RejectDialog';
 
 interface TaskWithDetails extends Task {
   project?: { id: number; name: string; nameAr: string };
@@ -36,6 +37,7 @@ export default function TaskDetail() {
   
   // All useState hooks first
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [linkExistingDialogOpen, setLinkExistingDialogOpen] = useState(false);
   const [selectedControlId, setSelectedControlId] = useState<number | null>(null);
   const [selectedControlForView, setSelectedControlForView] = useState<number | null>(null);
@@ -943,37 +945,20 @@ export default function TaskDetail() {
         <TabsContent value="workflow" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <UserCheck className="h-5 w-5" />
-                {language === 'ar' ? 'مسار المراجعة' : 'Review Workflow'}
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <UserCheck className="h-5 w-5" />
+                  {language === 'ar' ? 'مسار المراجعة' : 'Review Workflow'}
+                </CardTitle>
+                <Badge variant="secondary" className="capitalize">
+                  {workflow?.workflow?.state?.replaceAll("_"," ") || 'draft'}
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               
-              {/* Current Workflow State */}
-              {workflow?.workflow && (
-                <div className="p-4 border rounded-lg bg-muted/50">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-semibold">{language === 'ar' ? 'الحالة الحالية' : 'Current State'}</h4>
-                    <Badge variant={workflow.workflow.state === 'approved' ? 'default' : 'secondary'}>
-                      {workflow.workflow.state}
-                    </Badge>
-                  </div>
-                  
-                  {workflow.workflow.currentAssigneeId && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <User className="h-4 w-4" />
-                      <span>{language === 'ar' ? 'المراجع الحالي:' : 'Current Reviewer:'}</span>
-                      <span className="font-medium">
-                        {users.find(u => u.id === workflow.workflow!.currentAssigneeId)?.firstName} {users.find(u => u.id === workflow.workflow!.currentAssigneeId)?.lastName}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Review Route */}
-              {workflow?.route && workflow.route.length > 0 && (
+              {/* Review Route - Always Visible */}
+              {workflow?.route && workflow.route.length > 0 ? (
                 <div>
                   <h4 className="font-semibold mb-3">{language === 'ar' ? 'مسار المراجعة' : 'Review Route'}</h4>
                   <div className="space-y-2">
@@ -1020,6 +1005,23 @@ export default function TaskDetail() {
                     })}
                   </div>
                 </div>
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  <p>{language === 'ar' ? 'لم يتم إعداد مسار المراجعة بعد' : 'No review route set up yet'}</p>
+                </div>
+              )}
+
+              {/* Current Assignee Info */}
+              {workflow?.workflow?.currentAssigneeId && (
+                <div className="p-3 border rounded-lg bg-muted/30">
+                  <div className="flex items-center gap-2 text-sm">
+                    <User className="h-4 w-4" />
+                    <span>{language === 'ar' ? 'المراجع الحالي:' : 'Current Reviewer:'}</span>
+                    <span className="font-medium">
+                      {users.find(u => u.id === workflow.workflow!.currentAssigneeId)?.firstName} {users.find(u => u.id === workflow.workflow!.currentAssigneeId)?.lastName}
+                    </span>
+                  </div>
+                </div>
               )}
 
               {/* Action Buttons */}
@@ -1054,13 +1056,7 @@ export default function TaskDetail() {
                       </Button>
                       
                       <Button 
-                        onClick={() => {
-                          const comment = prompt(language === 'ar' ? 'سبب الرفض:' : 'Rejection reason:');
-                          const targetUser = workflow.route[0]?.userId; // Return to first reviewer
-                          if (comment && targetUser) {
-                            rejectMutation.mutate({ toUserId: targetUser, comment });
-                          }
-                        }}
+                        onClick={() => setRejectDialogOpen(true)}
                         disabled={rejectMutation.isPending}
                         variant="destructive"
                         className="flex items-center gap-2"
@@ -1072,6 +1068,17 @@ export default function TaskDetail() {
                   )}
                 </div>
               )}
+              
+              {/* Reject Dialog */}
+              <RejectDialog
+                open={rejectDialogOpen}
+                onOpenChange={setRejectDialogOpen}
+                candidates={(workflow?.route || []).map(r => ({ userId: r.userId, name: r.userId }))}
+                onConfirm={({toUserId, comment}) => {
+                  rejectMutation.mutate({ toUserId, comment });
+                  setRejectDialogOpen(false);
+                }}
+              />
 
               {/* Workflow History */}
               {workflow?.history && workflow.history.length > 0 && (
@@ -1141,16 +1148,21 @@ export default function TaskDetail() {
               
             </CardContent>
           </Card>
+          
+          {/* Comments Section - Moved inside workflow tab */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                {language === 'ar' ? 'التعليقات' : 'Comments'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Comments targetType="task" targetId={parseInt(taskId || '0')} />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
-      
-      {/* Comments Section */}
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold mb-4">
-          {language === 'ar' ? 'التعليقات' : 'Comments'}
-        </h2>
-        <Comments targetType="task" targetId={parseInt(taskId || '0')} />
-      </div>
       </div>
     </AppLayout>
   );

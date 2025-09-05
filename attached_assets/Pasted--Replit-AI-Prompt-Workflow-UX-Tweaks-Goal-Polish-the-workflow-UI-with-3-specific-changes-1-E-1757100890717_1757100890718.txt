@@ -1,0 +1,67 @@
+
+
+Replit AI Prompt — Workflow UX Tweaks
+
+Goal
+
+Polish the workflow UI with 3 specific changes:
+	1.	Editor view (TaskEditForm → Workflow tab):
+	•	Hide the “Return to collaborator” button unless the current user also has reviewer rights (can("workflow:return")).
+	•	This prevents admins/compliance who are only editing the route from seeing reviewer actions.
+	2.	Runner view (TaskDetail → Review Workflow):
+	•	Always show the route list with a status badge indicating the current workflow state.
+	•	Keep the comments panel directly beneath the workflow timeline so reviewers and compliance can easily leave feedback in context.
+	3.	Dialogs:
+	•	Ensure every Dialog (e.g., ReturnDialog, RejectDialog) includes both DialogTitle and DialogDescription to eliminate Radix accessibility warnings.
+
+⸻
+
+Files to update
+	•	client/src/pages/tasks/TaskEditForm.tsx (Editor view)
+	•	client/src/pages/tasks/TaskDetail.tsx (Runner view)
+	•	client/src/components/workflow/ReturnDialog.tsx (and any other workflow dialogs)
+
+⸻
+
+Implementation details
+	•	TaskEditForm.tsx:
+
+{can("workflow:return") && (
+  <Button type="button" onClick={()=>setReturnOpen(true)}>Return to collaborator</Button>
+)}
+
+Wrap the button in the can("workflow:return") check.
+
+	•	TaskDetail.tsx:
+	•	Add a header section showing:
+
+<div className="flex items-center justify-between">
+  <h3 className="text-lg font-semibold">Review Workflow</h3>
+  <Badge variant="secondary" className="capitalize">
+    {workflow.state.replaceAll("_"," ")}
+  </Badge>
+</div>
+
+
+	•	Always render the route list beneath this header.
+	•	Place the comments block after the workflow timeline.
+
+	•	ReturnDialog.tsx (and other dialogs):
+
+<DialogHeader>
+  <DialogTitle>Return task to collaborator</DialogTitle>
+  <DialogDescription>Select a collaborator and add a note so they can fix the submission.</DialogDescription>
+</DialogHeader>
+
+Ensure every dialog follows this structure.
+
+⸻
+
+Acceptance criteria
+	•	In Edit Task → Workflow tab, “Return to collaborator” button is visible only for reviewers/compliance, not generic admins.
+	•	In Task Details → Review Workflow, the route list + state badge are always visible, with comments directly underneath.
+	•	All dialogs pass accessibility validation (no DialogContent requires a DialogTitle warnings).
+
+⸻
+
+Would you like me to also include a before/after code snippet for TaskDetail.tsx so you can see exactly how the route list + status badge + comments should be structured?

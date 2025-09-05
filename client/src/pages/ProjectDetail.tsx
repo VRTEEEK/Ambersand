@@ -1201,7 +1201,7 @@ function EditTaskForm({
   });
 
   // Fetch all users for assignee dropdown
-  const { data: users = [] } = useQuery({
+  const { data: users = [] } = useQuery<any[]>({
     queryKey: ['/api/users'],
   });
 
@@ -1217,7 +1217,7 @@ function EditTaskForm({
   });
 
   // Get filtered task controls (excluding pending removed)
-  const filteredTaskControls = taskControls?.filter(
+  const filteredTaskControls = (taskControls || []).filter(
     (control: any) => !pendingRemovedControls.includes(control.eccControl.id)
   );
 
@@ -1380,7 +1380,7 @@ function EditTaskForm({
   const domainControls = selectedDomain 
     ? projectControls.filter((pc: any) => {
         const isInDomain = pc.eccControl?.domainEn === selectedDomain;
-        const isAlreadyAssigned = taskControls?.some((tc: any) => tc.eccControl?.id === pc.eccControl?.id);
+        const isAlreadyAssigned = (taskControls || []).some((tc: any) => tc.eccControl?.id === pc.eccControl?.id);
         return isInDomain && !isAlreadyAssigned;
       })
     : [];
@@ -2343,8 +2343,8 @@ function EditTaskForm({
                   </Button>
                 )}
 
-                {/* Return dialog (any reviewer/compliance/admin) */}
-                {can && can("review_evidences_submitted") && (
+                {/* Return dialog (only workflow reviewers) */}
+                {can && can("workflow_return") && (
                   <>
                     <Button type="button" variant="outline" onClick={()=>setReturnOpen(true)}>Return to collaborator</Button>
                     <ReturnDialog

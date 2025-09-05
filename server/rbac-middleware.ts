@@ -5,14 +5,7 @@ import { getUserPermissions } from "./rbac-seed";
 declare global {
   namespace Express {
     interface Request {
-      user?: {
-        id: string;
-        email: string;
-        firstName: string;
-        lastName: string;
-        role: string;
-        organizationId: string;
-      };
+      user?: any;
     }
   }
 }
@@ -89,3 +82,4 @@ export const requireEvidenceAccess = () => requirePermissions(["view_evidence_re
 export const requireProjectManagement = () => requirePermissions(["create_projects_from_regulations", "assign_projects_to_users"]);
 export const requireAdminAccess = () => requirePermissions(["change_organization_settings", "change_user_permissions"]);
 export const requireExportReports = () => requirePermissions(["export_compliance_reports", "view_evidence_repository"]);
+export const requireWorkflowReturn = () => requirePermissions(["workflow_return"]);
