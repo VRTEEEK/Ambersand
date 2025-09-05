@@ -13,6 +13,7 @@ import { getWorkflow, setRoute, submitStep, returnTo, approve, reject, WorkflowS
 import ReturnDialog from '@/components/workflow/ReturnDialog';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useAuth } from '@/hooks/useAuth';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1191,16 +1192,62 @@ export default function EditTaskForm({
                 <div className="space-y-3">
                   <Label>Review route (in order)</Label>
                   <div className="space-y-2">
-                    {routeDraft.map((s, idx) => (
-                      <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                        <Input
-                          value={s.userId}
-                          onChange={e=>{
-                            const v = e.target.value;
-                            setRouteDraft(prev=>prev.map((x,i)=>i===idx?{...x,userId:v}:x));
-                          }}
-                          placeholder="userId (email or ID)"
-                        />
+                    {routeDraft.map((s, idx) => {
+                      const selectedUser = users.find(u => u.id === s.userId);
+                      return (
+                        <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <Select
+                            value={s.userId}
+                            onValueChange={(value) => {
+                              setRouteDraft(prev=>prev.map((x,i)=>i===idx?{...x,userId:value}:x));
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select user">
+                                {selectedUser && (
+                                  <div className="flex items-center gap-2">
+                                    <UserAvatar 
+                                      user={{
+                                        firstName: selectedUser.firstName || 'Unknown',
+                                        lastName: selectedUser.lastName || 'User',
+                                        email: selectedUser.email,
+                                        profilePicture: selectedUser.profilePicture
+                                      }} 
+                                      size="xs" 
+                                    />
+                                    <span className="text-sm">
+                                      {selectedUser.firstName} {selectedUser.lastName}
+                                    </span>
+                                  </div>
+                                )}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {users.map((user) => (
+                                <SelectItem key={user.id} value={user.id}>
+                                  <div className="flex items-center gap-2">
+                                    <UserAvatar 
+                                      user={{
+                                        firstName: user.firstName || 'Unknown',
+                                        lastName: user.lastName || 'User',
+                                        email: user.email,
+                                        profilePicture: user.profilePicture
+                                      }} 
+                                      size="xs" 
+                                    />
+                                    <div className="flex flex-col">
+                                      <span className="text-sm font-medium">
+                                        {user.firstName} {user.lastName}
+                                      </span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {user.email}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         <Input
                           value={s.role}
                           onChange={e=>{
@@ -1220,7 +1267,8 @@ export default function EditTaskForm({
                           )}
                         </div>
                       </div>
-                    ))}
+                    );
+                    })}
                     {routeDraft.length===0 && (
                       <Button type="button" variant="outline" onClick={()=>setRouteDraft([{ userId:"", role:"" }])}>
                         Add first step
@@ -1240,13 +1288,34 @@ export default function EditTaskForm({
               <div className="space-y-2">
                 <Label>Route</Label>
                 <ol className="list-decimal pl-5 space-y-1">
-                  {(wfData?.route || []).sort((a,b)=>a.stepIndex-b.stepIndex).map(r=>(
-                    <li key={r.id} className="flex items-center gap-2">
-                      <span className="text-sm">{String(r.userId)}</span>
-                      {currentAssigneeId === r.userId && <Badge>current</Badge>}
-                      <span className="text-muted-foreground text-xs">({r.role})</span>
-                    </li>
-                  ))}
+                  {(wfData?.route || []).sort((a,b)=>a.stepIndex-b.stepIndex).map(r=>{
+                    const user = users.find(u => u.id === r.userId);
+                    return (
+                      <li key={r.id} className="flex items-center gap-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <UserAvatar 
+                            user={{
+                              firstName: user?.firstName || 'Unknown',
+                              lastName: user?.lastName || 'User',
+                              email: user?.email || r.userId,
+                              profilePicture: user?.profilePicture
+                            }} 
+                            size="sm" 
+                          />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">
+                              {user ? `${user.firstName} ${user.lastName}` : r.userId}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {user?.email || r.userId}
+                            </span>
+                          </div>
+                        </div>
+                        {currentAssigneeId === r.userId && <Badge variant="secondary">current</Badge>}
+                        <span className="text-muted-foreground text-xs">({r.role})</span>
+                      </li>
+                    );
+                  })}
                 </ol>
               </div>
 
