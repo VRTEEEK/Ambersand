@@ -138,7 +138,11 @@ export const projects = pgTable("projects", {
   regulationType: varchar("regulation_type"), // ecc, pdpl, ndmo
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_projects_organization_id").on(table.organizationId),
+  index("idx_projects_regulation_type").on(table.regulationType),
+  index("idx_projects_owner_id").on(table.ownerId)
+]);
 
 // Tasks table
 export const tasks = pgTable("tasks", {
@@ -158,7 +162,15 @@ export const tasks = pgTable("tasks", {
   createdById: varchar("created_by_id").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_tasks_project_id").on(table.projectId),
+  index("idx_tasks_status").on(table.status),
+  index("idx_tasks_assignee_id").on(table.assigneeId),
+  index("idx_tasks_priority").on(table.priority),
+  index("idx_tasks_due_date").on(table.dueDate),
+  index("idx_tasks_created_at").on(table.createdAt),
+  index("idx_tasks_completed_at").on(table.completedAt)
+]);
 
 // Task-to-Controls many-to-many relationship
 export const taskControls = pgTable("task_controls", {

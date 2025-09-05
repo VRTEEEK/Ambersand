@@ -1,0 +1,402 @@
+
+
+Replit AI Prompt — “Real Analytics & Reports with Project/Regulation filters”
+
+Context
+	•	Stack: Express + TypeScript + Drizzle (Postgres), Vite/React/Tailwind + shadcn, React Query.
+	•	Auth: req.user.id (string), req.user.claims.org (organization id).
+	•	Goal: Compute true task counts across the whole system (org), and allow global filters:
+	•	Filter by projects (multi-select)
+	•	Filter by regulations (multi-select)
+	•	The page must reflect exact counts (no fake data).
+
+⸻
+
+1) Backend — Add a single, fast analytics endpoint
+
+Create: server/routes/analytics.ts and mount at /api/analytics after auth.
+
+1.1 Endpoint: /api/analytics/tasks
+	•	Method: GET
+	•	Query params (all optional):
+	•	projectIds=1,2,3 (CSV of integers)
+	•	regulationIds=R1,R2 (CSV of strings/ints depending on your schema)
+	•	dateFrom=YYYY-MM-DD (optional)
+	•	dateTo=YYYY-MM-DD (optional)
+	•	Always scope by org (from req.user.claims.org).
+	•	Return JSON with:
+
+{
+  totals: {
+    all: number,
+    byStatus: Record<string, number>,     // e.g. { "not-started": 10, "in-progress": 20, ... }
+    overdue: number,
+    completedToday: number,
+  },
+  byProject: Array<{ projectId: number, name: string, count: number }>,
+  byRegulation: Array<{ regulationId: string|number, code: string, count: number }>,
+  byAssignee: Array<{ userId: string, name: string, count: number }>,
+  bySeverity?: Array<{ severity: string, count: number }>, // only if you track severity on tasks
+  dateRange?: { from?: string, to?: string }
+}
+
+
+	•	Implementation notes (Drizzle/SQL):
+	•	Read filters:
+
+const org = req.user?.claims?.org;
+if (!org) return res.status(400).json({ message: "Organization missing" });
+
+const projectIds = (String(req.query.projectIds || "").trim())
+  .split(",").filter(Boolean).map(Number);
+const regulationIds = (String(req.query.regulationIds || "").trim())
+  .split(",").filter(Boolean);
+
+const dateFrom = req.query.dateFrom ? new Date(String(req.query.dateFrom)) : null;
+const dateTo = req.query.dateTo ? new Date(String(req.query.dateTo)) : null;
+
+
+	•	Build a reusable where clause scoped to org and filters. Pseudocode (adapt to your table/joins):
+
+// tables: tasks, projects, users, task_regulations (junction), regulations
+// Schema names may differ; adjust accordingly.
+
+// base: eq(tasks.organizationId, org)
+// if projectIds.length: inArray(tasks.projectId, projectIds)
+// if regulationIds.length: inner join task_regulations on task.id = tr.taskId and inArray(tr.regulationId, regulationIds)
+// if dateFrom/to: between(tasks.createdAt or dueDate?) apply consistently across all queries
+
+
+	•	Compute:
+	•	totals.all: COUNT(*)
+	•	totals.byStatus: GROUP BY status
+	•	totals.overdue: tasks with dueDate < now() and not completed
+	•	totals.completedToday: completedAt::date = current_date
+	•	byProject: GROUP BY projectId
+	•	byRegulation: join junction → GROUP BY regulationId
+	•	byAssignee: GROUP BY assigneeId
+	•	(Optional) bySeverity if you track severity on tasks.
+	•	Return a single response object containing all aggregates.
+
+1.2 Example (sketch code – adjust names)
+
+// server/routes/analytics.ts
+import { Router } from "express";
+import { db } from "../db";
+import { and, eq, inArray, sql, gt, lt } from "drizzle-orm";
+// import your tables: tasks, projects, users, taskRegulations, regulations
+// import zod for parsing if you prefer
+
+const router = Router();
+
+router.get("/tasks", async (req: any, res) => {
+  const org = req.user?.claims?.org;
+  if (!org) return res.status(400).json({ message: "Organization missing" });
+
+  const projectIds = String(req.query.projectIds || "")
+    .split(",").filter(Boolean).map((x) => Number(x));
+  const regulationIds = String(req.query.regulationIds || "")
+    .split(",").filter(Boolean);
+
+  const dateFrom = req.query.dateFrom ? new Date(String(req.query.dateFrom)) : null;
+  const dateTo = req.query.dateTo ? new Date(String(req.query.dateTo)) : null;
+
+  // Build dynamic WHEREs
+  const wheres: any[] = [eq(tasks.organizationId, org)];
+  if (projectIds.length) wheres.push(inArray(tasks.projectId, projectIds));
+  if (dateFrom) wheres.push(gt(tasks.createdAt, dateFrom));
+  if (dateTo) wheres.push(lt(tasks.createdAt, dateTo));
+
+  // If filtering by regulations, pre-resolve task IDs through the junction table
+  let taskIdFilter: number[] | null = null;
+  if (regulationIds.length) {
+    const rows = await db.select({ taskId: taskRegulations.taskId })
+      .from(taskRegulations)
+      .innerJoin(tasks, and(
+        eq(taskRegulations.taskId, tasks.id),
+        eq(tasks.organizationId, org)
+      ))
+      .where(inArray(taskRegulations.regulationId, regulationIds));
+    taskIdFilter = Array.from(new Set(rows.map(r => r.taskId)));
+    if (taskIdFilter.length === 0) {
+      return res.json({
+        totals: { all: 0, byStatus: {}, overdue: 0, completedToday: 0 },
+        byProject: [], byRegulation: [], byAssignee: [],
+        dateRange: { from: req.query.dateFrom, to: req.query.dateTo }
+      });
+    }
+    wheres.push(inArray(tasks.id, taskIdFilter));
+  }
+
+  const whereAll = and(...wheres);
+
+  // totals.all
+  const [{ count: all }] = await db.select({ count: sql<number>`COUNT(*)` })
+    .from(tasks).where(whereAll);
+
+  // totals.byStatus
+  const byStatusRows = await db.select({
+    status: tasks.status,
+    count: sql<number>`COUNT(*)`
+  }).from(tasks).where(whereAll).groupBy(tasks.status);
+
+  // overdue (dueDate past, not done)
+  const overdueRows = await db.select({ count: sql<number>`COUNT(*)` })
+    .from(tasks)
+    .where(and(
+      whereAll,
+      sql`COALESCE(${tasks.dueDate}, 'infinity') < now()`,
+      sql`${tasks.status} <> 'completed'`
+    ));
+  const overdue = overdueRows[0]?.count ?? 0;
+
+  // completedToday
+  const completedTodayRows = await db.select({ count: sql<number>`COUNT(*)` })
+    .from(tasks)
+    .where(and(
+      whereAll,
+      sql`${tasks.status} = 'completed'`,
+      sql`DATE(${tasks.completedAt}) = CURRENT_DATE`
+    ));
+  const completedToday = completedTodayRows[0]?.count ?? 0;
+
+  // byProject
+  const byProject = await db.select({
+    projectId: tasks.projectId,
+    count: sql<number>`COUNT(*)`,
+  }).from(tasks).where(whereAll).groupBy(tasks.projectId);
+
+  // byRegulation
+  const byRegulation = await db.select({
+    regulationId: taskRegulations.regulationId,
+    count: sql<number>`COUNT(*)`,
+  })
+  .from(taskRegulations)
+  .innerJoin(tasks, and(eq(taskRegulations.taskId, tasks.id), whereAll))
+  .groupBy(taskRegulations.regulationId);
+
+  // byAssignee
+  const byAssignee = await db.select({
+    assigneeId: tasks.assigneeId,
+    count: sql<number>`COUNT(*)`,
+  }).from(tasks).where(whereAll).groupBy(tasks.assigneeId);
+
+  // Optionally join names for project/regulation/assignee:
+  // (left joins or follow-up queries; keep it simple if you prefer)
+
+  res.json({
+    totals: {
+      all: Number(all) || 0,
+      byStatus: Object.fromEntries(byStatusRows.map(r => [r.status, Number(r.count)])),
+      overdue: Number(overdue) || 0,
+      completedToday: Number(completedToday) || 0,
+    },
+    byProject: byProject.map(r => ({ projectId: r.projectId, name: null, count: Number(r.count) })),
+    byRegulation: byRegulation.map(r => ({ regulationId: r.regulationId, code: null, count: Number(r.count) })),
+    byAssignee: byAssignee.map(r => ({ userId: String(r.assigneeId || ""), name: null, count: Number(r.count) })),
+    dateRange: { from: req.query.dateFrom, to: req.query.dateTo }
+  });
+});
+
+export default router;
+
+Mount it:
+
+// server/routes.ts (or app.ts)
+import analyticsRouter from "./routes/analytics";
+app.use("/api/analytics", isAuthenticated, analyticsRouter);
+
+1.3 Indexes (to keep this fast)
+
+Create a migration adding:
+
+CREATE INDEX IF NOT EXISTS idx_tasks_org ON tasks (organization_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_org_project ON tasks (organization_id, project_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_org_status ON tasks (organization_id, status);
+CREATE INDEX IF NOT EXISTS idx_tasks_org_due ON tasks (organization_id, due_date);
+CREATE INDEX IF NOT EXISTS idx_tasks_org_assignee ON tasks (organization_id, assignee_id);
+
+-- Junction table for regulations
+CREATE INDEX IF NOT EXISTS idx_tr_org_task ON task_regulations (task_id);
+CREATE INDEX IF NOT EXISTS idx_tr_reg ON task_regulations (regulation_id);
+
+
+⸻
+
+2) Frontend — “Analytics & Reports” page
+
+Create: client/src/pages/AnalyticsReports.tsx
+
+2.1 Data hook
+
+// client/src/lib/api/analytics.ts
+export type AnalyticsResponse = {
+  totals: { all: number; byStatus: Record<string, number>; overdue: number; completedToday: number; };
+  byProject: Array<{ projectId: number; name: string | null; count: number }>;
+  byRegulation: Array<{ regulationId: string | number; code: string | null; count: number }>;
+  byAssignee: Array<{ userId: string; name: string | null; count: number }>;
+  dateRange?: { from?: string; to?: string };
+};
+
+export async function fetchTaskAnalytics(params: {
+  projectIds?: number[];
+  regulationIds?: (string | number)[];
+  dateFrom?: string;
+  dateTo?: string;
+}) {
+  const qs = new URLSearchParams();
+  if (params.projectIds?.length) qs.set("projectIds", params.projectIds.join(","));
+  if (params.regulationIds?.length) qs.set("regulationIds", params.regulationIds.join(","));
+  if (params.dateFrom) qs.set("dateFrom", params.dateFrom);
+  if (params.dateTo) qs.set("dateTo", params.dateTo);
+
+  const res = await fetch(`/api/analytics/tasks?${qs.toString()}`, { credentials: "include" });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json() as Promise<AnalyticsResponse>;
+}
+
+2.2 Filters UI (Projects + Regulations)
+	•	Two multi-selects (use shadcn Command or Popover + Command), or a simple select if you already have a component.
+	•	When filters change, invalidate the React Query and refetch.
+
+2.3 Cards + Charts
+	•	Cards:
+	•	Total Tasks
+	•	Overdue
+	•	Completed Today
+	•	Charts:
+	•	By Status (bar)
+	•	By Project (bar with top N and “Others”)
+	•	By Regulation (bar)
+	•	By Assignee (bar)
+	•	Use Recharts (already in your stack guidelines). No custom colors required.
+
+Minimal page skeleton:
+
+// client/src/pages/AnalyticsReports.tsx
+import { useQuery } from "@tanstack/react-query";
+import { fetchTaskAnalytics } from "@/lib/api/analytics";
+import { useState } from "react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import MultiProjectFilter from "@/components/filters/MultiProjectFilter";
+import MultiRegulationFilter from "@/components/filters/MultiRegulationFilter";
+
+export default function AnalyticsReports() {
+  const [projectIds, setProjectIds] = useState<number[]>([]);
+  const [regulationIds, setRegulationIds] = useState<(string|number)[]>([]);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["analytics-tasks", { projectIds, regulationIds }],
+    queryFn: () => fetchTaskAnalytics({ projectIds, regulationIds }),
+    staleTime: 30_000,
+  });
+
+  const totals = data?.totals;
+  const byStatus = Object.entries(totals?.byStatus || {}).map(([k,v]) => ({ name: k, value: v }));
+  const byProject = (data?.byProject || []).map(r => ({ name: String(r.projectId), value: r.count }));
+  const byRegulation = (data?.byRegulation || []).map(r => ({ name: String(r.regulationId), value: r.count }));
+  const byAssignee = (data?.byAssignee || []).map(r => ({ name: r.name || r.userId, value: r.count }));
+
+  return (
+    <div className="space-y-6">
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3">
+        <MultiProjectFilter value={projectIds} onChange={setProjectIds} />
+        <MultiRegulationFilter value={regulationIds} onChange={setRegulationIds} />
+      </div>
+
+      {/* KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card><CardHeader><CardTitle>Total Tasks</CardTitle></CardHeader><CardContent className="text-3xl font-semibold">{totals?.all ?? 0}</CardContent></Card>
+        <Card><CardHeader><CardTitle>Overdue</CardTitle></CardHeader><CardContent className="text-3xl font-semibold">{totals?.overdue ?? 0}</CardContent></Card>
+        <Card><CardHeader><CardTitle>Completed Today</CardTitle></CardHeader><CardContent className="text-3xl font-semibold">{totals?.completedToday ?? 0}</CardContent></Card>
+        <Card><CardHeader><CardTitle>Statuses</CardTitle></CardHeader><CardContent>{byStatus.reduce((a,c)=>a+c.value,0)} total</CardContent></Card>
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader><CardTitle>Tasks by Status</CardTitle></CardHeader>
+          <CardContent className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={byStatus}><XAxis dataKey="name" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="value" /></BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Tasks by Project</CardTitle></CardHeader>
+          <CardContent className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={byProject}><XAxis dataKey="name" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="value" /></BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Tasks by Regulation</CardTitle></CardHeader>
+          <CardContent className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={byRegulation}><XAxis dataKey="name" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="value" /></BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Tasks by Assignee</CardTitle></CardHeader>
+          <CardContent className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={byAssignee}><XAxis dataKey="name" hide={byAssignee.length>12} /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="value" /></BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+If you already have a page file, integrate this body there.
+
+⸻
+
+3) Filters components
+
+Implement or reuse:
+	•	MultiProjectFilter: fetch list of projects and allow multi-select; return number[].
+	•	MultiRegulationFilter: fetch list of regulations; return (string|number)[].
+
+Both should not fetch on every keystroke—fetch options once and filter client-side, or server-search with debounce.
+
+⸻
+
+4) Permissions & correctness
+	•	All queries must include tasks.organizationId = req.user.claims.org.
+	•	If you have soft deletes/archived flags on tasks, decide whether to exclude them (usually yes) and add where eq(tasks.archived,false).
+	•	Make sure IDs keep their correct types (userId as string; projectId as number).
+
+⸻
+
+5) Performance & caching
+	•	Add the SQL indexes listed above.
+	•	Keep endpoint results not cached by default (this is live analytics). If needed, add a 15–30s in-memory cache keyed by {org,projectIds,regulationIds,dateFrom,dateTo}.
+
+⸻
+
+6) Acceptance Criteria
+	•	Without filters, Analytics shows exact counts for the entire org.
+	•	Selecting one or more Projects or Regulations updates all cards & charts accordingly.
+	•	Overdue and Completed Today reflect true DB state.
+	•	No unscoped data leakage across organizations.
+	•	Page loads quickly (<300ms on warmed DB, with indexes).
+
+⸻
+
+7) Nice-to-haves (optional)
+	•	Add date range filter (last 7/30/90 days or custom).
+	•	Add export: /api/analytics/tasks/export?format=csv to download summaries.
+	•	Show top 10 in charts and group the rest into “Others”.
+
+⸻
+
+Apply this end-to-end. If any of your table names differ (e.g., task_to_regulation instead of task_regulations), adapt the joins but keep the endpoint shape and filter semantics exactly as specified.

@@ -17,7 +17,7 @@ import MyTasks from "@/pages/MyTasks";
 import Evidence from "@/pages/Evidence";
 import ProjectDetail from "@/pages/ProjectDetail";
 import TaskDetail from "@/pages/TaskDetail";
-import Analytics from "@/pages/Analytics";
+import AnalyticsReports from "@/pages/AnalyticsReports";
 import Settings from "@/pages/Settings";
 import UserProfile from "@/pages/UserProfile";
 import Users from "@/pages/Users";
@@ -46,7 +46,7 @@ function Router() {
           <Route path="/risks" component={RiskRegister} />
           <Route path="/risks/:id" component={RiskDetailPage} />
           <Route path="/evidence" component={Evidence} />
-          <Route path="/analytics" component={Analytics} />
+          <Route path="/analytics" component={AnalyticsReports} />
           <Route path="/users" component={Users} />
           <Route path="/admin/users" component={EnhancedUsersPage} />
           <Route path="/notifications" component={Notifications} />
