@@ -1,0 +1,219 @@
+You’ve got three separate issues in that log. Here’s a tight, copy-paste prompt for Replit that fixes all of them in one pass.
+
+⸻
+
+Replit AI Prompt — Fix Dialog a11y + nested anchors in Risk Register
+
+We need to resolve:
+	1.	Radix Dialog a11y errors
+	•	DialogContent requires a DialogTitle.
+	•	Also needs a DialogDescription OR set aria-describedby={undefined}.
+	2.	Missing Description warning
+	•	Same root cause—either add <DialogDescription> or unset aria-describedby.
+	3.	Nested anchors
+	•	<a> inside <a> in RiskRegister.tsx (the whole card is a link AND there are inner links/buttons). Replace outer link with asChild pattern or remove inner anchors.
+
+Please make these edits:
+
+⸻
+
+1) Create an accessible wrapper for dialogs
+
+File: src/components/ui/AccessibleDialog.tsx (new)
+
+import * as React from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+
+type Props = {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  /** Visible title for screen readers and a11y; will render visually unless hidden */
+  title: string;
+  /** Optional description; if omitted, we unset aria-describedby to silence warnings */
+  description?: string;
+  /** Hide visible title but keep it for screen readers */
+  hideTitleVisually?: boolean;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  className?: string;
+};
+
+export function AccessibleDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  hideTitleVisually = false,
+  children,
+  footer,
+  className,
+}: Props) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className={className}
+        {...(!description ? { "aria-describedby": undefined } : {})}
+      >
+        <DialogHeader>
+          {hideTitleVisually ? (
+            <VisuallyHidden>
+              <DialogTitle>{title}</DialogTitle>
+            </VisuallyHidden>
+          ) : (
+            <DialogTitle>{title}</DialogTitle>
+          )}
+          {description ? <DialogDescription>{description}</DialogDescription> : null}
+        </DialogHeader>
+
+        <div className="mt-2">{children}</div>
+
+        {footer ? <DialogFooter>{footer}</DialogFooter> : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export default AccessibleDialog;
+
+What this does
+	•	Always provides a DialogTitle.
+	•	Optionally adds a DialogDescription, otherwise unsets aria-describedby.
+	•	Offers hideTitleVisually via Radix VisuallyHidden.
+
+⸻
+
+2) Use the wrapper in Risk modals
+
+Find every place you render Radix Dialogs in Risk pages (likely src/pages/RiskRegister.tsx and any RiskDetail/RiskEdit dialogs) and replace your current Dialog/DialogContent block with:
+
+import AccessibleDialog from "@/components/ui/AccessibleDialog";
+
+// Example
+<AccessibleDialog
+  open={riskOpen}
+  onOpenChange={setRiskOpen}
+  title="Edit Risk"
+  description="Update risk fields, assign an owner, and add mitigation details."
+>
+  {/* existing form/body goes here, without another DialogHeader/Title */}
+</AccessibleDialog>
+
+If you intentionally don’t want a visible title, pass hideTitleVisually.
+
+⸻
+
+3) Fix nested  tags in Risk cards
+
+The stack trace points to RiskRegister.tsx:326 inside RiskCard. You likely have something like:
+
+<Link href={`/risks/${risk.id}`}>
+  <Card>
+    ...
+    <a href={`/tasks/${risk.taskId}`}>View Task</a>  // nested <a> inside outer <a>
+  </Card>
+</Link>
+
+Refactor to avoid <a> inside <a> by using asChild and converting inner anchors to buttons/spans or vice versa:
+
+import { Link } from "wouter";
+import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+
+// Make the entire card clickable via asChild
+<Link href={`/risks/${risk.id}`}>
+  <a className="block"> {/* outer anchor */}
+    <Card className="hover:shadow-md transition-shadow">
+      <CardHeader>...</CardHeader>
+      <CardContent>...</CardContent>
+      <CardFooter className="justify-between">
+        {/* Inner 'links' must NOT be <a> if the card is already an <a> */}
+        <Button
+          type="button"
+          variant="ghost"
+          className="px-0 h-auto"
+          onClick={(e) => {
+            e.preventDefault(); // prevent card navigation
+            // programmatic nav to task page
+            window.location.href = `/tasks/${risk.taskId}`;
+          }}
+        >
+          View Task
+        </Button>
+
+        {/* OR: remove outer anchor and make only parts clickable */}
+        {/* Alternative:
+        <Link href={`/risks/${risk.id}`}><Button asChild variant="link"><a>Open</a></Button></Link>
+        <Link href={`/tasks/${risk.taskId}`}><Button asChild variant="link"><a>Task</a></Button></Link>
+        */}
+      </CardFooter>
+    </Card>
+  </a>
+</Link>
+
+Rule of thumb
+	•	If the whole card is an <a>, inner controls must be non-anchor (button, span, etc.) and prevent the parent navigation when clicked.
+	•	Or, don’t wrap the whole card and instead use separate Link asChild buttons inside.
+
+If you’re using shadcn’s Button you can also do asChild for the outer link:
+
+<Button asChild variant="ghost" className="p-0 h-auto">
+  <Link href={`/risks/${risk.id}`}>Open</Link>
+</Button>
+
+Then keep inner items as anchors—but don’t nest them.
+
+⸻
+
+4) Quick pass on any “View…” anchors inside a Card
+
+Search in src/pages/RiskRegister.tsx and src/components/risk/* for:
+	•	Link> wrapping large blocks that also contain a href=.
+	•	a href inside another Link>.
+
+Convert inner anchors to buttons with onClick + e.preventDefault() (or remove the outer link and keep only inner links).
+
+⸻
+
+5) Sanity check for the Description warning
+
+If you truly don’t want any description text, ensure AccessibleDialog is used and it sets aria-describedby={undefined} automatically. If you keep raw Radix components anywhere, either add:
+
+<DialogDescription>…short helpful text…</DialogDescription>
+
+or
+
+<DialogContent aria-describedby={undefined}>…</DialogContent>
+
+
+⸻
+
+6) Optional polish (tooltips & focus)
+
+For any icon buttons (e.g., risk severity chip edit), ensure:
+	•	Has aria-label
+	•	Wrap with your Tooltip provider
+	•	Shows a clear focus ring (focus-visible:ring-2 ring-offset-2)
+
+Example:
+
+<Button
+  variant="ghost"
+  size="icon"
+  aria-label="Edit risk severity"
+  className="focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+>
+  …
+</Button>
+
+
+⸻
+
+7) After applying
+	•	Reload the Risk Register page.
+	•	The console should be free of:
+	•	DialogContent requires a DialogTitle
+	•	Missing Description or aria-describedby
+	•	validateDOMNesting: <a> cannot appear as a descendant of <a>
+
+If you still see a nested anchor warning, paste the updated RiskCard JSX around the footer/buttons and I’ll point to the exact element to swap.

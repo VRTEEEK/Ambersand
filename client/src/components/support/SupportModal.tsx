@@ -94,6 +94,7 @@ export function SupportModal({ open, onClose }: SupportModalProps) {
         <Dialog.Content 
           className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white dark:bg-gray-800 p-6 shadow-lg border"
           onKeyDown={handleKeyDown}
+          aria-describedby={undefined}
         >
           <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
             Contact Technical Support

@@ -167,13 +167,17 @@ function RiskCard({ risk }: { risk: RiskItem }) {
               {risk.assigneeId && (
                 <span>Assigned to: {risk.assigneeId}</span>
               )}
-              <Link 
-                href={`/tasks/${risk.taskId}`} 
-                className="text-primary hover:underline"
-                onClick={(e) => e.stopPropagation()}
+              <button
+                type="button"
+                className="text-primary hover:underline text-left"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  window.location.href = `/tasks/${risk.taskId}`;
+                }}
               >
                 View Task
-              </Link>
+              </button>
             </div>
           </div>
         </div>
