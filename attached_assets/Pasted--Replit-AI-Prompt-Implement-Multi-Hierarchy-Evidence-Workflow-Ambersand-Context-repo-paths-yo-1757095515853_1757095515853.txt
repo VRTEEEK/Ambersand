@@ -1,0 +1,382 @@
+
+
+Replit AI Prompt — Implement Multi-Hierarchy Evidence Workflow (Ambersand)
+
+Context (repo paths you must use)
+	•	Server: server/routes.ts, server/emailService.ts
+	•	Shared schema: packages/shared/src/schema.ts (aliased as @shared/schema)
+	•	Client: client/src/pages/TaskDetail.tsx, client/src/hooks/use-permissions.tsx, shadcn UI
+
+Goal
+
+Add a workflow engine for evidence collection where tasks move through multiple collaborators (route/steps). Any reviewer can return a task to any previous collaborator with comments until it reaches Compliance Officer for final approval. Compliance can also return with comments or approve/reject.
+
+⸻
+
+1) DB (Drizzle) — add workflow tables/enums in @shared/schema
+
+Edit packages/shared/src/schema.ts and add:
+
+// Enums
+export const taskWorkflowState = pgEnum("task_workflow_state", [
+  "draft", "collecting", "in_peer_review", "returned",
+  "escalated", "compliance_review", "approved", "rejected"
+]);
+
+export const taskWorkflowAction = pgEnum("task_workflow_action", [
+  "submit", "return", "escalate", "approve", "reject"
+]);
+
+// Route of reviewers for a task (ordered)
+export const taskReviewRoute = pgTable("task_review_route", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  orgId: varchar("org_id", { length: 64 }).notNull(),
+  stepIndex: integer("step_index").notNull(), // 0..N-1
+  userId: varchar("user_id", { length: 64 }).notNull(),
+  role: varchar("role", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+}, (t) => ({
+  uniqueTaskStep: uniqueIndex("t_review_route_task_step_uq").on(t.taskId, t.stepIndex),
+  idxTask: index("t_review_route_task_idx").on(t.taskId),
+}));
+
+// Current workflow state pointer per task
+export const taskWorkflow = pgTable("task_workflow", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  orgId: varchar("org_id", { length: 64 }).notNull(),
+  state: taskWorkflowState("state").notNull().default("draft"),
+  currentStepIndex: integer("current_step_index").notNull().default(0),
+  currentAssigneeId: varchar("current_assignee_id", { length: 64 }),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  uniqueTask: uniqueIndex("t_workflow_task_uq").on(t.taskId),
+  idxTask: index("t_workflow_task_idx").on(t.taskId),
+}));
+
+// Audited state transitions with comments
+export const taskWorkflowEvents = pgTable("task_workflow_events", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  orgId: varchar("org_id", { length: 64 }).notNull(),
+  actorId: varchar("actor_id", { length: 64 }).notNull(),
+  action: taskWorkflowAction("action").notNull(),
+  fromStepIndex: integer("from_step_index"),
+  toStepIndex: integer("to_step_index"),
+  toUserId: varchar("to_user_id", { length: 64 }),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  idxTask: index("t_workflow_events_task_idx").on(t.taskId),
+}));
+
+// Optional: ensure tasks table has these flags
+// export const tasks = pgTable(...)
+//   .addColumn("is_evidence_ready", boolean("is_evidence_ready").notNull().default(false));
+
+Create a migration with these tables/indexes.
+
+⸻
+
+2) Server — workflow routes
+
+Create server/routes/workflows.ts:
+
+import { Router } from "express";
+import { db } from "./db"; // your db instance
+import { and, eq, asc } from "drizzle-orm";
+import { tasks, taskReviewRoute, taskWorkflow, taskWorkflowEvents, users } from "@shared/schema";
+import { isAuthenticated } from "./replitAuth";
+import { emailService } from "./emailService";
+
+const router = Router();
+
+// Helpers
+async function getComplianceOfficer(orgId: string) {
+  // pick first user with role 'compliance-officer' in org
+  const row = await db.query.users.findFirst({
+    where: and(eq(users.orgId, orgId), eq(users.role, "compliance-officer")),
+  });
+  return row;
+}
+
+router.get("/:taskId", isAuthenticated, async (req: any, res) => {
+  const org = req.user?.claims?.org as string;
+  const taskId = Number(req.params.taskId);
+
+  const [wf] = await db.select().from(taskWorkflow).where(and(eq(taskWorkflow.taskId, taskId), eq(taskWorkflow.orgId, org)));
+  const route = await db.select().from(taskReviewRoute).where(and(eq(taskReviewRoute.taskId, taskId), eq(taskReviewRoute.orgId, org))).orderBy(asc(taskReviewRoute.stepIndex));
+  const history = await db.select().from(taskWorkflowEvents).where(and(eq(taskWorkflowEvents.taskId, taskId), eq(taskWorkflowEvents.orgId, org))).orderBy(asc(taskWorkflowEvents.createdAt));
+
+  res.json({ workflow: wf, route, history });
+});
+
+// Define/replace the review route
+router.post("/:taskId/route", isAuthenticated, async (req: any, res) => {
+  const org = req.user?.claims?.org as string;
+  const taskId = Number(req.params.taskId);
+  const steps: Array<{ userId: string; role: string }> = req.body?.steps || [];
+
+  await db.transaction(async (tx) => {
+    await tx.delete(taskReviewRoute).where(and(eq(taskReviewRoute.taskId, taskId), eq(taskReviewRoute.orgId, org)));
+    for (let i = 0; i < steps.length; i++) {
+      await tx.insert(taskReviewRoute).values({ orgId: org, taskId, stepIndex: i, userId: steps[i].userId, role: steps[i].role });
+    }
+    const [wf] = await tx.select().from(taskWorkflow).where(and(eq(taskWorkflow.taskId, taskId), eq(taskWorkflow.orgId, org)));
+    if (!wf) {
+      await tx.insert(taskWorkflow).values({ orgId: org, taskId, state: "collecting", currentStepIndex: 0, currentAssigneeId: steps[0]?.userId });
+    }
+  });
+
+  res.json({ ok: true });
+});
+
+// Submit to next step / compliance
+router.post("/:taskId/submit", isAuthenticated, async (req: any, res) => {
+  const org = req.user?.claims?.org as string;
+  const actor = req.user?.id as string;
+  const taskId = Number(req.params.taskId);
+
+  const [wf] = await db.select().from(taskWorkflow).where(and(eq(taskWorkflow.taskId, taskId), eq(taskWorkflow.orgId, org)));
+  const route = await db.select().from(taskReviewRoute).where(and(eq(taskReviewRoute.taskId, taskId), eq(taskReviewRoute.orgId, org))).orderBy(asc(taskReviewRoute.stepIndex));
+
+  if (!wf || route.length === 0) return res.status(400).json({ message: "Workflow not configured" });
+  if (wf.currentAssigneeId && wf.currentAssigneeId !== actor) return res.status(403).json({ message: "Not current assignee" });
+
+  const nextIndex = wf.currentStepIndex + 1;
+  let nextAssignee = route[nextIndex]?.userId;
+
+  let newState: any = "in_peer_review";
+  if (!nextAssignee) {
+    // escalate to compliance
+    const compliance = await getComplianceOfficer(org);
+    if (!compliance) return res.status(400).json({ message: "No compliance officer" });
+    nextAssignee = compliance.id;
+    newState = "compliance_review";
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.update(taskWorkflow)
+      .set({ state: newState, currentStepIndex: nextIndex, currentAssigneeId: nextAssignee, updatedAt: new Date() })
+      .where(and(eq(taskWorkflow.taskId, taskId), eq(taskWorkflow.orgId, org)));
+
+    await tx.insert(taskWorkflowEvents).values({
+      orgId: org, taskId, actorId: actor, action: "submit",
+      fromStepIndex: wf.currentStepIndex, toStepIndex: nextIndex, toUserId: nextAssignee
+    });
+  });
+
+  // notify nextAssignee
+  // await emailService.send(...)
+
+  res.json({ ok: true, state: newState, currentAssigneeId: nextAssignee, currentStepIndex: nextIndex });
+});
+
+// Return to any previous collaborator
+router.post("/:taskId/return", isAuthenticated, async (req: any, res) => {
+  const org = req.user?.claims?.org as string;
+  const actor = req.user?.id as string;
+  const taskId = Number(req.params.taskId);
+  const { toUserId, comment } = req.body || {};
+
+  const route = await db.select().from(taskReviewRoute).where(and(eq(taskReviewRoute.taskId, taskId), eq(taskReviewRoute.orgId, org)));
+  const toStep = route.find(r => r.userId === toUserId);
+  if (!toStep) return res.status(400).json({ message: "Target user not in route" });
+
+  await db.transaction(async (tx) => {
+    await tx.update(taskWorkflow)
+      .set({ state: "returned", currentStepIndex: toStep.stepIndex, currentAssigneeId: toUserId, updatedAt: new Date() })
+      .where(and(eq(taskWorkflow.taskId, taskId), eq(taskWorkflow.orgId, org)));
+
+    await tx.insert(taskWorkflowEvents).values({
+      orgId: org, taskId, actorId: actor, action: "return",
+      toStepIndex: toStep.stepIndex, toUserId, comment
+    });
+  });
+
+  // emailService: returned notice with comment
+
+  res.json({ ok: true });
+});
+
+// Compliance: approve
+router.post("/:taskId/approve", isAuthenticated, async (req: any, res) => {
+  const org = req.user?.claims?.org as string;
+  const actor = req.user?.id as string;
+  const taskId = Number(req.params.taskId);
+
+  // TODO: verify actor role is compliance officer for org
+  await db.transaction(async (tx) => {
+    await tx.update(taskWorkflow).set({ state: "approved", updatedAt: new Date() })
+      .where(and(eq(taskWorkflow.taskId, taskId), eq(taskWorkflow.orgId, org)));
+    await tx.update(tasks).set({ isEvidenceReady: true })
+      .where(eq(tasks.id, taskId));
+    await tx.insert(taskWorkflowEvents).values({
+      orgId: org, taskId, actorId: actor, action: "approve"
+    });
+  });
+
+  res.json({ ok: true });
+});
+
+// Compliance: reject (send back to a chosen user)
+router.post("/:taskId/reject", isAuthenticated, async (req: any, res) => {
+  const org = req.user?.claims?.org as string;
+  const actor = req.user?.id as string;
+  const taskId = Number(req.params.taskId);
+  const { toUserId, comment } = req.body || {};
+
+  const route = await db.select().from(taskReviewRoute).where(and(eq(taskReviewRoute.taskId, taskId), eq(taskReviewRoute.orgId, org)));
+  const toStep = route.find(r => r.userId === toUserId);
+  if (!toStep) return res.status(400).json({ message: "Target user not in route" });
+
+  await db.transaction(async (tx) => {
+    await tx.update(taskWorkflow)
+      .set({ state: "rejected", currentStepIndex: toStep.stepIndex, currentAssigneeId: toUserId, updatedAt: new Date() })
+      .where(and(eq(taskWorkflow.taskId, taskId), eq(taskWorkflow.orgId, org)));
+    await tx.insert(taskWorkflowEvents).values({
+      orgId: org, taskId, actorId: actor, action: "reject",
+      toUserId, toStepIndex: toStep.stepIndex, comment
+    });
+  });
+
+  res.json({ ok: true });
+});
+
+export default router;
+
+Mount it in server/routes.ts (after auth & before error handler):
+
+import workflowsRouter from "./routes/workflows";
+app.use("/api/workflows", isAuthenticated, workflowsRouter);
+
+
+⸻
+
+3) Client — API helpers
+
+Create client/src/lib/api/workflows.ts:
+
+export async function getWorkflow(taskId: number) {
+  const r = await fetch(`/api/workflows/${taskId}`, { credentials: "include" });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+export async function setRoute(taskId: number, steps: { userId: string; role: string }[]) {
+  const r = await fetch(`/api/workflows/${taskId}/route`, {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ steps }),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+export async function submitStep(taskId: number) {
+  const r = await fetch(`/api/workflows/${taskId}/submit`, { method: "POST", credentials: "include" });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+export async function returnTo(taskId: number, toUserId: string, comment: string) {
+  const r = await fetch(`/api/workflows/${taskId}/return`, {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ toUserId, comment }),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+export async function approve(taskId: number) {
+  const r = await fetch(`/api/workflows/${taskId}/approve`, { method: "POST", credentials: "include" });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+export async function reject(taskId: number, toUserId: string, comment: string) {
+  const r = await fetch(`/api/workflows/${taskId}/reject`, {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ toUserId, comment }),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+
+⸻
+
+4) Client — UI in Task Detail
+
+Update client/src/pages/TaskDetail.tsx:
+	•	Add a new “Workflow” tab next to Notes/Evidence (you already use <Tabs>).
+	•	In that tab:
+	•	Render the route with current step highlighted.
+	•	Show history (events + comments).
+	•	Actions:
+	•	Submit to next (enabled only if current user is currentAssigneeId).
+	•	Return button → opens modal to pick any user from route and add a required comment.
+	•	If current user is compliance (via use-permissions), show Approve and Reject (reject opens modal to choose target user + comment).
+
+Create client/src/components/workflow/ReturnDialog.tsx using shadcn Dialog with DialogTitle and DialogDescription (to avoid your earlier a11y error):
+
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+...
+<Dialog open={open} onOpenChange={setOpen}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Return task</DialogTitle>
+      <DialogDescription>Select the collaborator to return to and add a note.</DialogDescription>
+    </DialogHeader>
+    {/* select + textarea + actions */}
+  </DialogContent>
+</Dialog>
+
+Make sure there is no <a> nested inside another <a> when you add links in the Workflow tab (that warning appeared in your RiskRegister earlier).
+
+⸻
+
+5) Permissions
+
+Use your existing client/src/hooks/use-permissions.tsx:
+	•	Add helpers like:
+
+const { can } = usePermissions();
+const canApprove = can("workflow:approve");   // map this on server too
+const canReturn  = can("workflow:return");
+const canSetRoute = can("workflow:set-route");
+
+On the server, gate endpoints with equivalent checks (e.g., compliance role or admin).
+
+⸻
+
+6) Notifications (email)
+
+You already have server/emailService.ts. Add lightweight templates:
+	•	workflowAssigned(to, taskTitle, stepRole, taskLink)
+	•	workflowReturned(to, taskTitle, comment, taskLink)
+	•	workflowApproved(to, taskTitle, taskLink)
+	•	workflowRejected(to, taskTitle, comment, taskLink)
+
+Call them inside each route (submit, return, approve, reject).
+
+⸻
+
+7) Acceptance tests
+	•	Define route: Analyst → Lead → Manager → Compliance.
+	•	Analyst submits → moves to Lead.
+	•	Lead returns to Analyst with comment → Analyst receives email & event shows in history.
+	•	Lead submits forward → Manager → Escalates to Compliance.
+	•	Compliance Rejects with comment to Lead → Lead fixes, resubmits → Compliance Approves.
+	•	Task is_evidence_ready becomes true on approval.
+	•	Analytics: events exist in task_workflow_events.
+
+⸻
+
+8) Notes about the archive you uploaded
+
+This archive doesn’t yet include any workflow artifacts, so the prompt above adds:
+	•	New Drizzle tables in @shared/schema
+	•	New server router server/routes/workflows.ts and a mount in server/routes.ts
+	•	New client API + a Workflow tab inside TaskDetail.tsx with proper Dialog a11y
+
+It’s aligned to your actual files so Replit can implement without guessing paths.
+

@@ -19,6 +19,7 @@ import {
 } from "@shared/schema";
 import risksRouter from "./routes/risks";
 import analyticsRouter from "./routes/analytics";
+import workflowsRouter from "./routes/workflows";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -2279,6 +2280,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Analytics routes
   app.use("/api/analytics", isAuthenticated, analyticsRouter);
+
+  // Workflow routes
+  app.use("/api/workflows", isAuthenticated, workflowsRouter);
 
   // Export route
   app.post("/api/reports/compliance/export", isAuthenticated, async (req: any, res) => {

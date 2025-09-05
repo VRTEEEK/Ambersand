@@ -10,6 +10,8 @@ import {
   boolean,
   decimal,
   date,
+  pgEnum,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { comments, commentSubscriptions } from "./comments";
 import { risks } from "./risk";
@@ -159,6 +161,7 @@ export const tasks = pgTable("tasks", {
   assigneeId: varchar("assignee_id"),
   pendingAssigneeInviteId: integer("pending_assignee_invite_id"), // For pending invites
   isRisk: boolean("is_risk").default(false).notNull(), // Risk flag for risk register
+  isEvidenceReady: boolean("is_evidence_ready").notNull().default(false), // Workflow completion flag
   createdById: varchar("created_by_id").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -724,3 +727,81 @@ export type { Comment, CommentSubscription, CommentTarget } from "./comments";
 // Re-export invites tables
 export { userInvites } from "./invites";
 export type { UserInvite } from "./invites";
+
+// Workflow Enums
+export const taskWorkflowState = pgEnum("task_workflow_state", [
+  "draft", "collecting", "in_peer_review", "returned",
+  "escalated", "compliance_review", "approved", "rejected"
+]);
+
+export const taskWorkflowAction = pgEnum("task_workflow_action", [
+  "submit", "return", "escalate", "approve", "reject"
+]);
+
+// Route of reviewers for a task (ordered)
+export const taskReviewRoute = pgTable("task_review_route", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  orgId: varchar("org_id", { length: 64 }).notNull(),
+  stepIndex: integer("step_index").notNull(), // 0..N-1
+  userId: varchar("user_id", { length: 64 }).notNull(),
+  role: varchar("role", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+}, (t) => ({
+  uniqueTaskStep: uniqueIndex("t_review_route_task_step_uq").on(t.taskId, t.stepIndex),
+  idxTask: index("t_review_route_task_idx").on(t.taskId),
+}));
+
+// Current workflow state pointer per task
+export const taskWorkflow = pgTable("task_workflow", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  orgId: varchar("org_id", { length: 64 }).notNull(),
+  state: taskWorkflowState("state").notNull().default("draft"),
+  currentStepIndex: integer("current_step_index").notNull().default(0),
+  currentAssigneeId: varchar("current_assignee_id", { length: 64 }),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  uniqueTask: uniqueIndex("t_workflow_task_uq").on(t.taskId),
+  idxTask: index("t_workflow_task_idx").on(t.taskId),
+}));
+
+// Audited state transitions with comments
+export const taskWorkflowEvents = pgTable("task_workflow_events", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  orgId: varchar("org_id", { length: 64 }).notNull(),
+  actorId: varchar("actor_id", { length: 64 }).notNull(),
+  action: taskWorkflowAction("action").notNull(),
+  fromStepIndex: integer("from_step_index"),
+  toStepIndex: integer("to_step_index"),
+  toUserId: varchar("to_user_id", { length: 64 }),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  idxTask: index("t_workflow_events_task_idx").on(t.taskId),
+}));
+
+// Workflow schema types
+export const insertTaskReviewRouteSchema = createInsertSchema(taskReviewRoute).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTaskWorkflowSchema = createInsertSchema(taskWorkflow).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export const insertTaskWorkflowEventSchema = createInsertSchema(taskWorkflowEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Workflow types
+export type TaskReviewRoute = typeof taskReviewRoute.$inferSelect;
+export type InsertTaskReviewRoute = z.infer<typeof insertTaskReviewRouteSchema>;
+export type TaskWorkflow = typeof taskWorkflow.$inferSelect;
+export type InsertTaskWorkflow = z.infer<typeof insertTaskWorkflowSchema>;
+export type TaskWorkflowEvent = typeof taskWorkflowEvents.$inferSelect;
+export type InsertTaskWorkflowEvent = z.infer<typeof insertTaskWorkflowEventSchema>;

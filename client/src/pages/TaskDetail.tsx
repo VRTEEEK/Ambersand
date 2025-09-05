@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, User, Flag, Clock, FileText, Upload, Download, MessageSquare, X, Plus, Grid, List, AlertTriangle } from "lucide-react";
+import { Calendar, User, Flag, Clock, FileText, Upload, Download, MessageSquare, X, Plus, Grid, List, AlertTriangle, CheckCircle, ArrowRight, ArrowLeft, UserCheck } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -16,9 +16,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/hooks/use-i18n";
 import { apiRequest } from "@/lib/queryClient";
 import AppLayout from "@/components/layout/AppLayout";
-import type { Task, User as UserType, ProjectControl, Evidence, EvidenceVersion } from "@shared/schema";
+import type { Task, User as UserType, ProjectControl, Evidence, EvidenceVersion, TaskWorkflow, TaskReviewRoute, TaskWorkflowEvent } from "@shared/schema";
 import Comments from '@/components/comments/Comments';
 import { toggleRisk } from "@/lib/api/risk";
+import { getWorkflow, setRoute, submitStep, returnTo, approve, reject } from "@/lib/api/workflows";
 
 interface TaskWithDetails extends Task {
   project?: { id: number; name: string; nameAr: string };
@@ -75,12 +76,99 @@ export default function TaskDetail() {
     queryKey: ["/api/evidence/versions", taskId || "0"]
   });
 
+  const { data: workflow, refetch: refetchWorkflow } = useQuery<{
+    workflow: TaskWorkflow | null;
+    route: TaskReviewRoute[];
+    history: TaskWorkflowEvent[];
+  }>({
+    queryKey: ["/api/workflows", taskId || "0"],
+    enabled: !!taskId,
+  });
+
   const { data: controlLinkedEvidence = [] } = useQuery<Evidence[]>({
     queryKey: ["/api/evidence/control", selectedControlForView || 0]
   });
 
   const { data: allEvidence = [] } = useQuery<Evidence[]>({
     queryKey: ["/api/evidence"]
+  });
+
+  // Workflow mutations
+  const setRouteMutation = useMutation({
+    mutationFn: async (steps: { userId: string; role: string }[]) => {
+      if (!taskId) throw new Error("No task ID");
+      return setRoute(parseInt(taskId), steps);
+    },
+    onSuccess: () => {
+      refetchWorkflow();
+      toast({
+        title: language === 'ar' ? 'تم حفظ مسار العمل' : 'Workflow route saved',
+        description: language === 'ar' ? 'تم تحديد مسار المراجعة بنجاح' : 'Review route has been set successfully'
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message || (language === 'ar' ? 'فشل في حفظ مسار العمل' : 'Failed to save workflow route'),
+        variant: "destructive"
+      });
+    }
+  });
+
+  const submitMutation = useMutation({
+    mutationFn: async () => {
+      if (!taskId) throw new Error("No task ID");
+      return submitStep(parseInt(taskId));
+    },
+    onSuccess: () => {
+      refetchWorkflow();
+      toast({
+        title: language === 'ar' ? 'تم إرسال المهمة' : 'Task submitted',
+        description: language === 'ar' ? 'تم إرسال المهمة للمراجع التالي' : 'Task has been sent to the next reviewer'
+      });
+    }
+  });
+
+  const returnMutation = useMutation({
+    mutationFn: async ({ toUserId, comment }: { toUserId: string; comment: string }) => {
+      if (!taskId) throw new Error("No task ID");
+      return returnTo(parseInt(taskId), toUserId, comment);
+    },
+    onSuccess: () => {
+      refetchWorkflow();
+      toast({
+        title: language === 'ar' ? 'تم إرجاع المهمة' : 'Task returned',
+        description: language === 'ar' ? 'تم إرجاع المهمة للمراجع المحدد' : 'Task has been returned to the specified reviewer'
+      });
+    }
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async () => {
+      if (!taskId) throw new Error("No task ID");
+      return approve(parseInt(taskId));
+    },
+    onSuccess: () => {
+      refetchWorkflow();
+      toast({
+        title: language === 'ar' ? 'تم الموافقة' : 'Task approved',
+        description: language === 'ar' ? 'تم الموافقة على المهمة نهائياً' : 'Task has been approved successfully'
+      });
+    }
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async ({ toUserId, comment }: { toUserId: string; comment: string }) => {
+      if (!taskId) throw new Error("No task ID");
+      return reject(parseInt(taskId), toUserId, comment);
+    },
+    onSuccess: () => {
+      refetchWorkflow();
+      toast({
+        title: language === 'ar' ? 'تم رفض المهمة' : 'Task rejected',
+        description: language === 'ar' ? 'تم رفض المهمة وإرجاعها للتعديل' : 'Task has been rejected and returned for revision'
+      });
+    }
   });
 
   // All useMutation hooks
@@ -324,7 +412,7 @@ export default function TaskDetail() {
       </div>
 
       <Tabs defaultValue="details" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-6">
+        <TabsList className="grid w-full grid-cols-4 mb-6">
           <TabsTrigger value="details" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             {language === 'ar' ? 'تفاصيل المهمة' : 'Task Details'}
@@ -336,6 +424,15 @@ export default function TaskDetail() {
           <TabsTrigger value="evidence" className="flex items-center gap-2">
             <Upload className="h-4 w-4" />
             {language === 'ar' ? 'الأدلة' : 'Evidence'}
+          </TabsTrigger>
+          <TabsTrigger value="workflow" className="flex items-center gap-2">
+            <UserCheck className="h-4 w-4" />
+            {language === 'ar' ? 'سير العمل' : 'Workflow'}
+            {workflow?.workflow?.state && (
+              <Badge variant={workflow.workflow.state === 'approved' ? 'default' : 'secondary'} className="ml-1">
+                {workflow.workflow.state}
+              </Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -841,6 +938,209 @@ export default function TaskDetail() {
               </div>
             </DialogContent>
           </Dialog>
+        </TabsContent>
+
+        <TabsContent value="workflow" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserCheck className="h-5 w-5" />
+                {language === 'ar' ? 'مسار المراجعة' : 'Review Workflow'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              
+              {/* Current Workflow State */}
+              {workflow?.workflow && (
+                <div className="p-4 border rounded-lg bg-muted/50">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-semibold">{language === 'ar' ? 'الحالة الحالية' : 'Current State'}</h4>
+                    <Badge variant={workflow.workflow.state === 'approved' ? 'default' : 'secondary'}>
+                      {workflow.workflow.state}
+                    </Badge>
+                  </div>
+                  
+                  {workflow.workflow.currentAssigneeId && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <User className="h-4 w-4" />
+                      <span>{language === 'ar' ? 'المراجع الحالي:' : 'Current Reviewer:'}</span>
+                      <span className="font-medium">
+                        {users.find(u => u.id === workflow.workflow!.currentAssigneeId)?.firstName} {users.find(u => u.id === workflow.workflow!.currentAssigneeId)?.lastName}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Review Route */}
+              {workflow?.route && workflow.route.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-3">{language === 'ar' ? 'مسار المراجعة' : 'Review Route'}</h4>
+                  <div className="space-y-2">
+                    {workflow.route.map((step, index) => {
+                      const user = users.find(u => u.id === step.userId);
+                      const isCurrent = workflow.workflow?.currentStepIndex === index;
+                      const isCompleted = workflow.workflow && workflow.workflow.currentStepIndex > index;
+                      
+                      return (
+                        <div
+                          key={step.id}
+                          className={`flex items-center gap-3 p-3 rounded-lg border ${
+                            isCurrent ? 'bg-blue-50 border-blue-200' : 
+                            isCompleted ? 'bg-green-50 border-green-200' : 'bg-gray-50'
+                          }`}
+                        >
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            isCurrent ? 'bg-blue-500 text-white' : 
+                            isCompleted ? 'bg-green-500 text-white' : 'bg-gray-300'
+                          }`}>
+                            {isCompleted ? (
+                              <CheckCircle className="h-4 w-4" />
+                            ) : (
+                              <span className="text-sm font-medium">{index + 1}</span>
+                            )}
+                          </div>
+                          
+                          <div className="flex-1">
+                            <div className="font-medium">
+                              {user?.firstName} {user?.lastName}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {step.role}
+                            </div>
+                          </div>
+                          
+                          {isCurrent && (
+                            <Badge variant="outline">
+                              {language === 'ar' ? 'حالي' : 'Current'}
+                            </Badge>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              {workflow?.workflow && currentUser && (
+                <div className="flex gap-2 pt-4 border-t">
+                  {/* Submit Button */}
+                  {workflow.workflow.currentAssigneeId === currentUser.id && 
+                   workflow.workflow.state !== 'approved' && 
+                   workflow.workflow.state !== 'rejected' && (
+                    <Button 
+                      onClick={() => submitMutation.mutate()}
+                      disabled={submitMutation.isPending}
+                      className="flex items-center gap-2"
+                    >
+                      <ArrowRight className="h-4 w-4" />
+                      {language === 'ar' ? 'إرسال للتالي' : 'Submit to Next'}
+                    </Button>
+                  )}
+                  
+                  {/* Admin/Compliance Actions */}
+                  {(currentUser.role === 'admin' || currentUser.role === 'manager') && 
+                   workflow.workflow.state === 'compliance_review' && (
+                    <>
+                      <Button 
+                        onClick={() => approveMutation.mutate()}
+                        disabled={approveMutation.isPending}
+                        variant="default"
+                        className="flex items-center gap-2"
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                        {language === 'ar' ? 'موافقة' : 'Approve'}
+                      </Button>
+                      
+                      <Button 
+                        onClick={() => {
+                          const comment = prompt(language === 'ar' ? 'سبب الرفض:' : 'Rejection reason:');
+                          const targetUser = workflow.route[0]?.userId; // Return to first reviewer
+                          if (comment && targetUser) {
+                            rejectMutation.mutate({ toUserId: targetUser, comment });
+                          }
+                        }}
+                        disabled={rejectMutation.isPending}
+                        variant="destructive"
+                        className="flex items-center gap-2"
+                      >
+                        <X className="h-4 w-4" />
+                        {language === 'ar' ? 'رفض' : 'Reject'}
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Workflow History */}
+              {workflow?.history && workflow.history.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-3">{language === 'ar' ? 'تاريخ المراجعة' : 'Review History'}</h4>
+                  <div className="space-y-3">
+                    {workflow.history.map((event, index) => {
+                      const actor = users.find(u => u.id === event.actorId);
+                      
+                      return (
+                        <div key={event.id} className="flex gap-3 p-3 rounded-lg bg-muted/30">
+                          <div className="w-2 h-2 rounded-full bg-blue-500 mt-2 flex-shrink-0"></div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium">
+                                {actor?.firstName} {actor?.lastName}
+                              </span>
+                              <Badge variant="outline" className="text-xs">
+                                {event.action}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {event.createdAt ? format(new Date(event.createdAt), 'MMM dd, yyyy HH:mm') : ''}
+                              </span>
+                            </div>
+                            
+                            {event.comment && (
+                              <div className="text-sm text-muted-foreground bg-background p-2 rounded border">
+                                {event.comment}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Setup Workflow Route */}
+              {(!workflow?.route || workflow.route.length === 0) && currentUser?.role === 'admin' && (
+                <div className="text-center py-6 border-2 border-dashed rounded-lg">
+                  <UserCheck className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                  <h4 className="font-semibold mb-2">
+                    {language === 'ar' ? 'لم يتم تحديد مسار المراجعة' : 'No Review Route Set'}
+                  </h4>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {language === 'ar' ? 'قم بإعداد مسار المراجعة لهذه المهمة' : 'Set up a review route for this task'}
+                  </p>
+                  <Button
+                    onClick={() => {
+                      // Simple route setup - in production this would be a proper dialog
+                      const reviewers = users.filter(u => u.role === 'manager' || u.role === 'viewer');
+                      if (reviewers.length > 0) {
+                        const steps = reviewers.slice(0, 2).map((user, index) => ({
+                          userId: user.id,
+                          role: user.role || 'reviewer'
+                        }));
+                        setRouteMutation.mutate(steps);
+                      }
+                    }}
+                    disabled={setRouteMutation.isPending}
+                  >
+                    {language === 'ar' ? 'إعداد مسار المراجعة' : 'Set Review Route'}
+                  </Button>
+                </div>
+              )}
+              
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
       
