@@ -28,6 +28,7 @@ const permissionDefinitions: InsertPermission[] = [
   { code: "approve_controls", description: "Approve compliance control implementations" },
   { code: "export_compliance_reports", description: "Export compliance reports in various formats" },
   { code: "workflow_return", description: "Return tasks to collaborators in workflow" },
+  { code: "regulation:import", description: "Import regulations from Excel/CSV files" },
 ];
 
 // Role definitions
@@ -55,7 +56,8 @@ const permissionMatrix: Record<string, string[]> = {
     "edit_evidence_repository",
     "approve_controls",
     "export_compliance_reports",
-    "workflow_return"
+    "workflow_return",
+    "regulation:import"
   ],
   user: [
     "view_regulations",
@@ -72,7 +74,8 @@ const permissionMatrix: Record<string, string[]> = {
   officer: [
     "approve_controls",
     "edit_risks",
-    "workflow_return"
+    "workflow_return",
+    "regulation:import"
   ],
   collaborator: [
     "view_regulations",

@@ -22,7 +22,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import { BookOpen, Shield, Database, Plus, Settings, FileText, Building, CheckSquare, Square, AlertTriangle, Edit, Trash2, MoreVertical } from 'lucide-react';
+import { BookOpen, Shield, Database, Plus, Settings, FileText, Building, CheckSquare, Square, AlertTriangle, Edit, Trash2, MoreVertical, Upload } from 'lucide-react';
+import { usePermissions } from '@/hooks/use-permissions';
+import { Link } from 'wouter';
 
 // Custom regulation schema
 const customRegulationSchema = z.object({
@@ -63,6 +65,7 @@ type ProjectFormData = z.infer<typeof projectSchema>;
 
 export default function Regulations() {
   const { t, language } = useI18n();
+  const { can } = usePermissions();
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
@@ -690,14 +693,23 @@ export default function Regulations() {
               }
             </p>
           </div>
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                {language === 'ar' ? 'إنشاء تنظيم مخصص' : 'Create Custom Regulation'}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center gap-2">
+            {can('regulation:import') && (
+              <Link href="/regulations/import">
+                <Button variant="outline" className="flex items-center gap-2">
+                  <Upload className="h-4 w-4" />
+                  {language === 'ar' ? 'استيراد تنظيم' : 'Import Regulation'}
+                </Button>
+              </Link>
+            )}
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  {language === 'ar' ? 'إنشاء تنظيم مخصص' : 'Create Custom Regulation'}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
                   {language === 'ar' ? 'إنشاء تنظيم مخصص جديد' : 'Create New Custom Regulation'}
@@ -1270,6 +1282,7 @@ export default function Regulations() {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Regulation Frameworks Overview */}

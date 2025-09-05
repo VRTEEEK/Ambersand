@@ -24,6 +24,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { emailService } from "./emailService";
+import * as XLSX from 'xlsx';
 import { 
   requirePermissions, 
   requireViewRegulations, 
@@ -2393,6 +2394,166 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Email template test error:', error);
       res.status(500).json({ message: "Test failed", error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  // Admin regulation import endpoints
+  app.post('/api/admin/regulations/import', isAuthenticated, requirePermissions(['regulation:import']), upload.single('file'), async (req: any, res) => {
+    try {
+      const { code, nameEn, nameAr, version, publisher } = req.body;
+      const dryRun = req.query.dryRun === '1';
+      
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      
+      if (!code || !nameEn || !version) {
+        return res.status(400).json({ message: "Code, Name (English), and Version are required" });
+      }
+
+      // Read and parse the uploaded file
+      let data: any[][] = [];
+      const filePath = req.file.path;
+      
+      try {
+        if (req.file.originalname.endsWith('.csv')) {
+          // Parse CSV
+          const csvContent = fs.readFileSync(filePath, 'utf-8');
+          const lines = csvContent.split('\n');
+          data = lines.map(line => line.split(',').map(cell => cell.trim().replace(/^"|"$/g, '')));
+        } else if (req.file.originalname.endsWith('.xlsx')) {
+          // Parse Excel
+          const workbook = XLSX.readFile(filePath);
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        } else {
+          return res.status(400).json({ message: "Unsupported file format. Use .xlsx or .csv" });
+        }
+
+        // Clean up uploaded file
+        fs.unlinkSync(filePath);
+        
+        // Process the data (skip header row)
+        const headers = data[0] || [];
+        const rows = data.slice(1).filter(row => row.some(cell => cell && cell.toString().trim()));
+        
+        let inserted = 0, updated = 0, errors: string[] = [], warnings: string[] = [];
+        const sample = rows.slice(0, 10); // First 10 rows for preview
+        
+        if (!dryRun) {
+          // Create or update the regulation
+          const userId = req.user.claims?.sub || req.user.id;
+          const orgId = req.user?.organizationId || 'default';
+          
+          const regulationData = {
+            name: nameEn,
+            nameAr: nameAr || null,
+            description: `Imported from ${req.file.originalname}`,
+            descriptionAr: null,
+            category: 'external' as const,
+            framework: code,
+            version: version,
+            status: 'active' as const,
+            organizationId: orgId,
+            createdById: userId,
+            approvedById: userId,
+            approvedAt: new Date(),
+          };
+          
+          // Check if regulation already exists
+          const existingRegulation = await storage.getCustomRegulations(orgId);
+          const existing = existingRegulation?.find(r => r.framework === code);
+          
+          if (existing) {
+            // Update existing regulation
+            await storage.updateCustomRegulation(existing.id, regulationData);
+            updated = 1;
+          } else {
+            // Create new regulation  
+            await storage.createCustomRegulation(regulationData);
+            inserted = 1;
+          }
+        } else {
+          // Dry run - just validate and count
+          inserted = rows.filter(row => row.some(cell => cell && cell.toString().trim())).length;
+          
+          // Basic validation
+          if (rows.length === 0) {
+            errors.push("No data rows found in the file");
+          }
+          if (!headers.includes('code') && !headers.includes('Code')) {
+            warnings.push("No 'code' column found - controls may not import correctly");
+          }
+        }
+        
+        res.json({
+          inserted,
+          updated,
+          total: rows.length,
+          warnings,
+          errors,
+          sample: sample.slice(0, 5).map(row => {
+            const obj: Record<string, any> = {};
+            headers.forEach((header: string, index: number) => {
+              obj[header] = row[index] || '';
+            });
+            return obj;
+          })
+        });
+        
+      } catch (parseError) {
+        fs.unlinkSync(filePath); // Clean up
+        return res.status(400).json({ 
+          message: "Failed to parse file", 
+          error: parseError instanceof Error ? parseError.message : String(parseError)
+        });
+      }
+      
+    } catch (error) {
+      console.error("Regulation import error:", error);
+      res.status(500).json({ message: "Import failed" });
+    }
+  });
+
+  // Download CSV template
+  app.get('/api/admin/regulations/template.csv', isAuthenticated, requirePermissions(['regulation:import']), async (req, res) => {
+    try {
+      const csvContent = `code,codeAr,domainEn,domainAr,subdomainEn,subdomainAr,controlEn,controlAr,evidenceEn,evidenceAr,requirementEn,requirementAr
+1-1-1,١-١-١,Cybersecurity Governance,حوكمة الأمن السيبراني,1-1 Cybersecurity Strategy,۱-۱ إستراتيجية الأمن السيبراني,A cybersecurity strategy must be defined documented and approved,يجب تحديد وتوثيق و اعتماد استراتيجية الأمن السيبراني,CS Strategy file,وثيقة استراتيجية الأمن السيبراني المعتمدة,Strategy goals must be in-line with laws and regulations,يجب أن تتماشى الأهداف الاستراتيجية مع المتطلبات التشريعية
+1-1-2,١-١-٢,Cybersecurity Governance,حوكمة الأمن السيبراني,1-1 Cybersecurity Strategy,۱-۱ إستراتيجية الأمن السيبراني,An action plan must be executed to implement the cybersecurity strategy,يجب العمل على تنفيذ خطة عمل لتطبيق استراتيجية الأمن السيبراني,Implementation plan,خطة عمل تنفيذ الاستراتيجية,Action plan must implement the cybersecurity strategy,يجب أن تبدأ الجهة في تنفيذ الخطوات العملية لحماية معلوماتها`;
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="regulation-import-template.csv"');
+      res.send(csvContent);
+      
+    } catch (error) {
+      console.error("Template download error:", error);
+      res.status(500).json({ message: "Failed to generate template" });
+    }
+  });
+
+  // Get regulation versions
+  app.get('/api/admin/regulations/:code/versions', isAuthenticated, requirePermissions(['regulation:import']), async (req: any, res) => {
+    try {
+      const { code } = req.params;
+      const orgId = req.user?.organizationId || 'default';
+      
+      const regulations = await storage.getCustomRegulations(orgId);
+      const versions = regulations?.filter(r => r.framework === code) || [];
+      
+      const result = versions.map(v => ({
+        version: v.version,
+        status: v.status,
+        createdAt: v.createdAt,
+        id: v.id
+      }));
+      
+      res.json(result);
+      
+    } catch (error) {
+      console.error("Get versions error:", error);
+      res.status(500).json({ message: "Failed to fetch versions" });
     }
   });
 
