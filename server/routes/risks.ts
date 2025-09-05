@@ -5,22 +5,32 @@ import { risks, riskStatus, riskSeverity, type Risk, insertRiskSchema, updateRis
 import { tasks } from "../../shared/schema";
 import { and, eq, desc, lt, like, or } from "drizzle-orm";
 import { emailService } from "../emailService";
+import { getUserPermissions } from "../rbac-seed";
 
 const router = Router();
 
 // Helper functions for permissions
-function canEditRisk(user: any): boolean {
-  return !!(user?.role === "admin" || user?.role === "officer");
+async function canEditRisk(user: any): Promise<boolean> {
+  const userId = user?.claims?.sub || user?.id;
+  if (!userId) return false;
+  
+  const permissions = await getUserPermissions(userId);
+  return permissions.includes("edit_risks");
 }
 
-function canViewTask(user: any, task: any): boolean {
-  // User can view if they're the assignee, creator, or admin/officer
-  return !!(
-    user?.id === task?.assigneeId ||
-    user?.id === task?.createdById ||
-    user?.role === "admin" ||
-    user?.role === "officer"
-  );
+async function canViewTask(user: any, task: any): Promise<boolean> {
+  // User can view if they're the assignee, creator, or have admin permissions
+  const userId = user?.claims?.sub || user?.id;
+  if (!userId) return false;
+  
+  // Check if user is assignee or creator
+  if (userId === task?.assigneeId || userId === task?.createdById) {
+    return true;
+  }
+  
+  // Check if user has admin permissions
+  const permissions = await getUserPermissions(userId);
+  return permissions.includes("edit_risks") || permissions.includes("view_tasks");
 }
 
 // GET /api/risks?status=&severity=&assigneeId=&q=&limit=&cursor=
@@ -107,7 +117,7 @@ router.get("/:id", async (req: any, res) => {
       .from(tasks)
       .where(eq(tasks.id, risk.taskId));
 
-    if (!task || !canViewTask(req.user, task)) {
+    if (!task || !(await canViewTask(req.user, task))) {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -141,7 +151,7 @@ router.post("/toggle", async (req: any, res) => {
       return res.status(404).json({ message: "Task not found" });
     }
 
-    if (!canViewTask(req.user, task)) {
+    if (!(await canViewTask(req.user, task))) {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -225,7 +235,7 @@ router.patch("/:id", async (req: any, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    if (!canEditRisk(req.user)) {
+    if (!(await canEditRisk(req.user))) {
       return res.status(403).json({ message: "Only compliance officers and admins can edit risks" });
     }
 
