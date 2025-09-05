@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getRisk, updateRisk, getSeverityColor, getStatusColor, type RiskItem, type RiskStatus, type RiskSeverity } from "@/lib/api/risk";
 import Comments from "@/components/comments/Comments";
 import AssigneeSmartInput from "@/components/users/AssigneeSmartInput";
+import { UserAvatar } from "@/components/ui/user-avatar";
 
 interface RiskDetailProps {
   riskId: number;
@@ -31,6 +32,11 @@ export function RiskDetail({ riskId, onClose }: RiskDetailProps) {
     queryFn: () => getRisk(riskId),
   });
 
+  // Fetch users for assignee display
+  const { data: users = [] } = useQuery<any[]>({
+    queryKey: ['/api/users'],
+  });
+
   // Initialize form data when risk loads
   useEffect(() => {
     if (risk) {
@@ -44,6 +50,10 @@ export function RiskDetail({ riskId, onClose }: RiskDetailProps) {
       });
     }
   }, [risk]);
+
+  // Find assigned user
+  const assignedUser = users.find((u: any) => u.id === risk?.assigneeId);
+  const createdByUser = users.find((u: any) => u.id === risk?.createdById);
 
   const updateMutation = useMutation({
     mutationFn: (updates: Partial<RiskItem>) => updateRisk(riskId, updates),
@@ -306,8 +316,14 @@ export function RiskDetail({ riskId, onClose }: RiskDetailProps) {
                 />
               ) : (
                 <div>
-                  {risk.assigneeId ? (
-                    <p className="text-sm">Assigned to: {risk.assigneeId}</p>
+                  {risk.assigneeId && assignedUser ? (
+                    <div className="flex items-center gap-3">
+                      <UserAvatar user={assignedUser} size="sm" />
+                      <div>
+                        <p className="text-sm font-medium">{assignedUser.name || assignedUser.email}</p>
+                        <p className="text-xs text-muted-foreground">Assignee</p>
+                      </div>
+                    </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">Unassigned</p>
                   )}
@@ -335,7 +351,14 @@ export function RiskDetail({ riskId, onClose }: RiskDetailProps) {
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Created By</label>
-                <p className="text-sm">{risk.createdById}</p>
+                {createdByUser ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <UserAvatar user={createdByUser} size="sm" />
+                    <span className="text-sm">{createdByUser.name || createdByUser.email}</span>
+                  </div>
+                ) : (
+                  <p className="text-sm">{risk.createdById}</p>
+                )}
               </div>
               {risk.closedAt && (
                 <div>
