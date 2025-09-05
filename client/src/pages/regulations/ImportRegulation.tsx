@@ -363,7 +363,7 @@ export default function ImportRegulation() {
                   </Button>
                   <Button 
                     onClick={handleImport} 
-                    disabled={!file || loading || (result && result.errors?.length > 0)}
+                    disabled={!file || loading || Boolean(result?.errors?.length)}
                   >
                     {loading ? '...' : (language === 'ar' ? 'استيراد' : 'Import')}
                   </Button>
