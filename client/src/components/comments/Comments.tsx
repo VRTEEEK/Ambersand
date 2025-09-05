@@ -69,7 +69,7 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
       if (!query || query.length < 1) return { users: [] };
       return fetch(`/api/comments/users/search?q=${encodeURIComponent(query)}&limit=10`).then(r => r.json());
     },
-    enabled: showMentions && mentionQuery.length >= 0,
+    enabled: showMentions && mentionQuery.length >= 1,
   });
 
   const createMutation = useMutation({

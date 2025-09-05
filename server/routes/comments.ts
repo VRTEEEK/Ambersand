@@ -260,7 +260,7 @@ router.get("/users/search", isAuthenticated, async (req: any, res) => {
   
   try {
     const { q, limit } = schema.parse(req.query);
-    const users = await searchUsersForMentions(q, req.user.claims?.org || '', limit);
+    const users = await searchUsersForMentions(q, req.user.organizationId || 'default', limit);
     res.json({ users });
   } catch (error) {
     console.error("Error searching users:", error);

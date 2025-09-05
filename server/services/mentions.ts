@@ -60,7 +60,7 @@ async function findUsersByHandles(handles: string[], orgId: string): Promise<Arr
 
 // API endpoint to search users for mentions autocomplete
 export async function searchUsersForMentions(query: string, orgId: string, limit: number = 10): Promise<Array<{ id: string; name: string; email: string; handle: string }>> {
-  if (!query || query.length < 2) return [];
+  if (!query || query.length < 1) return [];
 
   const foundUsers = await db.select({
     id: users.id,
