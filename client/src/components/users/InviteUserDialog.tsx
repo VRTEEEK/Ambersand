@@ -44,7 +44,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useI18n } from '@/hooks/use-i18n';
-import type { Role, Project } from '@/shared/schema';
+import type { Role, Project } from '@shared/schema';
 import { cn } from '@/lib/utils';
 
 // Enhanced schema with multi-project validation
@@ -117,7 +117,8 @@ function InviteUserDialog({ isOpen, onClose, onSuccess }: InviteUserDialogProps)
   const inviteUserMutation = useMutation({
     mutationFn: async (data: InviteUserForm) => {
       // Check for duplicate first
-      const duplicateCheck = await checkDuplicateMutation.mutateAsync(data.email);
+      const duplicateResponse = await checkDuplicateMutation.mutateAsync(data.email);
+      const duplicateCheck = await duplicateResponse.json();
       
       if (duplicateCheck.exists) {
         if (duplicateCheck.isPending) {

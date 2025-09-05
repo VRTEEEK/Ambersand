@@ -73,7 +73,10 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
   });
 
   const createMutation = useMutation({
-    mutationFn: (body: string) => apiRequest('/api/comments', 'POST', { targetType, targetId, body }),
+    mutationFn: async (body: string) => {
+      const response = await apiRequest('/api/comments', 'POST', { targetType, targetId, body });
+      return await response.json();
+    },
     onSuccess: (newComment) => {
       setText('');
       queryClient.setQueryData(['/api/comments', targetType, targetId], (old: any) => ({
@@ -88,15 +91,17 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: string }) => 
-      apiRequest(`/api/comments/${id}`, 'PATCH', { body }),
+    mutationFn: async ({ id, body }: { id: number; body: string }) => {
+      const response = await apiRequest(`/api/comments/${id}`, 'PATCH', { body });
+      return await response.json();
+    },
     onSuccess: (updatedComment) => {
       setEditingId(null);
       setEditText('');
       queryClient.setQueryData(['/api/comments', targetType, targetId], (old: any) => ({
         ...old,
         items: old?.items?.map((item: Comment) => 
-          item.id === (updatedComment as Comment).id ? updatedComment : item
+          item.id === updatedComment.id ? updatedComment : item
         ) || []
       }));
       toast({ title: 'Comment updated' });
@@ -107,8 +112,11 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest(`/api/comments/${id}`, 'DELETE'),
-    onSuccess: (_, deletedId) => {
+    mutationFn: async (id: number) => {
+      await apiRequest(`/api/comments/${id}`, 'DELETE');
+      return id; // Return the id so we can use it in onSuccess
+    },
+    onSuccess: (deletedId) => {
       queryClient.setQueryData(['/api/comments', targetType, targetId], (old: any) => ({
         ...old,
         items: old?.items?.filter((item: Comment) => item.id !== deletedId) || []

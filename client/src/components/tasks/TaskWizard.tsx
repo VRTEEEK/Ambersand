@@ -13,7 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { X, ArrowLeft, ArrowRight, Search } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { apiRequest } from '@/lib/queryClient';
 import { useI18n } from '@/hooks/use-i18n';
 import { useToast } from '@/hooks/use-toast';
@@ -392,6 +392,9 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
           <DialogTitle>
             {language === 'ar' ? 'إنشاء مهمة جديدة' : 'Create New Task'}
           </DialogTitle>
+          <DialogDescription>
+            {language === 'ar' ? 'اتبع الخطوات لإنشاء مهمة جديدة وتعيينها للفريق' : 'Follow the steps to create a new task and assign it to your team'}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -765,7 +768,6 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                     <div>
                       <Label htmlFor="assignee">{language === 'ar' ? 'المكلف' : 'Assignee'}</Label>
                       <AssigneeSmartInput
-                        placeholder={language === 'ar' ? 'اكتب اسماً أو بريداً إلكترونياً...' : 'Type a name or email...'}
                         onResolve={(r) => {
                           if (r.type === "existing") {
                             form.setValue("assigneeId", r.userId);      // string
@@ -780,11 +782,6 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                               description: `Invitation sent to ${r.email}.`
                             });
                           }
-                        }}
-                        onClear={() => {
-                          form.setValue('assigneeId', null);
-                          form.setValue('assigneeEmail', undefined);
-                          setAssigneeDisplay('');
                         }}
                       />
                     </div>

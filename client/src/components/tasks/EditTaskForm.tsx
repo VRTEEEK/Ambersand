@@ -698,7 +698,7 @@ export default function EditTaskForm({
                       <div className="flex items-center justify-between">
                         <span className="font-medium">{domain}</span>
                         <Badge variant="secondary">
-                          {projectControls.filter(pc => pc.eccControl?.domainEn === domain && !taskControls?.some(tc => tc.eccControl?.id === pc.eccControl?.id)).length} available
+                          {projectControls.filter(pc => pc.eccControl?.domainEn === domain && !(Array.isArray(taskControls) && taskControls.some((tc: any) => tc.eccControl?.id === pc.eccControl?.id))).length} available
                         </Badge>
                       </div>
                     </div>
