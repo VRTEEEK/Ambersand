@@ -40,7 +40,14 @@ export default function ImportRegulation() {
   const [lastDryRunOk, setLastDryRunOk] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Permission check
+  // Fetch versions for the current code - must be called before any conditional returns
+  const { data: versions, refetch: refetchVersions } = useQuery({
+    queryKey: ['/api/admin/regulations', code, 'versions'],
+    queryFn: () => getVersions(code),
+    enabled: !!code && can('regulation:import'),
+  });
+
+  // Permission check - after all hooks
   if (!can('regulation:import')) {
     return (
       <div className="container mx-auto p-6">
@@ -60,13 +67,6 @@ export default function ImportRegulation() {
       </div>
     );
   }
-
-  // Fetch versions for the current code
-  const { data: versions, refetch: refetchVersions } = useQuery({
-    queryKey: ['/api/admin/regulations', code, 'versions'],
-    queryFn: () => getVersions(code),
-    enabled: !!code,
-  });
 
   // Download template handler
   const handleDownloadTemplate = async () => {
