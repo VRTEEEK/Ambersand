@@ -1,5 +1,5 @@
-import * as Dialog from "@radix-ui/react-dialog";
 import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
 interface SupportModalProps {
@@ -88,20 +88,20 @@ export function SupportModal({ open, onClose }: SupportModalProps) {
   if (!open) return null;
 
   return (
-    <Dialog.Root open={open} onOpenChange={(value) => !value && onClose()}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/40 z-40" />
-        <Dialog.Content 
-          className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white dark:bg-gray-800 p-6 shadow-lg border"
-          onKeyDown={handleKeyDown}
-          aria-describedby={undefined}
-        >
-          <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent 
+        className="w-[92vw] max-w-lg rounded-xl"
+        onKeyDown={handleKeyDown}
+        aria-describedby={undefined}
+      >
+        <DialogHeader>
+          <DialogTitle className="text-lg font-semibold">
             Contact Technical Support
-          </Dialog.Title>
-          <Dialog.Description className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
             Describe your technical issue and we'll help you resolve it quickly.
-          </Dialog.Description>
+          </DialogDescription>
+        </DialogHeader>
           
           <div className="space-y-4">
             <div className="space-y-2">
@@ -157,8 +157,7 @@ export function SupportModal({ open, onClose }: SupportModalProps) {
               {loading ? "Sending..." : "Send Request"}
             </button>
           </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+      </DialogContent>
+    </Dialog>
   );
 }
