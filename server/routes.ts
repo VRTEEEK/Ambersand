@@ -91,18 +91,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User Management routes  
-  app.get('/api/users', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+  app.get('/api/users', isAuthenticated, async (req: any, res) => {
     try {
       const currentUser = await storage.getUser(req.user.claims.sub);
       const users = await storage.getAllUsers(currentUser?.organizationId || undefined);
       
-      // Include user roles in response
-      const usersWithRoles = await Promise.all(users.map(async (user) => ({
-        ...user,
-        userRoles: await storage.getUserRoles(user.id)
-      })));
+      // Format for workflow components (simplified structure)
+      const formattedUsers = users.map(user => ({
+        id: user.id,
+        email: user.email || '',
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User',
+        profilePicture: user.profilePicture || user.profileImageUrl || null
+      }));
       
-      res.json(usersWithRoles);
+      console.log(`✅ Returning ${formattedUsers.length} users for workflows`);
+      res.json(formattedUsers);
     } catch (error) {
       console.error("Error fetching users:", error);
       res.status(500).json({ message: "Failed to fetch users" });

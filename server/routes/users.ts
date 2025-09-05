@@ -9,40 +9,6 @@ import crypto from "crypto";
 
 const router = Router();
 
-// GET /api/users - Get all users in organization (for workflows, assignments, etc)
-router.get("/", isAuthenticated, async (req: any, res) => {
-  try {
-    const orgId = req.user?.organizationId || 'default';
-    
-    const allUsers = await db.query.users.findMany({
-      where: eq(users.organizationId, orgId),
-      columns: { 
-        id: true, 
-        email: true, 
-        name: true, 
-        firstName: true, 
-        lastName: true, 
-        profileImageUrl: true,
-        profilePicture: true 
-      },
-      orderBy: (users, { desc }) => [desc(users.createdAt)]
-    });
-
-    const formattedUsers = allUsers.map(user => ({
-      id: user.id,
-      email: user.email || '',
-      name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User',
-      firstName: user.firstName || '',
-      lastName: user.lastName || '',
-      profilePicture: user.profilePicture || user.profileImageUrl || null
-    }));
-    
-    res.json(formattedUsers);
-  } catch (error) {
-    console.error("Error fetching users:", error);
-    res.status(500).json({ message: "Failed to fetch users" });
-  }
-});
 
 // Debug endpoint to see what the server thinks about auth
 router.get("/me", isAuthenticated, (req: any, res) => {
