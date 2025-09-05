@@ -737,7 +737,7 @@ export default function TaskDetail() {
 
           {/* Upload Dialog */}
           <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-            <DialogContent>
+            <DialogContent aria-describedby={undefined}>
               <DialogHeader>
                 <DialogTitle>Upload Evidence</DialogTitle>
               </DialogHeader>
@@ -792,7 +792,7 @@ export default function TaskDetail() {
 
           {/* Link Existing Evidence Dialog */}
           <Dialog open={linkExistingDialogOpen} onOpenChange={setLinkExistingDialogOpen}>
-            <DialogContent>
+            <DialogContent aria-describedby={undefined}>
               <DialogHeader>
                 <DialogTitle>
                   {language === 'ar' ? 'ربط دليل موجود' : 'Link Existing Evidence'}
