@@ -20,6 +20,8 @@ import {
 import risksRouter from "./routes/risks";
 import analyticsRouter from "./routes/analytics";
 import workflowsRouter from "./routes/workflows";
+import regulationsRouter from "./routes/regulations";
+import projectsRouter from "./routes/projects";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -2289,6 +2291,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Workflow routes
   app.use("/api/workflows", isAuthenticated, workflowsRouter);
+
+  // Regulations routes
+  app.use("/api/regulations", regulationsRouter);
+
+  // Projects routes  
+  app.use("/api/projects", projectsRouter);
 
   // Export route
   app.post("/api/reports/compliance/export", isAuthenticated, async (req: any, res) => {

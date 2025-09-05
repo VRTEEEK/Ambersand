@@ -15,6 +15,7 @@ import { eq, and } from "drizzle-orm";
 // Permission definitions from Excel file
 const permissionDefinitions: InsertPermission[] = [
   { code: "view_regulations", description: "View regulations and compliance frameworks" },
+  { code: "edit_regulations", description: "Edit regulation metadata and control details" },
   { code: "create_projects_from_regulations", description: "Create new projects based on regulatory frameworks" },
   { code: "assign_projects_to_users", description: "Assign projects and tasks to team members" },
   { code: "change_organization_settings", description: "Modify organization-wide settings and configurations" },
@@ -44,6 +45,7 @@ const roleDefinitions: InsertRole[] = [
 const permissionMatrix: Record<string, string[]> = {
   admin: [
     "view_regulations",
+    "edit_regulations",
     "create_projects_from_regulations",
     "assign_projects_to_users",
     "change_organization_settings",
@@ -61,6 +63,7 @@ const permissionMatrix: Record<string, string[]> = {
   ],
   user: [
     "view_regulations",
+    "edit_regulations", 
     "create_projects_from_regulations",
     "assign_projects_to_users",
     "create_tasks",

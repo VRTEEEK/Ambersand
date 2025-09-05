@@ -12,6 +12,7 @@ import Dashboard from "@/pages/Dashboard";
 import Landing from "@/pages/Landing";
 import Regulations from "@/pages/Regulations";
 import ImportRegulation from "@/pages/regulations/ImportRegulation";
+import { RegulationDetail } from "@/pages/regulations/RegulationDetail";
 import Projects from "@/pages/Projects";
 import Tasks from "@/pages/Tasks";
 import MyTasks from "@/pages/MyTasks";
@@ -40,6 +41,7 @@ function Router() {
           <Route path="/" component={Dashboard} />
           <Route path="/regulations" component={Regulations} />
           <Route path="/regulations/import" component={ImportRegulation} />
+          <Route path="/regulations/:id" component={RegulationDetail} />
           <Route path="/projects" component={Projects} />
           <Route path="/projects/:id" component={ProjectDetail} />
           <Route path="/my-tasks" component={MyTasks} />

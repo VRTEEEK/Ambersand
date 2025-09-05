@@ -1,0 +1,275 @@
+
+
+Replit AI Prompt — Editable Regulations + ECC-style Control Selector → Project & Tasks
+
+Context (use these exact paths)
+	•	Schema: packages/shared/src/schema.ts (Drizzle + Postgres)
+	•	Server routes:
+	•	server/routes/regulations.ts
+	•	server/routes/projects.ts
+	•	(Tasks already exist; if not, add to server/routes/tasks.ts)
+	•	Client:
+	•	client/src/pages/regulations/RegulationDetail.tsx (new)
+	•	client/src/pages/regulations/index.tsx (hook “View / Edit” links)
+	•	client/src/components/regulations/ControlEditorDialog.tsx (new)
+	•	client/src/components/projects/ProjectCreateDialog.tsx (new)
+	•	client/src/lib/api/regulations.ts (new/extend)
+	•	client/src/lib/api/projects.ts (new)
+	•	client/src/lib/api/tasks.ts (ensure create supports controlId)
+	•	UI: shadcn (Card, Button, Input, Textarea, Select, Dialog, Badge, Checkbox, Separator, ScrollArea, Tooltip)
+	•	Router: wouter; React Query; toasts: sonner
+	•	Permissions: client/src/hooks/use-permissions.tsx (gate admin/compliance)
+
+⸻
+
+1) Schema (Drizzle) — add Projects + ProjectControls (non-breaking)
+
+Edit packages/shared/src/schema.ts and add:
+
+export const projects = pgTable("projects", {
+  id: serial("id").primaryKey(),
+  orgId: varchar("org_id", { length: 64 }).notNull(),
+  name: varchar("name", { length: 256 }).notNull(),
+  description: text("description"),
+  regulationId: integer("regulation_id").references(() => regulations.id),
+  createdBy: varchar("created_by", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  idxOrg: index("projects_org_idx").on(t.orgId),
+}));
+
+export const projectControls = pgTable("project_controls", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
+  controlId: integer("control_id").references(() => regulationControls.id, { onDelete: "cascade" }).notNull(),
+}, (t) => ({
+  uniq: uniqueIndex("project_controls_uq").on(t.projectId, t.controlId),
+  idxProj: index("project_controls_project_idx").on(t.projectId),
+}));
+
+If tasks table doesn’t yet have a foreign key to a control, add:
+
+// in tasks table:
+controlId: integer("control_id").references(() => regulationControls.id),
+
+Run migrations.
+
+⸻
+
+2) Server — Regulations & Projects APIs
+
+A) Regulations
+Create/extend server/routes/regulations.ts:
+
+import { Router } from "express";
+import { db } from "../db";
+import { regulations, regulationControls } from "@shared/schema";
+import { and, eq, asc } from "drizzle-orm";
+import { isAuthenticated, isAdmin } from "../middleware/auth";
+
+const router = Router();
+
+// GET one regulation + controls (with optional filters)
+router.get("/:id", isAuthenticated, async (req, res) => {
+  const id = Number(req.params.id);
+  const reg = await db.query.regulations.findFirst({ where: eq(regulations.id, id) });
+  if (!reg) return res.status(404).json({ message: "Regulation not found" });
+
+  const controls = await db.select().from(regulationControls)
+    .where(eq(regulationControls.regulationId, id))
+    .orderBy(asc(regulationControls.mainCategoryEn), asc(regulationControls.subCategoryEn), asc(regulationControls.clause));
+  res.json({ regulation: reg, controls });
+});
+
+// PATCH regulation metadata
+router.patch("/:id", isAuthenticated, isAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const { code, nameEn, nameAr, version, publisher, status } = req.body;
+  await db.update(regulations).set({ code, nameEn, nameAr, version, publisher, status }).where(eq(regulations.id, id));
+  const updated = await db.query.regulations.findFirst({ where: eq(regulations.id, id) });
+  res.json(updated);
+});
+
+// PATCH a single control
+router.patch("/:id/controls/:controlId", isAuthenticated, isAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const controlId = Number(req.params.controlId);
+  const patch = req.body; // allow editing desc/evidenceTypes/weight etc.
+  await db.update(regulationControls).set(patch)
+    .where(and(eq(regulationControls.id, controlId), eq(regulationControls.regulationId, id)));
+  const updated = await db.query.regulationControls.findFirst({ where: eq(regulationControls.id, controlId) });
+  res.json(updated);
+});
+
+export default router;
+
+Mount at /api/regulations.
+
+B) Projects
+Create server/routes/projects.ts:
+
+import { Router } from "express";
+import { db } from "../db";
+import { projects, projectControls, regulationControls } from "@shared/schema";
+import { eq, inArray, and } from "drizzle-orm";
+import { isAuthenticated } from "../middleware/auth";
+
+const router = Router();
+
+// Create project from selected controls
+router.post("/", isAuthenticated, async (req: any, res) => {
+  const orgId = req.user?.claims?.org as string;
+  const userId = req.user?.id as string;
+  const { name, description, regulationId, controlIds } = req.body;
+
+  if (!name || !Array.isArray(controlIds) || controlIds.length === 0) {
+    return res.status(400).json({ message: "Name and at least one control are required" });
+  }
+
+  const inserted = await db.insert(projects).values({ orgId, name, description, regulationId, createdBy: userId }).returning();
+  const project = inserted[0];
+
+  const controls = await db.select({ id: regulationControls.id })
+    .from(regulationControls)
+    .where(and(eq(regulationControls.regulationId, regulationId), inArray(regulationControls.id, controlIds)));
+
+  if (controls.length === 0) {
+    return res.status(400).json({ message: "No valid controls found for this regulation" });
+  }
+
+  await db.insert(projectControls).values(controls.map(c => ({ projectId: project.id, controlId: c.id })));
+  res.json({ projectId: project.id });
+});
+
+// List project controls
+router.get("/:id/controls", isAuthenticated, async (req, res) => {
+  const projectId = Number(req.params.id);
+  const rows = await db.select().from(projectControls).where(eq(projectControls.projectId, projectId));
+  res.json(rows);
+});
+
+export default router;
+
+Mount at /api/projects.
+
+(Optional) Tasks: ensure your existing POST /api/tasks accepts controlId and persists it.
+
+⸻
+
+3) Client API helpers
+
+client/src/lib/api/regulations.ts
+
+export async function getRegulation(id: number) {
+  const r = await fetch(`/api/regulations/${id}`, { credentials: "include" });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json(); // { regulation, controls }
+}
+export async function patchRegulation(id: number, data: any) {
+  const r = await fetch(`/api/regulations/${id}`, {
+    method: "PATCH", credentials: "include",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify(data)
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+export async function patchControl(regId: number, controlId: number, data: any) {
+  const r = await fetch(`/api/regulations/${regId}/controls/${controlId}`, {
+    method: "PATCH", credentials: "include",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify(data)
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+client/src/lib/api/projects.ts
+
+export async function createProject(payload: { name: string; description?: string; regulationId: number; controlIds: number[] }) {
+  const r = await fetch(`/api/projects`, {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json(); // { projectId }
+}
+
+(ensure) client/src/lib/api/tasks.ts has createTask({ projectId, controlId, ... }).
+
+⸻
+
+4) UI — Regulation Detail (edit + ECC-style selector)
+
+Create client/src/pages/regulations/RegulationDetail.tsx:
+	•	Top card: Edit regulation metadata (Code, Name EN/AR, Version, Publisher, Status). “Save” calls patchRegulation.
+	•	Below: 3-column selector (responsive):
+	•	Column 1 = Domains (unique mainCategoryEn/mainCategoryAr)
+	•	Column 2 = Subdomains (filtered by selected Domain)
+	•	Column 3 = Controls (filtered by both) with checkboxes and info: clause, mainControlEn/subControlEn.
+	•	“Select all in Subdomain” action.
+	•	Control editor: click a control row → opens ControlEditorDialog to edit descEn/descAr, evidenceTypes (chips separated by $), weight, etc. Calls patchControl.
+	•	Create Project from Selected button → opens ProjectCreateDialog.
+
+New components
+
+client/src/components/regulations/ControlEditorDialog.tsx
+Shadcn Dialog with DialogTitle & DialogDescription (a11y). Fields:
+	•	Description EN/AR (Textarea)
+	•	Evidence Types (Input; display chips, split on $ when saving)
+	•	Weight (number)
+	•	Save → patchControl(regId, controlId, patch)
+
+client/src/components/projects/ProjectCreateDialog.tsx
+Shadcn Dialog:
+	•	Name, Description; summary N controls selected
+	•	Confirm → createProject({ name, description, regulationId, controlIds })
+	•	After success, toast + navigate to /projects/:id
+
+Always include DialogTitle and DialogDescription.
+
+⸻
+
+5) Navigation & Index page updates
+	•	In client/src/pages/regulations/index.tsx, add “View / Edit” action per regulation row linking to /regulations/:id.
+	•	Add Route in App router:
+	•	<Route path="/regulations/:id" component={RegulationDetail} />
+
+⸻
+
+6) Permissions
+	•	In use-permissions.tsx, expose:
+	•	can("regulation:edit") → show metadata form & control editor
+	•	can("project:create") → allow project creation
+	•	On server, protect PATCH and POST endpoints with admin/compliance checks.
+
+⸻
+
+7) UX details
+	•	Keep status badge (Active/Archived/Draft) near title.
+	•	Left columns use ScrollArea with sticky headers.
+	•	No nested <a> within <a> (anchor nesting warning).
+	•	Persist selected checkboxes in state; show counter “Selected: X”.
+
+⸻
+
+8) Acceptance criteria
+	•	From Regulation Library:
+	•	Open a regulation → edit metadata and save (persists).
+	•	Browse Domain → Subdomain → Control like ECC.
+	•	Edit any control in place and save changes.
+	•	Select multiple controls across subdomains → “Create Project from Selected” → new project created and linked.
+	•	In Project view, controls are listed; users can create Tasks tied to a specific control (via your existing task create flow).
+	•	Permissions enforced (client & server).
+	•	Dialogs are a11y-compliant (no Radix warnings).
+
+⸻
+
+9) Nice-to-haves (optional, if time allows)
+	•	Quick filters: search by clause or text.
+	•	“Select all in Domain”.
+	•	Export selected controls to CSV.
+	•	Show how many tasks exist for each control (badge).
+
+⸻
+
+Please implement exactly as specified above. Keep file paths and route names consistent, ensure React Query invalidates lists after PATCH/POST, and show toasts for success/errors.

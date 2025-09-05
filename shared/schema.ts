@@ -160,6 +160,7 @@ export const tasks = pgTable("tasks", {
   projectId: integer("project_id"),
   assigneeId: varchar("assignee_id"),
   pendingAssigneeInviteId: integer("pending_assignee_invite_id"), // For pending invites
+  controlId: integer("control_id").references(() => regulationControls.id), // Reference to regulation control
   isRisk: boolean("is_risk").default(false).notNull(), // Risk flag for risk register
   isEvidenceReady: boolean("is_evidence_ready").notNull().default(false), // Workflow completion flag
   createdById: varchar("created_by_id").notNull(),
@@ -289,6 +290,46 @@ export const controlAssessments = pgTable("control_assessments", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Generic Regulations table (can hold ECC, DCC, custom regulations)
+export const regulations = pgTable("regulations", {
+  id: serial("id").primaryKey(),
+  code: varchar("code", { length: 64 }).notNull(),
+  nameEn: varchar("name_en", { length: 256 }).notNull(),
+  nameAr: varchar("name_ar", { length: 256 }),
+  version: varchar("version", { length: 64 }).notNull(),
+  publisher: varchar("publisher", { length: 128 }),
+  status: varchar("status", { length: 32 }).notNull().default("draft"), // draft, active, archived
+  orgId: varchar("org_id", { length: 64 }).notNull(),
+  createdBy: varchar("created_by", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  idxOrg: index("regulations_org_idx").on(t.orgId),
+  idxCode: index("regulations_code_idx").on(t.code),
+}));
+
+// Generic Regulation Controls table (unified controls from any regulation)
+export const regulationControls = pgTable("regulation_controls", {
+  id: serial("id").primaryKey(),
+  regulationId: integer("regulation_id").references(() => regulations.id, { onDelete: "cascade" }).notNull(),
+  clause: varchar("clause", { length: 64 }).notNull(),
+  mainCategoryEn: text("main_category_en").notNull(),
+  mainCategoryAr: text("main_category_ar"),
+  subCategoryEn: text("sub_category_en").notNull(),
+  subCategoryAr: text("sub_category_ar"),
+  mainControlEn: text("main_control_en").notNull(),
+  mainControlAr: text("main_control_ar"),
+  subControlEn: text("sub_control_en"),
+  subControlAr: text("sub_control_ar"),
+  descriptionEn: text("description_en").notNull(),
+  descriptionAr: text("description_ar"),
+  evidenceTypes: text("evidence_types"), // comma or $ separated
+  weight: decimal("weight", { precision: 5, scale: 2 }).default("1.0"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  idxRegulation: index("regulation_controls_regulation_idx").on(t.regulationId),
+  idxClause: index("regulation_controls_clause_idx").on(t.clause),
+}));
+
 // RBAC Tables
 export const roles = pgTable("roles", {
   id: varchar("id").primaryKey().default("gen_random_uuid()"),
@@ -384,6 +425,10 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
   createdBy: one(users, {
     fields: [tasks.createdById],
     references: [users.id],
+  }),
+  control: one(regulationControls, {
+    fields: [tasks.controlId],
+    references: [regulationControls.id],
   }),
   taskControls: many(taskControls),
   evidenceTasks: many(evidenceTasks),
@@ -506,6 +551,23 @@ export const customControlsRelations = relations(customControls, ({ one }) => ({
     fields: [customControls.customRegulationId],
     references: [customRegulations.id],
   }),
+}));
+
+// New regulations relations
+export const regulationsRelations = relations(regulations, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [regulations.createdBy],
+    references: [users.id],
+  }),
+  controls: many(regulationControls),
+}));
+
+export const regulationControlsRelations = relations(regulationControls, ({ one, many }) => ({
+  regulation: one(regulations, {
+    fields: [regulationControls.regulationId],
+    references: [regulations.id],
+  }),
+  tasks: many(tasks),
 }));
 
 // RBAC Relations
@@ -638,6 +700,17 @@ export const insertProjectControlSchema = createInsertSchema(projectControls).om
   updatedAt: true,
 });
 
+// New regulation schemas
+export const insertRegulationSchema = createInsertSchema(regulations).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertRegulationControlSchema = createInsertSchema(regulationControls).omit({
+  id: true,
+  createdAt: true,
+});
+
 // New schemas for enhanced features
 export const insertTaskControlSchema = createInsertSchema(taskControls).omit({
   id: true,
@@ -707,6 +780,10 @@ export type CustomRegulation = typeof customRegulations.$inferSelect;
 export type InsertCustomRegulation = z.infer<typeof insertCustomRegulationSchema>;
 export type CustomControl = typeof customControls.$inferSelect;
 export type InsertCustomControl = z.infer<typeof insertCustomControlSchema>;
+export type Regulation = typeof regulations.$inferSelect;
+export type InsertRegulation = z.infer<typeof insertRegulationSchema>;
+export type RegulationControl = typeof regulationControls.$inferSelect;
+export type InsertRegulationControl = z.infer<typeof insertRegulationControlSchema>;
 
 // New types for enhanced features
 export type TaskControl = typeof taskControls.$inferSelect;

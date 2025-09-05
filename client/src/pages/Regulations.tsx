@@ -1437,6 +1437,12 @@ export default function Regulations() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link href={`/regulations/${regulation.id}`} className="flex items-center w-full">
+                                <FileText className="h-4 w-4 mr-2" />
+                                {language === 'ar' ? 'عرض / تحرير' : 'View / Edit'}
+                              </Link>
+                            </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={async (e) => {
                                 e.stopPropagation();
