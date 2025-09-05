@@ -9,15 +9,35 @@ import crypto from "crypto";
 
 const router = Router();
 
+// Debug endpoint to see what the server thinks about auth
+router.get("/me", isAuthenticated, (req: any, res) => {
+  res.json({
+    userId: req.user?.id,
+    org: req.user?.claims?.org,
+    organizationId: req.user?.organizationId,
+    roles: req.user?.roles || [],
+    claims: req.user?.claims || null,
+  });
+});
+
+// Debug endpoint for search issues  
+router.get("/search/debug", isAuthenticated, async (req: any, res) => {
+  const q = String(req.query.q || "").trim();
+  res.json({
+    gotCookie: !!req.headers.cookie,
+    org: req.user?.claims?.org || null,
+    organizationId: req.user?.organizationId || null,
+    q,
+    userObject: req.user,
+  });
+});
+
 router.get("/search", isAuthenticated, async (req: any, res) => {
   const q = String(req.query.q || "").trim();
   const limit = Math.min(Number(req.query.limit || 8), 25);
-  const orgId = req.user?.claims?.org || req.user?.organizationId;
+  const orgId = req.user?.claims?.org || req.user?.organizationId || 'default';
 
   if (!q || q.length < 2) return res.json({ items: [] });
-  if (!orgId) {
-    return res.status(400).json({ items: [], message: "Organization missing" });
-  }
 
   try {
     // Search users by email, firstName, lastName within organization only
@@ -54,8 +74,8 @@ router.get("/search", isAuthenticated, async (req: any, res) => {
 
 // POST /api/users/invite { email, role? }
 router.post("/invite", isAuthenticated, async (req: any, res) => {
-  const email = String(req.body?.email || "").trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  const inviteEmail = String(req.body?.email || "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail)) {
     return res.status(400).json({ message: "Invalid email" });
   }
   // Use organization from claims.org or user.organizationId - no fallbacks
@@ -65,7 +85,7 @@ router.post("/invite", isAuthenticated, async (req: any, res) => {
   }
 
   const existing = await db.query.users.findFirst({
-    where: (u, { and, eq }) => and(eq(u.organizationId, orgId), eq(u.email, email)),
+    where: (u, { and, eq }) => and(eq(u.organizationId, orgId), eq(u.email, inviteEmail)),
     columns: { id: true }
   });
   if (existing) return res.status(409).json({ message: "Already a user", userId: existing.id });
@@ -73,7 +93,7 @@ router.post("/invite", isAuthenticated, async (req: any, res) => {
   const token = crypto.randomUUID().replace(/-/g, "");
   const [invite] = await db.insert(userInvites).values({
     organizationId: orgId,
-    email,
+    email: inviteEmail,
     role: "member",
     token,
   }).returning();
@@ -87,7 +107,7 @@ router.post("/invite", isAuthenticated, async (req: any, res) => {
 
   try {
     const result = await email.send({
-      to: email,
+      to: inviteEmail,
       subject: "You're invited to Ambersand",
       templateName: "user-invitation.en",
       data: {

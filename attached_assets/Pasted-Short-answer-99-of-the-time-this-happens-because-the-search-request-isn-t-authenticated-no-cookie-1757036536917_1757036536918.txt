@@ -1,0 +1,166 @@
+Short answer: 99% of the time this happens because the search request isn’t authenticated (no cookies), the API filters by org you’re not in (or not set), or the response shape doesn’t match what the UI expects ({ items: [...] }). Let’s fix all three in one go.
+
+Here’s a tight, copy-paste Replit AI prompt that (a) makes the client send cookies, (b) hardens the server search route with org scoping + consistent shape, and (c) adds quick diagnostics so you can see exactly what’s going on.
+
+⸻
+
+Replit AI Prompt — “Fix Smart Assignee search (auth + org + shape)”
+
+1) Client: make the search call authenticated and robust
+
+File: client/src/components/users/AssigneeSmartInput.tsx
+	•	Ensure the fetch includes cookies (or use your apiRequest helper).
+	•	Ensure the queryKey uses the query string so React Query re-runs.
+	•	Accept empty results gracefully.
+	•	(Optional) open the popover when input has focus.
+
+// inside AssigneeSmartInput
+const [open, setOpen] = useState(false);
+const [query, setQuery] = useState("");
+
+const enabled = open && query.trim().length >= 2;
+
+const fetchUsers = async () => {
+  const q = query.trim();
+  if (q.length < 2) return { items: [] as any[] };
+  const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}&limit=8`, {
+    method: "GET",
+    credentials: "include",              // ✅ SEND COOKIES
+    headers: { "Accept": "application/json" },
+  });
+  if (res.status === 401) {
+    console.warn("Assignee search: 401 unauthorized");
+    return { items: [] };
+  }
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(`Search failed: ${res.status} ${msg}`);
+  }
+  const data = await res.json();
+  // Normalize shape
+  return { items: Array.isArray(data?.items) ? data.items : [] };
+};
+
+const { data, isFetching, error } = useQuery({
+  queryKey: ["users-search", query],     // ✅ STABLE KEY WITH QUERY
+  queryFn: fetchUsers,
+  enabled,
+  staleTime: 30_000,
+});
+
+const items = data?.items ?? [];
+
+Make sure your input toggles open:
+
+<input
+  value={query}
+  onChange={(e) => setQuery(e.target.value)}
+  onFocus={() => setOpen(true)}
+  onBlur={() => setTimeout(() => setOpen(false), 150)}
+  // ...
+/>
+
+2) Server: enforce org scoping, return { items: [...] }, and keep string IDs
+
+File: server/routes/users.ts (or wherever /api/users/search lives)
+
+router.get("/search", isAuthenticated, async (req: any, res) => {
+  const org = req.user?.claims?.org;
+  if (!org) return res.status(400).json({ items: [], message: "Organization missing" });
+
+  const q = String(req.query.q || "").trim();
+  const limit = Math.min(Number(req.query.limit || 8), 25);
+
+  if (q.length < 2) return res.json({ items: [] });
+
+  // DRIZZLE EXAMPLE — adapt to your query helpers
+  const rows = await db.query.users.findMany({
+    where: (u, { and, or, ilike, eq }) =>
+      and(
+        eq(u.organizationId, org),                             // ✅ ORG SCOPE
+        or(
+          ilike(u.email, `%${q}%`),
+          ilike(u.name,  `%${q}%`),
+          ilike(u.firstName, `%${q}%`),
+          ilike(u.lastName,  `%${q}%`)
+        )
+      ),
+    limit,
+    columns: {
+      id: true,                  // ✅ MUST BE STRING
+      email: true,
+      name: true,
+      firstName: true,
+      lastName: true,
+      avatarUrl: true,
+    },
+  });
+
+  const items = rows.map(u => ({
+    id: String(u.id),            // ✅ ENSURE STRING
+    email: u.email || "",
+    name: u.name || [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email,
+    avatarUrl: u.avatarUrl ?? null,
+  }));
+
+  res.json({ items });
+});
+
+If your DB has users shared across orgs, make sure there’s a unique (organizationId,email) constraint and an index on (organizationId, email).
+
+3) Quick diagnostics (super helpful)
+
+Add two endpoints so you can instantly see what the server “thinks”:
+
+File: server/routes/users.ts
+
+router.get("/me", isAuthenticated, (req:any, res) => {
+  res.json({
+    userId: req.user?.id,
+    org: req.user?.claims?.org,
+    roles: req.user?.roles || [],
+  });
+});
+
+router.get("/search/debug", isAuthenticated, async (req:any, res) => {
+  const q = String(req.query.q || "").trim();
+  res.json({
+    gotCookie: !!req.headers.cookie,
+    org: req.user?.claims?.org || null,
+    q,
+  });
+});
+
+Now from the browser console:
+	•	fetch('/api/users/me', {credentials:'include'}).then(r=>r.json()).then(console.log)
+	•	fetch('/api/users/search/debug?q=te', {credentials:'include'}).then(r=>r.json()).then(console.log)
+
+If gotCookie is false → it was a cookie/credentials issue.
+If org is null → your auth middleware isn’t populating claims.org (fix your auth).
+
+4) Common “gotchas” checklist
+	•	Different origins in dev (Vite on 5173 / API on 5000) → Must set credentials: 'include' and configure your dev proxy or CORS to allow credentials (Access-Control-Allow-Credentials: true, allowed origin, and no wildcard on origin).
+	•	Wrong path: UI calls /api/users/search but server mounted at /users/search or behind a different prefix. Confirm via Network tab.
+	•	Response shape mismatch: UI expects { items: [...] }. If your API returns { users: [...] }, you’ll see empty dropdown.
+	•	String vs number IDs: If you convert IDs with parseInt, they become NaN and later APIs (assign, mentions) fail. Keep them as strings end-to-end.
+	•	Org filter too strict: If you just created your user and they don’t have claims.org, query returns nothing. Either set claims.org during login or return 400 with a clear message (as above).
+
+5) Optional: graceful empty state in the UI
+
+Show a helpful message when items.length === 0 and the regex says input looks like an email:
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const canInvite = EMAIL_RE.test(query.trim()) && items.length === 0;
+
+{!isFetching && items.length === 0 && !canInvite && (
+  <div className="p-2 text-sm text-muted-foreground">No users found in your organization.</div>
+)}
+
+
+⸻
+
+After applying this
+	•	Type 2+ characters in the assignee field while it’s focused → you should see org-scoped users.
+	•	If still empty, hit /api/users/me and /api/users/search/debug with credentials:'include' to see whether it’s cookies or org.
+
+If you paste the exact JSON from those two debug routes, I’ll pinpoint the next line to tweak.
