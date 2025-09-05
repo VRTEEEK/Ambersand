@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,6 +48,12 @@ export default function ImportRegulation() {
     queryFn: () => getVersions(code),
     enabled: !!code && can('regulation:import'),
   });
+
+  // Reset validation state when file, code, or version changes
+  useEffect(() => { 
+    setLastDryRunOk(false); 
+    setResult(null); 
+  }, [file, code, version]);
 
   // Permission check - after all hooks
   if (!can('regulation:import')) {
@@ -120,18 +126,19 @@ export default function ImportRegulation() {
 
   // File input handler
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      if (!selectedFile.name.match(/\.(xlsx|csv)$/i)) {
-        toast({
-          title: language === 'ar' ? 'نوع ملف غير صالح' : 'Invalid file type',
-          description: language === 'ar' ? 'يرجى تحميل ملف .xlsx أو .csv' : 'Please upload .xlsx or .csv file',
-          variant: 'destructive',
-        });
-        return;
-      }
-      setFile(selectedFile);
+    const selectedFile = e.target.files?.[0] || null;
+    if (!selectedFile) return;
+    if (!/\.(xlsx|csv)$/i.test(selectedFile.name)) {
+      toast({
+        title: language === 'ar' ? 'نوع ملف غير مدعوم' : 'Unsupported File Type',
+        description: language === 'ar' ? 'يرجى استخدام ملفات .xlsx أو .csv فقط' : 'Please use only .xlsx or .csv files',
+        variant: 'destructive',
+      });
+      return;
     }
+    setFile(selectedFile);
+    setResult(null);
+    setLastDryRunOk(false);
   };
 
   // Import handlers
@@ -139,7 +146,9 @@ export default function ImportRegulation() {
     if (!file || !code || !nameEn || !version) {
       toast({
         title: language === 'ar' ? 'بيانات مطلوبة' : 'Required Fields',
-        description: language === 'ar' ? 'يرجى ملء جميع الحقول المطلوبة وتحديد ملف' : 'Please fill all required fields and select a file',
+        description: language === 'ar' 
+          ? 'يرجى ملء جميع الحقول المطلوبة وتحديد ملف'
+          : 'Please fill all required fields and select a file',
         variant: 'destructive',
       });
       return;
@@ -178,7 +187,9 @@ export default function ImportRegulation() {
     if (!file || !code || !nameEn || !version) {
       toast({
         title: language === 'ar' ? 'بيانات مطلوبة' : 'Required Fields',
-        description: language === 'ar' ? 'يرجى ملء جميع الحقول المطلوبة وتحديد ملف' : 'Please fill all required fields and select a file',
+        description: language === 'ar' 
+          ? 'يرجى ملء جميع الحقول المطلوبة وتحديد ملف'
+          : 'Please fill all required fields and select a file',
         variant: 'destructive',
       });
       return;
@@ -202,10 +213,11 @@ export default function ImportRegulation() {
         description: `${response.inserted} inserted, ${response.updated} updated`,
       });
 
-      // Refresh versions
+      // Refresh versions and reset validation state after successful import
       if (code) {
         refetchVersions();
       }
+      setLastDryRunOk(false);
       
     } catch (error) {
       toast({
@@ -295,6 +307,10 @@ export default function ImportRegulation() {
 
           {/* File Upload Area */}
           <div
+            role="button"
+            tabIndex={0}
+            aria-label={language === 'ar' ? 'تحميل ملف .xlsx أو .csv' : 'Upload .xlsx or .csv file'}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && document.getElementById('reg-file')?.click()}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             className="border-2 border-dashed rounded-xl p-6 text-center text-sm text-muted-foreground"
@@ -318,6 +334,7 @@ export default function ImportRegulation() {
             )}
             <div className="mt-3">
               <Input 
+                id="reg-file"
                 type="file" 
                 accept=".xlsx,.csv" 
                 onChange={handleFileChange}
@@ -335,6 +352,7 @@ export default function ImportRegulation() {
                       checked={dryRun} 
                       onCheckedChange={setDryRun} 
                       id="dryrun" 
+                      aria-label={language === 'ar' ? 'معاينة أولاً' : 'Dry-run first'}
                     />
                   </TooltipTrigger>
                   <TooltipContent>
@@ -363,7 +381,10 @@ export default function ImportRegulation() {
                   </Button>
                   <Button 
                     onClick={handleImport} 
-                    disabled={!file || loading || Boolean(result?.errors?.length)}
+                    disabled={
+                      !file || loading ||
+                      (dryRun && (!lastDryRunOk || (result?.errors?.length ?? 0) > 0))
+                    }
                   >
                     {loading ? '...' : (language === 'ar' ? 'استيراد' : 'Import')}
                   </Button>
@@ -472,7 +493,7 @@ export default function ImportRegulation() {
           {versions && versions.length > 0 ? (
             <div className="space-y-2">
               {versions.map((v: any) => (
-                <div key={v.id} className="flex items-center justify-between p-3 border rounded">
+                <div key={v.id || v.version} className="flex items-center justify-between p-3 border rounded">
                   <div>
                     <span className="font-medium">{v.version}</span>
                     <span className="text-xs text-muted-foreground ml-2">

@@ -2424,7 +2424,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else if (req.file.originalname.endsWith('.xlsx')) {
           // Parse Excel
           try {
-            const workbook = XLSX.readFile(filePath);
+            // Read file buffer
+            const buffer = fs.readFileSync(filePath);
+            const workbook = XLSX.read(buffer, { type: 'buffer' });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             data = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];

@@ -1,0 +1,112 @@
+Problems I found (and how to fix)
+	1.	No tooltip on the Dry-run switch
+	•	You’re not importing or using Tooltip* components.
+	•	✅ Fix: import and wrap the Switch.
+
+// add with your other shadcn imports
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+<div className="flex items-center gap-2">
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Switch checked={dryRun} onCheckedChange={setDryRun} id="dryrun" aria-label="Dry-run first" />
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>Dry-run simulates the import: validates rows and shows insert/update/errors without saving.</p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+  <Label htmlFor="dryrun">Dry-run first</Label>
+</div>
+
+	2.	File picker doesn’t validate file type
+Your drag-&-drop validates extension, but handleFileChange doesn’t.
+	•	✅ Fix:
+
+const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const selectedFile = e.target.files?.[0] || null;
+  if (!selectedFile) return;
+  if (!/\.(xlsx|csv)$/i.test(selectedFile.name)) {
+    toast({
+      title: language === 'ar' ? 'نوع ملف غير مدعوم' : 'Unsupported File Type',
+      description: language === 'ar' ? 'يرجى استخدام ملفات .xlsx أو .csv فقط' : 'Please use only .xlsx or .csv files',
+      variant: 'destructive',
+    });
+    return;
+  }
+  setFile(selectedFile);
+  setResult(null);
+  setLastDryRunOk(false);
+};
+
+(Also add accept=".xlsx,.csv" to the <Input type="file" … /> which you already have in drag-&-drop area—keep it here too.)
+	3.	Import button can enable after a previous good dry-run even if the user changes the file/fields
+	•	You reset lastDryRunOk only after dry-run. You should also reset it whenever file, code, or version change.
+	•	✅ Fix:
+
+useEffect(()=>{ setLastDryRunOk(false); setResult(null); }, [file, code, version]);
+
+	4.	Import should be disabled when dry-run produced errors
+	•	You already check dryRun && !lastDryRunOk, but make it bullet-proof when result?.errors?.length > 0.
+	•	✅ Fix button:
+
+<Button
+  onClick={handleImport}
+  disabled={
+    !file || loading ||
+    (dryRun && (!lastDryRunOk || (result?.errors?.length ?? 0) > 0))
+  }
+>
+  {loading && !dryRun ? '...' : (language === 'ar' ? 'استيراد' : 'Import')}
+</Button>
+
+	5.	Unused import
+	•	useMutation is imported but not used.
+	•	✅ Fix: remove it from @tanstack/react-query import.
+	6.	A11y on file drop zone
+	•	Give it a label and keyboard focus so screen-reader users know what it is.
+	•	✅ Fix:
+
+<div
+  role="button"
+  tabIndex={0}
+  aria-label="Upload .xlsx or .csv file"
+  onKeyDown={(e)=> (e.key === 'Enter' || e.key === ' ') && document.getElementById('reg-file')?.click()}
+  onDragOver={handleDragOver}
+  onDrop={handleDrop}
+  className="border-2 border-dashed rounded-xl p-6 text-center text-sm text-muted-foreground"
+>
+  …
+  <Input id="reg-file" type="file" accept=".xlsx,.csv" onChange={handleFileChange} />
+</div>
+
+	7.	User feedback strings
+	•	A couple of Arabic messages in your printout look truncated (probably copy artifact). Make sure these two are full:
+	•	In handleDryRun + handleImport:
+
+description: language === 'ar'
+  ? 'يرجى ملء جميع الحقول المطلوبة وتحديد ملف'
+  : 'Please fill all required fields and select a file',
+
+
+	8.	Versions list guard
+	•	You already handle “no versions”; good. Add key={v.id || v.version} to be safe if API returns no id.
+
+Optional polish (nice to have)
+	•	Show selected file size: ({(file.size/1024/1024).toFixed(1)} MB).
+	•	After successful import, call setLastDryRunOk(false) to force a fresh validation next time.
+	•	Add helper text beneath Code and Version inputs (short hint strings).
+
+⸻
+
+Summary of edits
+	•	Add Tooltip imports + wrap the Switch.
+	•	Validate file type in handleFileChange.
+	•	Reset lastDryRunOk when file/code/version change.
+	•	Harden Import button disable rules.
+	•	Remove unused useMutation import.
+	•	a11y roles/labels on drop zone.
+	•	Fix any truncated Arabic strings.
+	•	Minor key safety in versions list.
+
