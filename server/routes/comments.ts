@@ -62,6 +62,8 @@ router.get("/", isAuthenticated, async (req: any, res) => {
       createdAt: comments.createdAt,
       updatedAt: comments.updatedAt,
       authorName: users.name,
+      authorFirstName: users.firstName,
+      authorLastName: users.lastName,
       authorEmail: users.email,
     })
       .from(comments)
@@ -70,8 +72,20 @@ router.get("/", isAuthenticated, async (req: any, res) => {
       .orderBy(desc(comments.id))
       .limit(q.limit);
 
+    // Process rows to construct authorName if needed
+    const processedRows = rows.map(row => ({
+      ...row,
+      authorName: row.authorName || 
+                  (row.authorFirstName || row.authorLastName ? 
+                   `${row.authorFirstName || ''} ${row.authorLastName || ''}`.trim() : 
+                   null),
+      // Remove the temporary fields
+      authorFirstName: undefined,
+      authorLastName: undefined,
+    }));
+
     res.json({ 
-      items: rows, 
+      items: processedRows, 
       nextCursor: rows.length ? rows[rows.length - 1].id : null 
     });
   } catch (error) {
@@ -132,16 +146,30 @@ router.post("/", isAuthenticated, async (req: any, res) => {
       createdAt: comments.createdAt,
       updatedAt: comments.updatedAt,
       authorName: users.name,
+      authorFirstName: users.firstName,
+      authorLastName: users.lastName,
       authorEmail: users.email,
     })
       .from(comments)
       .leftJoin(users, eq(comments.authorId, users.id))
       .where(eq(comments.id, row.id));
 
-    // Notify via WebSocket and email
-    await notifyComment({ comment: commentWithAuthor, mentions });
+    // Process author name
+    const processedComment = {
+      ...commentWithAuthor,
+      authorName: commentWithAuthor.authorName || 
+                  (commentWithAuthor.authorFirstName || commentWithAuthor.authorLastName ? 
+                   `${commentWithAuthor.authorFirstName || ''} ${commentWithAuthor.authorLastName || ''}`.trim() : 
+                   null),
+      // Remove the temporary fields
+      authorFirstName: undefined,
+      authorLastName: undefined,
+    };
 
-    res.status(201).json(commentWithAuthor);
+    // Notify via WebSocket and email
+    await notifyComment({ comment: processedComment, mentions });
+
+    res.status(201).json(processedComment);
   } catch (error) {
     console.error("Error creating comment:", error);
     res.status(400).json({ message: "Invalid request" });
