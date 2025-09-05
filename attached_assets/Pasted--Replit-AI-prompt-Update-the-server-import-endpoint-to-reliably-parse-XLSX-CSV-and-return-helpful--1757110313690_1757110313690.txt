@@ -1,0 +1,140 @@
+
+
+Replit AI prompt
+
+Update the server import endpoint to reliably parse XLSX/CSV and return helpful errors.
+
+Files:
+	•	server/routes/regulations.ts (create if missing)
+	•	server/services/regulationImport.ts (parser helpers)
+
+Do the following:
+	1.	Use multer to handle multipart uploads.
+
+import multer from "multer";
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 }});
+
+Route signature:
+
+router.post("/import", isAdmin, upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: "No file uploaded (field name must be 'file')." });
+    const { code, nameEn, nameAr, version, publisher } = req.body;
+    const dryRun = req.query.dryRun === "1" || req.query.dryRun === "true";
+
+
+	2.	Detect format and parse:
+
+import * as XLSX from "xlsx";
+import { parse as parseCsv } from "csv-parse/sync";
+import path from "node:path";
+
+const filename = req.file.originalname || "upload";
+const ext = path.extname(filename).toLowerCase();
+let rows: any[] = [];
+
+if (ext === ".xlsx") {
+  // XLSX
+  const wb = XLSX.read(req.file.buffer, {
+    type: "buffer",
+    cellDates: true,
+    raw: false
+  });
+  const sheet = wb.SheetNames[0];
+  rows = XLSX.utils.sheet_to_json(wb.Sheets[sheet], { defval: "", blankrows: false });
+} else if (ext === ".csv") {
+  // CSV (UTF-8 with/without BOM)
+  rows = parseCsv(req.file.buffer, {
+    columns: true,
+    skip_empty_lines: true,
+    bom: true,
+    trim: true
+  });
+} else {
+  return res.status(400).json({ message: `Unsupported file type: ${ext}. Use .xlsx or .csv.` });
+}
+if (!Array.isArray(rows) || rows.length === 0) {
+  return res.status(400).json({ message: "Parsed zero rows. Check the first sheet or CSV headers." });
+}
+
+
+	3.	Normalize headers (ECC/DCC bilingual)
+Create a helper that maps known headers (case/space insensitive) to canonical keys (clause, mainCategoryEn, …). Accept Arabic headers too. If a row lacks Clause Number/رقم البند, collect it as an error (don’t crash).
+	4.	Return precise errors
+Wrap parsing in try/catch and include:
+	•	phase: "parse-xlsx" or "parse-csv"
+	•	hint: e.g., “Is the first sheet empty?”, “Header ‘Clause Number’ not found”
+	•	sample: first 3 keys from the first row
+For example:
+
+} catch (e:any) {
+  return res.status(400).json({
+    message: "Failed to parse file",
+    detail: e?.message,
+    phase,
+    sample: rows?.[0] ? Object.keys(rows[0]).slice(0,8) : undefined
+  });
+}
+
+
+	5.	Call your existing regulationImport service in dryRun mode first if dryRun=true, otherwise commit. Return { inserted, updated, total, warnings, errors, sample }.
+	6.	Ensure the route is mounted at /api/admin/regulations/import and protected.
+
+⸻
+
+Client: show backend error details
+
+In ImportRegulation.tsx, harden error handling in both handleDryRun and handleImport:
+
+try {
+  const res = await importRegulation(fd, { dryRun: true });
+  setResult(res);
+  setLastDryRunOk((res.errors?.length ?? 0) === 0);
+} catch (err: any) {
+  const msg = await extractMessage(err); // helper below
+  toast({
+    title: "Failed to parse file",
+    description: msg,
+    variant: "destructive",
+  });
+  setResult(null);
+  setLastDryRunOk(false);
+}
+
+Helper:
+
+async function extractMessage(err: any) {
+  if (err?.message) {
+    try {
+      const j = JSON.parse(err.message);
+      if (j?.message) {
+        const more = j.detail ? ` — ${j.detail}` : "";
+        const hint = j.hint ? ` (${j.hint})` : "";
+        const sample = j.sample ? `\nHeaders: ${j.sample.join(", ")}` : "";
+        return j.message + more + hint + sample;
+      }
+    } catch {}
+    return err.message;
+  }
+  return "Unknown error";
+}
+
+
+⸻
+
+Common causes (and quick fixes)
+	•	Wrong field name: client uses fd.append("upload", file) but server expects "file". Fix to "file".
+	•	Body parser clash: if you use app.use(express.json()) before multer, that’s fine; but never apply express.raw() or express.text() on the same route.
+	•	Empty sheet: first sheet has only styling rows → move data to sheet 1 or pick the right sheet by name.
+	•	CSV sep: some ECC exports use ; — the csv-parse config above handles it automatically; if not, set delimiter: ";" when detecting that char is frequent in the header line.
+	•	Encoding: Arabic CSV with BOM → bom:true fixes it.
+	•	Large file: increase multer fileSize limit.
+
+⸻
+
+Smoke test
+	1.	Upload your DCC.xlsx → Dry-run → expect counts (no DB writes).
+	2.	Upload ECC 2024 V0.4.xlsx → Dry-run → resolve any header errors; check sample headers in the error.
+	3.	Import → should succeed, and UI shows success.
+
+If you still get “failed to parse”, paste the exact error JSON the server returns (with phase, detail, sample), and I’ll pinpoint the header it didn’t recognize.
