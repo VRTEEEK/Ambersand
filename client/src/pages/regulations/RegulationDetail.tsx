@@ -81,15 +81,47 @@ export function RegulationDetail() {
   const [editingControl, setEditingControl] = useState<Control | null>(null);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
 
-  // Fetch regulation data
-  const { data, isLoading, error } = useQuery<{regulation: Regulation, controls: Control[]}>({
-    queryKey: [`/api/regulations/${id}`],
+  // First try to fetch as a custom regulation (existing system)
+  const { data: customRegData, isLoading: isLoadingCustom, error: customError } = useQuery({
+    queryKey: [`/api/custom-regulations/${id}`],
     enabled: !!id,
     retry: false
   });
 
-  const regulation: Regulation | undefined = data?.regulation;
-  const controls: Control[] = data?.controls || [];
+  // If custom regulation doesn't exist, try unified regulation (new system)
+  const { data: unifiedData, isLoading: isLoadingUnified, error: unifiedError } = useQuery<{regulation: Regulation, controls: Control[]}>({
+    queryKey: [`/api/regulations/${id}`],
+    enabled: !!id && !customRegData && !!customError,
+    retry: false
+  });
+
+  // Determine which data source we're using
+  const isCustomRegulation = !!customRegData;
+  const isLoading = isLoadingCustom || isLoadingUnified;
+  const error = customError && unifiedError ? unifiedError : null;
+
+  // Extract regulation and controls data
+  let regulation: Regulation | undefined;
+  let controls: Control[] = [];
+
+  if (customRegData) {
+    // Handle custom regulation format - convert to expected format
+    regulation = {
+      id: customRegData.id,
+      code: customRegData.name, // custom regs use 'name' as code
+      nameEn: customRegData.name,
+      nameAr: customRegData.nameAr,
+      version: customRegData.version || "1.0",
+      publisher: customRegData.framework || "Custom",
+      status: customRegData.status,
+      createdAt: customRegData.createdAt,
+    };
+    controls = customRegData.controls || [];
+  } else if (unifiedData) {
+    // Handle unified regulation format
+    regulation = unifiedData.regulation;
+    controls = unifiedData.controls;
+  }
 
   // Update form data when regulation loads
   useEffect(() => {
@@ -107,14 +139,37 @@ export function RegulationDetail() {
 
   // Save regulation metadata mutation
   const saveRegulationMutation = useMutation({
-    mutationFn: (data: any) => patchRegulation(Number(id), data),
+    mutationFn: (data: any) => {
+      if (isCustomRegulation) {
+        // For custom regulations, use the custom regulation API
+        return fetch(`/api/custom-regulations/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: data.nameEn,
+            nameAr: data.nameAr,
+            version: data.version,
+            framework: data.publisher,
+            status: data.status,
+          })
+        }).then(res => res.json());
+      } else {
+        // For unified regulations, use the unified regulation API
+        return patchRegulation(Number(id), data);
+      }
+    },
     onSuccess: () => {
       toast({
         title: language === 'ar' ? 'تم الحفظ' : 'Saved',
         description: language === 'ar' ? 'تم حفظ التغييرات بنجاح' : 'Changes saved successfully',
       });
       setEditMode(false);
-      queryClient.invalidateQueries({ queryKey: [`/api/regulations/${id}`] });
+      // Invalidate the appropriate cache
+      if (isCustomRegulation) {
+        queryClient.invalidateQueries({ queryKey: [`/api/custom-regulations/${id}`] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: [`/api/regulations/${id}`] });
+      }
     },
     onError: (error: any) => {
       toast({
@@ -129,17 +184,22 @@ export function RegulationDetail() {
   const domains = useMemo(() => {
     const domainMap = new Map();
     controls.forEach(control => {
-      const domainKey = control.mainCategoryEn;
+      // Handle both custom regulation controls and unified regulation controls
+      const domainKey = control.mainCategoryEn || control.mainDomain || control.domain || 'Other';
+      const domainKeyAr = control.mainCategoryAr || control.mainDomainAr || control.domainAr;
+      const subdomainEn = control.subCategoryEn || control.subDomain || control.subdomain || 'General';
+      const subdomainAr = control.subCategoryAr || control.subDomainAr || control.subdomainAr;
+      
       if (!domainMap.has(domainKey)) {
         domainMap.set(domainKey, {
-          nameEn: control.mainCategoryEn,
-          nameAr: control.mainCategoryAr,
+          nameEn: domainKey,
+          nameAr: domainKeyAr,
           subdomains: new Set()
         });
       }
       domainMap.get(domainKey).subdomains.add(JSON.stringify({
-        nameEn: control.subCategoryEn,
-        nameAr: control.subCategoryAr
+        nameEn: subdomainEn,
+        nameAr: subdomainAr
       }));
     });
 
@@ -162,14 +222,26 @@ export function RegulationDetail() {
     let filtered = controls;
     
     if (selectedDomain) {
-      filtered = filtered.filter(c => c.mainCategoryEn === selectedDomain);
+      filtered = filtered.filter(c => 
+        (c.mainCategoryEn === selectedDomain) || 
+        (c.mainDomain === selectedDomain) || 
+        (c.domain === selectedDomain)
+      );
     }
     
     if (selectedSubdomain) {
-      filtered = filtered.filter(c => c.subCategoryEn === selectedSubdomain);
+      filtered = filtered.filter(c => 
+        (c.subCategoryEn === selectedSubdomain) || 
+        (c.subDomain === selectedSubdomain) || 
+        (c.subdomain === selectedSubdomain)
+      );
     }
     
-    return filtered.sort((a, b) => a.clause.localeCompare(b.clause));
+    return filtered.sort((a, b) => {
+      const aClause = a.clause || a.code || a.id?.toString() || '';
+      const bClause = b.clause || b.code || b.id?.toString() || '';
+      return aClause.localeCompare(bClause);
+    });
   }, [controls, selectedDomain, selectedSubdomain]);
 
   // Handle form submission
