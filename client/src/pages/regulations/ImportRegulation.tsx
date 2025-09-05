@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useI18n } from '@/hooks/use-i18n';
 import { Download, Upload, FileSpreadsheet, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { downloadTemplate, importRegulation, getVersions } from '@/lib/api/regulations';
+import AppLayout from '@/components/layout/AppLayout';
 
 interface ImportResult {
   inserted: number;
@@ -209,7 +210,8 @@ export default function ImportRegulation() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <AppLayout>
+      <div className="space-y-6">
       {/* Main Import Form */}
       <Card>
         <CardHeader className="flex items-center justify-between flex-row">
@@ -444,6 +446,7 @@ export default function ImportRegulation() {
           )}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </AppLayout>
   );
 }
