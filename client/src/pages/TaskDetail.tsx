@@ -306,12 +306,16 @@ export default function TaskDetail() {
               {task.status}
             </Badge>
             <Button
-              variant={task.isRisk ? "destructive" : "outline"}
+              variant="outline"
               size="sm"
               onClick={() => riskToggleMutation.mutate(!task.isRisk)}
               disabled={riskToggleMutation.isPending}
+              className={task.isRisk ? 
+                "border-red-500 bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-950 dark:text-red-300 dark:border-red-600 dark:hover:bg-red-900 shadow-md" : 
+                "border-orange-500 bg-orange-50 text-orange-700 hover:bg-orange-100 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-600 dark:hover:bg-orange-900 shadow-md"
+              }
             >
-              <AlertTriangle className="h-4 w-4 mr-1" />
+              <AlertTriangle className={`h-4 w-4 mr-2 ${task.isRisk ? 'text-red-600 dark:text-red-400' : 'text-orange-600 dark:text-orange-400'}`} />
               {task.isRisk ? 'Remove Risk' : 'Mark as Risk'}
             </Button>
           </div>
