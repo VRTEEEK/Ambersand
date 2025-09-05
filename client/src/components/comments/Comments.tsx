@@ -65,11 +65,11 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
   const usersQuery = useQuery({
     queryKey: ['/api/comments/users/search', mentionQuery],
     queryFn: ({ queryKey }) => {
-      const [, , query] = queryKey;
-      if (!query || query.length < 2) return { users: [] };
+      const [, query] = queryKey;
+      if (!query || query.length < 1) return { users: [] };
       return fetch(`/api/comments/users/search?q=${encodeURIComponent(query)}&limit=10`).then(r => r.json());
     },
-    enabled: showMentions && mentionQuery.length >= 2,
+    enabled: showMentions && mentionQuery.length >= 0,
   });
 
   const createMutation = useMutation({
@@ -193,7 +193,7 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
     
     if (lastAtIndex !== -1) {
       const beforeAt = beforeCursor.slice(0, lastAtIndex);
-      const mention = `@${user.handle}`;
+      const mention = `@${user.handle || user.email.split('@')[0]}`;
       const newText = beforeAt + mention + ' ' + afterCursor;
       setText(newText);
       
@@ -272,40 +272,46 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
               />
               
               {/* Mentions popover */}
-              <Popover open={showMentions} onOpenChange={setShowMentions}>
-                <PopoverTrigger asChild>
-                  <div className="absolute bottom-2 left-2 opacity-0 pointer-events-none">
-                    <AtSign className="h-4 w-4" />
-                  </div>
-                </PopoverTrigger>
-                <PopoverContent className="w-64 p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Search users..." value={mentionQuery} />
-                    <CommandEmpty>No users found.</CommandEmpty>
-                    <CommandGroup>
-                      {users.map((user: any) => (
-                        <CommandItem
-                          key={user.id}
-                          onSelect={() => insertMention(user)}
-                          className="cursor-pointer"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-6 w-6">
-                              <AvatarFallback className="text-xs">
-                                {getInitials(user.name, user.email)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div className="text-sm font-medium">{user.name}</div>
-                              <div className="text-xs text-muted-foreground">@{user.handle}</div>
-                            </div>
-                          </div>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              {showMentions && (
+                <div className="absolute top-full left-0 right-0 mt-1 z-50">
+                  <Card className="w-full max-w-md shadow-lg">
+                    <CardContent className="p-0">
+                      <Command>
+                        <CommandInput 
+                          placeholder="Search users..." 
+                          value={mentionQuery}
+                          onValueChange={setMentionQuery}
+                          className="border-none"
+                        />
+                        <CommandEmpty className="p-4 text-center text-sm text-muted-foreground">
+                          No users found.
+                        </CommandEmpty>
+                        <CommandGroup className="max-h-48 overflow-y-auto">
+                          {users.map((user: any) => (
+                            <CommandItem
+                              key={user.id}
+                              onSelect={() => insertMention(user)}
+                              className="cursor-pointer p-3 hover:bg-muted"
+                            >
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarFallback className="text-xs">
+                                    {getInitials(user.name, user.email)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <div className="text-sm font-medium">{user.name || user.email}</div>
+                                  <div className="text-xs text-muted-foreground">@{user.handle || user.email.split('@')[0]}</div>
+                                </div>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </Command>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
             </div>
             
             <div className="flex justify-between items-center">
