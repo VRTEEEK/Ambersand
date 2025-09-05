@@ -353,6 +353,7 @@ export default function ImportRegulation() {
                       onCheckedChange={setDryRun} 
                       id="dryrun" 
                       aria-label={language === 'ar' ? 'معاينة أولاً' : 'Dry-run first'}
+                      className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted border-2 border-muted-foreground/20 data-[state=checked]:border-primary/50"
                     />
                   </TooltipTrigger>
                   <TooltipContent>
