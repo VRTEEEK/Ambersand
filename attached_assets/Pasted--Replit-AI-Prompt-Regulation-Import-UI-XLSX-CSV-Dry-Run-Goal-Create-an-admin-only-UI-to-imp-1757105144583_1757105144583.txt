@@ -1,0 +1,212 @@
+
+
+Replit AI Prompt — Regulation Import UI (XLSX/CSV + Dry-Run)
+
+Goal
+
+Create an admin-only UI to import ECC/DCC/custom regulations from .xlsx/.csv using our unified layout. Support:
+	•	File upload (drag & drop or picker)
+	•	Inputs: Code, Name (EN/AR), Version, Publisher
+	•	Dry-run toggle → show a preview (insert/update/error counts and sample rows)
+	•	Final Import button (commits)
+	•	Download CSV template button
+	•	List of past versions with status (Active/Archived)
+
+Files & Paths (use these exact locations)
+	•	Page: client/src/pages/regulations/ImportRegulation.tsx
+	•	List/Entry: client/src/pages/regulations/index.tsx (add “Import Regulation” button)
+	•	Client API: client/src/lib/api/regulations.ts (new)
+	•	UI bits: shadcn (Card, Button, Input, Textarea, Switch, Label, Badge, Alert, Table)
+	•	Permissions hook: client/src/hooks/use-permissions.tsx → require can("regulation:import")
+
+Server endpoints already planned:
+POST /api/admin/regulations/import (multipart, supports dryRun)
+GET /api/admin/regulations/template.csv
+GET /api/admin/regulations/:code/versions
+
+If missing, generate minimal handlers to match these.
+
+⸻
+
+Client API (create)
+
+client/src/lib/api/regulations.ts
+
+export async function downloadTemplate() {
+  const r = await fetch("/api/admin/regulations/template.csv", { credentials: "include" });
+  if (!r.ok) throw new Error(await r.text());
+  const blob = await r.blob();
+  return blob;
+}
+
+export async function getVersions(code: string) {
+  const r = await fetch(`/api/admin/regulations/${encodeURIComponent(code)}/versions`, { credentials: "include" });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json(); // [{version,status,createdAt},...]
+}
+
+export async function importRegulation(formData: FormData, { dryRun }: { dryRun: boolean }) {
+  const r = await fetch(`/api/admin/regulations/import?dryRun=${dryRun ? "1" : "0"}`, {
+    method: "POST",
+    credentials: "include",
+    body: formData
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json(); // {inserted,updated,total,warnings,errors,sample?}
+}
+
+
+⸻
+
+Page UI
+
+client/src/pages/regulations/ImportRegulation.tsx
+	•	Top Card with form:
+	•	Inputs: Code, Name EN, Name AR (optional), Version, Publisher (optional)
+	•	File input (accept .xlsx,.csv) + drag-and-drop area
+	•	“Dry-run first” (Switch) default on
+	•	Buttons: Run Dry-Run, Import, Download CSV Template
+	•	Results Card:
+	•	Show counts: Inserted, Updated, Total, Warnings, Errors (Table with first 10 rows)
+	•	If errors exist → disable Import
+	•	Versions Card:
+	•	For the given code, list versions and status badges (Active/Archived)
+
+Key UX rules
+	•	Disable Import until a successful dry-run or user turns off dry-run explicitly.
+	•	Always pass cookies (credentials:"include").
+	•	Guard the page:
+
+const { can } = usePermissions();
+if (!can("regulation:import")) return <Forbidden />;
+
+
+
+⸻
+
+Component Skeleton (inline)
+
+Use shadcn:
+
+<Card>
+  <CardHeader className="flex items-center justify-between">
+    <CardTitle>Import Regulation (.xlsx / .csv)</CardTitle>
+    <Button variant="outline" onClick={handleDownloadTemplate}>Download CSV Template</Button>
+  </CardHeader>
+  <CardContent className="space-y-4">
+    <div className="grid md:grid-cols-2 gap-3">
+      <div>
+        <Label>Code</Label>
+        <Input value={code} onChange={e=>setCode(e.target.value)} placeholder="ECC / DCC / CUSTOM" />
+      </div>
+      <div>
+        <Label>Version</Label>
+        <Input value={version} onChange={e=>setVersion(e.target.value)} placeholder="2024-v0.4" />
+      </div>
+      <div>
+        <Label>Name (English)</Label>
+        <Input value={nameEn} onChange={e=>setNameEn(e.target.value)} />
+      </div>
+      <div>
+        <Label>Name (Arabic) — optional</Label>
+        <Input value={nameAr} onChange={e=>setNameAr(e.target.value)} dir="rtl" />
+      </div>
+      <div className="md:col-span-2">
+        <Label>Publisher — optional</Label>
+        <Input value={publisher} onChange={e=>setPublisher(e.target.value)} placeholder="NCA / Custom" />
+      </div>
+    </div>
+
+    {/* Drag & drop + file picker */}
+    <div
+      onDragOver={e=>e.preventDefault()}
+      onDrop={onDrop}
+      className="border-2 border-dashed rounded-xl p-6 text-center text-sm text-muted-foreground"
+    >
+      {file ? <div>Selected: {file.name}</div> : "Drag & drop .xlsx/.csv here, or choose a file"}
+      <div className="mt-3">
+        <Input type="file" accept=".xlsx,.csv" onChange={e=>setFile(e.target.files?.[0]||null)} />
+      </div>
+    </div>
+
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <Switch checked={dryRun} onCheckedChange={setDryRun} id="dryrun" />
+        <Label htmlFor="dryrun">Dry-run first</Label>
+      </div>
+      <div className="flex gap-2">
+        <Button variant="outline" onClick={handleDryRun} disabled={!file || loading}>Run Dry-Run</Button>
+        <Button onClick={handleImport} disabled={!file || (dryRun && !lastDryRunOk) || loading}>Import</Button>
+      </div>
+    </div>
+  </CardContent>
+</Card>
+
+{/* Results */}
+{result && (
+  <Card className="mt-6">
+    <CardHeader><CardTitle>Import Result</CardTitle></CardHeader>
+    <CardContent className="space-y-3">
+      <div className="flex gap-4 text-sm">
+        <Badge variant="secondary">Inserted: {result.inserted}</Badge>
+        <Badge variant="secondary">Updated: {result.updated}</Badge>
+        <Badge variant="secondary">Total: {result.total}</Badge>
+      </div>
+
+      {result.warnings?.length > 0 && (
+        <Alert><div className="font-medium">Warnings</div><div>{result.warnings.slice(0,5).join("; ")}</div></Alert>
+      )}
+
+      {result.errors?.length > 0 && (
+        <Alert variant="destructive"><div className="font-medium">Errors</div><div>{result.errors.slice(0,5).join("; ")}</div></Alert>
+      )}
+
+      {result.sample?.length > 0 && (
+        <div className="border rounded-md overflow-auto">
+          <Table>
+            {/* Render a compact sample (first 10 rows) */}
+          </Table>
+        </div>
+      )}
+    </CardContent>
+  </Card>
+)}
+
+{/* Versions */}
+<Card className="mt-6">
+  <CardHeader><CardTitle>Versions for {code || "…"}</CardTitle></CardHeader>
+  <CardContent>
+    {/* fetch getVersions(code) and render badges */}
+  </CardContent>
+</Card>
+
+Handlers:
+	•	handleDownloadTemplate: calls downloadTemplate(), creates a blob URL, triggers browser download.
+	•	handleDryRun: builds FormData with fields + file, calls importRegulation(formData,{dryRun:true}), sets result, lastDryRunOk = errors.length === 0.
+	•	handleImport: same but dryRun:false; on success, toast and maybe navigate back to Library.
+
+⸻
+
+Navigation
+	•	Add an “Import Regulation” button in Regulation Library index:
+	•	Route to /regulations/import.
+	•	Use Route in your router to mount the new page.
+
+⸻
+
+Permissions
+	•	use-permissions.tsx should expose can("regulation:import") for Admin/Compliance.
+	•	On the server, enforce the same role check at /api/admin/regulations/*.
+
+⸻
+
+Acceptance
+	•	Upload ECC 2024 V0.4.xlsx or DCC.xlsx → Dry-run shows realistic counts.
+	•	Import succeeds; previous active version of code can be auto-archived.
+	•	Downloaded CSV template matches ECC/DCC headers.
+	•	Custom CSV (same layout) imports as new regulation.
+	•	Page never shows a11y warnings; all actions require admin/compliance.
+
+⸻
+
+If you’d like, I can also include a tiny CSV template generator snippet (server) and the drag-and-drop handler function for the page.
