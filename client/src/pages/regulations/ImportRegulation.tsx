@@ -76,31 +76,6 @@ export default function ImportRegulation() {
     );
   }
 
-  // Download template handler
-  const handleDownloadTemplate = async () => {
-    try {
-      const blob = await downloadTemplate();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'regulation-import-template.csv';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      
-      toast({
-        title: language === 'ar' ? 'نجح التحميل' : 'Download Successful',
-        description: language === 'ar' ? 'تم تحميل القالب بنجاح' : 'Template downloaded successfully',
-      });
-    } catch (error) {
-      toast({
-        title: language === 'ar' ? 'خطأ' : 'Error',
-        description: language === 'ar' ? 'فشل في تحميل القالب' : 'Failed to download template',
-        variant: 'destructive',
-      });
-    }
-  };
 
   // File drop handlers
   const handleDragOver = (e: React.DragEvent) => {
@@ -156,6 +131,32 @@ export default function ImportRegulation() {
       return err.message;
     }
     return 'Unknown error';
+  }
+
+  // Template download handler
+  async function handleDownloadTemplate() {
+    try {
+      const blob = await downloadTemplate();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "regulation-template.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: language === 'ar' ? 'تم تحميل النموذج' : 'Template Downloaded',
+        description: language === 'ar' ? 'تم تحميل نموذج ملف الاستيراد بنجاح' : 'Import template file downloaded successfully',
+      });
+    } catch (e: any) {
+      toast({
+        title: language === 'ar' ? 'فشل التحميل' : 'Download failed',
+        description: e?.message || (language === 'ar' ? 'غير قادر على تحميل النموذج' : 'Unable to download template'),
+        variant: "destructive",
+      });
+    }
   }
 
   // Import handlers

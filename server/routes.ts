@@ -2573,15 +2573,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Download CSV template
-  app.get('/api/admin/regulations/template.csv', isAuthenticated, requirePermissions(['regulation:import']), async (req, res) => {
+  app.get('/api/admin/regulations/template.csv', isAuthenticated, requirePermissions(['regulation:import']), (req, res) => {
     try {
-      const csvContent = `code,codeAr,domainEn,domainAr,subdomainEn,subdomainAr,controlEn,controlAr,evidenceEn,evidenceAr,requirementEn,requirementAr
-1-1-1,١-١-١,Cybersecurity Governance,حوكمة الأمن السيبراني,1-1 Cybersecurity Strategy,۱-۱ إستراتيجية الأمن السيبراني,A cybersecurity strategy must be defined documented and approved,يجب تحديد وتوثيق و اعتماد استراتيجية الأمن السيبراني,CS Strategy file,وثيقة استراتيجية الأمن السيبراني المعتمدة,Strategy goals must be in-line with laws and regulations,يجب أن تتماشى الأهداف الاستراتيجية مع المتطلبات التشريعية
-1-1-2,١-١-٢,Cybersecurity Governance,حوكمة الأمن السيبراني,1-1 Cybersecurity Strategy,۱-۱ إستراتيجية الأمن السيبراني,An action plan must be executed to implement the cybersecurity strategy,يجب العمل على تنفيذ خطة عمل لتطبيق استراتيجية الأمن السيبراني,Implementation plan,خطة عمل تنفيذ الاستراتيجية,Action plan must implement the cybersecurity strategy,يجب أن تبدأ الجهة في تنفيذ الخطوات العملية لحماية معلوماتها`;
-      
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', 'attachment; filename="regulation-import-template.csv"');
-      res.send(csvContent);
+      const headers = [
+        "#",
+        "Clause Number",
+        "رقم البند ",
+        "Main Category",
+        "المكون الأساسي ",
+        "Sub Category",
+        "المكون الفرعي ",
+        "Main Control",
+        "الضابط الأساسي",
+        "Sub Control",
+        "الضابط الفرعي ",
+        "Clear description of the requirement",
+        "وصف واضح للمتطلبات",
+        "Evidence Type",
+        "نوع الدليل المفترض تسليمه",
+        "Control or Subcontrol weight in scoring",
+        "وزن الضابط أو الضابط الفرعي في التقييم",
+        "ترقيم الضوابط التي تتطلب نفس الدليل"
+      ];
+
+      const rows = [
+        [
+          1, "1-1-1", "1-1-1",
+          "Cybersecurity Governance", "حوكمة الأمن السيبراني",
+          "Policies", "السياسات",
+          "Establish governance", "إنشاء الحوكمة",
+          "Policy approval workflow", "سير عمل اعتماد السياسات",
+          "Document policy lifecycle; approvals; reviews", "توثيق دورة حياة السياسة والموافقات والمراجعات",
+          "Policy Document$Approval Minutes$Review Log", "وثيقة السياسة$محاضر الموافقة$سجل المراجعة",
+          "1.0", "1.0",
+          "1-1-2$1-1-3"
+        ],
+        [
+          2, "1-1-2", "1-1-2",
+          "Cybersecurity Governance", "حوكمة الأمن السيبراني",
+          "Policies", "السياسات",
+          "Define roles", "تحديد الأدوار",
+          "RACI for security", "مصفوفة RACI للأمن",
+          "RACI matrix; role descriptions", "مصفوفة RACI ووصف الأدوار",
+          "RACI$Org Chart", "RACI$الهيكل التنظيمي",
+          "0.5", "0.5",
+          "1-1-1"
+        ]
+      ];
+
+      const escape = (s: any) => {
+        const str = String(s ?? "");
+        return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+      };
+
+      const csv = [headers, ...rows].map(r => r.map(escape).join(",")).join("\r\n");
+
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", 'attachment; filename="regulation-template.csv"');
+      res.send("\uFEFF" + csv); // prepend BOM for Excel Arabic
       
     } catch (error) {
       console.error("Template download error:", error);
