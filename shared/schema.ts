@@ -328,6 +328,24 @@ export const regulationControls = pgTable("regulation_controls", {
 }, (t) => ({
   idxRegulation: index("regulation_controls_regulation_idx").on(t.regulationId),
   idxClause: index("regulation_controls_clause_idx").on(t.clause),
+  idxLookup: index("reg_controls_lookup").on(t.regulationId, t.mainCategoryEn, t.subCategoryEn),
+}));
+
+// Project-to-RegulationControls association table
+export const projectRegulationControls = pgTable("project_regulation_controls", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
+  controlId: integer("control_id").references(() => regulationControls.id, { onDelete: "cascade" }).notNull(),
+  status: varchar("status").notNull().default("pending"), // pending, in-progress, completed, not-applicable
+  assignedTo: varchar("assigned_to"),
+  dueDate: date("due_date"),
+  completedAt: timestamp("completed_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (t) => ({
+  idxProject: index("project_regulation_controls_project_idx").on(t.projectId),
+  uniqProjectControl: index("project_regulation_controls_unique").on(t.projectId, t.controlId),
 }));
 
 // RBAC Tables
@@ -381,6 +399,8 @@ export type UserRole = typeof userRoles.$inferSelect;
 export type InsertUserRole = typeof userRoles.$inferInsert;
 export type UserProjectRole = typeof userProjectRoles.$inferSelect;
 export type InsertUserProjectRole = typeof userProjectRoles.$inferInsert;
+export type ProjectRegulationControl = typeof projectRegulationControls.$inferSelect;
+export type InsertProjectRegulationControl = typeof projectRegulationControls.$inferInsert;
 
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({

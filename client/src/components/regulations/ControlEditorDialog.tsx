@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -12,258 +11,352 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/hooks/use-i18n";
-import { patchControl } from "@/lib/api/regulations";
-import { Save, X } from "lucide-react";
+import { Save, X, Plus } from "lucide-react";
 
 interface Control {
   id: number;
-  clause: string;
-  mainCategoryEn: string;
+  clause?: string;
+  code?: string;
+  
+  // Unified regulation control fields
+  mainCategoryEn?: string;
   mainCategoryAr?: string;
-  subCategoryEn: string;
+  subCategoryEn?: string;
   subCategoryAr?: string;
-  mainControlEn: string;
+  mainControlEn?: string;
   mainControlAr?: string;
   subControlEn?: string;
   subControlAr?: string;
-  descriptionEn: string;
+  descriptionEn?: string;
   descriptionAr?: string;
   evidenceTypes?: string;
-  weight: number;
+  weight?: number;
+  
+  // Custom regulation control fields
+  mainDomain?: string;
+  mainDomainAr?: string;
+  subDomain?: string;
+  subDomainAr?: string;
+  control?: string;
+  controlAr?: string;
+  subControl?: string;
+  description?: string;
+  evidenceRequired?: boolean;
+  evidenceNote?: string;
+  evidenceNoteAr?: string;
 }
 
 interface ControlEditorDialogProps {
   control: Control;
-  regulationId: number;
   open: boolean;
   onClose: () => void;
-  onSave: () => void;
+  onSave: (data: any) => void;
+  isLoading?: boolean;
 }
 
 export function ControlEditorDialog({
   control,
-  regulationId,
   open,
   onClose,
   onSave,
+  isLoading = false,
 }: ControlEditorDialogProps) {
   const { language } = useI18n();
-  const { toast } = useToast();
 
   const [formData, setFormData] = useState({
+    // Domain/Category fields (supports both unified and custom formats)
+    mainCategoryEn: "",
+    mainCategoryAr: "",
+    subCategoryEn: "",
+    subCategoryAr: "",
+    
+    // Control content fields
+    mainControlEn: "",
+    mainControlAr: "",
+    subControlEn: "",
+    subControlAr: "",
+    
+    // Description fields
     descriptionEn: "",
     descriptionAr: "",
+    
+    // Evidence and weight
     evidenceTypes: "",
     weight: 1.0,
   });
+
+  const [evidenceChips, setEvidenceChips] = useState<string[]>([]);
+  const [newEvidenceType, setNewEvidenceType] = useState("");
 
   // Initialize form data when control changes
   useEffect(() => {
     if (control) {
       setFormData({
-        descriptionEn: control.descriptionEn || "",
+        // Handle both unified (mainCategoryEn) and custom (mainDomain) field names
+        mainCategoryEn: control.mainCategoryEn || control.mainDomain || "",
+        mainCategoryAr: control.mainCategoryAr || control.mainDomainAr || "",
+        subCategoryEn: control.subCategoryEn || control.subDomain || "",
+        subCategoryAr: control.subCategoryAr || control.subDomainAr || "",
+        
+        mainControlEn: control.mainControlEn || control.control || "",
+        mainControlAr: control.mainControlAr || control.controlAr || "",
+        subControlEn: control.subControlEn || control.subControl || "",
+        subControlAr: control.subControlAr || "",
+        
+        descriptionEn: control.descriptionEn || control.description || "",
         descriptionAr: control.descriptionAr || "",
+        
         evidenceTypes: control.evidenceTypes || "",
         weight: control.weight || 1.0,
       });
+
+      // Parse evidence types into chips (split by $ as specified)
+      if (control.evidenceTypes) {
+        setEvidenceChips(control.evidenceTypes.split('$').filter(Boolean));
+      } else {
+        setEvidenceChips([]);
+      }
     }
   }, [control]);
 
-  // Save control mutation
-  const saveControlMutation = useMutation({
-    mutationFn: (data: any) => patchControl(regulationId, control.id, data),
-    onSuccess: () => {
-      toast({
-        title: language === 'ar' ? 'تم الحفظ' : 'Saved',
-        description: language === 'ar' ? 'تم حفظ تغييرات الضابط بنجاح' : 'Control changes saved successfully',
-      });
-      onSave();
-    },
-    onError: (error: any) => {
-      toast({
-        title: language === 'ar' ? 'خطأ' : 'Error',
-        description: language === 'ar' ? 'فشل في حفظ التغييرات' : 'Failed to save changes',
-        variant: 'destructive',
-      });
-    },
-  });
-
-  // Handle form submission
-  const handleSave = () => {
-    // Parse evidence types (split by $ and clean up)
-    const evidenceTypesArray = formData.evidenceTypes
-      .split('$')
-      .map(type => type.trim())
-      .filter(type => type.length > 0);
-    
-    const updateData = {
-      descriptionEn: formData.descriptionEn,
-      descriptionAr: formData.descriptionAr,
-      evidenceTypes: evidenceTypesArray.join('$'),
-      weight: Number(formData.weight),
-    };
-
-    saveControlMutation.mutate(updateData);
+  const handleInputChange = (field: string, value: string | number) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Parse evidence types for display as badges
-  const evidenceTypesArray = formData.evidenceTypes
-    .split('$')
-    .map(type => type.trim())
-    .filter(type => type.length > 0);
+  const addEvidenceType = () => {
+    if (newEvidenceType.trim()) {
+      setEvidenceChips(prev => [...prev, newEvidenceType.trim()]);
+      setNewEvidenceType("");
+    }
+  };
+
+  const removeEvidenceType = (index: number) => {
+    setEvidenceChips(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSave = () => {
+    // Prepare data with evidence types joined by $
+    const saveData = {
+      ...formData,
+      evidenceTypes: evidenceChips.join('$'),
+    };
+    onSave(saveData);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && e.target === document.activeElement) {
+      e.preventDefault();
+      addEvidenceType();
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {language === 'ar' ? 'تحرير الضابط' : 'Edit Control'}
-          </DialogTitle>
+          <DialogTitle>Edit Control</DialogTitle>
           <DialogDescription>
-            {language === 'ar' 
-              ? 'تحرير خصائص الضابط وأنواع الأدلة المطلوبة'
-              : 'Edit control properties and required evidence types'
-            }
+            Edit control details including domain, subdomain, content, and evidence requirements.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Control Info (Read-only) */}
-          <div className="bg-muted/50 p-4 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <Badge variant="outline">{control.clause}</Badge>
-              <h4 className="font-medium">
-                {language === 'ar' ? control.mainControlAr || control.mainControlEn : control.mainControlEn}
-              </h4>
-            </div>
-            
-            {control.subControlEn && (
-              <p className="text-sm text-muted-foreground">
-                {language === 'ar' ? control.subControlAr || control.subControlEn : control.subControlEn}
-              </p>
-            )}
-            
-            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-              <span>
-                {language === 'ar' ? 'المجال:' : 'Domain:'} {language === 'ar' ? control.mainCategoryAr || control.mainCategoryEn : control.mainCategoryEn}
-              </span>
-              <span>
-                {language === 'ar' ? 'المجال الفرعي:' : 'Subdomain:'} {language === 'ar' ? control.subCategoryAr || control.subCategoryEn : control.subCategoryEn}
-              </span>
+          {/* Domain/Category Section */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Domain/Category</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="mainCategoryEn">Main Category (English)</Label>
+                <Input
+                  id="mainCategoryEn"
+                  value={formData.mainCategoryEn}
+                  onChange={(e) => handleInputChange("mainCategoryEn", e.target.value)}
+                  placeholder="Enter main category in English"
+                />
+              </div>
+              <div>
+                <Label htmlFor="mainCategoryAr">Main Category (Arabic)</Label>
+                <Input
+                  id="mainCategoryAr"
+                  value={formData.mainCategoryAr}
+                  onChange={(e) => handleInputChange("mainCategoryAr", e.target.value)}
+                  placeholder="أدخل الفئة الرئيسية بالعربية"
+                  dir="rtl"
+                />
+              </div>
+              <div>
+                <Label htmlFor="subCategoryEn">Sub Category (English)</Label>
+                <Input
+                  id="subCategoryEn"
+                  value={formData.subCategoryEn}
+                  onChange={(e) => handleInputChange("subCategoryEn", e.target.value)}
+                  placeholder="Enter sub category in English"
+                />
+              </div>
+              <div>
+                <Label htmlFor="subCategoryAr">Sub Category (Arabic)</Label>
+                <Input
+                  id="subCategoryAr"
+                  value={formData.subCategoryAr}
+                  onChange={(e) => handleInputChange("subCategoryAr", e.target.value)}
+                  placeholder="أدخل الفئة الفرعية بالعربية"
+                  dir="rtl"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Form Fields */}
+          {/* Control Content Section */}
           <div className="space-y-4">
-            {/* Description EN */}
-            <div>
-              <Label htmlFor="descriptionEn">
-                {language === 'ar' ? 'الوصف (إنجليزي)' : 'Description (English)'}
-              </Label>
-              <Textarea
-                id="descriptionEn"
-                value={formData.descriptionEn}
-                onChange={e => setFormData(prev => ({ ...prev, descriptionEn: e.target.value }))}
-                rows={3}
-                placeholder={language === 'ar' ? 'أدخل وصف الضابط باللغة الإنجليزية' : 'Enter control description in English'}
-              />
+            <h3 className="text-lg font-medium">Control Content</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="mainControlEn">Main Control (English)</Label>
+                <Textarea
+                  id="mainControlEn"
+                  value={formData.mainControlEn}
+                  onChange={(e) => handleInputChange("mainControlEn", e.target.value)}
+                  placeholder="Enter main control text in English"
+                  rows={3}
+                />
+              </div>
+              <div>
+                <Label htmlFor="mainControlAr">Main Control (Arabic)</Label>
+                <Textarea
+                  id="mainControlAr"
+                  value={formData.mainControlAr}
+                  onChange={(e) => handleInputChange("mainControlAr", e.target.value)}
+                  placeholder="أدخل نص التحكم الرئيسي بالعربية"
+                  dir="rtl"
+                  rows={3}
+                />
+              </div>
+              <div>
+                <Label htmlFor="subControlEn">Sub Control (English)</Label>
+                <Textarea
+                  id="subControlEn"
+                  value={formData.subControlEn}
+                  onChange={(e) => handleInputChange("subControlEn", e.target.value)}
+                  placeholder="Enter sub control text in English (optional)"
+                  rows={2}
+                />
+              </div>
+              <div>
+                <Label htmlFor="subControlAr">Sub Control (Arabic)</Label>
+                <Textarea
+                  id="subControlAr"
+                  value={formData.subControlAr}
+                  onChange={(e) => handleInputChange("subControlAr", e.target.value)}
+                  placeholder="أدخل نص التحكم الفرعي بالعربية (اختياري)"
+                  dir="rtl"
+                  rows={2}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Description Section */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Description</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="descriptionEn">Description (English)</Label>
+                <Textarea
+                  id="descriptionEn"
+                  value={formData.descriptionEn}
+                  onChange={(e) => handleInputChange("descriptionEn", e.target.value)}
+                  placeholder="Enter detailed description in English"
+                  rows={4}
+                />
+              </div>
+              <div>
+                <Label htmlFor="descriptionAr">Description (Arabic)</Label>
+                <Textarea
+                  id="descriptionAr"
+                  value={formData.descriptionAr}
+                  onChange={(e) => handleInputChange("descriptionAr", e.target.value)}
+                  placeholder="أدخل الوصف التفصيلي بالعربية"
+                  dir="rtl"
+                  rows={4}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Evidence Types Section */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Evidence Types</h3>
+            
+            {/* Evidence Chips */}
+            <div className="flex flex-wrap gap-2">
+              {evidenceChips.map((type, index) => (
+                <Badge
+                  key={index}
+                  variant="secondary"
+                  className="flex items-center gap-2"
+                >
+                  {type}
+                  <button
+                    type="button"
+                    onClick={() => removeEvidenceType(index)}
+                    className="hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
             </div>
 
-            {/* Description AR */}
-            <div>
-              <Label htmlFor="descriptionAr">
-                {language === 'ar' ? 'الوصف (عربي)' : 'Description (Arabic)'}
-              </Label>
-              <Textarea
-                id="descriptionAr"
-                value={formData.descriptionAr}
-                onChange={e => setFormData(prev => ({ ...prev, descriptionAr: e.target.value }))}
-                rows={3}
-                dir="rtl"
-                placeholder={language === 'ar' ? 'أدخل وصف الضابط باللغة العربية' : 'Enter control description in Arabic'}
-              />
-            </div>
-
-            {/* Evidence Types */}
-            <div>
-              <Label htmlFor="evidenceTypes">
-                {language === 'ar' ? 'أنواع الأدلة' : 'Evidence Types'}
-              </Label>
+            {/* Add New Evidence Type */}
+            <div className="flex gap-2">
               <Input
-                id="evidenceTypes"
-                value={formData.evidenceTypes}
-                onChange={e => setFormData(prev => ({ ...prev, evidenceTypes: e.target.value }))}
-                placeholder={language === 'ar' 
-                  ? 'اكتب أنواع الأدلة مفصولة بـ $' 
-                  : 'Enter evidence types separated by $'
-                }
+                value={newEvidenceType}
+                onChange={(e) => setNewEvidenceType(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Add evidence type (e.g., 'Policy Document', 'Audit Report')"
+                className="flex-1"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                {language === 'ar' 
-                  ? 'مثال: وثيقة السياسة $ محضر الاجتماع $ تقرير التدقيق' 
-                  : 'Example: Policy Document $ Meeting Minutes $ Audit Report'
-                }
-              </p>
-              
-              {/* Evidence Types Preview */}
-              {evidenceTypesArray.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {evidenceTypesArray.map((type, index) => (
-                    <Badge key={index} variant="secondary" className="text-xs">
-                      {type}
-                    </Badge>
-                  ))}
-                </div>
-              )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addEvidenceType}
+                disabled={!newEvidenceType.trim()}
+              >
+                <Plus className="h-4 w-4" />
+                Add
+              </Button>
             </div>
+          </div>
 
-            {/* Weight */}
-            <div>
-              <Label htmlFor="weight">
-                {language === 'ar' ? 'الوزن' : 'Weight'}
-              </Label>
+          {/* Weight Section */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Control Weight</h3>
+            <div className="w-full md:w-48">
+              <Label htmlFor="weight">Weight (Importance)</Label>
               <Input
                 id="weight"
                 type="number"
-                step="0.1"
                 min="0"
                 max="10"
+                step="0.1"
                 value={formData.weight}
-                onChange={e => setFormData(prev => ({ ...prev, weight: parseFloat(e.target.value) || 0 }))}
+                onChange={(e) => handleInputChange("weight", parseFloat(e.target.value) || 0)}
+                placeholder="1.0"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                {language === 'ar' 
-                  ? 'وزن الضابط في التقييم (0.1 - 10.0)' 
-                  : 'Control weight in assessment (0.1 - 10.0)'
-                }
-              </p>
             </div>
           </div>
+        </div>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-2 pt-4">
-            <Button
-              variant="outline"
-              onClick={onClose}
-              disabled={saveControlMutation.isPending}
-            >
-              <X className="h-4 w-4 mr-2" />
-              {language === 'ar' ? 'إلغاء' : 'Cancel'}
-            </Button>
-            
-            <Button
-              onClick={handleSave}
-              disabled={saveControlMutation.isPending}
-            >
-              <Save className="h-4 w-4 mr-2" />
-              {saveControlMutation.isPending 
-                ? (language === 'ar' ? 'حفظ...' : 'Saving...')
-                : (language === 'ar' ? 'حفظ التغييرات' : 'Save Changes')
-              }
-            </Button>
-          </div>
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-3 pt-6 border-t">
+          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={isLoading}>
+            <Save className="h-4 w-4 mr-2" />
+            {isLoading ? "Saving..." : "Save Changes"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

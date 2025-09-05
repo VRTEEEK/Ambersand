@@ -1,31 +1,27 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
-import AppLayout from "@/components/layout/AppLayout";
-import { getRegulation, patchRegulation } from "@/lib/api/regulations";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/hooks/use-i18n";
 import { usePermissions } from "@/hooks/use-permissions";
-import { 
-  Save, 
-  Edit3, 
-  CheckSquare, 
-  Square, 
-  FolderOpen, 
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  ArrowLeft,
+  Edit,
+  Plus,
+  CheckCircle2,
   FileText,
-  Plus 
+  Settings
 } from "lucide-react";
 import { ControlEditorDialog } from "@/components/regulations/ControlEditorDialog";
 import { ProjectCreateDialog } from "@/components/projects/ProjectCreateDialog";
+import { getRegulation, getDomains, getSubdomains, patchControl } from "@/lib/api/regulations";
+import { createProject } from "@/lib/api/projects";
 
 interface Control {
   id: number;
@@ -85,558 +81,360 @@ export function RegulationDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // State for form data
-  const [editMode, setEditMode] = useState(false);
-  const [formData, setFormData] = useState({
-    code: "",
-    nameEn: "",
-    nameAr: "",
-    version: "",
-    publisher: "",
-    status: "draft"
-  });
-
-  // State for control selection and filtering
+  // State for filtering and selection
   const [selectedDomain, setSelectedDomain] = useState<string>("");
+  const [selectedDomainEn, setSelectedDomainEn] = useState<string>("");
+  const [selectedDomainAr, setSelectedDomainAr] = useState<string>("");
   const [selectedSubdomain, setSelectedSubdomain] = useState<string>("");
-  const [selectedControls, setSelectedControls] = useState<Set<number>>(new Set());
+  const [selectedControlIds, setSelectedControlIds] = useState<number[]>([]);
   const [editingControl, setEditingControl] = useState<Control | null>(null);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
 
-  // First try to fetch as a custom regulation (existing system)
-  const { data: customRegData, isLoading: isLoadingCustom, error: customError } = useQuery<any>({
-    queryKey: [`/api/custom-regulations/${id}`],
+  // Fetch regulation data
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["regulation", Number(id)],
+    queryFn: () => getRegulation(Number(id!)),
     enabled: !!id,
-    retry: false
+  });
+  const regulation = data?.regulation;
+  const controls = data?.controls ?? [];
+
+  // Fetch domains for filter pane
+  const { data: domains = [] } = useQuery({
+    queryKey: ["reg-domains", Number(id)],
+    queryFn: () => getDomains(Number(id!)),
+    enabled: !!id,
   });
 
-  // If custom regulation doesn't exist, try unified regulation (new system)
-  const { data: unifiedData, isLoading: isLoadingUnified, error: unifiedError } = useQuery<{regulation: Regulation, controls: Control[]}>({
-    queryKey: [`/api/regulations/${id}`],
-    enabled: !!id && !customRegData && !!customError,
-    retry: false
+  // Fetch subdomains when domain is selected
+  const { data: subdomains = [] } = useQuery({
+    queryKey: ["reg-subdomains", Number(id), selectedDomainEn, selectedDomainAr],
+    queryFn: () => getSubdomains(Number(id!), { domainEn: selectedDomainEn, domainAr: selectedDomainAr }),
+    enabled: !!selectedDomain && !!id,
   });
 
-  // Determine which data source we're using
-  const isCustomRegulation = !!customRegData;
-  const isLoading = isLoadingCustom || isLoadingUnified;
-  const error = customError && unifiedError ? unifiedError : null;
+  // Filter controls based on selected domain/subdomain
+  const filteredControls = useMemo(() => controls.filter((c: Control) => {
+    const matchDomain = !selectedDomain || 
+      c.mainCategoryEn === selectedDomain || 
+      c.mainCategoryAr === selectedDomain ||
+      c.mainDomain === selectedDomain ||
+      c.mainDomainAr === selectedDomain ||
+      c.domain === selectedDomain ||
+      c.domainAr === selectedDomain;
+    
+    const matchSub = !selectedSubdomain || 
+      c.subCategoryEn === selectedSubdomain || 
+      c.subCategoryAr === selectedSubdomain ||
+      c.subDomain === selectedSubdomain ||
+      c.subDomainAr === selectedSubdomain ||
+      c.subdomain === selectedSubdomain ||
+      c.subdomainAr === selectedSubdomain;
+    
+    return matchDomain && matchSub;
+  }), [controls, selectedDomain, selectedSubdomain]);
 
-  // Extract regulation and controls data
-  let regulation: Regulation | undefined;
-  let controls: Control[] = [];
-
-  if (customRegData) {
-    // Handle custom regulation format - convert to expected format
-    regulation = {
-      id: customRegData.id,
-      code: customRegData.name, // custom regs use 'name' as code
-      nameEn: customRegData.name,
-      nameAr: customRegData.nameAr,
-      version: customRegData.version || "1.0",
-      publisher: customRegData.framework || "Custom",
-      status: customRegData.status,
-      createdAt: customRegData.createdAt,
-    };
-    controls = customRegData.controls || [];
-  } else if (unifiedData) {
-    // Handle unified regulation format
-    regulation = unifiedData.regulation;
-    controls = unifiedData.controls;
-  }
-
-  // Update form data when regulation loads
-  useEffect(() => {
-    if (regulation) {
-      setFormData({
-        code: regulation.code || "",
-        nameEn: regulation.nameEn || "",
-        nameAr: regulation.nameAr || "",
-        version: regulation.version || "",
-        publisher: regulation.publisher || "",
-        status: regulation.status || "draft"
-      });
-    }
-  }, [regulation]);
-
-  // Save regulation metadata mutation
-  const saveRegulationMutation = useMutation({
-    mutationFn: (data: any) => {
-      if (isCustomRegulation) {
-        // For custom regulations, use the custom regulation API
-        return fetch(`/api/custom-regulations/${id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: data.nameEn,
-            nameAr: data.nameAr,
-            version: data.version,
-            framework: data.publisher,
-            status: data.status,
-          })
-        }).then(res => res.json());
-      } else {
-        // For unified regulations, use the unified regulation API
-        return patchRegulation(Number(id), data);
-      }
-    },
+  // Control editing mutation
+  const editControlMutation = useMutation({
+    mutationFn: ({ controlId, data }: { controlId: number; data: any }) => 
+      patchControl(regulation!.id, controlId, data),
     onSuccess: () => {
-      toast({
-        title: language === 'ar' ? 'تم الحفظ' : 'Saved',
-        description: language === 'ar' ? 'تم حفظ التغييرات بنجاح' : 'Changes saved successfully',
-      });
-      setEditMode(false);
-      // Invalidate the appropriate cache
-      if (isCustomRegulation) {
-        queryClient.invalidateQueries({ queryKey: [`/api/custom-regulations/${id}`] });
-      } else {
-        queryClient.invalidateQueries({ queryKey: [`/api/regulations/${id}`] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["regulation", Number(id)] });
+      queryClient.invalidateQueries({ queryKey: ["reg-domains", Number(id)] });
+      queryClient.invalidateQueries({ queryKey: ["reg-subdomains", Number(id)] });
+      setEditingControl(null);
+      toast({ title: "Control updated successfully" });
     },
-    onError: (error: any) => {
-      toast({
-        title: language === 'ar' ? 'خطأ' : 'Error',
-        description: language === 'ar' ? 'فشل في حفظ التغييرات' : 'Failed to save changes',
-        variant: 'destructive',
-      });
-    },
+    onError: (error) => {
+      toast({ title: "Failed to update control", description: error.message, variant: "destructive" });
+    }
   });
 
-  // Process controls for hierarchical display
-  const domains = useMemo(() => {
-    const domainMap = new Map();
-    controls.forEach(control => {
-      // Handle both custom regulation controls and unified regulation controls
-      const domainKey = control.mainCategoryEn || control.mainDomain || control.domain || 'Other';
-      const domainKeyAr = control.mainCategoryAr || control.mainDomainAr || control.domainAr;
-      const subdomainEn = control.subCategoryEn || control.subDomain || control.subdomain || 'General';
-      const subdomainAr = control.subCategoryAr || control.subDomainAr || control.subdomainAr;
-      
-      if (!domainMap.has(domainKey)) {
-        domainMap.set(domainKey, {
-          nameEn: domainKey,
-          nameAr: domainKeyAr,
-          subdomains: new Set()
-        });
-      }
-      domainMap.get(domainKey).subdomains.add(JSON.stringify({
-        nameEn: subdomainEn,
-        nameAr: subdomainAr
-      }));
-    });
-
-    return Array.from(domainMap.entries()).map(([key, value]) => ({
-      nameEn: key,
-      nameAr: value.nameAr,
-      subdomains: Array.from(value.subdomains).map((sub: any) => JSON.parse(sub))
-    }));
-  }, [controls]);
-
-  // Filtered subdomains based on selected domain
-  const filteredSubdomains = useMemo(() => {
-    if (!selectedDomain) return [];
-    const domain = domains.find(d => d.nameEn === selectedDomain);
-    return domain?.subdomains || [];
-  }, [domains, selectedDomain]);
-
-  // Filtered controls based on selected domain and subdomain
-  const filteredControls = useMemo(() => {
-    let filtered = controls;
-    
-    if (selectedDomain) {
-      filtered = filtered.filter(c => 
-        (c.mainCategoryEn === selectedDomain) || 
-        (c.mainDomain === selectedDomain) || 
-        (c.domain === selectedDomain)
-      );
+  // Project creation mutation
+  const createProjectMutation = useMutation({
+    mutationFn: createProject,
+    onSuccess: (data) => {
+      toast({ title: "Project created successfully" });
+      navigate(`/projects/${data.projectId}`);
+    },
+    onError: (error) => {
+      toast({ title: "Failed to create project", description: error.message, variant: "destructive" });
     }
-    
-    if (selectedSubdomain) {
-      filtered = filtered.filter(c => 
-        (c.subCategoryEn === selectedSubdomain) || 
-        (c.subDomain === selectedSubdomain) || 
-        (c.subdomain === selectedSubdomain)
-      );
-    }
-    
-    return filtered.sort((a, b) => {
-      const aClause = a.clause || a.code || a.id?.toString() || '';
-      const bClause = b.clause || b.code || b.id?.toString() || '';
-      return aClause.localeCompare(bClause);
-    });
-  }, [controls, selectedDomain, selectedSubdomain]);
+  });
 
-  // Handle form submission
-  const handleSave = () => {
-    saveRegulationMutation.mutate(formData);
+  // Handle domain selection
+  const handleDomainSelect = (domain: any) => {
+    setSelectedDomain(domain.mainCategoryEn || domain.mainDomainEn || domain.domain || "");
+    setSelectedDomainEn(domain.mainCategoryEn || domain.mainDomainEn || domain.domain || "");
+    setSelectedDomainAr(domain.mainCategoryAr || domain.mainDomainAr || domain.domainAr || "");
+    setSelectedSubdomain("");
+  };
+
+  // Handle subdomain selection
+  const handleSubdomainSelect = (subdomain: any) => {
+    setSelectedSubdomain(subdomain.subCategoryEn || subdomain.subDomainEn || subdomain.subdomain || "");
   };
 
   // Handle control selection
-  const toggleControl = (controlId: number) => {
-    const newSelected = new Set(selectedControls);
-    if (newSelected.has(controlId)) {
-      newSelected.delete(controlId);
-    } else {
-      newSelected.add(controlId);
-    }
-    setSelectedControls(newSelected);
-  };
-
-  // Handle select all in subdomain
-  const selectAllInSubdomain = () => {
-    const newSelected = new Set(selectedControls);
-    filteredControls.forEach(control => {
-      newSelected.add(control.id);
-    });
-    setSelectedControls(newSelected);
-  };
-
-  // Handle clear selection
-  const clearSelection = () => {
-    setSelectedControls(new Set());
-  };
-
-  if (isLoading) {
-    return (
-      <AppLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-            <p className="mt-2 text-muted-foreground">
-              {language === 'ar' ? 'جاري التحميل...' : 'Loading...'}
-            </p>
-          </div>
-        </div>
-      </AppLayout>
+  const handleControlSelect = (controlId: number, checked: boolean) => {
+    setSelectedControlIds(prev => 
+      checked 
+        ? [...prev, controlId]
+        : prev.filter(id => id !== controlId)
     );
-  }
+  };
 
-  if (error || !regulation) {
-    return (
-      <AppLayout>
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">
-            {language === 'ar' ? 'التنظيم غير موجود' : 'Regulation not found'}
-          </p>
-          <Button onClick={() => navigate('/regulations')} className="mt-4">
-            {language === 'ar' ? 'العودة للائحة' : 'Back to Regulations'}
-          </Button>
-        </div>
-      </AppLayout>
-    );
-  }
+  // Loading and error states
+  if (isLoading) return <div className="p-4 text-sm text-muted-foreground">Loading regulation…</div>;
+  if (error || !regulation) return <div className="p-4 text-sm text-destructive">Failed to load regulation.</div>;
 
   return (
-    <AppLayout>
-      <div className="space-y-6">
-        {/* Regulation Metadata Card */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <CardTitle className="text-xl">
-                  {language === 'ar' ? regulation.nameAr || regulation.nameEn : regulation.nameEn}
-                </CardTitle>
-                <Badge variant={regulation.status === 'active' ? 'default' : 'secondary'}>
-                  {regulation.status === 'active' 
-                    ? (language === 'ar' ? 'نشط' : 'Active')
-                    : regulation.status === 'draft' 
-                      ? (language === 'ar' ? 'مسودة' : 'Draft')
-                      : (language === 'ar' ? 'مؤرشف' : 'Archived')
-                  }
-                </Badge>
-              </div>
-              
-              {can('edit_regulations') && (
-                <div className="flex gap-2">
-                  {editMode ? (
-                    <>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => setEditMode(false)}
-                        disabled={saveRegulationMutation.isPending}
-                      >
-                        {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                      </Button>
-                      <Button 
-                        onClick={handleSave}
-                        disabled={saveRegulationMutation.isPending}
-                      >
-                        <Save className="h-4 w-4 mr-2" />
-                        {language === 'ar' ? 'حفظ' : 'Save'}
-                      </Button>
-                    </>
-                  ) : (
-                    <Button onClick={() => setEditMode(true)}>
-                      <Edit3 className="h-4 w-4 mr-2" />
-                      {language === 'ar' ? 'تعديل' : 'Edit'}
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-          </CardHeader>
-          
-          {editMode && (
-            <CardContent className="space-y-4">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="code">{language === 'ar' ? 'الكود' : 'Code'}</Label>
-                  <Input 
-                    id="code"
-                    value={formData.code}
-                    onChange={e => setFormData(prev => ({ ...prev, code: e.target.value }))}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="version">{language === 'ar' ? 'الإصدار' : 'Version'}</Label>
-                  <Input 
-                    id="version"
-                    value={formData.version}
-                    onChange={e => setFormData(prev => ({ ...prev, version: e.target.value }))}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="nameEn">{language === 'ar' ? 'الاسم (إنجليزي)' : 'Name (English)'}</Label>
-                  <Input 
-                    id="nameEn"
-                    value={formData.nameEn}
-                    onChange={e => setFormData(prev => ({ ...prev, nameEn: e.target.value }))}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="nameAr">{language === 'ar' ? 'الاسم (عربي)' : 'Name (Arabic)'}</Label>
-                  <Input 
-                    id="nameAr"
-                    value={formData.nameAr}
-                    onChange={e => setFormData(prev => ({ ...prev, nameAr: e.target.value }))}
-                    dir="rtl"
-                  />
-                </div>
-                
-                <div className="md:col-span-2">
-                  <Label htmlFor="publisher">{language === 'ar' ? 'الناشر' : 'Publisher'}</Label>
-                  <Input 
-                    id="publisher"
-                    value={formData.publisher}
-                    onChange={e => setFormData(prev => ({ ...prev, publisher: e.target.value }))}
-                  />
-                </div>
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/regulations")}>
+            <ArrowLeft className="h-4 w-4" />
+            Back to Regulations
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">{regulation.nameEn}</h1>
+            {regulation.nameAr && <p className="text-sm text-muted-foreground">{regulation.nameAr}</p>}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary">{regulation.version}</Badge>
+          <Badge variant={regulation.status === "active" ? "default" : "secondary"}>
+            {regulation.status}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Action Bar */}
+      {selectedControlIds.length > 0 && can("project:create") && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
+          <Card className="shadow-lg">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-medium">
+                  {selectedControlIds.length} control(s) selected
+                </span>
+                <Button onClick={() => setShowProjectDialog(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Project from Selected ({selectedControlIds.length})
+                </Button>
               </div>
             </CardContent>
-          )}
-        </Card>
+          </Card>
+        </div>
+      )}
 
-        {/* ECC-Style Control Selector */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>
-                {language === 'ar' ? 'محدد التحكم' : 'Control Selector'}
-              </CardTitle>
-              
-              <div className="flex items-center gap-4">
-                <Badge variant="outline">
-                  {language === 'ar' ? `المحدد: ${selectedControls.size}` : `Selected: ${selectedControls.size}`}
-                </Badge>
-                
-                {selectedControls.size > 0 && (
-                  <>
-                    <Button variant="outline" size="sm" onClick={clearSelection}>
-                      {language === 'ar' ? 'مسح التحديد' : 'Clear Selection'}
+      {/* 3-Pane Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Left Pane: Domain/Subdomain Filter */}
+        <div className="lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Filter Controls</CardTitle>
+              <CardDescription>Select domain and subdomain to filter controls</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Domains */}
+              <div>
+                <h4 className="font-medium mb-2">Domains</h4>
+                <ScrollArea className="h-48">
+                  <div className="space-y-1">
+                    <Button
+                      variant={!selectedDomain ? "default" : "ghost"}
+                      className="w-full justify-start"
+                      onClick={() => {
+                        setSelectedDomain("");
+                        setSelectedDomainEn("");
+                        setSelectedDomainAr("");
+                        setSelectedSubdomain("");
+                      }}
+                    >
+                      All Domains
                     </Button>
-                    
-                    {can('create_projects') && (
-                      <Button onClick={() => setShowProjectDialog(true)}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        {language === 'ar' ? 'إنشاء مشروع' : 'Create Project'}
-                      </Button>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          </CardHeader>
-          
-          <CardContent>
-            <div className="grid lg:grid-cols-3 gap-4 h-96">
-              {/* Domains Column */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <FolderOpen className="h-4 w-4" />
-                    {language === 'ar' ? 'المجالات' : 'Domains'}
-                  </CardTitle>
-                </CardHeader>
-                <ScrollArea className="h-80">
-                  <div className="space-y-1 p-3">
-                    {domains.map((domain) => (
+                    {domains.map((domain: any, idx: number) => (
                       <Button
-                        key={domain.nameEn}
-                        variant={selectedDomain === domain.nameEn ? "default" : "ghost"}
-                        size="sm"
-                        className="w-full justify-start text-left"
-                        onClick={() => {
-                          setSelectedDomain(domain.nameEn);
-                          setSelectedSubdomain("");
-                        }}
+                        key={idx}
+                        variant={selectedDomain === (domain.mainCategoryEn || domain.domain) ? "default" : "ghost"}
+                        className="w-full justify-start"
+                        onClick={() => handleDomainSelect(domain)}
                       >
-                        <span className="truncate">
-                          {language === 'ar' ? domain.nameAr || domain.nameEn : domain.nameEn}
-                        </span>
+                        {language === "ar" ? 
+                          (domain.mainCategoryAr || domain.domainAr || domain.mainCategoryEn || domain.domain) :
+                          (domain.mainCategoryEn || domain.domain || domain.mainCategoryAr || domain.domainAr)
+                        }
                       </Button>
                     ))}
                   </div>
                 </ScrollArea>
-              </Card>
+              </div>
 
-              {/* Subdomains Column */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <FolderOpen className="h-4 w-4" />
-                      {language === 'ar' ? 'المجالات الفرعية' : 'Subdomains'}
-                    </CardTitle>
-                    {selectedDomain && (
+              {/* Subdomains */}
+              {selectedDomain && (
+                <div>
+                  <h4 className="font-medium mb-2">Subdomains</h4>
+                  <ScrollArea className="h-48">
+                    <div className="space-y-1">
                       <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={selectAllInSubdomain}
-                        disabled={!selectedSubdomain}
+                        variant={!selectedSubdomain ? "default" : "ghost"}
+                        className="w-full justify-start"
+                        onClick={() => setSelectedSubdomain("")}
                       >
-                        {language === 'ar' ? 'تحديد الكل' : 'Select All'}
+                        All Subdomains
                       </Button>
-                    )}
-                  </div>
-                </CardHeader>
-                <ScrollArea className="h-80">
-                  <div className="space-y-1 p-3">
-                    {selectedDomain ? (
-                      filteredSubdomains.map((subdomain) => (
+                      {subdomains.map((subdomain: any, idx: number) => (
                         <Button
-                          key={subdomain.nameEn}
-                          variant={selectedSubdomain === subdomain.nameEn ? "default" : "ghost"}
-                          size="sm"
-                          className="w-full justify-start text-left"
-                          onClick={() => setSelectedSubdomain(subdomain.nameEn)}
+                          key={idx}
+                          variant={selectedSubdomain === (subdomain.subCategoryEn || subdomain.subdomain) ? "default" : "ghost"}
+                          className="w-full justify-start"
+                          onClick={() => handleSubdomainSelect(subdomain)}
                         >
-                          <span className="truncate">
-                            {language === 'ar' ? subdomain.nameAr || subdomain.nameEn : subdomain.nameEn}
-                          </span>
+                          {language === "ar" ? 
+                            (subdomain.subCategoryAr || subdomain.subdomainAr || subdomain.subCategoryEn || subdomain.subdomain) :
+                            (subdomain.subCategoryEn || subdomain.subdomain || subdomain.subCategoryAr || subdomain.subdomainAr)
+                          }
                         </Button>
-                      ))
-                    ) : (
-                      <p className="text-sm text-muted-foreground p-2">
-                        {language === 'ar' ? 'اختر مجالاً أولاً' : 'Select a domain first'}
-                      </p>
-                    )}
-                  </div>
-                </ScrollArea>
-              </Card>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-              {/* Controls Column */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    {language === 'ar' ? 'الضوابط' : 'Controls'}
-                  </CardTitle>
-                </CardHeader>
-                <ScrollArea className="h-80">
-                  <div className="space-y-2 p-3">
-                    {selectedDomain ? (
-                      filteredControls.map((control) => (
-                        <div
-                          key={control.id}
-                          className="flex items-start gap-3 p-2 rounded-lg border hover:bg-muted/50 cursor-pointer"
-                          onClick={() => toggleControl(control.id)}
-                        >
+        {/* Right Pane: Controls List */}
+        <div className="lg:col-span-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center justify-between">
+                <span>Controls ({filteredControls.length})</span>
+                {(selectedDomain || selectedSubdomain) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedDomain("");
+                      setSelectedDomainEn("");
+                      setSelectedDomainAr("");
+                      setSelectedSubdomain("");
+                    }}
+                  >
+                    Show All Controls
+                  </Button>
+                )}
+              </CardTitle>
+              {(selectedDomain || selectedSubdomain) && (
+                <CardDescription>
+                  Filtered by: {selectedDomain && `Domain: ${selectedDomain}`}
+                  {selectedDomain && selectedSubdomain && " | "}
+                  {selectedSubdomain && `Subdomain: ${selectedSubdomain}`}
+                </CardDescription>
+              )}
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-96">
+                <div className="space-y-4">
+                  {filteredControls.map((control: Control) => (
+                    <div key={control.id} className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3">
                           <Checkbox
-                            checked={selectedControls.has(control.id)}
-                            onChange={() => toggleControl(control.id)}
+                            checked={selectedControlIds.includes(control.id)}
+                            onCheckedChange={(checked) => 
+                              handleControlSelect(control.id, checked as boolean)
+                            }
                           />
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Badge variant="outline" className="text-xs">
-                                {control.clause}
-                              </Badge>
-                              {can('edit_regulations') && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingControl(control);
-                                  }}
-                                >
-                                  <Edit3 className="h-3 w-3" />
-                                </Button>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              {control.clause && (
+                                <Badge variant="outline">{control.clause}</Badge>
+                              )}
+                              {control.code && (
+                                <Badge variant="outline">{control.code}</Badge>
                               )}
                             </div>
-                            
-                            <p className="text-sm font-medium truncate">
-                              {language === 'ar' ? control.mainControlAr || control.mainControlEn : control.mainControlEn}
+                            <h4 className="font-medium">
+                              {language === "ar" ? 
+                                ((control as any).mainControlAr || (control as any).controlAr || (control as any).mainControlEn || (control as any).control) :
+                                ((control as any).mainControlEn || (control as any).control || (control as any).mainControlAr || (control as any).controlAr)
+                              }
+                            </h4>
+                            <p className="text-sm text-muted-foreground">
+                              {language === "ar" ? 
+                                (control.descriptionAr || control.descriptionEn || control.description) :
+                                (control.descriptionEn || control.description || control.descriptionAr)
+                              }
                             </p>
-                            
-                            {control.subControlEn && (
-                              <p className="text-xs text-muted-foreground truncate">
-                                {language === 'ar' ? control.subControlAr || control.subControlEn : control.subControlEn}
-                              </p>
-                            )}
-                            
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="secondary" className="text-xs">
-                                {language === 'ar' ? `الوزن: ${control.weight}` : `Weight: ${control.weight}`}
-                              </Badge>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>
+                                {language === "ar" ? 
+                                  (control.mainCategoryAr || control.mainDomainAr || control.domainAr || control.mainCategoryEn || control.mainDomain || control.domain) :
+                                  (control.mainCategoryEn || control.mainDomain || control.domain || control.mainCategoryAr || control.mainDomainAr || control.domainAr)
+                                }
+                              </span>
+                              <span>→</span>
+                              <span>
+                                {language === "ar" ? 
+                                  (control.subCategoryAr || control.subDomainAr || control.subdomainAr || control.subCategoryEn || control.subDomain || control.subdomain) :
+                                  (control.subCategoryEn || control.subDomain || control.subdomain || control.subCategoryAr || control.subDomainAr || control.subdomainAr)
+                                }
+                              </span>
                             </div>
                           </div>
                         </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-muted-foreground p-2">
-                        {language === 'ar' ? 'اختر مجالاً أولاً' : 'Select a domain first'}
-                      </p>
-                    )}
-                  </div>
-                </ScrollArea>
-              </Card>
-            </div>
-          </CardContent>
-        </Card>
+                        {can("regulation:edit") && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingControl(control)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Control Editor Dialog */}
       {editingControl && (
         <ControlEditorDialog
           control={editingControl}
-          regulationId={Number(id)}
           open={!!editingControl}
           onClose={() => setEditingControl(null)}
-          onSave={() => {
-            setEditingControl(null);
-            queryClient.invalidateQueries({ queryKey: [`/api/regulations/${id}`] });
+          onSave={(data: any) => {
+            editControlMutation.mutate({ controlId: editingControl.id, data });
           }}
+          isLoading={editControlMutation.isPending}
         />
       )}
 
       {/* Project Create Dialog */}
       {showProjectDialog && (
         <ProjectCreateDialog
-          regulationId={Number(id)}
-          selectedControlIds={Array.from(selectedControls)}
           open={showProjectDialog}
           onClose={() => setShowProjectDialog(false)}
-          onSuccess={() => {
-            setShowProjectDialog(false);
-            setSelectedControls(new Set());
+          onSave={(data: any) => {
+            createProjectMutation.mutate({
+              ...data,
+              regulationId: regulation.id,
+              controlIds: selectedControlIds
+            });
           }}
+          isLoading={createProjectMutation.isPending}
+          selectedControlsCount={selectedControlIds.length}
         />
       )}
-    </AppLayout>
+    </div>
   );
 }

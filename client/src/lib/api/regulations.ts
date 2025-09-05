@@ -49,3 +49,18 @@ export async function patchControl(regId: number, controlId: number, data: any) 
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
+
+export async function getDomains(regId: number) {
+  const r = await fetch(`/api/regulations/${regId}/domains`, { credentials: "include" });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function getSubdomains(regId: number, p: { domainEn?: string; domainAr?: string } = {}) {
+  const qs = new URLSearchParams();
+  if (p.domainEn) qs.set("domainEn", p.domainEn);
+  if (p.domainAr) qs.set("domainAr", p.domainAr);
+  const r = await fetch(`/api/regulations/${regId}/subdomains?${qs.toString()}`, { credentials: "include" });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
