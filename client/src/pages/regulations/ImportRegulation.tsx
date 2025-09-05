@@ -141,6 +141,23 @@ export default function ImportRegulation() {
     setLastDryRunOk(false);
   };
 
+  // Helper to extract detailed error messages
+  async function extractMessage(err: any) {
+    if (err?.message) {
+      try {
+        const j = JSON.parse(err.message);
+        if (j?.message) {
+          const more = j.detail ? ` — ${j.detail}` : '';
+          const hint = j.hint ? ` (${j.hint})` : '';
+          const sample = j.sample ? `\nHeaders: ${j.sample.join(', ')}` : '';
+          return j.message + more + hint + sample;
+        }
+      } catch {}
+      return err.message;
+    }
+    return 'Unknown error';
+  }
+
   // Import handlers
   const handleDryRun = async () => {
     if (!file || !code || !nameEn || !version) {
@@ -166,18 +183,22 @@ export default function ImportRegulation() {
 
       const response = await importRegulation(formData, { dryRun: true });
       setResult(response);
-      setLastDryRunOk(response.errors.length === 0);
+      setLastDryRunOk((response.errors?.length ?? 0) === 0);
       
       toast({
         title: language === 'ar' ? 'اكتملت المعاينة' : 'Dry Run Completed',
-        description: `${response.total} rows processed, ${response.errors.length} errors found`,
+        description: `${response.total} rows processed, ${response.errors?.length || 0} errors found`,
       });
-    } catch (error) {
+    } catch (err: any) {
+      console.error('Dry run failed:', err);
+      const msg = await extractMessage(err);
       toast({
-        title: language === 'ar' ? 'خطأ في المعاينة' : 'Dry Run Failed',
-        description: error instanceof Error ? error.message : 'Unknown error',
+        title: language === 'ar' ? 'فشل في تحليل الملف' : 'Failed to parse file',
+        description: msg,
         variant: 'destructive',
       });
+      setResult(null);
+      setLastDryRunOk(false);
     } finally {
       setLoading(false);
     }
@@ -219,10 +240,12 @@ export default function ImportRegulation() {
       }
       setLastDryRunOk(false);
       
-    } catch (error) {
+    } catch (err: any) {
+      console.error('Import failed:', err);
+      const msg = await extractMessage(err);
       toast({
-        title: language === 'ar' ? 'فشل الاستيراد' : 'Import Failed',
-        description: error instanceof Error ? error.message : 'Unknown error',
+        title: language === 'ar' ? 'فشل في تحليل الملف' : 'Failed to parse file',
+        description: msg,
         variant: 'destructive',
       });
     } finally {

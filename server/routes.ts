@@ -25,6 +25,7 @@ import path from "path";
 import fs from "fs";
 import { emailService } from "./emailService";
 import * as XLSX from 'xlsx';
+import { parse as parseCsv } from 'csv-parse/sync';
 import { 
   requirePermissions, 
   requireViewRegulations, 
@@ -44,17 +45,12 @@ import {
   projects
 } from "@shared/schema";
 
-// Configure multer for file uploads
-const uploadDir = path.join(process.cwd(), "uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const upload = multer({
-  dest: uploadDir,
+// Configure multer for file upload with memory storage
+const upload = multer({ 
+  storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-  },
+    fileSize: 50 * 1024 * 1024 // 50MB limit
+  }
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -735,13 +731,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      // Generate a unique filename
+      // For memory storage, save to temp location if needed
       const fileExtension = path.extname(req.file.originalname);
       const fileName = `profile_${userId}_${Date.now()}${fileExtension}`;
-      const filePath = path.join(uploadDir, fileName);
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      const filePath = path.join(uploadsDir, fileName);
       
-      // Move the file to the final location
-      fs.renameSync(req.file.path, filePath);
+      // Write buffer to file
+      fs.writeFileSync(filePath, req.file.buffer);
       
       // Create URL for the uploaded file
       const profileImageUrl = `/uploads/${fileName}`;
@@ -2397,129 +2397,178 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function to normalize headers for ECC/DCC bilingual support
+  function normalizeHeaders(headers: string[]): Record<string, string> {
+    const mapping: Record<string, string> = {};
+    const canonicalKeys = [
+      { canonical: 'clause', variants: ['clause', 'clause number', 'رقم البند', 'البند', 'code'] },
+      { canonical: 'mainCategoryEn', variants: ['main category', 'main domain', 'المجال الرئيسي', 'الفئة الرئيسية'] },
+      { canonical: 'subCategoryEn', variants: ['sub category', 'sub domain', 'المجال الفرعي', 'الفئة الفرعية'] },
+      { canonical: 'controlEn', variants: ['control', 'requirement', 'الضابط', 'المتطلب'] },
+      { canonical: 'descriptionEn', variants: ['description', 'details', 'الوصف', 'التفاصيل'] }
+    ];
+    
+    headers.forEach((header, index) => {
+      const normalized = header.toLowerCase().trim();
+      for (const key of canonicalKeys) {
+        if (key.variants.some(variant => normalized.includes(variant.toLowerCase()))) {
+          mapping[key.canonical] = header;
+          break;
+        }
+      }
+    });
+    
+    return mapping;
+  }
+
   // Admin regulation import endpoints
   app.post('/api/admin/regulations/import', isAuthenticated, requirePermissions(['regulation:import']), upload.single('file'), async (req: any, res) => {
+    let phase = 'initial';
+    let rows: any[] = [];
+    
     try {
       const { code, nameEn, nameAr, version, publisher } = req.body;
-      const dryRun = req.query.dryRun === '1';
+      const dryRun = req.query.dryRun === '1' || req.query.dryRun === 'true';
       
       if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
+        return res.status(400).json({ message: "No file uploaded (field name must be 'file')." });
       }
       
       if (!code || !nameEn || !version) {
         return res.status(400).json({ message: "Code, Name (English), and Version are required" });
       }
 
-      // Read and parse the uploaded file
-      let data: any[][] = [];
-      const filePath = req.file.path;
+      // Detect format and parse
+      const filename = req.file.originalname || 'upload';
+      const ext = path.extname(filename).toLowerCase();
       
       try {
-        if (req.file.originalname.endsWith('.csv')) {
-          // Parse CSV
-          const csvContent = fs.readFileSync(filePath, 'utf-8');
-          const lines = csvContent.split('\n');
-          data = lines.map(line => line.split(',').map(cell => cell.trim().replace(/^"|"$/g, '')));
-        } else if (req.file.originalname.endsWith('.xlsx')) {
-          // Parse Excel
-          try {
-            // Read file buffer
-            const buffer = fs.readFileSync(filePath);
-            const workbook = XLSX.read(buffer, { type: 'buffer' });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            data = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
-          } catch (xlsxError) {
-            console.error('XLSX parsing error:', xlsxError);
-            throw new Error(`Excel file parsing failed: ${xlsxError instanceof Error ? xlsxError.message : 'Unknown error'}`);
+        if (ext === '.xlsx') {
+          phase = 'parse-xlsx';
+          const wb = XLSX.read(req.file.buffer, {
+            type: 'buffer',
+            cellDates: true,
+            raw: false
+          });
+          
+          if (!wb.SheetNames.length) {
+            throw new Error('No sheets found in Excel file');
           }
+          
+          const sheet = wb.SheetNames[0];
+          const sheetData = wb.Sheets[sheet];
+          rows = XLSX.utils.sheet_to_json(sheetData, { defval: '', blankrows: false });
+          
+        } else if (ext === '.csv') {
+          phase = 'parse-csv';
+          rows = parseCsv(req.file.buffer, {
+            columns: true,
+            skip_empty_lines: true,
+            bom: true,
+            trim: true
+          });
+          
         } else {
-          return res.status(400).json({ message: "Unsupported file format. Use .xlsx or .csv" });
-        }
-
-        // Clean up uploaded file
-        fs.unlinkSync(filePath);
-        
-        // Process the data (skip header row)
-        const headers = data[0] || [];
-        const rows = data.slice(1).filter(row => row.some(cell => cell && cell.toString().trim()));
-        
-        let inserted = 0, updated = 0, errors: string[] = [], warnings: string[] = [];
-        const sample = rows.slice(0, 10); // First 10 rows for preview
-        
-        if (!dryRun) {
-          // Create or update the regulation
-          const userId = req.user.claims?.sub || req.user.id;
-          const orgId = req.user?.organizationId || 'default';
-          
-          const regulationData = {
-            name: nameEn,
-            nameAr: nameAr || null,
-            description: `Imported from ${req.file.originalname}`,
-            descriptionAr: null,
-            category: 'external' as const,
-            framework: code,
-            version: version,
-            status: 'active' as const,
-            organizationId: orgId,
-            createdById: userId,
-            approvedById: userId,
-            approvedAt: new Date(),
-          };
-          
-          // Check if regulation already exists
-          const existingRegulation = await storage.getCustomRegulations(orgId);
-          const existing = existingRegulation?.find(r => r.framework === code);
-          
-          if (existing) {
-            // Update existing regulation
-            await storage.updateCustomRegulation(existing.id, regulationData);
-            updated = 1;
-          } else {
-            // Create new regulation  
-            await storage.createCustomRegulation(regulationData);
-            inserted = 1;
-          }
-        } else {
-          // Dry run - just validate and count
-          inserted = rows.filter(row => row.some(cell => cell && cell.toString().trim())).length;
-          
-          // Basic validation
-          if (rows.length === 0) {
-            errors.push("No data rows found in the file");
-          }
-          if (!headers.includes('code') && !headers.includes('Code')) {
-            warnings.push("No 'code' column found - controls may not import correctly");
-          }
+          return res.status(400).json({ message: `Unsupported file type: ${ext}. Use .xlsx or .csv.` });
         }
         
-        res.json({
-          inserted,
-          updated,
-          total: rows.length,
-          warnings,
-          errors,
-          sample: sample.slice(0, 5).map(row => {
-            const obj: Record<string, any> = {};
-            headers.forEach((header: string, index: number) => {
-              obj[header] = row[index] || '';
-            });
-            return obj;
-          })
-        });
+        if (!Array.isArray(rows) || rows.length === 0) {
+          return res.status(400).json({ 
+            message: 'Parsed zero rows. Check the first sheet or CSV headers.',
+            phase,
+            hint: ext === '.xlsx' ? 'Is the first sheet empty?' : 'Does the CSV have proper headers?'
+          });
+        }
         
-      } catch (parseError) {
-        fs.unlinkSync(filePath); // Clean up
-        return res.status(400).json({ 
-          message: "Failed to parse file", 
-          error: parseError instanceof Error ? parseError.message : String(parseError)
+      } catch (parseError: any) {
+        return res.status(400).json({
+          message: 'Failed to parse file',
+          detail: parseError?.message || 'Unknown parsing error',
+          phase,
+          hint: phase === 'parse-xlsx' ? 'Is the first sheet empty?' : 'Check CSV encoding and format',
+          sample: rows?.[0] ? Object.keys(rows[0]).slice(0, 8) : undefined
         });
       }
       
-    } catch (error) {
-      console.error("Regulation import error:", error);
-      res.status(500).json({ message: "Import failed" });
+      // Normalize headers and validate
+      const firstRow = rows[0] || {};
+      const headers = Object.keys(firstRow);
+      const headerMapping = normalizeHeaders(headers);
+      
+      let inserted = 0, updated = 0, errors: string[] = [], warnings: string[] = [];
+      
+      // Validate essential headers
+      if (!headerMapping.clause) {
+        errors.push("Missing essential header: 'Clause Number' or 'رقم البند' not found");
+      }
+      
+      // Process rows and collect any missing clause errors
+      const validRows = rows.filter(row => {
+        const clauseValue = headerMapping.clause ? row[headerMapping.clause] : null;
+        if (!clauseValue || clauseValue.toString().trim() === '') {
+          errors.push(`Row missing clause number: ${JSON.stringify(row).substring(0, 100)}...`);
+          return false;
+        }
+        return true;
+      });
+      
+      if (!dryRun && errors.length === 0) {
+        // Create or update the regulation
+        const userId = req.user.claims?.sub || req.user.id;
+        const orgId = req.user?.organizationId || 'default';
+        
+        const regulationData = {
+          name: nameEn,
+          nameAr: nameAr || null,
+          description: `Imported from ${filename}`,
+          descriptionAr: null,
+          category: 'external' as const,
+          framework: code,
+          version: version,
+          status: 'active' as const,
+          organizationId: orgId,
+          createdById: userId,
+          approvedById: userId,
+          approvedAt: new Date(),
+        };
+        
+        // Check if regulation already exists
+        const existingRegulation = await storage.getCustomRegulations(orgId);
+        const existing = existingRegulation?.find(r => r.framework === code);
+        
+        if (existing) {
+          await storage.updateCustomRegulation(existing.id, regulationData);
+          updated = 1;
+        } else {
+          await storage.createCustomRegulation(regulationData);
+          inserted = 1;
+        }
+      } else {
+        // Dry run or has errors - just validate and count
+        inserted = validRows.length;
+        
+        if (validRows.length !== rows.length) {
+          warnings.push(`${rows.length - validRows.length} rows will be skipped due to missing clause numbers`);
+        }
+      }
+      
+      res.json({
+        inserted,
+        updated,
+        total: rows.length,
+        warnings,
+        errors,
+        sample: validRows.slice(0, 5)
+      });
+      
+    } catch (error: any) {
+      console.error('Regulation import error:', error);
+      return res.status(500).json({
+        message: 'Import failed',
+        detail: error?.message || 'Unknown server error',
+        phase,
+        sample: rows?.[0] ? Object.keys(rows[0]).slice(0, 8) : undefined
+      });
     }
   });
 
@@ -2573,7 +2622,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   });
   // Secure uploaded files - require authentication
-  app.use('/uploads', isAuthenticated, express.static(uploadDir)); // TODO: Implement signed download route for better security
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  app.use('/uploads', isAuthenticated, express.static(uploadsDir)); // TODO: Implement signed download route for better security
 
   const httpServer = createServer(app);
   return httpServer;
