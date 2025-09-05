@@ -80,6 +80,8 @@ export async function searchUsersForMentions(query: string, orgId: string, limit
       )
     ))
     .limit(limit);
+  
+  console.log(`🔍 User search for "${query}" in org "${orgId}" found:`, foundUsers.length, 'users');
 
   return foundUsers.map(user => {
     const displayName = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User';
