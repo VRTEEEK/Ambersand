@@ -262,7 +262,7 @@ export default function ImportRegulation() {
         <CardHeader className="flex items-center justify-between flex-row">
           <CardTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5" />
-            {language === 'ar' ? 'استيراد التنظيم (.xlsx / .csv)' : 'Import Regulation (.xlsx / .csv)'}
+            {language === 'ar' ? 'استيراد التنظيم' : 'Import Regulation'}
           </CardTitle>
           <Button variant="outline" onClick={handleDownloadTemplate}>
             <Download className="h-4 w-4 mr-2" />
