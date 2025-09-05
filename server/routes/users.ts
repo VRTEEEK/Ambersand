@@ -15,33 +15,24 @@ router.get("/search", isAuthenticated, async (req: any, res) => {
   const orgId = req.user?.claims?.org || req.user?.organizationId;
 
   if (!q || q.length < 2) return res.json({ items: [] });
+  if (!orgId) {
+    return res.status(400).json({ items: [], message: "Organization missing" });
+  }
 
   try {
-    // Search users by email, firstName, lastName
-    // Include users from same organization + system users (no org or specific system orgs)
+    // Search users by email, firstName, lastName within organization only
     const rows = await db.query.users.findMany({
-      where: (u, { and, or, ilike, eq, isNull }) => {
+      where: (u, { and, or, ilike, eq }) => {
         const searchConditions = or(
           ilike(u.email, `%${q}%`),
           ilike(u.firstName, `%${q}%`),
           ilike(u.lastName, `%${q}%`)
         );
         
-        // If user has organization, search within that org + system users
-        if (orgId) {
-          return and(
-            searchConditions,
-            or(
-              eq(u.organizationId, orgId), // Same organization
-              isNull(u.organizationId),    // System users (no org)
-              eq(u.organizationId, 'system'), // System organization
-              eq(u.organizationId, 'default') // Default organization
-            )
-          );
-        } else {
-          // If no org context, search all users (admin/system user context)
-          return searchConditions;
-        }
+        return and(
+          searchConditions,
+          eq(u.organizationId, orgId) // Same organization only
+        );
       },
       limit,
       columns: { id: true, email: true, name: true, firstName: true, lastName: true, profileImageUrl: true }
