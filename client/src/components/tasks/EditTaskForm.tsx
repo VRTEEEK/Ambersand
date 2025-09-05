@@ -333,7 +333,13 @@ export default function EditTaskForm({
 
   const currentAssigneeId = wfData?.workflow?.currentAssigneeId || null;
   const currentState = wfData?.workflow?.state || "draft";
-  const candidates = (wfData?.route || []).map(r => ({ userId: r.userId, name: r.userId }));
+  const candidates = (wfData?.route || []).map(r => {
+    const user = Array.isArray(users) ? users.find((u: any) => u.id === r.userId) : undefined;
+    return { 
+      userId: r.userId, 
+      name: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || user.email : r.userId
+    };
+  });
 
   // Handle task form submission
   const handleTaskSubmit = async () => {
