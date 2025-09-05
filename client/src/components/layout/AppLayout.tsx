@@ -141,6 +141,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       {/* Navigation */}
       <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
         {navigationItems.map((item) => {
+          if (!item) return null;
           const Icon = item.icon;
           return (
             <Link key={item.href} href={item.href}>
@@ -172,6 +173,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </p>
 
             {adminItems.map((item) => {
+              if (!item) return null;
               const Icon = item.icon;
               return (
                 <Link key={item.href} href={item.href}>
