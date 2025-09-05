@@ -1073,7 +1073,14 @@ export default function TaskDetail() {
               <RejectDialog
                 open={rejectDialogOpen}
                 onOpenChange={setRejectDialogOpen}
-                candidates={(workflow?.route || []).map(r => ({ userId: r.userId, name: r.userId }))}
+                candidates={(workflow?.route || []).map(r => {
+                  const user = Array.isArray(users) ? users.find((u: any) => u.id === r.userId) : undefined;
+                  return { 
+                    userId: r.userId, 
+                    name: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || user.email : r.userId,
+                    email: user?.email
+                  };
+                })}
                 onConfirm={({toUserId, comment}) => {
                   rejectMutation.mutate({ toUserId, comment });
                   setRejectDialogOpen(false);
@@ -1094,7 +1101,7 @@ export default function TaskDetail() {
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="font-medium">
-                                {actor?.firstName} {actor?.lastName}
+                                {actor ? `${actor.firstName || ''} ${actor.lastName || ''}`.trim() || actor.name || actor.email : event.actorId}
                               </span>
                               <Badge variant="outline" className="text-xs">
                                 {event.action}
