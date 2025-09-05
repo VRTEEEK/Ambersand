@@ -210,19 +210,19 @@ export function RiskDetail({ riskId, onClose }: RiskDetailProps) {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Status</label>
-                    <p className="mt-1">
+                    <div className="mt-1">
                       <Badge className={getStatusColor(risk.status)}>
                         {risk.status.replace("-", " ").replace(/\b\w/g, l => l.toUpperCase())}
                       </Badge>
-                    </p>
+                    </div>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Severity</label>
-                    <p className="mt-1">
+                    <div className="mt-1">
                       <Badge className={getSeverityColor(risk.severity)}>
                         {risk.severity.charAt(0).toUpperCase() + risk.severity.slice(1)}
                       </Badge>
-                    </p>
+                    </div>
                   </div>
                 </div>
               )}
