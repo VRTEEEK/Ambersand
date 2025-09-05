@@ -26,7 +26,7 @@ function canViewTask(user: any, task: any): boolean {
 // GET /api/risks?status=&severity=&assigneeId=&q=&limit=&cursor=
 router.get("/", async (req: any, res) => {
   try {
-    if (!req.user?.id) {
+    if (!req.user?.claims?.sub) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
@@ -87,7 +87,7 @@ router.get("/", async (req: any, res) => {
 // GET /api/risks/:id - Get individual risk
 router.get("/:id", async (req: any, res) => {
   try {
-    if (!req.user?.id) {
+    if (!req.user?.claims?.sub) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
@@ -121,7 +121,7 @@ router.get("/:id", async (req: any, res) => {
 // POST /api/risks/toggle - Toggle risk status on task
 router.post("/toggle", async (req: any, res) => {
   try {
-    if (!req.user?.id) {
+    if (!req.user?.claims?.sub) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
@@ -168,7 +168,7 @@ router.post("/toggle", async (req: any, res) => {
         organizationId,
         taskId: task.id,
         title: task.title,
-        createdById: req.user.id,
+        createdById: req.user.claims.sub,
         status: "not-started" as const,
         severity: "medium" as const,
         isOpen: true,
@@ -221,7 +221,7 @@ router.post("/toggle", async (req: any, res) => {
 // PATCH /api/risks/:id - Edit risk fields (compliance officer/admin only)
 router.patch("/:id", async (req: any, res) => {
   try {
-    if (!req.user?.id) {
+    if (!req.user?.claims?.sub) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
