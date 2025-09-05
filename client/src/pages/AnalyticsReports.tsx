@@ -6,6 +6,7 @@ import { FilterSelector, type AnalyticsFilters } from "@/components/analytics/Fi
 import { fetchTaskMetrics } from "@/lib/analyticsApi";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, CheckCircle, Clock, TrendingUp } from "lucide-react";
+import AppLayout from "@/components/layout/AppLayout";
 
 export default function AnalyticsReports() {
   const [filters, setFilters] = useState<AnalyticsFilters>({
@@ -28,7 +29,7 @@ export default function AnalyticsReports() {
 
   if (error) {
     return (
-      <div className="container mx-auto p-6">
+      <AppLayout>
         <Card>
           <CardContent className="p-6">
             <div className="text-center text-red-600">
@@ -36,7 +37,7 @@ export default function AnalyticsReports() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </AppLayout>
     );
   }
 
@@ -55,7 +56,8 @@ export default function AnalyticsReports() {
   const severityData = metrics?.bySeverity || [];
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <AppLayout>
+      <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -312,6 +314,7 @@ export default function AnalyticsReports() {
           </CardContent>
         </Card>
       )}
-    </div>
+      </div>
+    </AppLayout>
   );
 }

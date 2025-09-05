@@ -169,7 +169,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <Separator className="my-6" />
             
             <p className="px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-              {t('nav.administration')}
+              Administration
             </p>
 
             {adminItems.map((item) => {
@@ -201,12 +201,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
       {/* User Profile */}
       <div className="p-4 border-t border-slate-200">
         <div className="flex items-center">
-          <UserAvatar user={user} size="lg" />
+          <UserAvatar user={user as any} size="lg" />
           <div className={cn("flex-1", isRTL ? "mr-3" : "ml-3")}>
             <p className="text-sm font-medium text-slate-800">
-              {user?.firstName} {user?.lastName}
+              {(user as any)?.firstName} {(user as any)?.lastName}
             </p>
-            <p className="text-xs text-slate-500 capitalize">{user?.role}</p>
+            <p className="text-xs text-slate-500 capitalize">{(user as any)?.role}</p>
           </div>
         </div>
       </div>
@@ -270,8 +270,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center space-x-2 text-sm">
-                    <UserAvatar user={user} size="md" />
-                    <span>{user?.firstName} {user?.lastName}</span>
+                    <UserAvatar user={user as any} size="md" />
+                    <span>{(user as any)?.firstName} {(user as any)?.lastName}</span>
                     <ChevronDown className="h-4 w-4" style={{ color: '#2699A6' }} />
                   </Button>
                 </DropdownMenuTrigger>
