@@ -15,10 +15,10 @@ import { apiRequest } from '@/lib/queryClient';
 interface Comment {
   id: number;
   organizationId: string;
-  targetType: 'task' | 'project';
+  targetType: 'task' | 'project' | 'risk';
   targetId: number;
   parentId?: number | null;
-  authorId: number;
+  authorId: string;
   body: string;
   mentions: string;
   hasAttachments: boolean;
@@ -36,7 +36,7 @@ interface User {
 }
 
 interface CommentsProps {
-  targetType: 'task' | 'project';
+  targetType: 'task' | 'project' | 'risk';
   targetId: number;
 }
 
