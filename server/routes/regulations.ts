@@ -71,12 +71,12 @@ router.patch("/:id/controls/:controlId", isAuthenticated, requirePermissions(['e
 router.get("/:id/domains", isAuthenticated, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const rows = await db.execute(sql`
+    const result = await db.execute(sql`
       SELECT DISTINCT main_category_en AS "mainCategoryEn", main_category_ar AS "mainCategoryAr"
       FROM regulation_controls WHERE regulation_id = ${id}
       ORDER BY 1 NULLS LAST
     `);
-    res.json(rows);
+    res.json(result.rows);
   } catch (error) {
     console.error("Error fetching domains:", error);
     res.status(500).json({ message: "Internal server error" });
@@ -90,7 +90,7 @@ router.get("/:id/subdomains", isAuthenticated, async (req, res) => {
     const domainEn = req.query.domainEn as string | undefined;
     const domainAr = req.query.domainAr as string | undefined;
 
-    const rows = await db.execute(sql`
+    const result = await db.execute(sql`
       SELECT DISTINCT sub_category_en AS "subCategoryEn", sub_category_ar AS "subCategoryAr"
       FROM regulation_controls
       WHERE regulation_id = ${id}
@@ -98,7 +98,7 @@ router.get("/:id/subdomains", isAuthenticated, async (req, res) => {
         AND (${domainAr ? sql`main_category_ar = ${domainAr}` : sql`1=1`})
       ORDER BY 1 NULLS LAST
     `);
-    res.json(rows);
+    res.json(result.rows);
   } catch (error) {
     console.error("Error fetching subdomains:", error);
     res.status(500).json({ message: "Internal server error" });
