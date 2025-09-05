@@ -1,0 +1,380 @@
+
+
+Replit AI Prompt — “Add Workflow controls to Edit Task form”
+
+Context (keep these exact paths)
+	•	Client edit form: client/src/pages/tasks/TaskEditForm.tsx
+	•	Workflow API helpers (create if missing): client/src/lib/api/workflows.ts
+	•	Permissions hook: client/src/hooks/use-permissions.tsx
+	•	UI primitives: shadcn/ui (Dialog, Button, Switch, Select, Input, Textarea, Badge, Card)
+	•	Router: wouter (Link uses href)
+	•	Server workflow routes (create if missing): server/routes/workflows.ts and mount at /api/workflows in server/routes.ts
+
+⸻
+
+1) Client API helpers (create/ensure)
+
+File: client/src/lib/api/workflows.ts
+
+export type WorkflowSnapshot = {
+  workflow?: {
+    state: "draft"|"collecting"|"in_peer_review"|"returned"|"escalated"|"compliance_review"|"approved"|"rejected";
+    currentStepIndex: number;
+    currentAssigneeId?: string|null;
+  } | null;
+  route: Array<{ id:number; stepIndex:number; userId:string; role:string }>;
+  history: Array<{ id:number; action:string; actorId:string; toUserId?:string|null; comment?:string|null; createdAt:string; fromStepIndex?:number|null; toStepIndex?:number|null }>;
+};
+
+export async function getWorkflow(taskId: number): Promise<WorkflowSnapshot> {
+  const r = await fetch(`/api/workflows/${taskId}`, { credentials: "include" });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function setRoute(taskId: number, steps: { userId:string; role:string }[]) {
+  const r = await fetch(`/api/workflows/${taskId}/route`, {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ steps }),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function submitStep(taskId: number) {
+  const r = await fetch(`/api/workflows/${taskId}/submit`, { method: "POST", credentials: "include" });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function returnTo(taskId: number, toUserId: string, comment: string) {
+  const r = await fetch(`/api/workflows/${taskId}/return`, {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ toUserId, comment }),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function approve(taskId: number) {
+  const r = await fetch(`/api/workflows/${taskId}/approve`, { method: "POST", credentials: "include" });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function reject(taskId: number, toUserId: string, comment: string) {
+  const r = await fetch(`/api/workflows/${taskId}/reject`, {
+    method: "POST", credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ toUserId, comment }),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+
+⸻
+
+2) Return dialog component (with proper a11y)
+
+File: client/src/components/workflow/ReturnDialog.tsx (new)
+
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+
+type Props = {
+  open: boolean;
+  onOpenChange: (v:boolean)=>void;
+  candidates: Array<{ userId:string; name:string }>;
+  onConfirm: (p:{ toUserId:string; comment:string })=>void;
+};
+
+export default function ReturnDialog({ open, onOpenChange, candidates, onConfirm }: Props) {
+  const [toUserId, setToUserId] = useState<string>("");
+  const [comment, setComment] = useState("");
+
+  const canSubmit = toUserId && comment.trim().length >= 3;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Return task to collaborator</DialogTitle>
+          <DialogDescription>Select a collaborator in the route and include a note.</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label>Collaborator</Label>
+            <Select value={toUserId} onValueChange={setToUserId}>
+              <SelectTrigger><SelectValue placeholder="Select collaborator" /></SelectTrigger>
+              <SelectContent>
+                {candidates.map(c => (
+                  <SelectItem key={c.userId} value={c.userId}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Comment</Label>
+            <Textarea value={comment} onChange={e=>setComment(e.target.value)} placeholder="What should be rectified?" rows={4}/>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={()=>onOpenChange(false)}>Cancel</Button>
+            <Button onClick={()=>{ if (canSubmit) onConfirm({ toUserId, comment: comment.trim() }); }} disabled={!canSubmit}>
+              Return task
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+⸻
+
+3) Edit Task form — add “Workflow” section with actions
+
+File: client/src/pages/tasks/TaskEditForm.tsx
+	•	Import hooks and API:
+
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getWorkflow, setRoute, submitStep, returnTo, approve, reject } from "@/lib/api/workflows";
+import ReturnDialog from "@/components/workflow/ReturnDialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { usePermissions } from "@/hooks/use-permissions";
+import { toast } from "sonner";
+
+	•	Inside the component (you already have task loaded):
+
+const qc = useQueryClient();
+const { user, can } = usePermissions(); // ensure this exposes role checks
+const taskId = task.id;
+
+const { data: wfData, isLoading: wfLoading } = useQuery({
+  queryKey: ["workflow", taskId],
+  queryFn: () => getWorkflow(taskId),
+  staleTime: 15_000,
+});
+
+const [routeDraft, setRouteDraft] = useState<Array<{ userId:string; role:string }>>([]);
+useEffect(() => {
+  if (wfData?.route?.length) {
+    setRouteDraft(wfData.route.sort((a,b)=>a.stepIndex-b.stepIndex).map(r=>({ userId: r.userId, role: r.role })));
+  } else {
+    setRouteDraft([]);
+  }
+}, [wfData]);
+
+const mSetRoute = useMutation({
+  mutationFn: (steps: {userId:string; role:string}[]) => setRoute(taskId, steps),
+  onSuccess: () => { toast.success("Review route saved"); qc.invalidateQueries({ queryKey: ["workflow", taskId] }); },
+  onError: (e:any) => toast.error(`Failed to save route: ${e.message}`),
+});
+
+const mSubmit = useMutation({
+  mutationFn: () => submitStep(taskId),
+  onSuccess: () => { toast.success("Submitted to next reviewer"); qc.invalidateQueries({ queryKey: ["workflow", taskId] }); },
+  onError: (e:any) => toast.error(`Submit failed: ${e.message}`),
+});
+
+const [returnOpen, setReturnOpen] = useState(false);
+const mReturn = useMutation({
+  mutationFn: (p:{toUserId:string; comment:string}) => returnTo(taskId, p.toUserId, p.comment),
+  onSuccess: () => { setReturnOpen(false); toast.success("Task returned"); qc.invalidateQueries({ queryKey: ["workflow", taskId] }); },
+  onError: (e:any) => toast.error(`Return failed: ${e.message}`),
+});
+
+const mApprove = useMutation({
+  mutationFn: () => approve(taskId),
+  onSuccess: () => { toast.success("Approved"); qc.invalidateQueries({ queryKey: ["workflow", taskId] }); qc.invalidateQueries({ queryKey: ["task", taskId] }); },
+  onError: (e:any) => toast.error(`Approve failed: ${e.message}`),
+});
+
+const mReject = useMutation({
+  mutationFn: (p:{toUserId:string; comment:string}) => reject(taskId, p.toUserId, p.comment),
+  onSuccess: () => { setReturnOpen(false); toast.success("Rejected and returned"); qc.invalidateQueries({ queryKey: ["workflow", taskId] }); },
+  onError: (e:any) => toast.error(`Reject failed: ${e.message}`),
+});
+
+const currentAssigneeId = wfData?.workflow?.currentAssigneeId || null;
+const currentState = wfData?.workflow?.state || "draft";
+const routeUsers = (wfData?.route || []).map(r => r.userId);
+
+// You likely have a users cache or list elsewhere; minimally show userId strings
+const candidates = (wfData?.route || []).map(r => ({ userId: r.userId, name: r.userId }));
+
+	•	Render the Workflow section somewhere inside the form (below general fields), wrapped in a Card:
+
+<Card>
+  <CardHeader className="flex items-center justify-between">
+    <CardTitle>Workflow</CardTitle>
+    <Badge variant="secondary" className="capitalize">{currentState.replaceAll("_"," ")}</Badge>
+  </CardHeader>
+  <CardContent className="space-y-4">
+
+    {/* Route editor (visible to admins/compliance) */}
+    {can("workflow:set-route") && (
+      <div className="space-y-3">
+        <Label>Review route (in order)</Label>
+        <div className="space-y-2">
+          {routeDraft.map((s, idx) => (
+            <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <Input
+                value={s.userId}
+                onChange={e=>{
+                  const v = e.target.value;
+                  setRouteDraft(prev=>prev.map((x,i)=>i===idx?{...x,userId:v}:x));
+                }}
+                placeholder="userId (email or ID)"
+              />
+              <Input
+                value={s.role}
+                onChange={e=>{
+                  const v = e.target.value;
+                  setRouteDraft(prev=>prev.map((x,i)=>i===idx?{...x,role:v}:x));
+                }}
+                placeholder="role (analyst, lead, manager...)"
+              />
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={()=>{
+                  setRouteDraft(prev => prev.toSpliced(idx,1));
+                }}>Remove</Button>
+                {idx===routeDraft.length-1 && (
+                  <Button type="button" variant="outline" onClick={()=>{
+                    setRouteDraft(prev => [...prev, { userId:"", role:"" }]);
+                  }}>Add step</Button>
+                )}
+              </div>
+            </div>
+          ))}
+          {routeDraft.length===0 && (
+            <Button type="button" variant="outline" onClick={()=>setRouteDraft([{ userId:"", role:"" }])}>
+              Add first step
+            </Button>
+          )}
+        </div>
+
+        <div className="flex justify-end">
+          <Button type="button" onClick={()=>mSetRoute.mutate(routeDraft.filter(s=>s.userId && s.role))} disabled={mSetRoute.isLoading}>
+            Save route
+          </Button>
+        </div>
+      </div>
+    )}
+
+    {/* Route viewer */}
+    <div className="space-y-2">
+      <Label>Route</Label>
+      <ol className="list-decimal pl-5 space-y-1">
+        {(wfData?.route || []).sort((a,b)=>a.stepIndex-b.stepIndex).map(r=>(
+          <li key={r.id} className="flex items-center gap-2">
+            <span className="text-sm">{r.userId}</span>
+            {currentAssigneeId===r.userId && <Badge>current</Badge>}
+            <span className="text-muted-foreground text-xs">({r.role})</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+
+    {/* Actions */}
+    <div className="flex flex-wrap gap-2">
+      {/* Submit to next (only current assignee) */}
+      {user?.id === currentAssigneeId && (
+        <Button type="button" onClick={()=>mSubmit.mutate()} disabled={mSubmit.isLoading}>
+          Submit to next
+        </Button>
+      )}
+
+      {/* Return dialog (any reviewer/compliance/admin) */}
+      {can("workflow:return") && (
+        <>
+          <Button type="button" variant="outline" onClick={()=>setReturnOpen(true)}>Return to collaborator</Button>
+          <ReturnDialog
+            open={returnOpen}
+            onOpenChange={setReturnOpen}
+            candidates={candidates}
+            onConfirm={(p)=> {
+              // If user is compliance and you want “Reject” path, you can call mReject here instead:
+              if (can("workflow:approve") && currentState === "compliance_review") {
+                mReject.mutate(p);
+              } else {
+                mReturn.mutate(p);
+              }
+            }}
+          />
+        </>
+      )}
+
+      {/* Compliance Approve (only compliance/admin) */}
+      {can("workflow:approve") && currentState === "compliance_review" && (
+        <Button type="button" variant="secondary" onClick={()=>mApprove.mutate()} disabled={mApprove.isLoading}>
+          Approve (final)
+        </Button>
+      )}
+    </div>
+
+    {/* History */}
+    <div className="space-y-2">
+      <Label>History</Label>
+      <div className="rounded-md border divide-y">
+        {(wfData?.history || []).map(ev => (
+          <div key={ev.id} className="p-3 text-sm">
+            <div className="flex items-center justify-between">
+              <div className="font-medium capitalize">{ev.action}</div>
+              <div className="text-xs text-muted-foreground">{new Date(ev.createdAt).toLocaleString()}</div>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              by {ev.actorId}{ev.toUserId ? ` → ${ev.toUserId}` : ""}{typeof ev.toStepIndex==="number" ? ` (step ${ev.toStepIndex})` : ""}
+            </div>
+            {ev.comment && <div className="mt-1">{ev.comment}</div>}
+          </div>
+        ))}
+        {(wfData?.history || []).length===0 && <div className="p-3 text-sm text-muted-foreground">No workflow events yet.</div>}
+      </div>
+    </div>
+  </CardContent>
+</Card>
+
+Notes
+	•	We reused your permissions pattern: can("workflow:set-route"), can("workflow:return"), can("workflow:approve"). If these don’t exist yet, implement them to map to admin/compliance roles.
+	•	The Return dialog is reused for both “Return” and “Reject” (when in compliance_review and the user can approve, invoking reject instead of return).
+
+⸻
+
+4) Server routes (only if missing)
+
+File: server/routes/workflows.ts — add endpoints per our prior spec (GET /:taskId, POST /:taskId/route, POST /:taskId/submit, POST /:taskId/return, POST /:taskId/approve, POST /:taskId/reject). Enforce org scoping and role checks (compliance/admin).
+
+Mount: server/routes.ts
+
+import workflowsRouter from "./routes/workflows";
+app.use("/api/workflows", isAuthenticated, workflowsRouter);
+
+
+⸻
+
+5) Acceptance criteria
+	•	In Edit Task:
+	•	Admin/compliance can define & save the review route.
+	•	Current assignee can Submit to next.
+	•	Reviewers/compliance can Return to any collaborator with a required comment.
+	•	In compliance_review, compliance can Approve (final) or use dialog to Reject and return with comment.
+	•	Workflow state/assignee/route and History are visible inline.
+	•	All network calls send cookies (credentials:"include"), and errors surface via toasts.
+	•	Dialog has DialogTitle & DialogDescription (no a11y warnings).
+	•	No <a> inside <a> nesting in this section.
+

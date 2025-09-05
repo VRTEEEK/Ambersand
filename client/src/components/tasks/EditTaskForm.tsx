@@ -7,6 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { getWorkflow, setRoute, submitStep, returnTo, approve, reject, WorkflowSnapshot } from '@/lib/api/workflows';
+import ReturnDialog from '@/components/workflow/ReturnDialog';
+import { usePermissions } from '@/hooks/use-permissions';
+import { useAuth } from '@/hooks/useAuth';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -145,7 +151,7 @@ export default function EditTaskForm({
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [selectedControlId, setSelectedControlId] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<'details' | 'controls' | 'evidence'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'controls' | 'evidence' | 'workflow'>('details');
   const [uploadComment, setUploadComment] = useState('');
   const [selectedControlForView, setSelectedControlForView] = useState<number | null>(null);
   const [showEvidenceForControl, setShowEvidenceForControl] = useState<boolean>(false);
@@ -169,6 +175,13 @@ export default function EditTaskForm({
   });
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { can } = usePermissions();
+  const { user } = useAuth();
+  const taskId = task.id;
+
+  // Workflow state
+  const [routeDraft, setRouteDraft] = useState<Array<{ userId:string; role:string }>>([]);
+  const [returnOpen, setReturnOpen] = useState(false);
 
   // Fetch task controls
   const { data: taskControls = [] } = useQuery({
@@ -269,6 +282,55 @@ export default function EditTaskForm({
         return isInDomain && !isAlreadyAssigned;
       })
     : [];
+
+  // Workflow queries and mutations
+  const { data: wfData, isLoading: wfLoading } = useQuery({
+    queryKey: ["workflow", taskId],
+    queryFn: () => getWorkflow(taskId),
+    staleTime: 15_000,
+  });
+
+  useEffect(() => {
+    if (wfData?.route?.length) {
+      setRouteDraft(wfData.route.sort((a,b)=>a.stepIndex-b.stepIndex).map(r=>({ userId: r.userId, role: r.role })));
+    } else {
+      setRouteDraft([]);
+    }
+  }, [wfData]);
+
+  const mSetRoute = useMutation({
+    mutationFn: (steps: {userId:string; role:string}[]) => setRoute(taskId, steps),
+    onSuccess: () => { toast({ title: "Review route saved" }); queryClient.invalidateQueries({ queryKey: ["workflow", taskId] }); },
+    onError: (e:any) => toast({ title: "Failed to save route", description: e.message, variant: "destructive" }),
+  });
+
+  const mSubmit = useMutation({
+    mutationFn: () => submitStep(taskId),
+    onSuccess: () => { toast({ title: "Submitted to next reviewer" }); queryClient.invalidateQueries({ queryKey: ["workflow", taskId] }); },
+    onError: (e:any) => toast({ title: "Submit failed", description: e.message, variant: "destructive" }),
+  });
+
+  const mReturn = useMutation({
+    mutationFn: (p:{toUserId:string; comment:string}) => returnTo(taskId, p.toUserId, p.comment),
+    onSuccess: () => { setReturnOpen(false); toast({ title: "Task returned" }); queryClient.invalidateQueries({ queryKey: ["workflow", taskId] }); },
+    onError: (e:any) => toast({ title: "Return failed", description: e.message, variant: "destructive" }),
+  });
+
+  const mApprove = useMutation({
+    mutationFn: () => approve(taskId),
+    onSuccess: () => { toast({ title: "Approved" }); queryClient.invalidateQueries({ queryKey: ["workflow", taskId] }); queryClient.invalidateQueries({ queryKey: ["task", taskId] }); },
+    onError: (e:any) => toast({ title: "Approve failed", description: e.message, variant: "destructive" }),
+  });
+
+  const mReject = useMutation({
+    mutationFn: (p:{toUserId:string; comment:string}) => reject(taskId, p.toUserId, p.comment),
+    onSuccess: () => { setReturnOpen(false); toast({ title: "Rejected and returned" }); queryClient.invalidateQueries({ queryKey: ["workflow", taskId] }); },
+    onError: (e:any) => toast({ title: "Reject failed", description: e.message, variant: "destructive" }),
+  });
+
+  const currentAssigneeId = wfData?.workflow?.currentAssigneeId || null;
+  const currentState = wfData?.workflow?.state || "draft";
+  const candidates = (wfData?.route || []).map(r => ({ userId: r.userId, name: r.userId }));
 
   // Handle task form submission
   const handleTaskSubmit = async () => {
@@ -481,8 +543,8 @@ export default function EditTaskForm({
   return (
     <div className="space-y-6">
       {/* Three-Tab Interface */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'details' | 'controls' | 'evidence')}>
-        <TabsList className="grid w-full grid-cols-3 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'details' | 'controls' | 'evidence' | 'workflow')}>
+        <TabsList className="grid w-full grid-cols-4 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
           <TabsTrigger 
             value="details"
             className="data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-white font-medium transition-all duration-200"
@@ -500,6 +562,12 @@ export default function EditTaskForm({
             className="data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-white font-medium transition-all duration-200"
           >
             {language === 'ar' ? 'الأدلة' : 'Evidence'}
+          </TabsTrigger>
+          <TabsTrigger 
+            value="workflow"
+            className="data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-white font-medium transition-all duration-200"
+          >
+            {language === 'ar' ? 'سير العمل' : 'Workflow'}
           </TabsTrigger>
         </TabsList>
 
@@ -1107,6 +1175,119 @@ export default function EditTaskForm({
               </div>
             )}
           </div>
+        </TabsContent>
+        
+        {/* Tab 4: Workflow */}
+        <TabsContent value="workflow" className="space-y-4">
+          <Card>
+            <CardHeader className="flex items-center justify-between">
+              <CardTitle>Workflow</CardTitle>
+              <Badge variant="secondary" className="capitalize">{currentState.replaceAll("_"," ")}</Badge>
+            </CardHeader>
+            <CardContent className="space-y-4">
+
+              {/* Route editor (visible to admins/compliance) */}
+              {can && can("change_user_permissions") && (
+                <div className="space-y-3">
+                  <Label>Review route (in order)</Label>
+                  <div className="space-y-2">
+                    {routeDraft.map((s, idx) => (
+                      <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <Input
+                          value={s.userId}
+                          onChange={e=>{
+                            const v = e.target.value;
+                            setRouteDraft(prev=>prev.map((x,i)=>i===idx?{...x,userId:v}:x));
+                          }}
+                          placeholder="userId (email or ID)"
+                        />
+                        <Input
+                          value={s.role}
+                          onChange={e=>{
+                            const v = e.target.value;
+                            setRouteDraft(prev=>prev.map((x,i)=>i===idx?{...x,role:v}:x));
+                          }}
+                          placeholder="role (analyst, lead, manager...)"
+                        />
+                        <div className="flex gap-2">
+                          <Button type="button" variant="outline" onClick={()=>{
+                            setRouteDraft(prev => prev.toSpliced(idx,1));
+                          }}>Remove</Button>
+                          {idx===routeDraft.length-1 && (
+                            <Button type="button" variant="outline" onClick={()=>{
+                              setRouteDraft(prev => [...prev, { userId:"", role:"" }]);
+                            }}>Add step</Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {routeDraft.length===0 && (
+                      <Button type="button" variant="outline" onClick={()=>setRouteDraft([{ userId:"", role:"" }])}>
+                        Add first step
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button type="button" onClick={()=>mSetRoute.mutate(routeDraft.filter(s=>s.userId && s.role))} disabled={mSetRoute.isPending}>
+                      Save route
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Route viewer */}
+              <div className="space-y-2">
+                <Label>Route</Label>
+                <ol className="list-decimal pl-5 space-y-1">
+                  {(wfData?.route || []).sort((a,b)=>a.stepIndex-b.stepIndex).map(r=>(
+                    <li key={r.id} className="flex items-center gap-2">
+                      <span className="text-sm">{String(r.userId)}</span>
+                      {currentAssigneeId === r.userId && <Badge>current</Badge>}
+                      <span className="text-muted-foreground text-xs">({r.role})</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-wrap gap-2">
+                {/* Submit to next (only current assignee) */}
+                {user && (user as any)?.claims?.sub === currentAssigneeId && (
+                  <Button type="button" onClick={()=>mSubmit.mutate()} disabled={mSubmit.isPending}>
+                    Submit to next
+                  </Button>
+                )}
+
+                {/* Return dialog (any reviewer/compliance/admin) */}
+                {can && can("review_evidences_submitted") && (
+                  <>
+                    <Button type="button" variant="outline" onClick={()=>setReturnOpen(true)}>Return to collaborator</Button>
+                    <ReturnDialog
+                      open={returnOpen}
+                      onOpenChange={setReturnOpen}
+                      candidates={candidates}
+                      onConfirm={(p)=> {
+                        // If user is compliance and you want "Reject" path, you can call mReject here instead:
+                        if (can && can("approve_controls") && currentState === "compliance_review") {
+                          mReject.mutate(p);
+                        } else {
+                          mReturn.mutate(p);
+                        }
+                      }}
+                    />
+                  </>
+                )}
+
+                {/* Compliance Approve (only compliance/admin) */}
+                {can && can("approve_controls") && currentState === "compliance_review" && (
+                  <Button type="button" variant="secondary" onClick={()=>mApprove.mutate()} disabled={mApprove.isPending}>
+                    Approve (final)
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

@@ -1,4 +1,14 @@
-export async function getWorkflow(taskId: number) {
+export type WorkflowSnapshot = {
+  workflow?: {
+    state: "draft"|"collecting"|"in_peer_review"|"returned"|"escalated"|"compliance_review"|"approved"|"rejected";
+    currentStepIndex: number;
+    currentAssigneeId?: string|null;
+  } | null;
+  route: Array<{ id:number; stepIndex:number; userId:string; role:string }>;
+  history: Array<{ id:number; action:string; actorId:string; toUserId?:string|null; comment?:string|null; createdAt:string; fromStepIndex?:number|null; toStepIndex?:number|null }>;
+};
+
+export async function getWorkflow(taskId: number): Promise<WorkflowSnapshot> {
   const r = await fetch(`/api/workflows/${taskId}`, { credentials: "include" });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
