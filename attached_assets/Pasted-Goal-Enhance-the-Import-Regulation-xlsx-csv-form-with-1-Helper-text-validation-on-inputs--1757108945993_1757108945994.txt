@@ -1,0 +1,129 @@
+Goal
+
+Enhance the Import Regulation (.xlsx/.csv) form with:
+	1.	Helper text & validation on inputs (Code, Version).
+	2.	File feedback (show file name/size and validate type).
+	3.	Dry-run toggle with tooltip explaining what it means.
+	4.	Results card after running dry-run (inserted/updated/errors).
+	5.	Dynamic action buttons:
+	•	If dry-run is ON → show Run Dry-Run first; enable Import only after successful dry-run with 0 errors.
+	•	If dry-run is OFF → show only Import.
+
+⸻
+
+Files to update
+	•	client/src/pages/regulations/ImportRegulation.tsx
+
+⸻
+
+Implementation details
+
+1. Add helper text under inputs
+
+<div>
+  <Label>Code</Label>
+  <Input value={code} onChange={e=>setCode(e.target.value)} placeholder="ECC / DCC / CUSTOM" />
+  <p className="text-xs text-muted-foreground mt-1">Use a short code (e.g. ECC, DCC, HRPOLICY).</p>
+</div>
+
+<div>
+  <Label>Version</Label>
+  <Input value={version} onChange={e=>setVersion(e.target.value)} placeholder="2024-v0.4" />
+  <p className="text-xs text-muted-foreground mt-1">Follow semantic style (e.g. 2024-v0.4).</p>
+</div>
+
+2. File validation feedback
+
+<div
+  onDragOver={e=>e.preventDefault()}
+  onDrop={onDrop}
+  className="border-2 border-dashed rounded-xl p-6 text-center text-sm text-muted-foreground"
+>
+  {file 
+    ? <div>Selected: {file.name} ({(file.size/1024/1024).toFixed(1)} MB)</div> 
+    : "Drag & drop .xlsx/.csv here, or choose a file"}
+  <div className="mt-3">
+    <Input 
+      type="file" 
+      accept=".xlsx,.csv" 
+      onChange={e=>{
+        const f = e.target.files?.[0];
+        if (f && !f.name.match(/\.(xlsx|csv)$/i)) {
+          toast.error("Invalid file type. Please upload .xlsx or .csv");
+          return;
+        }
+        setFile(f||null);
+      }} 
+    />
+  </div>
+</div>
+
+3. Dry-run toggle with tooltip
+
+Use shadcn Tooltip wrapper:
+
+<div className="flex items-center gap-2">
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Switch checked={dryRun} onCheckedChange={setDryRun} id="dryrun" />
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>Dry-run simulates the import: validates rows and shows insert/update/errors without saving.</p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+  <Label htmlFor="dryrun">Dry-run first</Label>
+</div>
+
+4. Results card after dry-run
+
+{result && (
+  <Card className="mt-6">
+    <CardHeader><CardTitle>Dry-Run Results</CardTitle></CardHeader>
+    <CardContent className="space-y-3">
+      <div className="flex gap-4 text-sm">
+        <Badge variant="secondary">Inserted: {result.inserted}</Badge>
+        <Badge variant="secondary">Updated: {result.updated}</Badge>
+        <Badge variant="secondary">Total: {result.total}</Badge>
+      </div>
+
+      {result.warnings?.length > 0 && (
+        <Alert><div className="font-medium">Warnings</div><div>{result.warnings.slice(0,5).join("; ")}</div></Alert>
+      )}
+
+      {result.errors?.length > 0 && (
+        <Alert variant="destructive"><div className="font-medium">Errors</div><div>{result.errors.slice(0,5).join("; ")}</div></Alert>
+      )}
+    </CardContent>
+  </Card>
+)}
+
+5. Dynamic buttons
+
+<div className="flex gap-2 justify-end">
+  {dryRun ? (
+    <>
+      <Button variant="outline" onClick={handleDryRun} disabled={!file || loading}>Run Dry-Run</Button>
+      <Button 
+        onClick={handleImport} 
+        disabled={!file || loading || (result && result.errors?.length > 0)} 
+      >
+        Import
+      </Button>
+    </>
+  ) : (
+    <Button onClick={handleImport} disabled={!file || loading}>Import</Button>
+  )}
+</div>
+
+
+⸻
+
+Acceptance
+	•	Hover over the Dry-run switch shows a tooltip explaining what it does.
+	•	After choosing a file, the filename and size appear.
+	•	Wrong file type (.pdf, .docx) → instant error toast.
+	•	After dry-run, a results card shows counts + warnings/errors.
+	•	Import is disabled if dry-run has errors.
+	•	UI is consistent with shadcn components (Cards, Badges, Alerts, Tooltips).

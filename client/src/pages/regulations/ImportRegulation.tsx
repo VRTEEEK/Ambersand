@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useToast } from '@/hooks/use-toast';
 import { useI18n } from '@/hooks/use-i18n';
@@ -121,6 +122,14 @@ export default function ImportRegulation() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
+      if (!selectedFile.name.match(/\.(xlsx|csv)$/i)) {
+        toast({
+          title: language === 'ar' ? 'نوع ملف غير صالح' : 'Invalid file type',
+          description: language === 'ar' ? 'يرجى تحميل ملف .xlsx أو .csv' : 'Please upload .xlsx or .csv file',
+          variant: 'destructive',
+        });
+        return;
+      }
       setFile(selectedFile);
     }
   };
@@ -234,6 +243,12 @@ export default function ImportRegulation() {
                 onChange={e => setCode(e.target.value)} 
                 placeholder="ECC / DCC / CUSTOM" 
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                {language === 'ar' 
+                  ? 'استخدم كود قصير (مثال: ECC، DCC، HRPOLICY)'
+                  : 'Use a short code (e.g. ECC, DCC, HRPOLICY).'
+                }
+              </p>
             </div>
             <div>
               <Label htmlFor="version">{language === 'ar' ? 'الإصدار' : 'Version'}</Label>
@@ -243,6 +258,12 @@ export default function ImportRegulation() {
                 onChange={e => setVersion(e.target.value)} 
                 placeholder="2024-v0.4" 
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                {language === 'ar' 
+                  ? 'اتبع النمط الدلالي (مثال: 2024-v0.4)'
+                  : 'Follow semantic style (e.g. 2024-v0.4).'
+                }
+              </p>
             </div>
             <div>
               <Label htmlFor="nameEn">{language === 'ar' ? 'الاسم (إنجليزي)' : 'Name (English)'}</Label>
@@ -281,7 +302,10 @@ export default function ImportRegulation() {
             {file ? (
               <div className="flex items-center justify-center gap-2 text-green-600">
                 <CheckCircle className="h-4 w-4" />
-                {language === 'ar' ? `المحدد: ${file.name}` : `Selected: ${file.name}`}
+                {language === 'ar' 
+                  ? `المحدد: ${file.name} (${(file.size/1024/1024).toFixed(1)} ميجابايت)` 
+                  : `Selected: ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)`
+                }
               </div>
             ) : (
               <div className="space-y-2">
@@ -304,29 +328,54 @@ export default function ImportRegulation() {
 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Switch 
-                checked={dryRun} 
-                onCheckedChange={setDryRun} 
-                id="dryrun" 
-              />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Switch 
+                      checked={dryRun} 
+                      onCheckedChange={setDryRun} 
+                      id="dryrun" 
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      {language === 'ar' 
+                        ? 'المعاينة تحاكي الاستيراد: تتحقق من الصفوف وتعرض الإدخال/التحديث/الأخطاء دون الحفظ'
+                        : 'Dry-run simulates the import: validates rows and shows insert/update/errors without saving.'
+                      }
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <Label htmlFor="dryrun">
                 {language === 'ar' ? 'معاينة أولاً' : 'Dry-run first'}
               </Label>
             </div>
             <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                onClick={handleDryRun} 
-                disabled={!file || loading}
-              >
-                {loading && dryRun ? '...' : (language === 'ar' ? 'تشغيل المعاينة' : 'Run Dry-Run')}
-              </Button>
-              <Button 
-                onClick={handleImport} 
-                disabled={!file || (dryRun && !lastDryRunOk) || loading}
-              >
-                {loading && !dryRun ? '...' : (language === 'ar' ? 'استيراد' : 'Import')}
-              </Button>
+              {dryRun ? (
+                <>
+                  <Button 
+                    variant="outline" 
+                    onClick={handleDryRun} 
+                    disabled={!file || loading}
+                  >
+                    {loading ? '...' : (language === 'ar' ? 'تشغيل المعاينة' : 'Run Dry-Run')}
+                  </Button>
+                  <Button 
+                    onClick={handleImport} 
+                    disabled={!file || loading || (result && result.errors?.length > 0)}
+                  >
+                    {loading ? '...' : (language === 'ar' ? 'استيراد' : 'Import')}
+                  </Button>
+                </>
+              ) : (
+                <Button 
+                  onClick={handleImport} 
+                  disabled={!file || loading}
+                >
+                  {loading ? '...' : (language === 'ar' ? 'استيراد' : 'Import')}
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -334,10 +383,13 @@ export default function ImportRegulation() {
 
       {/* Results */}
       {result && (
-        <Card>
+        <Card className="mt-6">
           <CardHeader>
             <CardTitle>
-              {language === 'ar' ? 'نتيجة الاستيراد' : 'Import Result'}
+              {dryRun 
+                ? (language === 'ar' ? 'نتائج المعاينة' : 'Dry-Run Results')
+                : (language === 'ar' ? 'نتيجة الاستيراد' : 'Import Results')
+              }
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
