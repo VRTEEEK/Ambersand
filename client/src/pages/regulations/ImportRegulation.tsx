@@ -386,8 +386,9 @@ export default function ImportRegulation() {
                       !file || loading ||
                       (dryRun && (!lastDryRunOk || (result?.errors?.length ?? 0) > 0))
                     }
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground border-2 border-primary/50"
+                    className="flex items-center gap-2"
                   >
+                    <Upload className="h-4 w-4" />
                     {loading ? '...' : (language === 'ar' ? 'استيراد' : 'Import')}
                   </Button>
                 </>
@@ -395,8 +396,9 @@ export default function ImportRegulation() {
                 <Button 
                   onClick={handleImport} 
                   disabled={!file || loading}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground border-2 border-primary/50"
+                  className="flex items-center gap-2"
                 >
+                  <Upload className="h-4 w-4" />
                   {loading ? '...' : (language === 'ar' ? 'استيراد' : 'Import')}
                 </Button>
               )}
