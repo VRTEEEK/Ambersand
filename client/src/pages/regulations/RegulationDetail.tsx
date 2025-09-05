@@ -29,19 +29,41 @@ import { ProjectCreateDialog } from "@/components/projects/ProjectCreateDialog";
 
 interface Control {
   id: number;
-  clause: string;
-  mainCategoryEn: string;
+  clause?: string;
+  code?: string;
+  
+  // Unified regulation control fields
+  mainCategoryEn?: string;
   mainCategoryAr?: string;
-  subCategoryEn: string;
+  subCategoryEn?: string;
   subCategoryAr?: string;
-  mainControlEn: string;
+  mainControlEn?: string;
   mainControlAr?: string;
   subControlEn?: string;
   subControlAr?: string;
-  descriptionEn: string;
+  descriptionEn?: string;
   descriptionAr?: string;
   evidenceTypes?: string;
-  weight: number;
+  weight?: number;
+  
+  // Custom regulation control fields
+  mainDomain?: string;
+  mainDomainAr?: string;
+  subDomain?: string;
+  subDomainAr?: string;
+  control?: string;
+  controlAr?: string;
+  subControl?: string;
+  description?: string;
+  evidenceRequired?: boolean;
+  evidenceNote?: string;
+  evidenceNoteAr?: string;
+  
+  // Additional variant field names
+  domain?: string;
+  domainAr?: string;
+  subdomain?: string;
+  subdomainAr?: string;
 }
 
 interface Regulation {
@@ -82,7 +104,7 @@ export function RegulationDetail() {
   const [showProjectDialog, setShowProjectDialog] = useState(false);
 
   // First try to fetch as a custom regulation (existing system)
-  const { data: customRegData, isLoading: isLoadingCustom, error: customError } = useQuery({
+  const { data: customRegData, isLoading: isLoadingCustom, error: customError } = useQuery<any>({
     queryKey: [`/api/custom-regulations/${id}`],
     enabled: !!id,
     retry: false
