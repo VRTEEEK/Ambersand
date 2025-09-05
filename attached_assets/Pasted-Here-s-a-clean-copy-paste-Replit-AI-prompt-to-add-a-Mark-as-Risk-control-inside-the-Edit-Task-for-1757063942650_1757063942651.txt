@@ -1,0 +1,235 @@
+Here’s a clean, copy-paste Replit AI prompt to add a “Mark as Risk” control inside the Edit Task form, wired to your existing Risk API (POST /api/risks/toggle) and showing contextual actions (open risk, unmark risk). It handles optimistic UI, permissions, and error states.
+
+⸻
+
+Replit AI Prompt — “Add ‘Mark as Risk’ to Edit Task form”
+
+Goal
+
+Inside the Edit Task form, add a control to mark/unmark the task as a Risk. When enabled:
+	•	Call POST /api/risks/toggle with { taskId, makeRisk: true }.
+	•	When disabled: call { taskId, makeRisk: false }.
+	•	Reflect current state from task.isRisk.
+	•	If the task is a risk, show a link/button to open the linked Risk (create if needed, then return its id).
+	•	Respect permissions: only compliance officer/admin can toggle; others see the state read-only.
+
+⸻
+
+1) Backend (confirm / minor tweak)
+
+File: server/routes/risks.ts
+	•	Ensure this endpoint exists and returns the created/updated risk row:
+
+// POST /api/risks/toggle  { taskId:number, makeRisk:boolean }
+router.post("/toggle", isAuthenticated, async (req:any, res) => {
+  // ...existing logic...
+  // On makeRisk=true: return the risk row (id, isOpen, status, etc.)
+  // On makeRisk=false: return { ok:true } or the closed risk row.
+});
+
+File: server/routes/tasks.ts (or your tasks read API)
+	•	Ensure task GET returns isRisk:boolean for the form to preload.
+
+⸻
+
+2) Client API helpers
+
+File: client/src/lib/api/risks.ts (create or extend)
+
+export async function toggleRisk(taskId: number, makeRisk: boolean) {
+  const res = await fetch(`/api/risks/toggle`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ taskId, makeRisk }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json(); // { id, ... } when makeRisk, or { ok:true } when unmark
+}
+
+File: client/src/lib/api/tasks.ts
+	•	Ensure getTask(id) returns { isRisk: boolean, id: number, ... }.
+
+⸻
+
+3) Edit Task form UI
+
+File: client/src/pages/tasks/TaskEditForm.tsx (or wherever your edit form lives)
+	•	Import shadcn components + hooks:
+
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { toggleRisk } from "@/lib/api/risks";
+import { usePermissions } from "@/hooks/use-permissions";
+import { Link } from "wouter";
+import { toast } from "sonner";
+
+	•	Add local UI state (optional) or bind to form state:
+
+const qc = useQueryClient();
+const { canEditRisk } = usePermissions(); // implement to check admin/compliance officer
+
+const [riskId, setRiskId] = useState<number | null>(null); // filled after toggle-on
+const [isRisk, setIsRisk] = useState<boolean>(task.isRisk); // preload from props/data
+
+	•	Mutation with optimistic UI:
+
+const mToggle = useMutation({
+  mutationFn: (makeRisk: boolean) => toggleRisk(task.id, makeRisk),
+  onMutate: async (makeRisk) => {
+    await qc.cancelQueries({ queryKey: ["task", task.id] });
+    const previous = qc.getQueryData<any>(["task", task.id]);
+    qc.setQueryData(["task", task.id], (old: any) => ({ ...old, isRisk: makeRisk }));
+    setIsRisk(makeRisk);
+    return { previous };
+  },
+  onError: (err, makeRisk, ctx) => {
+    if (ctx?.previous) qc.setQueryData(["task", task.id], ctx.previous);
+    setIsRisk(!makeRisk);
+    toast.error(`Failed to ${makeRisk ? "mark risk" : "remove risk"}`);
+  },
+  onSuccess: (data, makeRisk) => {
+    if (makeRisk && data?.id) setRiskId(data.id);
+    toast.success(makeRisk ? "Task marked as risk" : "Risk removed");
+    // refresh any lists dependent on risk flag
+    qc.invalidateQueries({ queryKey: ["task", task.id] });
+    qc.invalidateQueries({ queryKey: ["risks"] });
+  },
+});
+
+	•	In the form layout, add the Risk section:
+
+<section className="rounded-lg border p-4 space-y-3">
+  <div className="flex items-center justify-between">
+    <div>
+      <Label htmlFor="toggle-risk" className="text-base">Mark as Risk</Label>
+      <p className="text-sm text-muted-foreground">
+        Flag this task in the Risk Register for additional tracking.
+      </p>
+    </div>
+
+    <div className="flex items-center gap-3">
+      <Switch
+        id="toggle-risk"
+        checked={isRisk}
+        disabled={!canEditRisk || mToggle.isLoading}
+        onCheckedChange={(checked) => mToggle.mutate(checked)}
+        aria-label="Toggle risk for this task"
+      />
+    </div>
+  </div>
+
+  {isRisk ? (
+    <div className="flex items-center gap-3">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={mToggle.isLoading}
+        onClick={() => mToggle.mutate(false)}
+      >
+        Remove risk
+      </Button>
+
+      {/* Open Risk detail (if we already know the risk id). If not, fall back to list filtered by task. */}
+      {riskId ? (
+        <Button asChild size="sm" variant="secondary">
+          <Link href={`/risks/${riskId}`}>Open risk</Link>
+        </Button>
+      ) : (
+        <Button asChild size="sm" variant="secondary">
+          <Link href={`/risk-register?taskId=${task.id}`}>View in register</Link>
+        </Button>
+      )}
+    </div>
+  ) : null}
+
+  {!canEditRisk && (
+    <p className="text-xs text-muted-foreground">
+      You don’t have permission to change risk status. Contact a compliance officer.
+    </p>
+  )}
+</section>
+
+Notes
+	•	Switch matches shadcn’s component; adjust import if your path differs.
+	•	usePermissions().canEditRisk should return true for admin/compliance-officer.
+	•	The Open risk link uses riskId obtained after toggle-on. If your toggle endpoint already returns the risk id, we set it in onSuccess.
+
+⸻
+
+4) Load existing risk id when opening form (optional, nice UX)
+
+If you want the Open risk button available immediately when task.isRisk=true, fetch the open risk by task:
+
+Server: Add endpoint (if you don’t have it)
+
+// GET /api/risks/by-task/:taskId -> returns open risk or 404
+router.get("/by-task/:taskId", isAuthenticated, async (req:any, res) => {
+  const org = req.user?.claims?.org;
+  const taskId = Number(req.params.taskId);
+  const [row] = await db.select().from(risks)
+    .where(and(eq(risks.organizationId, org), eq(risks.taskId, taskId), eq(risks.isOpen, true)));
+  if (!row) return res.status(404).end();
+  res.json(row);
+});
+
+Client helper:
+
+export async function getOpenRiskByTask(taskId:number) {
+  const res = await fetch(`/api/risks/by-task/${taskId}`, { credentials: "include" });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+In form component (useEffect):
+
+useEffect(() => {
+  let active = true;
+  if (task.isRisk) {
+    getOpenRiskByTask(task.id).then((r) => { if (active && r?.id) setRiskId(r.id) });
+  }
+  return () => { active = false };
+}, [task.id, task.isRisk]);
+
+
+⸻
+
+5) Permissions hook (if not present)
+
+File: client/src/hooks/use-permissions.tsx
+
+export function usePermissions() {
+  const user = useCurrentUser(); // however you expose current user
+  const isAdmin = !!user?.isAdmin;
+  const isCompliance = !!user?.roles?.includes?.("compliance-officer");
+  return {
+    canEditRisk: isAdmin || isCompliance,
+  };
+}
+
+
+⸻
+
+6) Acceptance checks
+	•	Open Edit Task:
+	•	If you’re a compliance officer/admin, you can toggle the Mark as Risk switch.
+	•	On enable: task state updates, success toast, (optional) Open risk button appears.
+	•	On disable: switch turns off, success toast, task isRisk=false.
+	•	Non-officer users see the toggle disabled and the current state.
+	•	Network:
+	•	POST /api/risks/toggle fires with the correct payload and credentials.
+	•	If task.isRisk=true on load, GET /api/risks/by-task/:taskId returns the open risk (if you added it).
+
+⸻
+
+7) (Optional) Form submission integration
+
+If your task form also submits other fields, keep the risk toggle separate from the main submit to avoid rolling back risk state if validation fails elsewhere. The implementation above already does the toggle as its own mutation.
+
+⸻
+
+Please adapt file paths to your repo if they differ, but keep the API contract and optimistic flow exactly as described.
