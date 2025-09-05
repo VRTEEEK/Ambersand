@@ -24,7 +24,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { emailService } from "./emailService";
-const XLSX = require('xlsx');
+import * as XLSX from 'xlsx';
 import { 
   requirePermissions, 
   requireViewRegulations, 
@@ -2423,17 +2423,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           data = lines.map(line => line.split(',').map(cell => cell.trim().replace(/^"|"$/g, '')));
         } else if (req.file.originalname.endsWith('.xlsx')) {
           // Parse Excel
-          console.log('XLSX object:', XLSX);
-          console.log('XLSX.readFile:', XLSX.readFile);
-          
-          if (typeof XLSX.readFile !== 'function') {
-            throw new Error('XLSX.readFile is not available. XLSX object: ' + JSON.stringify(Object.keys(XLSX)));
+          try {
+            const workbook = XLSX.readFile(filePath);
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            data = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+          } catch (xlsxError) {
+            console.error('XLSX parsing error:', xlsxError);
+            throw new Error(`Excel file parsing failed: ${xlsxError instanceof Error ? xlsxError.message : 'Unknown error'}`);
           }
-          
-          const workbook = XLSX.readFile(filePath);
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
         } else {
           return res.status(400).json({ message: "Unsupported file format. Use .xlsx or .csv" });
         }
