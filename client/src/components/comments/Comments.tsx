@@ -96,7 +96,7 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
       queryClient.setQueryData(['/api/comments', targetType, targetId], (old: any) => ({
         ...old,
         items: old?.items?.map((item: Comment) => 
-          item.id === updatedComment.id ? updatedComment : item
+          item.id === (updatedComment as Comment).id ? updatedComment : item
         ) || []
       }));
       toast({ title: 'Comment updated' });
@@ -211,7 +211,12 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
     setEditText('');
   }, []);
 
-  const formatCommentBody = useCallback((body: string) => {
+  const formatCommentBody = useCallback((body: string | null | undefined) => {
+    // Ensure body is a string before processing
+    if (!body || typeof body !== 'string') {
+      return '';
+    }
+    
     // Simple formatting: newlines to <br> and @mentions to bold
     const escaped = body
       .replace(/&/g, '&amp;')
@@ -270,7 +275,7 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
                     <CommandInput placeholder="Search users..." value={mentionQuery} />
                     <CommandEmpty>No users found.</CommandEmpty>
                     <CommandGroup>
-                      {users.map((user) => (
+                      {users.map((user: any) => (
                         <CommandItem
                           key={user.id}
                           onSelect={() => insertMention(user)}
