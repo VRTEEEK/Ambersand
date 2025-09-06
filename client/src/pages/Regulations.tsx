@@ -833,14 +833,6 @@ export default function Regulations() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {can('regulation:import') && (
-              <Link href="/regulations/import">
-                <Button variant="outline" className="flex items-center gap-2">
-                  <Upload className="h-4 w-4" />
-                  {language === 'ar' ? 'استيراد تنظيم' : 'Import Regulation'}
-                </Button>
-              </Link>
-            )}
             <div className="flex gap-2">
               <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
                 <DialogTrigger asChild>
