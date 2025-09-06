@@ -20,9 +20,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Switch } from '@/components/ui/switch';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import { BookOpen, Shield, Database, Plus, Settings, FileText, Building, CheckSquare, Square, AlertTriangle, Edit, Trash2, MoreVertical, Upload, FileSpreadsheet } from 'lucide-react';
+import { BookOpen, Shield, Database, Plus, Settings, FileText, Building, CheckSquare, Square, AlertTriangle, Edit, Trash2, MoreVertical, Upload, FileSpreadsheet, XCircle, CheckCircle } from 'lucide-react';
 import { usePermissions } from '@/hooks/use-permissions';
 import { Link } from 'wouter';
 
@@ -110,6 +114,15 @@ export default function Regulations() {
   const [importName, setImportName] = useState('');
   const [importVersion, setImportVersion] = useState('1.0');
   const [isImporting, setIsImporting] = useState(false);
+  const [dryRun, setDryRun] = useState(true);
+  const [importResult, setImportResult] = useState<any>(null);
+  const [lastDryRunOk, setLastDryRunOk] = useState(false);
+
+  // Reset validation state when file changes
+  useEffect(() => { 
+    setLastDryRunOk(false); 
+    setImportResult(null); 
+  }, [importFile, importName, importVersion]);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -284,12 +297,64 @@ export default function Regulations() {
     },
   });
 
-  // XLSX Import function
-  const handleImport = async (file: File, meta?: {name?:string;version?:string}) => {
+  // XLSX Import functions
+  const handleDryRun = async () => {
+    if (!importFile) return;
+    
     const fd = new FormData();
-    fd.append('file', file);
-    if (meta?.name) fd.append('name', meta.name);
-    if (meta?.version) fd.append('version', meta.version);
+    fd.append('file', importFile);
+    fd.append('dryRun', 'true');
+    if (importName) fd.append('name', importName);
+    if (importVersion) fd.append('version', importVersion);
+    
+    try {
+      setIsImporting(true);
+      const response = await fetch('/api/custom-regulations/import', { 
+        method:'POST', 
+        body: fd, 
+        credentials:'include' 
+      });
+      
+      const result = await response.json();
+      setImportResult(result);
+      
+      if (response.ok) {
+        setLastDryRunOk(result.errors?.length === 0);
+        toast({
+          title: language === 'ar' ? 'معاينة مكتملة' : 'Dry-run Complete',
+          description: language === 'ar' 
+            ? `تم العثور على ${result.inserted} ضوابط صالحة` 
+            : `Found ${result.inserted} valid controls`,
+        });
+      } else {
+        setLastDryRunOk(false);
+        toast({
+          title: language === 'ar' ? 'خطأ في المعاينة' : 'Dry-run Error',
+          description: result.message || 'Validation failed',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Dry-run failed:', error);
+      setLastDryRunOk(false);
+      toast({
+        title: language === 'ar' ? 'خطأ في المعاينة' : 'Dry-run Error',
+        description: language === 'ar' ? 'فشلت المعاينة' : 'Dry-run failed',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!importFile) return;
+    
+    const fd = new FormData();
+    fd.append('file', importFile);
+    fd.append('dryRun', 'false');
+    if (importName) fd.append('name', importName);
+    if (importVersion) fd.append('version', importVersion);
     
     try {
       setIsImporting(true);
@@ -305,6 +370,7 @@ export default function Regulations() {
       }
       
       const result = await response.json();
+      setImportResult(result);
       
       // Success - invalidate queries and show success message
       queryClient.invalidateQueries({ queryKey: ['/api/custom-regulations'] });
@@ -321,6 +387,9 @@ export default function Regulations() {
       setImportFile(null);
       setImportName('');
       setImportVersion('1.0');
+      setImportResult(null);
+      setLastDryRunOk(false);
+      setDryRun(true);
       
     } catch (error) {
       console.error('Import failed:', error);
@@ -778,7 +847,7 @@ export default function Regulations() {
                     {language === 'ar' ? 'استيراد XLSX' : 'Import XLSX'}
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md">
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>
                       {language === 'ar' ? 'استيراد تنظيم من XLSX' : 'Import Regulation from XLSX'}
@@ -791,35 +860,194 @@ export default function Regulations() {
                     </DialogDescription>
                   </DialogHeader>
                   
-                  <div className="space-y-4">
-                    <div>
-                      <Input
-                        type="file"
-                        accept=".xlsx,.xls"
-                        onChange={(e) => setImportFile(e.target.files?.[0] || null)}
-                        className="w-full"
-                      />
+                  <div className="space-y-6">
+                    {/* File Upload Section */}
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="xlsx-file" className="text-sm font-medium">
+                          {language === 'ar' ? 'ملف Excel' : 'Excel File'}
+                        </Label>
+                        <Input
+                          id="xlsx-file"
+                          type="file"
+                          accept=".xlsx,.xls"
+                          onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                          className="w-full mt-1"
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="regulation-name" className="text-sm font-medium">
+                            {language === 'ar' ? 'اسم التنظيم' : 'Regulation Name'}
+                          </Label>
+                          <Input
+                            id="regulation-name"
+                            placeholder={language === 'ar' ? 'اختياري' : 'Optional'}
+                            value={importName}
+                            onChange={(e) => setImportName(e.target.value)}
+                            className="w-full mt-1"
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="regulation-version" className="text-sm font-medium">
+                            {language === 'ar' ? 'الإصدار' : 'Version'}
+                          </Label>
+                          <Input
+                            id="regulation-version"
+                            value={importVersion}
+                            onChange={(e) => setImportVersion(e.target.value)}
+                            className="w-full mt-1"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    
-                    <div>
-                      <Input
-                        placeholder={language === 'ar' ? 'اسم التنظيم (اختياري)' : 'Regulation Name (optional)'}
-                        value={importName}
-                        onChange={(e) => setImportName(e.target.value)}
-                        className="w-full"
-                      />
+
+                    {/* Dry-run Toggle */}
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          id="dryrun"
+                          checked={dryRun}
+                          onCheckedChange={setDryRun}
+                        />
+                        <Label htmlFor="dryrun" className="text-sm font-medium">
+                          {language === 'ar' ? 'معاينة أولاً (موصى به)' : 'Dry-run first (recommended)'}
+                        </Label>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        {dryRun ? (
+                          <>
+                            <Button 
+                              variant="outline" 
+                              onClick={handleDryRun} 
+                              disabled={!importFile || isImporting}
+                              className="flex items-center gap-2"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                              {isImporting ? '...' : (language === 'ar' ? 'تشغيل المعاينة' : 'Run Dry-Run')}
+                            </Button>
+                            <Button 
+                              onClick={handleImport} 
+                              disabled={
+                                !importFile || isImporting ||
+                                (dryRun && (!lastDryRunOk || (importResult?.errors?.length ?? 0) > 0))
+                              }
+                              className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700"
+                            >
+                              <Upload className="h-4 w-4" />
+                              {isImporting ? '...' : (language === 'ar' ? 'استيراد' : 'Import')}
+                            </Button>
+                          </>
+                        ) : (
+                          <Button 
+                            onClick={handleImport} 
+                            disabled={!importFile || isImporting}
+                            className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700"
+                          >
+                            <Upload className="h-4 w-4" />
+                            {isImporting ? '...' : (language === 'ar' ? 'استيراد' : 'Import')}
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    
-                    <div>
-                      <Input
-                        placeholder={language === 'ar' ? 'الإصدار' : 'Version'}
-                        value={importVersion}
-                        onChange={(e) => setImportVersion(e.target.value)}
-                        className="w-full"
-                      />
-                    </div>
-                    
-                    <div className="flex justify-end gap-2">
+
+                    {/* Results Section */}
+                    {importResult && (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-lg font-semibold">
+                            {dryRun && !lastDryRunOk
+                              ? (language === 'ar' ? 'نتائج المعاينة' : 'Dry-Run Results')
+                              : (language === 'ar' ? 'نتيجة الاستيراد' : 'Import Results')
+                            }
+                          </h3>
+                          {lastDryRunOk && dryRun && (
+                            <Badge variant="default" className="bg-green-600">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              {language === 'ar' ? 'جاهز للاستيراد' : 'Ready to Import'}
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div className="flex gap-4 text-sm">
+                          <Badge variant="secondary">
+                            {language === 'ar' ? `مُدخل: ${importResult.inserted}` : `Inserted: ${importResult.inserted}`}
+                          </Badge>
+                          <Badge variant="secondary">
+                            {language === 'ar' ? `محدث: ${importResult.updated}` : `Updated: ${importResult.updated}`}
+                          </Badge>
+                          <Badge variant="secondary">
+                            {language === 'ar' ? `المجموع: ${importResult.total}` : `Total: ${importResult.total}`}
+                          </Badge>
+                        </div>
+
+                        {importResult.warnings && importResult.warnings.length > 0 && (
+                          <Alert>
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertDescription>
+                              <div className="font-medium">
+                                {language === 'ar' ? 'تحذيرات' : 'Warnings'}
+                              </div>
+                              <div className="text-sm mt-1">
+                                {importResult.warnings.slice(0, 3).map((warning: string, index: number) => (
+                                  <div key={index}>• {warning}</div>
+                                ))}
+                              </div>
+                            </AlertDescription>
+                          </Alert>
+                        )}
+
+                        {importResult.errors && importResult.errors.length > 0 && (
+                          <Alert variant="destructive">
+                            <XCircle className="h-4 w-4" />
+                            <AlertDescription>
+                              <div className="font-medium">
+                                {language === 'ar' ? 'أخطاء' : 'Errors'}
+                              </div>
+                              <div className="text-sm mt-1">
+                                {importResult.errors.slice(0, 3).map((error: string, index: number) => (
+                                  <div key={index}>• {error}</div>
+                                ))}
+                              </div>
+                            </AlertDescription>
+                          </Alert>
+                        )}
+
+                        {importResult.sample && importResult.sample.length > 0 && (
+                          <div className="border rounded-md overflow-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  {Object.keys(importResult.sample[0]).map((header: string) => (
+                                    <TableHead key={header} className="text-xs">
+                                      {header}
+                                    </TableHead>
+                                  ))}
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {importResult.sample.map((row: any, index: number) => (
+                                  <TableRow key={index}>
+                                    {Object.values(row).map((cell: any, cellIndex: number) => (
+                                      <TableCell key={cellIndex} className="text-xs">
+                                        {String(cell).substring(0, 50)}
+                                        {String(cell).length > 50 ? '...' : ''}
+                                      </TableCell>
+                                    ))}
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Footer Actions */}
+                    <div className="flex justify-end gap-2 pt-4 border-t">
                       <Button
                         variant="outline"
                         onClick={() => {
@@ -827,27 +1055,13 @@ export default function Regulations() {
                           setImportFile(null);
                           setImportName('');
                           setImportVersion('1.0');
+                          setImportResult(null);
+                          setLastDryRunOk(false);
+                          setDryRun(true);
                         }}
                         disabled={isImporting}
                       >
                         {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          if (importFile) {
-                            handleImport(importFile, { 
-                              name: importName || undefined, 
-                              version: importVersion 
-                            });
-                          }
-                        }}
-                        disabled={!importFile || isImporting}
-                        className="bg-teal-600 hover:bg-teal-700"
-                      >
-                        {isImporting 
-                          ? (language === 'ar' ? 'جاري الاستيراد...' : 'Importing...') 
-                          : (language === 'ar' ? 'استيراد' : 'Import')
-                        }
                       </Button>
                     </div>
                   </div>

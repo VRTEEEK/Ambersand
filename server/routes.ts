@@ -1791,13 +1791,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // XLSX Import endpoint
+  // XLSX Import endpoint with dry-run support
   app.post('/api/custom-regulations/import', isAuthenticated, upload.single('file'), async (req: any, res) => {
     try {
       if (!req.file) return res.status(400).json({ message: "Missing file" });
 
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
+      const isDryRun = req.body.dryRun === 'true';
 
       const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
       const ws = wb.Sheets[wb.SheetNames[0]];
@@ -1811,11 +1812,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .replace(/\s+/g, " ");
 
       // try to map common ECC/DCC headers to our custom controls schema
-      const mapRow = (r:any) => {
+      const mapRow = (r:any, index: number) => {
         const keys = Object.keys(r).reduce((acc:any, k:string) => (acc[norm(k)] = k, acc), {});
         const get = (names:string[]) => (r[keys[names.find(n => keys[n])!]] ?? "").toString().trim();
 
         return {
+          rowIndex: index + 1,
           code: get(['clause number','clause','code','رقم البند']),
           mainDomain: get(['main category','domain','المكون الأساسي']),
           mainDomainAr: get(['المكون الأساسي ','domain ar']),
@@ -1833,15 +1835,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       };
 
-      const controls = rows.map(mapRow)
-        .filter(c => c.mainDomain && c.subDomain && (c.control || c.subControl));
+      const parsedControls = rows.map(mapRow);
+      const validControls = parsedControls.filter(c => c.mainDomain && c.subDomain && (c.control || c.subControl));
 
-      if (!controls.length) {
-        return res.status(400).json({ message: "No valid controls found in sheet (check headers match template)" });
+      // Validation and error checking
+      const errors: string[] = [];
+      const warnings: string[] = [];
+      
+      if (parsedControls.length !== validControls.length) {
+        const invalidRows = parsedControls.filter(c => !(c.mainDomain && c.subDomain && (c.control || c.subControl)));
+        invalidRows.forEach(row => {
+          errors.push(`Row ${row.rowIndex}: Missing required fields (domain, subdomain, or control)`);
+        });
+      }
+
+      if (!validControls.length) {
+        errors.push("No valid controls found in sheet. Check headers match template.");
+      }
+
+      // Check for duplicate codes
+      const codes = validControls.map(c => c.code).filter(Boolean);
+      const duplicateCodes = codes.filter((code, index) => codes.indexOf(code) !== index);
+      if (duplicateCodes.length > 0) {
+        warnings.push(`Duplicate control codes found: ${duplicateCodes.join(', ')}`);
+      }
+
+      // Check for missing codes
+      const missingCodes = validControls.filter(c => !c.code);
+      if (missingCodes.length > 0) {
+        warnings.push(`${missingCodes.length} controls missing codes (auto-generated codes will be used)`);
+      }
+
+      // If dry-run, return validation results
+      if (isDryRun) {
+        const sampleControls = validControls.slice(0, 3).map(c => ({
+          code: c.code || 'Auto-generated',
+          mainDomain: c.mainDomain,
+          subDomain: c.subDomain,
+          control: c.control || c.subControl,
+          evidenceRequired: c.evidenceRequired ? 'Yes' : 'No'
+        }));
+
+        return res.json({
+          inserted: validControls.length,
+          updated: 0,
+          total: parsedControls.length,
+          errors,
+          warnings,
+          sample: sampleControls
+        });
+      }
+
+      // Actual import (non-dry-run)
+      if (errors.length > 0) {
+        return res.status(400).json({ message: "Validation failed", errors });
       }
 
       // Create the regulation
-      const { name, version } = req.body; // allow override
+      const { name, version } = req.body;
       const reg = await storage.createCustomRegulation({
         name: name || (req.file.originalname.split('.').slice(0,-1).join('.') || 'Imported Regulation'),
         description: req.body.description || '',
@@ -1854,16 +1905,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Bulk insert controls
-      for (let i = 0; i < controls.length; i++) {
-        const c = controls[i];
-        await storage.createCustomControl({
-          ...c,
-          code: c.code || `CR-${reg.id}-${String(i+1).padStart(3,'0')}`,
-          customRegulationId: reg.id,
-        });
+      let insertedCount = 0;
+      for (let i = 0; i < validControls.length; i++) {
+        const c = validControls[i];
+        try {
+          await storage.createCustomControl({
+            ...c,
+            code: c.code || `CR-${reg.id}-${String(i+1).padStart(3,'0')}`,
+            customRegulationId: reg.id,
+          });
+          insertedCount++;
+        } catch (error) {
+          console.error(`Failed to insert control ${i+1}:`, error);
+          errors.push(`Failed to insert control at row ${c.rowIndex}`);
+        }
       }
 
-      res.status(201).json({ regulationId: reg.id, inserted: controls.length });
+      res.status(201).json({ 
+        regulationId: reg.id, 
+        inserted: insertedCount,
+        updated: 0,
+        total: parsedControls.length,
+        errors,
+        warnings
+      });
     } catch (e:any) {
       console.error("Import failed:", e);
       res.status(500).json({ message: "Failed to import regulation", error: e.message });
