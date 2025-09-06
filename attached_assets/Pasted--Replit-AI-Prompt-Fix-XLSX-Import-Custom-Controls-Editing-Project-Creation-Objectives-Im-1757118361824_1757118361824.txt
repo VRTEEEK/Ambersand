@@ -1,0 +1,309 @@
+
+
+
+Replit AI Prompt — Fix XLSX Import + Custom Controls Editing + Project Creation
+
+Objectives
+	•	Implement POST /api/custom-regulations/import to parse .xlsx and persist a custom regulation + its controls.
+	•	Extend DB so projects can link custom controls (not only ECC).
+	•	Allow editing Domain/Subdomain for custom controls.
+	•	In Regulations page, allow selecting controls from the imported regulation and creating a project that’s linked to those controls.
+
+⸻
+
+0) Install deps
+	•	Add xlsx for parsing Excel.
+
+npm i xlsx
+
+
+⸻
+
+1) DB (Drizzle) — support custom controls in projects (NON-BREAKING)
+
+File: shared/schema.ts
+	1.	Extend project_controls to support both ECC and Custom controls:
+
+// Project Controls Association table
+export const projectControls = pgTable("project_controls", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull(),
+  // Make both nullable; exactly one should be used
+  eccControlId: integer("ecc_control_id"),
+  customControlId: integer("custom_control_id"),
+  source: varchar("source").notNull().default("ecc"), // 'ecc' | 'custom'
+
+  status: varchar("status").notNull().default("pending"),
+  assignedTo: varchar("assigned_to"),
+  dueDate: date("due_date"),
+  completedAt: timestamp("completed_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+	2.	Add indexes/uniques:
+
+import { uniqueIndex, index } from "drizzle-orm/pg-core";
+
+export const projectControlsIdx = {
+  byProject: index("project_controls_project_idx").on(projectControls.projectId),
+  uniqEcc: uniqueIndex("project_controls_uq_ecc").on(projectControls.projectId, projectControls.eccControlId),
+  uniqCustom: uniqueIndex("project_controls_uq_custom").on(projectControls.projectId, projectControls.customControlId),
+};
+
+	3.	(Optional) Tasks: if you also want tasks tied to custom controls, mirror the pattern in task_controls (add customControlId, source).
+
+Run migration:
+
+npm run db:push
+
+
+⸻
+
+2) Storage — branch by source (ECC vs Custom)
+
+File: server/storage.ts
+	1.	Update getProjectControls to load either ECC or Custom:
+
+async getProjectControls(projectId: number) {
+  const base = await db.select().from(projectControls).where(eq(projectControls.projectId, projectId));
+
+  // fetch related ECC and Custom in batches
+  const eccIds = base.filter(r => r.eccControlId).map(r => r.eccControlId!);
+  const customIds = base.filter(r => r.customControlId).map(r => r.customControlId!);
+
+  const eccMap = new Map<number, EccControl>();
+  const customMap = new Map<number, CustomControl>();
+
+  if (eccIds.length) {
+    const eccRows = await db.select().from(eccControls).where(inArray(eccControls.id, eccIds));
+    eccRows.forEach(r => eccMap.set(r.id, r));
+  }
+  if (customIds.length) {
+    const cRows = await db.select().from(customControls).where(inArray(customControls.id, customIds));
+    cRows.forEach(r => customMap.set(r.id, r));
+  }
+
+  // Return unified shape
+  return base.map(pc => ({
+    ...pc,
+    control:
+      pc.source === 'custom'
+        ? customMap.get(pc.customControlId!)
+        : eccMap.get(pc.eccControlId!),
+  }));
+}
+
+	2.	Add a new helper to add controls by source:
+
+async addControlsToProjectBySource(projectId: number, controlIds: number[], source: 'ecc'|'custom'): Promise<void> {
+  const rows = controlIds.map(id => ({
+    projectId,
+    source,
+    eccControlId: source === 'ecc' ? id : null,
+    customControlId: source === 'custom' ? id : null,
+    status: 'pending' as const,
+  }));
+  await db.insert(projectControls).values(rows);
+}
+
+Keep the original addControlsToProject for ECC to avoid breaking other flows, but switch callers where we know the source.
+
+⸻
+
+3) Server routes — real XLSX importer + project creation
+
+File: server/routes.ts
+
+(A) XLSX Import endpoint
+	•	Uses multer to receive the file as file.
+	•	Parses first sheet, normalizes headers, maps to custom_controls fields.
+	•	Creates a single custom_regulations row + many custom_controls.
+
+import multer from "multer";
+import * as XLSX from "xlsx";
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+
+app.post('/api/custom-regulations/import', isAuthenticated, upload.single('file'), async (req: any, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: "Missing file" });
+
+    const userId = req.user.claims.sub;
+    const user = await storage.getUser(userId);
+
+    const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json<any>(ws, { defval: "" });
+
+    if (!rows.length) return res.status(400).json({ message: "Empty sheet" });
+
+    // header normalization helper
+    const norm = (s:string) => s.toLowerCase().trim()
+      .replace(/\u200f|\u200e/g, "") // strip RTL marks
+      .replace(/\s+/g, " ");
+
+    // try to map common ECC/DCC headers to our custom controls schema
+    const mapRow = (r:any) => {
+      const keys = Object.keys(r).reduce((acc:any, k:string) => (acc[norm(k)] = k, acc), {});
+      const get = (names:string[]) => (r[keys[names.find(n => keys[n])!]] ?? "").toString().trim();
+
+      return {
+        code: get(['clause number','clause','code','رقم البند']),
+        mainDomain: get(['main category','domain','المكون الأساسي']),
+        mainDomainAr: get(['المكون الأساسي ','domain ar']),
+        subDomain: get(['sub category','subdomain','المكون الفرعي']),
+        subDomainAr: get(['المكون الفرعي ','subdomain ar']),
+        control: get(['main control','control','الضابط الأساسي']),
+        controlAr: get(['الضابط الأساسي']),
+        subControl: get(['sub control','الضابط الفرعي']),
+        subControlAr: get(['الضابط الفرعي ']),
+        description: get(['clear description of the requirement','requirement','وصف واضح للمتطلبات']) || get(['description']),
+        descriptionAr: get(['وصف واضح للمتطلبات']),
+        evidenceRequired: !!get(['evidence required']).toLowerCase().includes('yes'),
+        evidenceNote: get(['evidence type','evidence','نوع الدليل المفترض تسليمه']),
+        tags: (get(['related refs','tags']) || '').split(/[$,;|]/).map(t => t.trim()).filter(Boolean),
+      };
+    };
+
+    const controls = rows.map(mapRow)
+      .filter(c => c.mainDomain && c.subDomain && (c.control || c.subControl));
+
+    if (!controls.length) {
+      return res.status(400).json({ message: "No valid controls found in sheet (check headers match template)" });
+    }
+
+    // Create the regulation
+    const { name, version } = req.body; // allow override
+    const reg = await storage.createCustomRegulation({
+      name: name || (req.file.originalname.split('.').slice(0,-1).join('.') || 'Imported Regulation'),
+      description: req.body.description || '',
+      category: 'custom',
+      framework: req.body.framework || '',
+      version: version || '1.0',
+      status: 'active',
+      organizationId: user?.organizationId || 'default',
+      createdById: userId,
+    });
+
+    // Bulk insert controls
+    for (const [i, c] of controls.entries()) {
+      await storage.createCustomControl({
+        ...c,
+        code: c.code || `CR-${reg.id}-${String(i+1).padStart(3,'0')}`,
+        customRegulationId: reg.id,
+      });
+    }
+
+    res.status(201).json({ regulationId: reg.id, inserted: controls.length });
+  } catch (e:any) {
+    console.error("Import failed:", e);
+    res.status(500).json({ message: "Failed to import regulation", error: e.message });
+  }
+});
+
+(B) Include controls when fetching one custom regulation
+
+(You already have this, keep it.)
+
+app.get('/api/custom-regulations/:id', isAuthenticated, async (req, res) => {
+  const id = parseInt(req.params.id);
+  const regulation = await storage.getCustomRegulation(id);
+  if (!regulation) return res.status(404).json({ message: "Custom regulation not found" });
+  const controls = await storage.getCustomControls(id);
+  res.json({ ...regulation, controls });
+});
+
+(C) Project creation should branch by source
+
+Adjust /api/projects to pass regulationType through to storage:
+
+app.post('/api/projects', isAuthenticated, async (req:any, res) => {
+  const userId = req.user.claims.sub;
+  const user = await storage.getUser(userId);
+  const { controlIds, regulationType, ...projectBody } = req.body;
+
+  const project = await storage.createProject(insertProjectSchema.parse({
+    ...projectBody, organizationId: user?.organizationId
+  }));
+
+  if (Array.isArray(controlIds) && controlIds.length > 0) {
+    const source: 'ecc'|'custom' = regulationType === 'custom' ? 'custom' : 'ecc';
+    await storage.addControlsToProjectBySource(project.id, controlIds, source);
+  }
+
+  res.status(201).json(project);
+});
+
+
+⸻
+
+4) Client — Regulations page: import, edit, select → project
+
+A) Add Import button (XLSX)
+	•	In client/src/pages/Regulations.tsx, add an “Import XLSX” button that opens a dialog with a file input (accept .xlsx).
+	•	On submit:
+
+async function handleImport(file: File, meta?: {name?:string;version?:string}) {
+  const fd = new FormData();
+  fd.append('file', file);
+  if (meta?.name) fd.append('name', meta.name);
+  if (meta?.version) fd.append('version', meta.version);
+  const r = await fetch('/api/custom-regulations/import', { method:'POST', body: fd, credentials:'include' });
+  if (!r.ok) throw new Error(await r.text());
+  const { regulationId } = await r.json();
+  // invalidate list and optionally open the newly imported regulation
+  queryClient.invalidateQueries({ queryKey: ['/api/custom-regulations'] });
+  // open project dialog for that regulation if desired...
+}
+
+B) Editing Domain/Subdomain on custom controls
+	•	In your control row action, open an edit dialog. On save:
+
+await fetch(`/api/custom-controls/${control.id}`, {
+  method: 'PUT',
+  credentials: 'include',
+  headers: { 'Content-Type':'application/json' },
+  body: JSON.stringify({
+    mainDomain, mainDomainAr, subDomain, subDomainAr,
+    control, controlAr, subControl, subControlAr,
+    description, descriptionAr, evidenceRequired, evidenceNote, tags,
+  }),
+});
+queryClient.invalidateQueries({ queryKey: ['/api/custom-regulations', activeRegulation.id] });
+
+C) Create Project from selected controls
+	•	You already build payload with regulationType and controlIds. Keep:
+
+const projectData = {
+  name, description,
+  regulationType: sourceType,                 // 'custom' when from custom regulation
+  regulationId: sourceType === 'custom' ? activeRegulation?.id : undefined,
+  controlIds: selectedControlIds,
+};
+await apiRequest('/api/projects', 'POST', projectData);
+
+With server/storage updates, custom controls will now be linked.
+
+⸻
+
+5) Acceptance checklist
+	•	Upload a DCC/ECC-like XLSX → POST /api/custom-regulations/import returns { regulationId, inserted: N }.
+	•	GET /api/custom-regulations/:id returns regulation + controls (non-empty).
+	•	Regulations page shows custom regulation; you can edit a control’s Domain/Subdomain and see it persist.
+	•	Select several controls → Create Project; open the project → controls list includes those custom controls.
+	•	No DB errors; existing ECC projects untouched.
+
+⸻
+
+6) Data & safety notes
+	•	Importer normalizes headers and tolerates minor Arabic spacing differences.
+	•	Generated code fallback: CR-<regId>-NNN if none provided.
+	•	Add a DB migration to backfill source='ecc' for old rows in project_controls and leave customControlId = NULL.
+	•	If you expect big files, raise multer size limit; consider chunking later.
+
+⸻
+
+Please implement exactly as above.
+If you paste back any error logs after this, I’ll pinpoint the exact line(s) to adjust.
