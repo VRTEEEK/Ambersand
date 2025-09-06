@@ -22,7 +22,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import { BookOpen, Shield, Database, Plus, Settings, FileText, Building, CheckSquare, Square, AlertTriangle, Edit, Trash2, MoreVertical, Upload } from 'lucide-react';
+import { BookOpen, Shield, Database, Plus, Settings, FileText, Building, CheckSquare, Square, AlertTriangle, Edit, Trash2, MoreVertical, Upload, FileSpreadsheet } from 'lucide-react';
 import { usePermissions } from '@/hooks/use-permissions';
 import { Link } from 'wouter';
 
@@ -103,6 +103,13 @@ export default function Regulations() {
   // Delete regulation state
   const [deletingRegulation, setDeletingRegulation] = useState<any>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  
+  // Import XLSX state
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importName, setImportName] = useState('');
+  const [importVersion, setImportVersion] = useState('1.0');
+  const [isImporting, setIsImporting] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -276,6 +283,58 @@ export default function Regulations() {
       console.log('Starting deletion for regulation:', deletingRegulation?.id);
     },
   });
+
+  // XLSX Import function
+  const handleImport = async (file: File, meta?: {name?:string;version?:string}) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    if (meta?.name) fd.append('name', meta.name);
+    if (meta?.version) fd.append('version', meta.version);
+    
+    try {
+      setIsImporting(true);
+      const response = await fetch('/api/custom-regulations/import', { 
+        method:'POST', 
+        body: fd, 
+        credentials:'include' 
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText);
+      }
+      
+      const result = await response.json();
+      
+      // Success - invalidate queries and show success message
+      queryClient.invalidateQueries({ queryKey: ['/api/custom-regulations'] });
+      
+      toast({
+        title: language === 'ar' ? 'تم استيراد التنظيم' : 'Regulation Imported',
+        description: language === 'ar' 
+          ? `تم استيراد ${result.inserted} ضوابط بنجاح` 
+          : `Successfully imported ${result.inserted} controls`,
+      });
+      
+      // Reset and close dialog
+      setIsImportDialogOpen(false);
+      setImportFile(null);
+      setImportName('');
+      setImportVersion('1.0');
+      
+    } catch (error) {
+      console.error('Import failed:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ في الاستيراد' : 'Import Error',
+        description: language === 'ar' 
+          ? 'فشل في استيراد التنظيم. تحقق من تنسيق الملف' 
+          : 'Failed to import regulation. Check file format',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   // Helper functions for edit and delete
   const handleEditRegulation = (regulation: any) => {
@@ -702,13 +761,101 @@ export default function Regulations() {
                 </Button>
               </Link>
             )}
+            <div className="flex gap-2">
+              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    {language === 'ar' ? 'إنشاء تنظيم مخصص' : 'Create Custom Regulation'}
+                  </Button>
+                </DialogTrigger>
+              </Dialog>
+              
+              <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="flex items-center gap-2">
+                    <FileSpreadsheet className="h-4 w-4" />
+                    {language === 'ar' ? 'استيراد XLSX' : 'Import XLSX'}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>
+                      {language === 'ar' ? 'استيراد تنظيم من XLSX' : 'Import Regulation from XLSX'}
+                    </DialogTitle>
+                    <DialogDescription>
+                      {language === 'ar' 
+                        ? 'اختر ملف Excel يحتوي على بيانات التنظيم والضوابط'
+                        : 'Select an Excel file containing regulation and controls data'
+                      }
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <Input
+                        type="file"
+                        accept=".xlsx,.xls"
+                        onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                        className="w-full"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Input
+                        placeholder={language === 'ar' ? 'اسم التنظيم (اختياري)' : 'Regulation Name (optional)'}
+                        value={importName}
+                        onChange={(e) => setImportName(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Input
+                        placeholder={language === 'ar' ? 'الإصدار' : 'Version'}
+                        value={importVersion}
+                        onChange={(e) => setImportVersion(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+                    
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setIsImportDialogOpen(false);
+                          setImportFile(null);
+                          setImportName('');
+                          setImportVersion('1.0');
+                        }}
+                        disabled={isImporting}
+                      >
+                        {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          if (importFile) {
+                            handleImport(importFile, { 
+                              name: importName || undefined, 
+                              version: importVersion 
+                            });
+                          }
+                        }}
+                        disabled={!importFile || isImporting}
+                        className="bg-teal-600 hover:bg-teal-700"
+                      >
+                        {isImporting 
+                          ? (language === 'ar' ? 'جاري الاستيراد...' : 'Importing...') 
+                          : (language === 'ar' ? 'استيراد' : 'Import')
+                        }
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+            
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  {language === 'ar' ? 'إنشاء تنظيم مخصص' : 'Create Custom Regulation'}
-                </Button>
-              </DialogTrigger>
               <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>

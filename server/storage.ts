@@ -95,8 +95,9 @@ export interface IStorage {
   deleteProject(id: number): Promise<void>;
   
   // Project Controls operations
-  getProjectControls(projectId: number): Promise<(ProjectControl & { eccControl: EccControl })[]>;
+  getProjectControls(projectId: number): Promise<any[]>;
   addControlsToProject(projectId: number, controlIds: number[]): Promise<void>;
+  addControlsToProjectBySource(projectId: number, controlIds: number[], source: 'ecc'|'custom'): Promise<void>;
   updateProjectControl(id: number, data: Partial<InsertProjectControl>): Promise<ProjectControl>;
   removeControlFromProject(projectId: number, controlId: number): Promise<void>;
   
@@ -433,17 +434,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Project Controls operations
-  async getProjectControls(projectId: number): Promise<(ProjectControl & { eccControl: EccControl })[]> {
-    const result = await db
-      .select()
-      .from(projectControls)
-      .leftJoin(eccControls, eq(projectControls.eccControlId, eccControls.id))
-      .where(eq(projectControls.projectId, projectId))
-      .orderBy(eccControls.code);
-    
-    return result.map(row => ({
-      ...row.project_controls,
-      eccControl: row.ecc_controls!
+  async getProjectControls(projectId: number) {
+    const base = await db.select().from(projectControls).where(eq(projectControls.projectId, projectId));
+
+    // fetch related ECC and Custom in batches
+    const eccIds = base.filter(r => r.eccControlId).map(r => r.eccControlId!);
+    const customIds = base.filter(r => r.customControlId).map(r => r.customControlId!);
+
+    const eccMap = new Map<number, EccControl>();
+    const customMap = new Map<number, CustomControl>();
+
+    if (eccIds.length) {
+      const eccRows = await db.select().from(eccControls).where(inArray(eccControls.id, eccIds));
+      eccRows.forEach(r => eccMap.set(r.id, r));
+    }
+    if (customIds.length) {
+      const cRows = await db.select().from(customControls).where(inArray(customControls.id, customIds));
+      cRows.forEach(r => customMap.set(r.id, r));
+    }
+
+    // Return unified shape
+    return base.map(pc => ({
+      ...pc,
+      control:
+        pc.source === 'custom'
+          ? customMap.get(pc.customControlId!)
+          : eccMap.get(pc.eccControlId!),
     }));
   }
 
@@ -455,6 +471,17 @@ export class DatabaseStorage implements IStorage {
     }));
     
     await db.insert(projectControls).values(insertData);
+  }
+
+  async addControlsToProjectBySource(projectId: number, controlIds: number[], source: 'ecc'|'custom'): Promise<void> {
+    const rows = controlIds.map(id => ({
+      projectId,
+      source,
+      eccControlId: source === 'ecc' ? id : null,
+      customControlId: source === 'custom' ? id : null,
+      status: 'pending' as const,
+    }));
+    await db.insert(projectControls).values(rows);
   }
 
   async updateProjectControl(id: number, data: Partial<InsertProjectControl>): Promise<ProjectControl> {

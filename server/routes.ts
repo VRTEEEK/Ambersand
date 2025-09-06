@@ -860,9 +860,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(userId);
       console.log("User found:", user ? "yes" : "no");
       
-      // Extract controlIds from the request body
-      const { controlIds, ...projectBody } = req.body;
+      // Extract controlIds and regulationType from the request body
+      const { controlIds, regulationType, ...projectBody } = req.body;
       console.log("Extracted controlIds:", controlIds);
+      console.log("Regulation type:", regulationType);
       console.log("Project body:", projectBody);
       
       const projectData = insertProjectSchema.parse({
@@ -876,8 +877,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Add controls to the project if provided
       if (controlIds && Array.isArray(controlIds) && controlIds.length > 0) {
-        console.log("Adding", controlIds.length, "controls to project");
-        await storage.addControlsToProject(project.id, controlIds);
+        const source: 'ecc'|'custom' = regulationType === 'custom' ? 'custom' : 'ecc';
+        console.log("Adding", controlIds.length, "controls to project with source:", source);
+        await storage.addControlsToProjectBySource(project.id, controlIds, source);
         console.log("Controls added successfully");
       }
       
@@ -1786,6 +1788,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting custom regulation:", error);
       res.status(500).json({ message: "Failed to delete custom regulation" });
+    }
+  });
+
+  // XLSX Import endpoint
+  app.post('/api/custom-regulations/import', isAuthenticated, upload.single('file'), async (req: any, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ message: "Missing file" });
+
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+
+      const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<any>(ws, { defval: "" });
+
+      if (!rows.length) return res.status(400).json({ message: "Empty sheet" });
+
+      // header normalization helper
+      const norm = (s:string) => s.toLowerCase().trim()
+        .replace(/\u200f|\u200e/g, "") // strip RTL marks
+        .replace(/\s+/g, " ");
+
+      // try to map common ECC/DCC headers to our custom controls schema
+      const mapRow = (r:any) => {
+        const keys = Object.keys(r).reduce((acc:any, k:string) => (acc[norm(k)] = k, acc), {});
+        const get = (names:string[]) => (r[keys[names.find(n => keys[n])!]] ?? "").toString().trim();
+
+        return {
+          code: get(['clause number','clause','code','رقم البند']),
+          mainDomain: get(['main category','domain','المكون الأساسي']),
+          mainDomainAr: get(['المكون الأساسي ','domain ar']),
+          subDomain: get(['sub category','subdomain','المكون الفرعي']),
+          subDomainAr: get(['المكون الفرعي ','subdomain ar']),
+          control: get(['main control','control','الضابط الأساسي']),
+          controlAr: get(['الضابط الأساسي']),
+          subControl: get(['sub control','الضابط الفرعي']),
+          subControlAr: get(['الضابط الفرعي ']),
+          description: get(['clear description of the requirement','requirement','وصف واضح للمتطلبات']) || get(['description']),
+          descriptionAr: get(['وصف واضح للمتطلبات']),
+          evidenceRequired: !!get(['evidence required']).toLowerCase().includes('yes'),
+          evidenceNote: get(['evidence type','evidence','نوع الدليل المفترض تسليمه']),
+          tags: (get(['related refs','tags']) || '').split(/[$,;|]/).map((t: string) => t.trim()).filter(Boolean),
+        };
+      };
+
+      const controls = rows.map(mapRow)
+        .filter(c => c.mainDomain && c.subDomain && (c.control || c.subControl));
+
+      if (!controls.length) {
+        return res.status(400).json({ message: "No valid controls found in sheet (check headers match template)" });
+      }
+
+      // Create the regulation
+      const { name, version } = req.body; // allow override
+      const reg = await storage.createCustomRegulation({
+        name: name || (req.file.originalname.split('.').slice(0,-1).join('.') || 'Imported Regulation'),
+        description: req.body.description || '',
+        category: 'custom',
+        framework: req.body.framework || '',
+        version: version || '1.0',
+        status: 'active',
+        organizationId: user?.organizationId || 'default',
+        createdById: userId,
+      });
+
+      // Bulk insert controls
+      for (let i = 0; i < controls.length; i++) {
+        const c = controls[i];
+        await storage.createCustomControl({
+          ...c,
+          code: c.code || `CR-${reg.id}-${String(i+1).padStart(3,'0')}`,
+          customRegulationId: reg.id,
+        });
+      }
+
+      res.status(201).json({ regulationId: reg.id, inserted: controls.length });
+    } catch (e:any) {
+      console.error("Import failed:", e);
+      res.status(500).json({ message: "Failed to import regulation", error: e.message });
     }
   });
 

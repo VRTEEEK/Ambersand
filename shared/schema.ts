@@ -188,7 +188,11 @@ export const taskControls = pgTable("task_controls", {
 export const projectControls = pgTable("project_controls", {
   id: serial("id").primaryKey(),
   projectId: integer("project_id").notNull(),
-  eccControlId: integer("ecc_control_id").notNull(),
+  // Make both nullable; exactly one should be used
+  eccControlId: integer("ecc_control_id"),
+  customControlId: integer("custom_control_id"),
+  source: varchar("source").notNull().default("ecc"), // 'ecc' | 'custom'
+
   status: varchar("status").notNull().default("pending"), // pending, in-progress, completed, not-applicable
   assignedTo: varchar("assigned_to"),
   dueDate: date("due_date"),
@@ -196,7 +200,11 @@ export const projectControls = pgTable("project_controls", {
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  byProject: index("project_controls_project_idx").on(table.projectId),
+  uniqEcc: uniqueIndex("project_controls_uq_ecc").on(table.projectId, table.eccControlId),
+  uniqCustom: uniqueIndex("project_controls_uq_custom").on(table.projectId, table.customControlId),
+}));
 
 // Evidence repository table
 export const evidence = pgTable("evidence", {
@@ -431,6 +439,10 @@ export const projectControlsRelations = relations(projectControls, ({ one }) => 
     fields: [projectControls.eccControlId],
     references: [eccControls.id],
   }),
+  customControl: one(customControls, {
+    fields: [projectControls.customControlId],
+    references: [customControls.id],
+  }),
 }));
 
 export const tasksRelations = relations(tasks, ({ one, many }) => ({
@@ -566,11 +578,12 @@ export const customRegulationsRelations = relations(customRegulations, ({ one, m
   controls: many(customControls),
 }));
 
-export const customControlsRelations = relations(customControls, ({ one }) => ({
+export const customControlsRelations = relations(customControls, ({ one, many }) => ({
   regulation: one(customRegulations, {
     fields: [customControls.customRegulationId],
     references: [customRegulations.id],
   }),
+  projectControls: many(projectControls),
 }));
 
 // New regulations relations
