@@ -26,7 +26,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import { BookOpen, Shield, Database, Plus, Settings, FileText, Building, CheckSquare, Square, AlertTriangle, Edit, Trash2, MoreVertical, Upload, FileSpreadsheet, XCircle, CheckCircle } from 'lucide-react';
+import { BookOpen, Shield, Database, Plus, Settings, FileText, Building, CheckSquare, Square, AlertTriangle, Edit, Trash2, MoreVertical, Upload, FileSpreadsheet, XCircle, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { usePermissions } from '@/hooks/use-permissions';
 import { Link } from 'wouter';
 
@@ -117,11 +117,16 @@ export default function Regulations() {
   const [dryRun, setDryRun] = useState(true);
   const [importResult, setImportResult] = useState<any>(null);
   const [lastDryRunOk, setLastDryRunOk] = useState(false);
+  
+  // Pagination state for import results table
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   // Reset validation state when file changes
   useEffect(() => { 
     setLastDryRunOk(false); 
     setImportResult(null); 
+    setCurrentPage(1);
   }, [importFile, importName, importVersion]);
   
   const { toast } = useToast();
@@ -1026,31 +1031,104 @@ export default function Regulations() {
                           </Alert>
                         )}
 
-                        {importResult.sample && importResult.sample.length > 0 && (
-                          <div className="border rounded-md overflow-auto">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  {Object.keys(importResult.sample[0]).map((header: string) => (
-                                    <TableHead key={header} className="text-xs">
-                                      {header}
-                                    </TableHead>
-                                  ))}
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {importResult.sample.map((row: any, index: number) => (
-                                  <TableRow key={index}>
-                                    {Object.values(row).map((cell: any, cellIndex: number) => (
-                                      <TableCell key={cellIndex} className="text-xs">
-                                        {String(cell).substring(0, 50)}
-                                        {String(cell).length > 50 ? '...' : ''}
-                                      </TableCell>
+                        {importResult.allRecords && importResult.allRecords.length > 0 && (
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-medium">
+                                {language === 'ar' ? 'معاينة البيانات' : 'Data Preview'}
+                              </h4>
+                              <div className="text-xs text-muted-foreground">
+                                {language === 'ar' 
+                                  ? `${importResult.allRecords.length} عنصر إجمالي`
+                                  : `${importResult.allRecords.length} total items`
+                                }
+                              </div>
+                            </div>
+                            
+                            <div className="border rounded-md overflow-auto">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    {Object.keys(importResult.allRecords[0]).map((header: string) => (
+                                      <TableHead key={header} className="text-xs">
+                                        {header}
+                                      </TableHead>
                                     ))}
                                   </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
+                                </TableHeader>
+                                <TableBody>
+                                  {importResult.allRecords
+                                    .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                                    .map((row: any, index: number) => (
+                                      <TableRow key={index}>
+                                        {Object.values(row).map((cell: any, cellIndex: number) => (
+                                          <TableCell key={cellIndex} className="text-xs">
+                                            {String(cell)}
+                                          </TableCell>
+                                        ))}
+                                      </TableRow>
+                                    ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+
+                            {/* Pagination Controls */}
+                            {importResult.allRecords.length > itemsPerPage && (
+                              <div className="flex items-center justify-between px-2">
+                                <div className="text-xs text-muted-foreground">
+                                  {language === 'ar' 
+                                    ? `عرض ${(currentPage - 1) * itemsPerPage + 1}-${Math.min(currentPage * itemsPerPage, importResult.allRecords.length)} من ${importResult.allRecords.length}`
+                                    : `Showing ${(currentPage - 1) * itemsPerPage + 1}-${Math.min(currentPage * itemsPerPage, importResult.allRecords.length)} of ${importResult.allRecords.length}`
+                                  }
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                                    disabled={currentPage === 1}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <ChevronLeft className="h-3 w-3" />
+                                  </Button>
+                                  <div className="flex items-center gap-1">
+                                    {Array.from(
+                                      { length: Math.ceil(importResult.allRecords.length / itemsPerPage) },
+                                      (_, i) => i + 1
+                                    )
+                                      .filter(page => 
+                                        page === 1 || 
+                                        page === Math.ceil(importResult.allRecords.length / itemsPerPage) ||
+                                        Math.abs(page - currentPage) <= 1
+                                      )
+                                      .map((page, index, array) => (
+                                        <div key={page} className="flex items-center gap-1">
+                                          {index > 0 && array[index - 1] !== page - 1 && (
+                                            <span className="text-xs text-muted-foreground">...</span>
+                                          )}
+                                          <Button
+                                            variant={currentPage === page ? "default" : "outline"}
+                                            size="sm"
+                                            onClick={() => setCurrentPage(page)}
+                                            className="h-8 w-8 p-0 text-xs"
+                                          >
+                                            {page}
+                                          </Button>
+                                        </div>
+                                      ))}
+                                  </div>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage(Math.min(Math.ceil(importResult.allRecords.length / itemsPerPage), currentPage + 1))}
+                                    disabled={currentPage === Math.ceil(importResult.allRecords.length / itemsPerPage)}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <ChevronRight className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

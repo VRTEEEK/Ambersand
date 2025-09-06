@@ -1868,11 +1868,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // If dry-run, return validation results
       if (isDryRun) {
-        const sampleControls = validControls.slice(0, 3).map(c => ({
+        const allControls = validControls.map(c => ({
           code: c.code || 'Auto-generated',
           mainDomain: c.mainDomain,
           subDomain: c.subDomain,
-          control: c.control || c.subControl,
+          control: (c.control || c.subControl || '').substring(0, 100) + ((c.control || c.subControl || '').length > 100 ? '...' : ''),
           evidenceRequired: c.evidenceRequired ? 'Yes' : 'No'
         }));
 
@@ -1882,7 +1882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           total: parsedControls.length,
           errors,
           warnings,
-          sample: sampleControls
+          allRecords: allControls
         });
       }
 
