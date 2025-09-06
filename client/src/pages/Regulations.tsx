@@ -319,12 +319,23 @@ export default function Regulations() {
       setImportResult(result);
       
       if (response.ok) {
-        setLastDryRunOk(result.errors?.length === 0);
+        const hasErrors = result.errors && result.errors.length > 0;
+        const isValid = !hasErrors;
+        setLastDryRunOk(isValid);
+        
+        console.log('Dry-run result:', { 
+          hasErrors, 
+          isValid, 
+          errorCount: result.errors?.length || 0,
+          errors: result.errors 
+        });
+        
         toast({
           title: language === 'ar' ? 'معاينة مكتملة' : 'Dry-run Complete',
           description: language === 'ar' 
             ? `تم العثور على ${result.inserted} ضوابط صالحة` 
             : `Found ${result.inserted} valid controls`,
+          variant: isValid ? 'default' : 'destructive',
         });
       } else {
         setLastDryRunOk(false);
@@ -933,7 +944,7 @@ export default function Regulations() {
                               onClick={handleImport} 
                               disabled={
                                 !importFile || isImporting ||
-                                (dryRun && (!lastDryRunOk || (importResult?.errors?.length ?? 0) > 0))
+                                (dryRun && (!lastDryRunOk || (importResult?.errors && importResult.errors.length > 0)))
                               }
                               className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700"
                             >
@@ -964,11 +975,18 @@ export default function Regulations() {
                               : (language === 'ar' ? 'نتيجة الاستيراد' : 'Import Results')
                             }
                           </h3>
-                          {lastDryRunOk && dryRun && (
-                            <Badge variant="default" className="bg-green-600">
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              {language === 'ar' ? 'جاهز للاستيراد' : 'Ready to Import'}
-                            </Badge>
+                          {dryRun && importResult && (
+                            lastDryRunOk ? (
+                              <Badge variant="default" className="bg-green-600">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                {language === 'ar' ? 'جاهز للاستيراد' : 'Ready to Import'}
+                              </Badge>
+                            ) : (
+                              <Badge variant="destructive">
+                                <XCircle className="h-3 w-3 mr-1" />
+                                {language === 'ar' ? 'هناك أخطاء - يُرجى الإصلاح' : 'Has Errors - Please Fix'}
+                              </Badge>
+                            )
                           )}
                         </div>
 
