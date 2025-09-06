@@ -26,7 +26,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import { BookOpen, Shield, Database, Plus, Settings, FileText, Building, CheckSquare, Square, AlertTriangle, Edit, Trash2, MoreVertical, Upload, FileSpreadsheet, XCircle, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { BookOpen, Shield, Database, Plus, Settings, FileText, Building, CheckSquare, Square, AlertTriangle, Edit, Trash2, MoreVertical, Upload, FileSpreadsheet, XCircle, CheckCircle, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { usePermissions } from '@/hooks/use-permissions';
 import { Link } from 'wouter';
 
@@ -111,8 +111,11 @@ export default function Regulations() {
   // Import XLSX state
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [importCode, setImportCode] = useState('');
+  const [importVersion, setImportVersion] = useState('');
   const [importName, setImportName] = useState('');
-  const [importVersion, setImportVersion] = useState('1.0');
+  const [importNameAr, setImportNameAr] = useState('');
+  const [importPublisher, setImportPublisher] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [dryRun, setDryRun] = useState(true);
   const [importResult, setImportResult] = useState<any>(null);
@@ -127,7 +130,7 @@ export default function Regulations() {
     setLastDryRunOk(false); 
     setImportResult(null); 
     setCurrentPage(1);
-  }, [importFile, importName, importVersion]);
+  }, [importFile, importCode, importVersion, importName]);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -303,6 +306,46 @@ export default function Regulations() {
   });
 
   // XLSX Import functions
+  // Download CSV Template function
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await fetch('/api/admin/regulations/template.csv', { 
+        credentials: 'include' 
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to download template');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = 'regulation-template.csv';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: language === 'ar' ? 'تم تحميل القالب' : 'Template Downloaded',
+        description: language === 'ar' 
+          ? 'تم تحميل قالب CSV بنجاح' 
+          : 'CSV template downloaded successfully',
+      });
+    } catch (error) {
+      console.error('Template download failed:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ في التحميل' : 'Download Error',
+        description: language === 'ar' 
+          ? 'فشل في تحميل القالب' 
+          : 'Failed to download template',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleDryRun = async () => {
     if (!importFile) return;
     
@@ -401,8 +444,11 @@ export default function Regulations() {
       // Reset and close dialog
       setIsImportDialogOpen(false);
       setImportFile(null);
+      setImportCode('');
+      setImportVersion('');
       setImportName('');
-      setImportVersion('1.0');
+      setImportNameAr('');
+      setImportPublisher('');
       setImportResult(null);
       setLastDryRunOk(false);
       setDryRun(true);
@@ -418,6 +464,28 @@ export default function Regulations() {
       });
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  // File drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const droppedFile = files[0];
+      if (droppedFile.name.endsWith('.xlsx') || droppedFile.name.endsWith('.csv')) {
+        setImportFile(droppedFile);
+      } else {
+        toast({
+          title: language === 'ar' ? 'نوع ملف غير مدعوم' : 'Unsupported File Type',
+          description: language === 'ar' ? 'يرجى استخدام ملفات .xlsx أو .csv فقط' : 'Please use only .xlsx or .csv files',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
@@ -857,59 +925,123 @@ export default function Regulations() {
                 </DialogTrigger>
                 <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>
-                      {language === 'ar' ? 'استيراد تنظيم من XLSX' : 'Import Regulation from XLSX'}
-                    </DialogTitle>
-                    <DialogDescription>
-                      {language === 'ar' 
-                        ? 'اختر ملف Excel يحتوي على بيانات التنظيم والضوابط'
-                        : 'Select an Excel file containing regulation and controls data'
-                      }
-                    </DialogDescription>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <DialogTitle className="flex items-center gap-2">
+                          <FileSpreadsheet className="h-5 w-5" />
+                          {language === 'ar' ? 'استيراد تنظيم (.xlsx / .csv)' : 'Import Regulation (.xlsx / .csv)'}
+                        </DialogTitle>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownloadTemplate}
+                        className="flex items-center gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        {language === 'ar' ? 'تحميل قالب CSV' : 'Download CSV Template'}
+                      </Button>
+                    </div>
                   </DialogHeader>
                   
                   <div className="space-y-6">
-                    {/* File Upload Section */}
-                    <div className="space-y-4">
+                    {/* Form Fields */}
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="xlsx-file" className="text-sm font-medium">
-                          {language === 'ar' ? 'ملف Excel' : 'Excel File'}
+                        <Label htmlFor="code" className="text-sm font-medium">
+                          {language === 'ar' ? 'الكود' : 'Code'}
                         </Label>
                         <Input
-                          id="xlsx-file"
-                          type="file"
-                          accept=".xlsx,.xls"
-                          onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                          id="code"
+                          placeholder="ECC / DCC / CUSTOM"
+                          value={importCode}
+                          onChange={(e) => setImportCode(e.target.value)}
                           className="w-full mt-1"
                         />
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="regulation-name" className="text-sm font-medium">
-                            {language === 'ar' ? 'اسم التنظيم' : 'Regulation Name'}
-                          </Label>
-                          <Input
-                            id="regulation-name"
-                            placeholder={language === 'ar' ? 'اختياري' : 'Optional'}
-                            value={importName}
-                            onChange={(e) => setImportName(e.target.value)}
-                            className="w-full mt-1"
-                          />
-                        </div>
-                        
-                        <div>
-                          <Label htmlFor="regulation-version" className="text-sm font-medium">
-                            {language === 'ar' ? 'الإصدار' : 'Version'}
-                          </Label>
-                          <Input
-                            id="regulation-version"
-                            value={importVersion}
-                            onChange={(e) => setImportVersion(e.target.value)}
-                            className="w-full mt-1"
-                          />
-                        </div>
+                      <div>
+                        <Label htmlFor="version" className="text-sm font-medium">
+                          {language === 'ar' ? 'الإصدار' : 'Version'}
+                        </Label>
+                        <Input
+                          id="version"
+                          placeholder="2024-v0.4"
+                          value={importVersion}
+                          onChange={(e) => setImportVersion(e.target.value)}
+                          className="w-full mt-1"
+                        />
                       </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="name-en" className="text-sm font-medium">
+                          {language === 'ar' ? 'الاسم (انجليزي)' : 'Name (English)'}
+                        </Label>
+                        <Input
+                          id="name-en"
+                          value={importName}
+                          onChange={(e) => setImportName(e.target.value)}
+                          className="w-full mt-1"
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="name-ar" className="text-sm font-medium text-muted-foreground">
+                          {language === 'ar' ? 'الاسم (عربي) — اختياري' : 'Name (Arabic) — optional'}
+                        </Label>
+                        <Input
+                          id="name-ar"
+                          value={importNameAr}
+                          onChange={(e) => setImportNameAr(e.target.value)}
+                          className="w-full mt-1"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="publisher" className="text-sm font-medium text-muted-foreground">
+                        {language === 'ar' ? 'الناشر — اختياري' : 'Publisher — optional'}
+                      </Label>
+                      <Input
+                        id="publisher"
+                        placeholder="NCA / Custom"
+                        value={importPublisher}
+                        onChange={(e) => setImportPublisher(e.target.value)}
+                        className="w-full mt-1"
+                      />
+                    </div>
+
+                    {/* File Upload Area */}
+                    <div 
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors"
+                      onDragOver={handleDragOver}
+                      onDrop={handleDrop}
+                    >
+                      <Upload className="h-8 w-8 mx-auto mb-4 text-gray-400" />
+                      <p className="text-sm text-gray-600 mb-2">
+                        {language === 'ar' 
+                          ? 'اسحب وأفلت ملفات .xlsx/.csv هنا، أو اختر ملف' 
+                          : 'Drag & drop .xlsx/.csv here, or choose a file'
+                        }
+                      </p>
+                      <div className="relative">
+                        <Input
+                          type="file"
+                          accept=".xlsx,.xls,.csv"
+                          onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        <Button variant="outline" size="sm">
+                          {language === 'ar' ? 'اختر ملف' : 'Choose file'}
+                        </Button>
+                      </div>
+                      {importFile && (
+                        <p className="text-xs text-green-600 mt-2">
+                          {language === 'ar' ? 'ملف محدد:' : 'Selected file:'} {importFile.name}
+                        </p>
+                      )}
                     </div>
 
                     {/* Dry-run Toggle */}
@@ -921,7 +1053,7 @@ export default function Regulations() {
                           onCheckedChange={setDryRun}
                         />
                         <Label htmlFor="dryrun" className="text-sm font-medium">
-                          {language === 'ar' ? 'معاينة أولاً (موصى به)' : 'Dry-run first (recommended)'}
+                          {language === 'ar' ? 'معاينة أولاً' : 'Dry-run first'}
                         </Label>
                       </div>
                       
@@ -934,7 +1066,6 @@ export default function Regulations() {
                               disabled={!importFile || isImporting}
                               className="flex items-center gap-2"
                             >
-                              <CheckCircle className="h-4 w-4" />
                               {isImporting ? '...' : (language === 'ar' ? 'تشغيل المعاينة' : 'Run Dry-Run')}
                             </Button>
                             <Button 
@@ -945,7 +1076,6 @@ export default function Regulations() {
                               }
                               className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700"
                             >
-                              <Upload className="h-4 w-4" />
                               {isImporting ? '...' : (language === 'ar' ? 'استيراد' : 'Import')}
                             </Button>
                           </>
@@ -955,7 +1085,6 @@ export default function Regulations() {
                             disabled={!importFile || isImporting}
                             className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700"
                           >
-                            <Upload className="h-4 w-4" />
                             {isImporting ? '...' : (language === 'ar' ? 'استيراد' : 'Import')}
                           </Button>
                         )}
@@ -1141,8 +1270,11 @@ export default function Regulations() {
                         onClick={() => {
                           setIsImportDialogOpen(false);
                           setImportFile(null);
+                          setImportCode('');
+                          setImportVersion('');
                           setImportName('');
-                          setImportVersion('1.0');
+                          setImportNameAr('');
+                          setImportPublisher('');
                           setImportResult(null);
                           setLastDryRunOk(false);
                           setDryRun(true);
