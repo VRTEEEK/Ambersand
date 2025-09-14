@@ -1605,6 +1605,49 @@ function EditTaskForm({
     }
   };
 
+  // Handle evidence file download
+  const handleDownloadEvidence = async (evidenceId: number, fileName: string) => {
+    try {
+      const response = await fetch(`/api/evidence/${evidenceId}/download`, {
+        method: 'GET',
+        credentials: 'include', // Include session cookies for authentication
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to download file: ${response.statusText}`);
+      }
+
+      // Create blob from response
+      const blob = await response.blob();
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' ? 'تم تحميل الملف بنجاح' : 'File downloaded successfully',
+      });
+    } catch (error: any) {
+      console.error('Error downloading evidence:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message || (language === 'ar' ? 'فشل في تحميل الملف' : 'Failed to download file'),
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       
@@ -2155,7 +2198,13 @@ function EditTaskForm({
                                   </div>
                                 )}
                               </div>
-                              <Button size="sm" variant="outline" className="text-xs">
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="text-xs"
+                                onClick={() => handleDownloadEvidence(evidence.id, evidence.fileName)}
+                                data-testid={`button-download-${evidence.id}`}
+                              >
                                 {language === 'ar' ? 'تحميل' : 'Download'}
                               </Button>
                             </div>
