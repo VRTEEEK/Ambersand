@@ -1,6 +1,6 @@
 import { ComplianceReport } from "./reportData";
 
-export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar' = 'en'): string {
+export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar' = 'en', evidenceLinksAvailable: boolean = false): string {
   const isRTL = lang === 'ar';
   const direction = isRTL ? 'rtl' : 'ltr';
 
@@ -167,6 +167,29 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
             color: #2699A6;
         }
         
+        .evidence-filename-plain {
+            font-weight: bold;
+            color: #374151;
+        }
+        
+        .evidence-link {
+            color: #2699A6;
+            text-decoration: none;
+        }
+        
+        .evidence-link:hover {
+            text-decoration: underline;
+        }
+        
+        .evidence-note {
+            margin-top: 8px;
+            padding: 6px;
+            background: #fef3c7;
+            border-radius: 4px;
+            font-size: 8pt;
+            color: #92400e;
+        }
+        
         .evidence-description {
             color: #666;
             margin-top: 4px;
@@ -216,7 +239,7 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
 
     <div class="controls-section">
         <h2>${lang === 'ar' ? 'تفاصيل الضوابط' : 'Control Details'}</h2>
-        ${generateControlsByDomain(report.controls, lang)}
+        ${generateControlsByDomain(report.controls, lang, evidenceLinksAvailable)}
     </div>
 </body>
 </html>`;
@@ -224,7 +247,7 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
   return template;
 }
 
-function generateControlsByDomain(controls: ComplianceReport['controls'], lang: 'en' | 'ar'): string {
+function generateControlsByDomain(controls: ComplianceReport['controls'], lang: 'en' | 'ar', evidenceLinksAvailable: boolean = false): string {
   const domains = Array.from(new Set(controls.map(c => c.domain)));
   const isRTL = lang === 'ar';
   
@@ -257,12 +280,33 @@ function generateControlsByDomain(controls: ComplianceReport['controls'], lang: 
                   ${control.evidence.length === 0 ? 
                     `<em>${lang === 'ar' ? 'لا توجد أدلة' : 'No evidence'}</em>` :
                     `<ul class="evidence-list">
-                      ${control.evidence.map(ev => `
-                        <li class="evidence-item">
-                          <div class="evidence-filename">${ev.fileName}</div>
-                          ${ev.description ? `<div class="evidence-description">${ev.description}</div>` : ''}
-                        </li>
-                      `).join('')}
+                      ${control.evidence.map(ev => {
+                        const safeFileName = ev.fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+                        const safePath = `evidence/${control.code}__${safeFileName}`;
+                        
+                        if (evidenceLinksAvailable) {
+                          return `
+                            <li class="evidence-item">
+                              <div class="evidence-filename">
+                                <a href="${safePath}" class="evidence-link">${ev.fileName}</a>
+                              </div>
+                              ${ev.description ? `<div class="evidence-description">${ev.description}</div>` : ''}
+                            </li>
+                          `;
+                        } else {
+                          return `
+                            <li class="evidence-item">
+                              <div class="evidence-filename-plain">${ev.fileName}</div>
+                              ${ev.description ? `<div class="evidence-description">${ev.description}</div>` : ''}
+                            </li>
+                          `;
+                        }
+                      }).join('')}
+                      ${!evidenceLinksAvailable && control.evidence.length > 0 ? 
+                        `<li class="evidence-note">
+                          <em>${lang === 'ar' ? 'ملف الأدلة متوفر بصيغة منفصلة' : 'Evidence file: Evidence files available in ZIP bundle'}</em>
+                        </li>` : ''
+                      }
                     </ul>`
                   }
                 </td>

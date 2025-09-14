@@ -2475,11 +2475,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         organizationId: req.user?.claims?.org,
       });
 
-      const html = renderComplianceHTML(report, language);
       const selected = { pdf: !!formats?.pdf, docx: !!formats?.docx, xlsx: !!formats?.xlsx };
       const count = Object.values(selected).filter(Boolean).length;
 
       const needsZip = evidenceMode !== "link" || count !== 1;
+      const evidenceLinksAvailable = needsZip && (evidenceMode === "attach" || evidenceMode === "both");
+      
+      const html = renderComplianceHTML(report, language, evidenceLinksAvailable);
 
       if (needsZip) {
         res.setHeader("Content-Type", "application/zip");
