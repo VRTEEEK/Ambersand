@@ -103,6 +103,13 @@ export async function getComplianceReportData(params: {
         .from(evidence)
         .where(eq(evidence.eccControlId, control.eccControlId));
 
+      console.log(`🔍 Control ${control.eccControl.code}: Found ${controlEvidence.length} evidence files`);
+      if (controlEvidence.length > 0) {
+        controlEvidence.forEach(ev => {
+          console.log(`  📄 Evidence: ${ev.title} (${ev.fileName}) at ${ev.filePath}`);
+        });
+      }
+
       return {
         id: control.eccControlId,
         code: control.eccControl.code,
