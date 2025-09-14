@@ -297,10 +297,13 @@ export async function streamBundle(params: {
         for (const ev of control.evidence) {
           if (existsSync(ev.filePath)) {
             const safeFileName = sanitizeFilename(`${control.code}__${ev.fileName}`);
+            console.log(`📎 Adding evidence file: ${ev.fileName} -> evidence/${safeFileName}`);
+            console.log(`📂 Source path: ${ev.filePath}`);
             archive.append(createReadStream(ev.filePath), { name: `evidence/${safeFileName}` });
           } else {
+            console.log(`❌ Evidence file not found: ${ev.fileName} at ${ev.filePath}`);
             // Add placeholder for missing files
-            const placeholder = `Evidence file not found: ${ev.fileName}\nControl: ${control.code}\nOriginal path: ${ev.filePath}`;
+            const placeholder = `Evidence file not found: ${ev.fileName}\nControl: ${control.code}\nOriginal path: ${ev.filePath}\nGenerated at: ${new Date().toISOString()}`;
             archive.append(Buffer.from(placeholder), { name: `evidence/${control.code}__${ev.fileName}.missing.txt` });
           }
         }
