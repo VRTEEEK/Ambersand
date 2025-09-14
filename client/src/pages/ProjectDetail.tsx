@@ -1236,16 +1236,20 @@ function EditTaskForm({
 
   // Get filtered task controls (excluding pending removed)
   const filteredTaskControls = (taskControls || []).filter(
-    (control: any) => !pendingRemovedControls.includes(control.control.id)
+    (control: any) => {
+      const controlData = control.control || control.eccControl || control.customControl;
+      return controlData && !pendingRemovedControls.includes(controlData.id);
+    }
   );
 
   // Auto-select first control when Evidence tab is accessed
   useEffect(() => {
     if (activeTab === 'evidence' && filteredTaskControls && filteredTaskControls.length > 0 && !hasAutoSelectedControl) {
       const firstControl = filteredTaskControls[0];
-      if (firstControl?.control?.id) {
-        setSelectedControlId(firstControl.control.id);
-        setSelectedControlForView(firstControl.control.id);
+      const controlData = firstControl?.control || firstControl?.eccControl || firstControl?.customControl;
+      if (controlData?.id) {
+        setSelectedControlId(controlData.id);
+        setSelectedControlForView(controlData.id);
         setHasAutoSelectedControl(true);
       }
     }
