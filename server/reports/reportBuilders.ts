@@ -260,6 +260,11 @@ export async function streamBundle(params: {
   htmlContent: string;
 }): Promise<void> {
   const { report, formats, includeEvidence, res, htmlContent } = params;
+  
+  console.log(`📦 streamBundle called with includeEvidence: ${includeEvidence}, formats:`, formats);
+  console.log(`📋 Report has ${report.controls.length} controls`);
+  const totalEvidence = report.controls.reduce((acc, c) => acc + c.evidence.length, 0);
+  console.log(`📄 Total evidence files found: ${totalEvidence}`);
   const archive = archiver('zip', { zlib: { level: 9 } });
   
   const safeProjectName = sanitizeFilename(report.project.name);

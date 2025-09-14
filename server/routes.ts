@@ -2464,6 +2464,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     const { projectId, regulationCode, formats, evidenceMode, controlStatus, language } = parsed.data;
 
+    console.log(`🔄 Export request: projectId=${projectId}, evidenceMode=${evidenceMode}, formats=`, formats);
+
     try {
       // Optional tenant check: ensure the project belongs to req.user.claims.org
       const report = await getComplianceReportData({
