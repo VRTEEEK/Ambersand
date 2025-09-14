@@ -1783,14 +1783,20 @@ function EditTaskForm({
                       </Badge>
                       <div className="flex-1">
                         <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">
-                          {language === 'ar' && control.control.subdomainAr 
-                            ? control.control.subdomainAr 
-                            : control.control.subdomainEn}
+                          {(() => {
+                            const controlData = control.control || control.eccControl || control.customControl;
+                            return language === 'ar' && (controlData?.subdomainAr || controlData?.subDomainAr)
+                              ? (controlData.subdomainAr || controlData.subDomainAr)
+                              : (controlData?.subdomainEn || controlData?.subDomain);
+                          })()}
                         </h4>
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {language === 'ar' && control.control.controlAr 
-                            ? control.control.controlAr 
-                            : control.control.controlEn}
+                          {(() => {
+                            const controlData = control.control || control.eccControl || control.customControl;
+                            return language === 'ar' && (controlData?.controlAr || controlData?.control)
+                              ? (controlData.controlAr || controlData.control)
+                              : (controlData?.controlEn || controlData?.control);
+                          })()}
                         </p>
                       </div>
                       <Button 
@@ -1831,14 +1837,20 @@ function EditTaskForm({
                         </Badge>
                         <div className="flex-1">
                           <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1 opacity-50">
-                            {language === 'ar' && control.control.subdomainAr 
-                              ? control.control.subdomainAr 
-                              : control.control.subdomainEn}
+                            {(() => {
+                              const controlData = control.control || control.eccControl || control.customControl;
+                              return language === 'ar' && (controlData?.subdomainAr || controlData?.subDomainAr)
+                                ? (controlData.subdomainAr || controlData.subDomainAr)
+                                : (controlData?.subdomainEn || controlData?.subDomain);
+                            })()}
                           </h4>
                           <p className="text-sm text-gray-600 dark:text-gray-400 opacity-50">
-                            {language === 'ar' && control.control.controlAr 
-                              ? control.control.controlAr 
-                              : control.control.controlEn}
+                            {(() => {
+                              const controlData = control.control || control.eccControl || control.customControl;
+                              return language === 'ar' && (controlData?.controlAr || controlData?.control)
+                                ? (controlData.controlAr || controlData.control)
+                                : (controlData?.controlEn || controlData?.control);
+                            })()}
                           </p>
                         </div>
                         <Button 
@@ -1951,15 +1963,18 @@ function EditTaskForm({
                 </SelectTrigger>
                 <SelectContent>
                   {filteredTaskControls?.map((control: any) => (
-                    <SelectItem key={control.id} value={control.control.id.toString()}>
+                    <SelectItem key={control.id} value={(control.control || control.eccControl || control.customControl)?.id.toString()}>
                       <div className="flex items-center gap-2">
                         <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs font-medium">
                           {(control.control || control.eccControl || control.customControl)?.code}
                         </span>
                         <span className="text-sm">
-                          {language === 'ar' && control.control.subdomainAr 
-                            ? control.control.subdomainAr 
-                            : control.control.subdomainEn}
+                          {(() => {
+                            const controlData = control.control || control.eccControl || control.customControl;
+                            return language === 'ar' && (controlData?.subdomainAr || controlData?.subDomainAr)
+                              ? (controlData.subdomainAr || controlData.subDomainAr)
+                              : (controlData?.subdomainEn || controlData?.subDomain);
+                          })()}
                         </span>
                       </div>
                     </SelectItem>
@@ -1969,22 +1984,34 @@ function EditTaskForm({
             </div>
 
             {/* Control Information Display */}
-            {selectedControlId && taskControls?.find((c: any) => c.control.id === selectedControlId) && (
+            {selectedControlId && taskControls?.find((c: any) => (c.control || c.eccControl || c.customControl)?.id === selectedControlId) && (
               <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                 <div className="flex items-start gap-3 mb-3">
                   <Badge variant="secondary" className="mt-1">
-                    {taskControls.find((c: any) => (c.control || c.eccControl || c.customControl)?.id === selectedControlId)?.control?.code || taskControls.find((c: any) => (c.control || c.eccControl || c.customControl)?.id === selectedControlId)?.eccControl?.code || taskControls.find((c: any) => (c.control || c.eccControl || c.customControl)?.id === selectedControlId)?.customControl?.code}
+                    {(() => {
+                      const foundControl = taskControls.find((c: any) => (c.control || c.eccControl || c.customControl)?.id === selectedControlId);
+                      const controlData = foundControl?.control || foundControl?.eccControl || foundControl?.customControl;
+                      return controlData?.code;
+                    })()}
                   </Badge>
                   <div className="flex-1">
                     <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">
-                      {language === 'ar' 
-                        ? taskControls.find((c: any) => c.control.id === selectedControlId)?.control.subdomainAr
-                        : taskControls.find((c: any) => c.control.id === selectedControlId)?.control.subdomainEn}
+                      {(() => {
+                        const foundControl = taskControls.find((c: any) => (c.control || c.eccControl || c.customControl)?.id === selectedControlId);
+                        const controlData = foundControl?.control || foundControl?.eccControl || foundControl?.customControl;
+                        return language === 'ar' && (controlData?.subdomainAr || controlData?.subDomainAr)
+                          ? (controlData.subdomainAr || controlData.subDomainAr)
+                          : (controlData?.subdomainEn || controlData?.subDomain);
+                      })()}
                     </h4>
                     <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
-                      {language === 'ar'
-                        ? taskControls.find((c: any) => c.control.id === selectedControlId)?.control.controlAr
-                        : taskControls.find((c: any) => c.control.id === selectedControlId)?.control.controlEn}
+                      {(() => {
+                        const foundControl = taskControls.find((c: any) => (c.control || c.eccControl || c.customControl)?.id === selectedControlId);
+                        const controlData = foundControl?.control || foundControl?.eccControl || foundControl?.customControl;
+                        return language === 'ar' && (controlData?.controlAr || controlData?.control)
+                          ? (controlData.controlAr || controlData.control)
+                          : (controlData?.controlEn || controlData?.control);
+                      })()}
                     </p>
                     
                     {/* Required Evidence */}
@@ -1993,9 +2020,13 @@ function EditTaskForm({
                         {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
                       </h5>
                       <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {language === 'ar' 
-                          ? (taskControls.find((c: any) => c.control.id === selectedControlId)?.control.evidenceAr || 'وثائق، سياسات، إجراءات، وأدلة تدقيق')
-                          : (taskControls.find((c: any) => c.control.id === selectedControlId)?.control.evidenceEn || 'Documentation, policies, procedures, and audit evidence')}
+                        {(() => {
+                          const foundControl = taskControls.find((c: any) => (c.control || c.eccControl || c.customControl)?.id === selectedControlId);
+                          const controlData = foundControl?.control || foundControl?.eccControl || foundControl?.customControl;
+                          return language === 'ar' 
+                            ? (controlData?.evidenceAr || 'وثائق، سياسات، إجراءات، وأدلة تدقيق')
+                            : (controlData?.evidenceEn || 'Documentation, policies, procedures, and audit evidence');
+                        })()}
                       </p>
                     </div>
 
@@ -2646,14 +2677,20 @@ function ControlSelector({
                 </Badge>
               </div>
               <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">
-                {language === 'ar' && control.control.subdomainAr 
-                  ? control.control.subdomainAr 
-                  : control.control.subdomainEn}
+                {(() => {
+                  const controlData = control.control || control.eccControl || control.customControl;
+                  return language === 'ar' && (controlData?.subdomainAr || controlData?.subDomainAr)
+                    ? (controlData.subdomainAr || controlData.subDomainAr)
+                    : (controlData?.subdomainEn || controlData?.subDomain);
+                })()}
               </h4>
               <p className="text-xs text-gray-600 dark:text-gray-400">
-                {language === 'ar' && control.control.controlAr 
-                  ? control.control.controlAr 
-                  : control.control.controlEn}
+                {(() => {
+                  const controlData = control.control || control.eccControl || control.customControl;
+                  return language === 'ar' && (controlData?.controlAr || controlData?.control)
+                    ? (controlData.controlAr || controlData.control)
+                    : (controlData?.controlEn || controlData?.control);
+                })()}
               </p>
             </div>
           </div>
