@@ -32,33 +32,39 @@ import RiskDetailPage from "@/pages/RiskDetailPage";
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
+  // Show loading state while authentication is being determined
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Switch>
-      {isLoading || !isAuthenticated ? (
-        <Route path="/" component={Landing} />
-      ) : (
-        <>
-          <Route path="/" component={Dashboard} />
-          <Route path="/regulations" component={Regulations} />
-          <Route path="/regulations/import" component={ImportRegulation} />
-          <Route path="/regulations/:id" component={RegulationDetail} />
-          <Route path="/projects" component={Projects} />
-          <Route path="/projects/:id" component={ProjectDetail} />
-          <Route path="/my-tasks" component={MyTasks} />
-          <Route path="/tasks" component={Tasks} />
-          <Route path="/tasks/:id" component={TaskDetail} />
-          <Route path="/risks" component={RiskRegister} />
-          <Route path="/risks/:id" component={RiskDetailPage} />
-          <Route path="/evidence" component={Evidence} />
-          <Route path="/analytics" component={AnalyticsReports} />
-          <Route path="/users" component={Users} />
-          <Route path="/admin/users" component={EnhancedUsersPage} />
-          <Route path="/notifications" component={Notifications} />
-          <Route path="/email-test" component={EmailTest} />
-          <Route path="/settings" component={Settings} />
-          <Route path="/profile" component={UserProfile} />
-        </>
-      )}
+      <Route path="/" component={isAuthenticated ? Dashboard : Landing} />
+      <Route path="/regulations" component={isAuthenticated ? Regulations : Landing} />
+      <Route path="/regulations/import" component={isAuthenticated ? ImportRegulation : Landing} />
+      <Route path="/regulations/:id" component={isAuthenticated ? RegulationDetail : Landing} />
+      <Route path="/projects" component={isAuthenticated ? Projects : Landing} />
+      <Route path="/projects/:id" component={isAuthenticated ? ProjectDetail : Landing} />
+      <Route path="/my-tasks" component={isAuthenticated ? MyTasks : Landing} />
+      <Route path="/tasks" component={isAuthenticated ? Tasks : Landing} />
+      <Route path="/tasks/:id" component={isAuthenticated ? TaskDetail : Landing} />
+      <Route path="/risks" component={isAuthenticated ? RiskRegister : Landing} />
+      <Route path="/risks/:id" component={isAuthenticated ? RiskDetailPage : Landing} />
+      <Route path="/evidence" component={isAuthenticated ? Evidence : Landing} />
+      <Route path="/analytics" component={isAuthenticated ? AnalyticsReports : Landing} />
+      <Route path="/users" component={isAuthenticated ? Users : Landing} />
+      <Route path="/admin/users" component={isAuthenticated ? EnhancedUsersPage : Landing} />
+      <Route path="/notifications" component={isAuthenticated ? Notifications : Landing} />
+      <Route path="/email-test" component={isAuthenticated ? EmailTest : Landing} />
+      <Route path="/settings" component={isAuthenticated ? Settings : Landing} />
+      <Route path="/profile" component={isAuthenticated ? UserProfile : Landing} />
       <Route component={NotFound} />
     </Switch>
   );
