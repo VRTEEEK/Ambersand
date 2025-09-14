@@ -99,9 +99,24 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
     enabled: isOpen,
   });
 
-  // Get unique domains from project controls
+  // Get unique domains from project controls (handle both ECC and custom controls)
   const domains = Array.from(new Set(
-    (projectControls as any[]).map((pc: any) => language === 'ar' ? pc.control?.domainAr : pc.control?.domainEn)
+    (projectControls as any[]).map((pc: any) => {
+      const control = pc.control;
+      if (!control) return null;
+      
+      // Handle ECC controls (domainEn/domainAr)
+      if (control.domainEn || control.domainAr) {
+        return language === 'ar' ? control.domainAr : control.domainEn;
+      }
+      
+      // Handle custom controls (mainDomain/mainDomainAr)
+      if (control.mainDomain || control.mainDomainAr) {
+        return language === 'ar' ? control.mainDomainAr || control.mainDomain : control.mainDomain;
+      }
+      
+      return null;
+    })
   )).filter(Boolean).sort();
 
   // Auto-select first domain if project is preselected and only one domain exists
@@ -116,9 +131,19 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
     (domain as string).toLowerCase().includes(domainSearch.toLowerCase())
   );
 
-  // Get controls for selected domain
+  // Get controls for selected domain (handle both ECC and custom controls)
   const domainControls = (projectControls as any[]).filter((pc: any) => {
-    const controlDomain = language === 'ar' ? pc.control?.domainAr : pc.control?.domainEn;
+    const control = pc.control;
+    if (!control) return false;
+    
+    // Get domain based on control type
+    let controlDomain;
+    if (language === 'ar') {
+      controlDomain = control.domainAr || control.mainDomainAr || control.mainDomain;
+    } else {
+      controlDomain = control.domainEn || control.mainDomain;
+    }
+    
     return controlDomain === selectedDomain;
   });
 
@@ -139,7 +164,9 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
         const tasks = [];
         for (const controlId of controlIds) {
           const control = domainControls.find((pc: any) => pc.control?.id === controlId);
-          const controlTitle = language === 'ar' ? control?.control?.controlAr : control?.control?.controlEn;
+          const controlTitle = language === 'ar' 
+            ? (control?.control?.controlAr || control?.control?.control)
+            : (control?.control?.controlEn || control?.control?.control);
           
           const taskResponse = await apiRequest('/api/tasks', 'POST', {
             ...cleanTaskData,
@@ -285,8 +312,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
     if (!selectedDomain) return;
     
     const domainControlCount = selectedControls.filter(controlId => {
-      const control = domainControls.find((pc: any) => pc.control?.id === controlId);
-      return control?.control?.domainEn === selectedDomain;
+      return Boolean(domainControls.find(pc => pc.control?.id === controlId));
     }).length;
     
     setDomainControlCounts(prev => ({
@@ -667,14 +693,14 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                           >
                             {projectControl.control?.code} - {
                               language === 'ar' 
-                                ? projectControl.control?.controlAr 
-                                : projectControl.control?.controlEn
+                                ? (projectControl.control?.controlAr || projectControl.control?.control)
+                                : (projectControl.control?.controlEn || projectControl.control?.control)
                             }
                           </Label>
                           <p className="text-xs text-gray-600 mt-1">
                             {language === 'ar' 
-                              ? projectControl.control?.subdomainAr 
-                              : projectControl.control?.subdomainEn
+                              ? (projectControl.control?.subdomainAr || projectControl.control?.subDomainAr)
+                              : (projectControl.control?.subdomainEn || projectControl.control?.subDomain)
                             }
                           </p>
                         </div>
