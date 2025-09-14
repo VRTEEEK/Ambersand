@@ -824,43 +824,49 @@ export default function ProjectDetail() {
                           {task.controls && task.controls.length > 0 && (
                             <TooltipProvider>
                               <div className="flex flex-wrap gap-2">
-                                {task.controls.map((control: any) => (
-                                  <Tooltip key={control.control.id}>
-                                    <TooltipTrigger asChild>
-                                      <div className="inline-block">
-                                        <Badge 
-                                          variant="outline" 
-                                          className="text-xs font-medium bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-700 text-teal-800 dark:text-teal-300 cursor-help"
-                                        >
-                                          {control.control.code}
-                                        </Badge>
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top" className="max-w-sm p-3">
-                                      <div className="space-y-2">
-                                        <div className="font-semibold text-sm">
-                                          {control.control.code} - {language === 'ar' && control.control.domainAr ? control.control.domainAr : control.control.domainEn}
+                                {task.controls.map((control: any) => {
+                                  // Get the actual control data (ECC or custom)
+                                  const actualControl = control.eccControl || control.customControl;
+                                  if (!actualControl) return null;
+                                  
+                                  return (
+                                    <Tooltip key={actualControl.id}>
+                                      <TooltipTrigger asChild>
+                                        <div className="inline-block">
+                                          <Badge 
+                                            variant="outline" 
+                                            className="text-xs font-medium bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-700 text-teal-800 dark:text-teal-300 cursor-help"
+                                          >
+                                            {actualControl.code}
+                                          </Badge>
                                         </div>
-                                        <div className="text-xs text-gray-600 leading-relaxed">
-                                          {language === 'ar' && control.control.subdomainAr ? control.control.subdomainAr : control.control.subdomainEn}
-                                        </div>
-                                        <div className="text-xs text-gray-700 leading-relaxed border-t pt-2">
-                                          {language === 'ar' && control.control.controlAr ? control.control.controlAr : control.control.controlEn}
-                                        </div>
-                                        {(control.control.evidenceEn || control.control.evidenceAr) && (
-                                          <div className="pt-1 border-t">
-                                            <div className="text-xs font-medium text-blue-600">
-                                              {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
-                                            </div>
-                                            <div className="text-xs text-gray-600 mt-1 max-h-20 overflow-y-auto">
-                                              {language === 'ar' && control.control.evidenceAr ? control.control.evidenceAr : control.control.evidenceEn}
-                                            </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="max-w-sm p-3">
+                                        <div className="space-y-2">
+                                          <div className="font-semibold text-sm">
+                                            {actualControl.code} - {language === 'ar' ? (actualControl.domainAr || actualControl.mainDomainAr || actualControl.mainDomain) : (actualControl.domainEn || actualControl.mainDomain)}
                                           </div>
-                                        )}
-                                      </div>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                ))}
+                                          <div className="text-xs text-gray-600 leading-relaxed">
+                                            {language === 'ar' ? (actualControl.subdomainAr || actualControl.subDomainAr) : (actualControl.subdomainEn || actualControl.subDomain)}
+                                          </div>
+                                          <div className="text-xs text-gray-700 leading-relaxed border-t pt-2">
+                                            {language === 'ar' ? (actualControl.controlAr || actualControl.control) : (actualControl.controlEn || actualControl.control)}
+                                          </div>
+                                          {(actualControl.evidenceEn || actualControl.evidenceAr) && (
+                                            <div className="pt-1 border-t">
+                                              <div className="text-xs font-medium text-blue-600">
+                                                {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
+                                              </div>
+                                              <div className="text-xs text-gray-600 mt-1 max-h-20 overflow-y-auto">
+                                                {language === 'ar' ? actualControl.evidenceAr : actualControl.evidenceEn}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  );
+                                })}
                               </div>
                             </TooltipProvider>
                           )}
@@ -996,7 +1002,7 @@ export default function ProjectDetail() {
                                 disabled
                               />
                               <Badge variant="secondary" className="px-2 py-1 text-xs font-medium">
-                                {control.control.code}
+                                {(control.eccControl || control.customControl)?.code}
                               </Badge>
                             </div>
                             <div className="flex-1 min-w-0">
@@ -1037,7 +1043,11 @@ export default function ProjectDetail() {
                           <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
                             <Badge variant="outline" className="text-xs">
                               {(tasksWithControls?.filter((task: any) => 
-                                task.controls?.some((taskControl: any) => taskControl.control.id === control.control.id)
+                                task.controls?.some((taskControl: any) => {
+                                  const taskCtrlId = (taskControl.eccControl || taskControl.customControl)?.id;
+                                  const ctrlId = (control.control || control.eccControl || control.customControl)?.id;
+                                  return taskCtrlId === ctrlId;
+                                })
                               ) || []).length} {language === 'ar' ? 'مهمة' : 'Tasks'}
                             </Badge>
                             <Button
@@ -1388,7 +1398,11 @@ function EditTaskForm({
   const domainControls = selectedDomain 
     ? projectControls.filter((pc: any) => {
         const isInDomain = pc.control?.domainEn === selectedDomain;
-        const isAlreadyAssigned = (taskControls || []).some((tc: any) => tc.control?.id === pc.control?.id);
+        const isAlreadyAssigned = (taskControls || []).some((tc: any) => {
+          const tcId = (tc.eccControl || tc.customControl || tc.control)?.id;
+          const pcId = (pc.control || pc.eccControl || pc.customControl)?.id;
+          return tcId === pcId;
+        });
         return isInDomain && !isAlreadyAssigned;
       })
     : [];
@@ -1755,7 +1769,7 @@ function EditTaskForm({
                         variant="secondary" 
                         className="mt-1"
                       >
-                        {control.control.code}
+                        {(control.control || control.eccControl || control.customControl)?.code}
                       </Badge>
                       <div className="flex-1">
                         <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">
@@ -1803,7 +1817,7 @@ function EditTaskForm({
                     return (
                       <div key={control.id} className="flex items-start gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-red-200">
                         <Badge variant="secondary" className="mt-1 opacity-50">
-                          {control.control.code}
+                          {(control.control || control.eccControl || control.customControl)?.code}
                         </Badge>
                         <div className="flex-1">
                           <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1 opacity-50">
@@ -1854,7 +1868,16 @@ function EditTaskForm({
                       <div className="flex items-center justify-between">
                         <span className="font-medium">{domain}</span>
                         <Badge variant="secondary">
-                          {projectControls.filter(pc => pc.control?.domainEn === domain && !taskControls?.some(tc => tc.control?.id === pc.control?.id)).length} available
+                          {projectControls.filter(pc => {
+                            const pcDomain = (pc.control || pc.eccControl || pc.customControl)?.domainEn || (pc.control || pc.eccControl || pc.customControl)?.mainDomain;
+                            const isInDomain = pcDomain === domain;
+                            const isAssigned = taskControls?.some(tc => {
+                              const tcId = (tc.eccControl || tc.customControl || tc.control)?.id;
+                              const pcId = (pc.control || pc.eccControl || pc.customControl)?.id;
+                              return tcId === pcId;
+                            });
+                            return isInDomain && !isAssigned;
+                          }).length} available
                         </Badge>
                       </div>
                     </div>
@@ -1921,7 +1944,7 @@ function EditTaskForm({
                     <SelectItem key={control.id} value={control.control.id.toString()}>
                       <div className="flex items-center gap-2">
                         <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs font-medium">
-                          {control.control.code}
+                          {(control.control || control.eccControl || control.customControl)?.code}
                         </span>
                         <span className="text-sm">
                           {language === 'ar' && control.control.subdomainAr 
@@ -1940,7 +1963,7 @@ function EditTaskForm({
               <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                 <div className="flex items-start gap-3 mb-3">
                   <Badge variant="secondary" className="mt-1">
-                    {taskControls.find((c: any) => c.control.id === selectedControlId)?.control.code}
+                    {taskControls.find((c: any) => (c.control || c.eccControl || c.customControl)?.id === selectedControlId)?.control?.code || taskControls.find((c: any) => (c.control || c.eccControl || c.customControl)?.id === selectedControlId)?.eccControl?.code || taskControls.find((c: any) => (c.control || c.eccControl || c.customControl)?.id === selectedControlId)?.customControl?.code}
                   </Badge>
                   <div className="flex-1">
                     <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">
@@ -2609,7 +2632,7 @@ function ControlSelector({
                     onControlClick?.(control.control);
                   }}
                 >
-                  {control.control.code}
+                  {(control.control || control.eccControl || control.customControl)?.code}
                 </Badge>
               </div>
               <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">
