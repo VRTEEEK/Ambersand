@@ -233,33 +233,46 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
         const projectIdStr = String(selectedProjectId);
         const projectIdNum = Number(selectedProjectId);
         
-        // Invalidate the exact query keys used in ProjectDetail
-        queryClient.invalidateQueries({ queryKey: ['/api/tasks', { projectId: selectedProjectId }] });
-        queryClient.invalidateQueries({ queryKey: ['/api/tasks', { projectId: projectIdStr }] });
-        queryClient.invalidateQueries({ queryKey: ['/api/tasks', { projectId: projectIdNum }] });
-        
-        // Invalidate with-controls queries that depend on the refreshKey
-        queryClient.invalidateQueries({ queryKey: ['/api/tasks', projectIdStr, 'with-controls'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/tasks', projectIdNum, 'with-controls'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/tasks', selectedProjectId, 'with-controls'] });
-        
-        // More comprehensive predicate to match all variations of task queries
+        // CRITICAL: Invalidate queries that match the ProjectDetail query pattern
+        // ProjectDetail uses: ['/api/tasks', { projectId: id }, refreshKey]
         queryClient.invalidateQueries({ 
           predicate: (query) => {
             const key = query.queryKey;
-            const match = Array.isArray(key) && key[0] === '/api/tasks' && 
-              (key[1]?.projectId === selectedProjectId || 
-               key[1]?.projectId === projectIdStr || 
-               key[1]?.projectId === projectIdNum ||
-               key[1] === selectedProjectId ||
-               key[1] === projectIdStr ||
-               key[1] === projectIdNum ||
-               (typeof key[1] === 'string' && (key[1] === projectIdStr || key[1] === String(projectIdNum))) ||
-               (typeof key[1] === 'number' && (key[1] === projectIdNum || key[1] === Number(projectIdStr))));
-            if (match) {
-              console.log('🔄 TaskWizard: Invalidating project task query:', query.queryKey);
+            // Check if this is a task query with projectId parameter
+            const isTaskQuery = Array.isArray(key) && 
+              key[0] === '/api/tasks' &&
+              key[1] && 
+              typeof key[1] === 'object' &&
+              'projectId' in key[1];
+            
+            if (isTaskQuery) {
+              const queryProjectId = key[1].projectId;
+              const matches = queryProjectId == selectedProjectId || 
+                             queryProjectId == projectIdStr || 
+                             queryProjectId == projectIdNum;
+              if (matches) {
+                console.log('🔄 TaskWizard: Invalidating project task query:', query.queryKey);
+                return true;
+              }
             }
-            return match;
+            
+            // Also check for with-controls queries: ['/api/tasks', projectId, 'with-controls', refreshKey]
+            const isWithControlsQuery = Array.isArray(key) && 
+              key[0] === '/api/tasks' &&
+              key[2] === 'with-controls';
+            
+            if (isWithControlsQuery) {
+              const queryProjectId = key[1];
+              const matches = queryProjectId == selectedProjectId || 
+                             queryProjectId == projectIdStr || 
+                             queryProjectId == projectIdNum;
+              if (matches) {
+                console.log('🔄 TaskWizard: Invalidating project task query:', query.queryKey);
+                return true;
+              }
+            }
+            
+            return false;
           }
         });
       }
