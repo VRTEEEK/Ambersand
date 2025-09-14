@@ -219,8 +219,8 @@ export default function ProjectDetail() {
         projectId: parseInt(id!),
         // Use the assigneeEmail as assigneeId for now
         assigneeId: data.assigneeEmail,
-        // Map controlId to eccControlId for database compatibility
-        eccControlId: data.controlId,
+        // Map controlId to controlId for database compatibility
+        controlId: data.controlId,
       };
       return await apiRequest('/api/tasks', 'POST', taskData);
     },
@@ -257,8 +257,8 @@ export default function ProjectDetail() {
       const taskData = {
         ...data,
         // Keep the assigneeId as is - don't map it to assigneeEmail for updates
-        // Map controlId to eccControlId for database compatibility
-        eccControlId: data.controlId,
+        // Map controlId to controlId for database compatibility
+        controlId: data.controlId,
       };
       console.log('🔄 Final task data being sent to API:', taskData);
       console.log('🔄 Making PUT request to:', `/api/tasks/${data.id}`);
@@ -356,8 +356,8 @@ export default function ProjectDetail() {
   };
 
   const selectedControl = projectControls?.find(
-    (control: any) => control.eccControl.id === selectedControlId
-  )?.eccControl;
+    (control: any) => control.control?.id === selectedControlId
+  )?.control;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -422,7 +422,7 @@ export default function ProjectDetail() {
 
   // Group controls by domain
   const groupedControls = projectControls?.reduce((acc: any, control: any) => {
-    const domain = language === 'ar' ? control.eccControl.domainAr : control.eccControl.domainEn;
+    const domain = language === 'ar' ? control.control?.domainAr : control.control?.domainEn;
     if (!acc[domain]) {
       acc[domain] = [];
     }
@@ -825,35 +825,35 @@ export default function ProjectDetail() {
                             <TooltipProvider>
                               <div className="flex flex-wrap gap-2">
                                 {task.controls.map((control: any) => (
-                                  <Tooltip key={control.eccControl.id}>
+                                  <Tooltip key={control.control.id}>
                                     <TooltipTrigger asChild>
                                       <div className="inline-block">
                                         <Badge 
                                           variant="outline" 
                                           className="text-xs font-medium bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-700 text-teal-800 dark:text-teal-300 cursor-help"
                                         >
-                                          {control.eccControl.code}
+                                          {control.control.code}
                                         </Badge>
                                       </div>
                                     </TooltipTrigger>
                                     <TooltipContent side="top" className="max-w-sm p-3">
                                       <div className="space-y-2">
                                         <div className="font-semibold text-sm">
-                                          {control.eccControl.code} - {language === 'ar' && control.eccControl.domainAr ? control.eccControl.domainAr : control.eccControl.domainEn}
+                                          {control.control.code} - {language === 'ar' && control.control.domainAr ? control.control.domainAr : control.control.domainEn}
                                         </div>
                                         <div className="text-xs text-gray-600 leading-relaxed">
-                                          {language === 'ar' && control.eccControl.subdomainAr ? control.eccControl.subdomainAr : control.eccControl.subdomainEn}
+                                          {language === 'ar' && control.control.subdomainAr ? control.control.subdomainAr : control.control.subdomainEn}
                                         </div>
                                         <div className="text-xs text-gray-700 leading-relaxed border-t pt-2">
-                                          {language === 'ar' && control.eccControl.controlAr ? control.eccControl.controlAr : control.eccControl.controlEn}
+                                          {language === 'ar' && control.control.controlAr ? control.control.controlAr : control.control.controlEn}
                                         </div>
-                                        {(control.eccControl.evidenceEn || control.eccControl.evidenceAr) && (
+                                        {(control.control.evidenceEn || control.control.evidenceAr) && (
                                           <div className="pt-1 border-t">
                                             <div className="text-xs font-medium text-blue-600">
                                               {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
                                             </div>
                                             <div className="text-xs text-gray-600 mt-1 max-h-20 overflow-y-auto">
-                                              {language === 'ar' && control.eccControl.evidenceAr ? control.eccControl.evidenceAr : control.eccControl.evidenceEn}
+                                              {language === 'ar' && control.control.evidenceAr ? control.control.evidenceAr : control.control.evidenceEn}
                                             </div>
                                           </div>
                                         )}
@@ -983,7 +983,7 @@ export default function ProjectDetail() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {(controls as any[]).map((control: any) => {
-                    const controlTasks = tasks?.filter((task: any) => task.controlId === control.eccControl.id) || [];
+                    const controlTasks = tasks?.filter((task: any) => task.controlId === control.control.id) || [];
                     return (
                       <Card key={control.id} className="relative hover:shadow-md transition-shadow">
                         <CardContent className="p-4">
@@ -996,29 +996,29 @@ export default function ProjectDetail() {
                                 disabled
                               />
                               <Badge variant="secondary" className="px-2 py-1 text-xs font-medium">
-                                {control.eccControl.code}
+                                {control.control.code}
                               </Badge>
                             </div>
                             <div className="flex-1 min-w-0">
                               <h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-2 leading-tight">
-                                {language === 'ar' && control.eccControl.subdomainAr 
-                                  ? control.eccControl.subdomainAr 
-                                  : control.eccControl.subdomainEn || control.eccControl.titleEn || control.eccControl.titleAr}
+                                {language === 'ar' && control.control.subdomainAr 
+                                  ? control.control.subdomainAr 
+                                  : control.control.subdomainEn || control.control.titleEn || control.control.titleAr}
                               </h3>
                               
                               {/* Control Description */}
                               <p className="text-sm text-gray-700 dark:text-gray-300 mb-2 line-clamp-2">
-                                {language === 'ar' && control.eccControl.controlAr 
-                                  ? control.eccControl.controlAr 
-                                  : control.eccControl.controlEn || 'No description available'}
+                                {language === 'ar' && control.control.controlAr 
+                                  ? control.control.controlAr 
+                                  : control.control.controlEn || 'No description available'}
                               </p>
                               
                               {/* Implementation Guidance */}
-                              {(control.eccControl.implementationGuidanceEn || control.eccControl.implementationGuidanceAr) && (
+                              {(control.control.implementationGuidanceEn || control.control.implementationGuidanceAr) && (
                                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
-                                  {language === 'ar' && control.eccControl.implementationGuidanceAr 
-                                    ? control.eccControl.implementationGuidanceAr 
-                                    : control.eccControl.implementationGuidanceEn}
+                                  {language === 'ar' && control.control.implementationGuidanceAr 
+                                    ? control.control.implementationGuidanceAr 
+                                    : control.control.implementationGuidanceEn}
                                 </p>
                               )}
                               <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -1027,8 +1027,8 @@ export default function ProjectDetail() {
                                 </span>
                                 <span className="ml-1">
                                   {language === 'ar' 
-                                    ? (control.eccControl.evidenceAr || control.eccControl.evidenceRequiredAr || 'وثائق ، سياسات ، إجراءات ، وأدلة تدقيق')
-                                    : (control.eccControl.evidenceEn || control.eccControl.evidenceRequiredEn || 'Documentation, policies, procedures, and audit evidence')}
+                                    ? (control.control.evidenceAr || control.control.evidenceRequiredAr || 'وثائق ، سياسات ، إجراءات ، وأدلة تدقيق')
+                                    : (control.control.evidenceEn || control.control.evidenceRequiredEn || 'Documentation, policies, procedures, and audit evidence')}
                                 </span>
                               </div>
                             </div>
@@ -1037,13 +1037,13 @@ export default function ProjectDetail() {
                           <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
                             <Badge variant="outline" className="text-xs">
                               {(tasksWithControls?.filter((task: any) => 
-                                task.controls?.some((taskControl: any) => taskControl.eccControl.id === control.eccControl.id)
+                                task.controls?.some((taskControl: any) => taskControl.control.id === control.control.id)
                               ) || []).length} {language === 'ar' ? 'مهمة' : 'Tasks'}
                             </Badge>
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleCreateTask(control.eccControl.id)}
+                              onClick={() => handleCreateTask(control.control.id)}
                               className="text-xs px-2 py-1 h-6"
                             >
                               <Plus className="h-3 w-3 mr-1" />
@@ -1220,16 +1220,16 @@ function EditTaskForm({
 
   // Get filtered task controls (excluding pending removed)
   const filteredTaskControls = (taskControls || []).filter(
-    (control: any) => !pendingRemovedControls.includes(control.eccControl.id)
+    (control: any) => !pendingRemovedControls.includes(control.control.id)
   );
 
   // Auto-select first control when Evidence tab is accessed
   useEffect(() => {
     if (activeTab === 'evidence' && filteredTaskControls && filteredTaskControls.length > 0 && !hasAutoSelectedControl) {
       const firstControl = filteredTaskControls[0];
-      if (firstControl?.eccControl?.id) {
-        setSelectedControlId(firstControl.eccControl.id);
-        setSelectedControlForView(firstControl.eccControl.id);
+      if (firstControl?.control?.id) {
+        setSelectedControlId(firstControl.control.id);
+        setSelectedControlForView(firstControl.control.id);
         setHasAutoSelectedControl(true);
       }
     }
@@ -1381,14 +1381,14 @@ function EditTaskForm({
 
   // Get unique domains from project controls
   const domains = Array.from(new Set(
-    projectControls.map((pc: any) => pc.eccControl?.domainEn).filter(Boolean)
+    projectControls.map((pc: any) => pc.control?.domainEn).filter(Boolean)
   ));
 
   // Get controls for selected domain that are NOT already assigned to the task
   const domainControls = selectedDomain 
     ? projectControls.filter((pc: any) => {
-        const isInDomain = pc.eccControl?.domainEn === selectedDomain;
-        const isAlreadyAssigned = (taskControls || []).some((tc: any) => tc.eccControl?.id === pc.eccControl?.id);
+        const isInDomain = pc.control?.domainEn === selectedDomain;
+        const isAlreadyAssigned = (taskControls || []).some((tc: any) => tc.control?.id === pc.control?.id);
         return isInDomain && !isAlreadyAssigned;
       })
     : [];
@@ -1755,24 +1755,24 @@ function EditTaskForm({
                         variant="secondary" 
                         className="mt-1"
                       >
-                        {control.eccControl.code}
+                        {control.control.code}
                       </Badge>
                       <div className="flex-1">
                         <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">
-                          {language === 'ar' && control.eccControl.subdomainAr 
-                            ? control.eccControl.subdomainAr 
-                            : control.eccControl.subdomainEn}
+                          {language === 'ar' && control.control.subdomainAr 
+                            ? control.control.subdomainAr 
+                            : control.control.subdomainEn}
                         </h4>
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {language === 'ar' && control.eccControl.controlAr 
-                            ? control.eccControl.controlAr 
-                            : control.eccControl.controlEn}
+                          {language === 'ar' && control.control.controlAr 
+                            ? control.control.controlAr 
+                            : control.control.controlEn}
                         </p>
                       </div>
                       <Button 
                         size="sm" 
                         variant="outline" 
-                        onClick={() => handleTemporaryRemoveControl(control.eccControl.id)}
+                        onClick={() => handleTemporaryRemoveControl(control.control.id)}
                         className="text-red-600 hover:text-red-700"
                       >
                         {language === 'ar' ? 'حذف' : 'Remove'}
@@ -1797,30 +1797,30 @@ function EditTaskForm({
               <div className="border border-red-200 dark:border-red-800 rounded-lg p-4 bg-red-50 dark:bg-red-900/20">
                 <div className="space-y-3">
                   {pendingRemovedControls.map((controlId) => {
-                    const control = taskControls?.find((tc: any) => tc.eccControl.id === controlId);
+                    const control = taskControls?.find((tc: any) => tc.control.id === controlId);
                     if (!control) return null;
                     
                     return (
                       <div key={control.id} className="flex items-start gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-red-200">
                         <Badge variant="secondary" className="mt-1 opacity-50">
-                          {control.eccControl.code}
+                          {control.control.code}
                         </Badge>
                         <div className="flex-1">
                           <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1 opacity-50">
-                            {language === 'ar' && control.eccControl.subdomainAr 
-                              ? control.eccControl.subdomainAr 
-                              : control.eccControl.subdomainEn}
+                            {language === 'ar' && control.control.subdomainAr 
+                              ? control.control.subdomainAr 
+                              : control.control.subdomainEn}
                           </h4>
                           <p className="text-sm text-gray-600 dark:text-gray-400 opacity-50">
-                            {language === 'ar' && control.eccControl.controlAr 
-                              ? control.eccControl.controlAr 
-                              : control.eccControl.controlEn}
+                            {language === 'ar' && control.control.controlAr 
+                              ? control.control.controlAr 
+                              : control.control.controlEn}
                           </p>
                         </div>
                         <Button 
                           size="sm" 
                           variant="outline" 
-                          onClick={() => handleRestoreControl(control.eccControl.id)}
+                          onClick={() => handleRestoreControl(control.control.id)}
                           className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400"
                         >
                           {language === 'ar' ? 'استعادة' : 'Restore'}
@@ -1854,7 +1854,7 @@ function EditTaskForm({
                       <div className="flex items-center justify-between">
                         <span className="font-medium">{domain}</span>
                         <Badge variant="secondary">
-                          {projectControls.filter(pc => pc.eccControl?.domainEn === domain && !taskControls?.some(tc => tc.eccControl?.id === pc.eccControl?.id)).length} available
+                          {projectControls.filter(pc => pc.control?.domainEn === domain && !taskControls?.some(tc => tc.control?.id === pc.control?.id)).length} available
                         </Badge>
                       </div>
                     </div>
@@ -1918,15 +1918,15 @@ function EditTaskForm({
                 </SelectTrigger>
                 <SelectContent>
                   {filteredTaskControls?.map((control: any) => (
-                    <SelectItem key={control.id} value={control.eccControl.id.toString()}>
+                    <SelectItem key={control.id} value={control.control.id.toString()}>
                       <div className="flex items-center gap-2">
                         <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs font-medium">
-                          {control.eccControl.code}
+                          {control.control.code}
                         </span>
                         <span className="text-sm">
-                          {language === 'ar' && control.eccControl.subdomainAr 
-                            ? control.eccControl.subdomainAr 
-                            : control.eccControl.subdomainEn}
+                          {language === 'ar' && control.control.subdomainAr 
+                            ? control.control.subdomainAr 
+                            : control.control.subdomainEn}
                         </span>
                       </div>
                     </SelectItem>
@@ -1936,22 +1936,22 @@ function EditTaskForm({
             </div>
 
             {/* Control Information Display */}
-            {selectedControlId && taskControls?.find((c: any) => c.eccControl.id === selectedControlId) && (
+            {selectedControlId && taskControls?.find((c: any) => c.control.id === selectedControlId) && (
               <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                 <div className="flex items-start gap-3 mb-3">
                   <Badge variant="secondary" className="mt-1">
-                    {taskControls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.code}
+                    {taskControls.find((c: any) => c.control.id === selectedControlId)?.control.code}
                   </Badge>
                   <div className="flex-1">
                     <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">
                       {language === 'ar' 
-                        ? taskControls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.subdomainAr
-                        : taskControls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.subdomainEn}
+                        ? taskControls.find((c: any) => c.control.id === selectedControlId)?.control.subdomainAr
+                        : taskControls.find((c: any) => c.control.id === selectedControlId)?.control.subdomainEn}
                     </h4>
                     <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
                       {language === 'ar'
-                        ? taskControls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.controlAr
-                        : taskControls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.controlEn}
+                        ? taskControls.find((c: any) => c.control.id === selectedControlId)?.control.controlAr
+                        : taskControls.find((c: any) => c.control.id === selectedControlId)?.control.controlEn}
                     </p>
                     
                     {/* Required Evidence */}
@@ -1961,8 +1961,8 @@ function EditTaskForm({
                       </h5>
                       <p className="text-xs text-gray-600 dark:text-gray-400">
                         {language === 'ar' 
-                          ? (taskControls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.evidenceAr || 'وثائق، سياسات، إجراءات، وأدلة تدقيق')
-                          : (taskControls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.evidenceEn || 'Documentation, policies, procedures, and audit evidence')}
+                          ? (taskControls.find((c: any) => c.control.id === selectedControlId)?.control.evidenceAr || 'وثائق، سياسات، إجراءات، وأدلة تدقيق')
+                          : (taskControls.find((c: any) => c.control.id === selectedControlId)?.control.evidenceEn || 'Documentation, policies, procedures, and audit evidence')}
                       </p>
                     </div>
 
@@ -2551,7 +2551,7 @@ function ControlSelector({
     if (selectedControls.length === controls.length) {
       setSelectedControls([]);
     } else {
-      setSelectedControls(controls.map(c => c.eccControl.id));
+      setSelectedControls(controls.map(c => c.control.id));
     }
   };
 
@@ -2596,8 +2596,8 @@ function ControlSelector({
         {controls.map((control: any) => (
           <div key={control.id} className="flex items-start space-x-3 p-3 border rounded-lg">
             <Checkbox
-              checked={selectedControls.includes(control.eccControl.id)}
-              onCheckedChange={() => handleControlToggle(control.eccControl.id)}
+              checked={selectedControls.includes(control.control.id)}
+              onCheckedChange={() => handleControlToggle(control.control.id)}
             />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
@@ -2606,21 +2606,21 @@ function ControlSelector({
                   className="text-xs cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onControlClick?.(control.eccControl);
+                    onControlClick?.(control.control);
                   }}
                 >
-                  {control.eccControl.code}
+                  {control.control.code}
                 </Badge>
               </div>
               <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">
-                {language === 'ar' && control.eccControl.subdomainAr 
-                  ? control.eccControl.subdomainAr 
-                  : control.eccControl.subdomainEn}
+                {language === 'ar' && control.control.subdomainAr 
+                  ? control.control.subdomainAr 
+                  : control.control.subdomainEn}
               </h4>
               <p className="text-xs text-gray-600 dark:text-gray-400">
-                {language === 'ar' && control.eccControl.controlAr 
-                  ? control.eccControl.controlAr 
-                  : control.eccControl.controlEn}
+                {language === 'ar' && control.control.controlAr 
+                  ? control.control.controlAr 
+                  : control.control.controlEn}
               </p>
             </div>
           </div>
