@@ -1079,6 +1079,12 @@ export default function ProjectDetail() {
           isOpen={isTaskWizardOpen}
           onClose={() => setIsTaskWizardOpen(false)}
           preselectedProjectId={parseInt(id!)}
+          onTaskCreated={() => {
+            console.log('🔄 ProjectDetail: Direct task created callback triggered');
+            setRefreshKey(prev => prev + 1);
+            refetchTasks();
+            refetchTasksWithControls();
+          }}
         />
 
         {/* Task Edit Dialog */}

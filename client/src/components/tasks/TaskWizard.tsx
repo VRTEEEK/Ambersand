@@ -41,9 +41,10 @@ interface TaskWizardProps {
   onClose: () => void;
   projectId?: number;
   preselectedProjectId?: number; // For when opened from project details
+  onTaskCreated?: () => void; // Callback when task is successfully created
 }
 
-export default function TaskWizard({ isOpen, onClose, projectId, preselectedProjectId }: TaskWizardProps) {
+export default function TaskWizard({ isOpen, onClose, projectId, preselectedProjectId, onTaskCreated }: TaskWizardProps) {
   const { language } = useI18n();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -208,6 +209,12 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
       // CRITICAL: Close dialog FIRST before any other operations
       console.log('🔄 TaskWizard: IMMEDIATELY closing dialog');
       handleClose();
+      
+      // CRITICAL: Call the parent callback to trigger immediate refresh
+      if (onTaskCreated) {
+        console.log('🔄 TaskWizard: Calling onTaskCreated callback');
+        onTaskCreated();
+      }
       
       // Show success toast to user
       if (typeof window !== 'undefined' && window.location) {
