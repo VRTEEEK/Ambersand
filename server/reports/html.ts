@@ -174,10 +174,12 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
         
         .evidence-link {
             color: #2699A6;
-            text-decoration: none;
+            text-decoration: underline;
+            font-weight: bold;
         }
         
         .evidence-link:hover {
+            color: #1e7a85;
             text-decoration: underline;
         }
         

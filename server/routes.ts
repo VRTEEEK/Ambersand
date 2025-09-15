@@ -2491,7 +2491,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const count = Object.values(selected).filter(Boolean).length;
 
       const needsZip = evidenceMode !== "link" || count !== 1;
-      const evidenceLinksAvailable = needsZip && (evidenceMode === "attach" || evidenceMode === "both");
+      // Enable clickable links when evidence files are attached, regardless of ZIP bundle
+      const evidenceLinksAvailable = (evidenceMode === "attach" || evidenceMode === "both");
       
       const html = renderComplianceHTML(report, language, evidenceLinksAvailable);
 
