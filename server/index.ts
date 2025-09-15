@@ -39,7 +39,29 @@ app.use((req, res, next) => {
   next();
 });
 
+// Add process-level error handlers to prevent crashes
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  // Don't exit the process, just log the error
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit the process, just log the error
+});
+
 (async () => {
+  // Check database connection health on startup
+  try {
+    const { checkDatabaseConnection } = await import("./db");
+    const isHealthy = await checkDatabaseConnection();
+    if (!isHealthy) {
+      console.warn("Database connection check failed at startup, but continuing...");
+    }
+  } catch (error) {
+    console.error("Database connection check error:", error);
+  }
+
   // Initialize RBAC system on startup
   try {
     const { seedRBAC } = await import("./rbac-seed");
@@ -54,8 +76,9 @@ app.use((req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
+    console.error("Express error handler caught error:", err);
     res.status(status).json({ message });
-    throw err;
+    // Don't throw the error here as it crashes the process
   });
 
   // importantly only setup vite in development and after
