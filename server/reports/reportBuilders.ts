@@ -34,6 +34,7 @@ export async function buildPDF(html: string): Promise<Buffer> {
       format: 'A4',
       printBackground: true,
       preferCSSPageSize: true,
+      omitBackground: false,
       margin: {
         top: '16mm',
         bottom: '16mm',
