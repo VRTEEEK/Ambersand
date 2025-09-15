@@ -25,11 +25,15 @@ export async function buildPDF(html: string): Promise<Buffer> {
   
   try {
     const page = await browser.newPage();
+    
+    // Enable screen media to preserve clickable links in PDF
+    await page.emulateMediaType('screen');
     await page.setContent(html, { waitUntil: 'networkidle0' });
     
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
+      preferCSSPageSize: true,
       margin: {
         top: '16mm',
         bottom: '16mm',
