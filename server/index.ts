@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import crypto from "crypto";
 
 const app = express();
 app.use(express.json());
@@ -39,15 +40,52 @@ app.use((req, res, next) => {
   next();
 });
 
-// Add process-level error handlers to prevent crashes
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-  // Don't exit the process, just log the error
+// Graceful shutdown handler
+let isShuttingDown = false;
+
+async function gracefulShutdown(server: any, signal: string) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
+  console.log(`Received ${signal}. Starting graceful shutdown...`);
+  
+  // Stop accepting new requests
+  server.close(() => {
+    console.log('HTTP server closed.');
+  });
+
+  // Close database connections
+  try {
+    const { pool } = await import("./db");
+    await pool.end();
+    console.log('Database pool closed.');
+  } catch (error) {
+    console.error('Error closing database pool:', error);
+  }
+
+  // Set a timeout for forced shutdown
+  const timeout = setTimeout(() => {
+    console.error('Forced shutdown due to timeout');
+    process.exit(1);
+  }, 10000); // 10 second timeout
+
+  // Exit gracefully
+  clearTimeout(timeout);
+  console.log('Graceful shutdown completed');
+  process.exit(0);
+}
+
+// Add process-level error handlers with graceful shutdown
+process.on('uncaughtException', async (error) => {
+  console.error('UncaughtException:', error);
+  console.log('Application will be gracefully shut down...');
+  process.exit(1); // Exit and let supervisor restart
 });
 
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', async (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  // Don't exit the process, just log the error
+  console.log('Application will be gracefully shut down...');
+  process.exit(1); // Exit and let supervisor restart
 });
 
 (async () => {
@@ -74,10 +112,34 @@ process.on('unhandledRejection', (reason, promise) => {
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    
+    // Generate a correlation ID for error tracking
+    const errorId = crypto.randomBytes(8).toString('hex');
+    
+    // Log full error details with correlation ID for debugging
+    console.error(`[Error ${errorId}] Express error handler caught error:`, {
+      error: err,
+      stack: err.stack,
+      url: _req.url,
+      method: _req.method,
+      userAgent: _req.get('User-Agent'),
+      ip: _req.ip
+    });
 
-    console.error("Express error handler caught error:", err);
-    res.status(status).json({ message });
+    // Return generic error message to client to avoid information disclosure
+    let clientMessage;
+    if (status >= 400 && status < 500) {
+      // Client errors - safe to return specific message for validation errors
+      clientMessage = err.message && err.isClientError ? err.message : "Bad Request";
+    } else {
+      // Server errors - return generic message only
+      clientMessage = "Internal Server Error";
+    }
+
+    res.status(status).json({ 
+      message: clientMessage,
+      errorId: errorId // Include correlation ID for support purposes
+    });
     // Don't throw the error here as it crashes the process
   });
 
@@ -102,4 +164,8 @@ process.on('unhandledRejection', (reason, promise) => {
   }, () => {
     log(`serving on port ${port}`);
   });
+
+  // Set up graceful shutdown handlers
+  process.on('SIGTERM', () => gracefulShutdown(server, 'SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown(server, 'SIGINT'));
 })();

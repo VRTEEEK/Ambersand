@@ -70,6 +70,47 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check endpoints
+  app.get('/healthz', (req, res) => {
+    // Liveness probe - always return 200 if the process is running
+    res.status(200).json({ 
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
+  });
+
+  app.get('/readyz', async (req, res) => {
+    // Readiness probe - check if the app is ready to serve traffic
+    try {
+      const { checkDatabaseConnection } = await import("./db");
+      const isDbHealthy = await checkDatabaseConnection();
+      
+      if (!isDbHealthy) {
+        return res.status(503).json({
+          status: 'not ready',
+          reason: 'database connection failed',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      res.status(200).json({
+        status: 'ready',
+        timestamp: new Date().toISOString(),
+        checks: {
+          database: 'healthy'
+        }
+      });
+    } catch (error) {
+      console.error('Readiness check failed:', error);
+      res.status(503).json({
+        status: 'not ready', 
+        reason: 'health check error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
   // Auth middleware
   await setupAuth(app);
 
