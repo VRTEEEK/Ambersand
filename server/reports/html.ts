@@ -1,6 +1,6 @@
 import { ComplianceReport } from "./reportData";
 
-export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar' = 'en', evidenceLinksAvailable: boolean = false): string {
+export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar' = 'en', evidenceLinksAvailable: boolean = false, baseUrl: string = ''): string {
   const isRTL = lang === 'ar';
   const direction = isRTL ? 'rtl' : 'ltr';
 
@@ -241,7 +241,7 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
 
     <div class="controls-section">
         <h2>${lang === 'ar' ? 'تفاصيل الضوابط' : 'Control Details'}</h2>
-        ${generateControlsByDomain(report.controls, lang, evidenceLinksAvailable)}
+        ${generateControlsByDomain(report.controls, lang, evidenceLinksAvailable, baseUrl)}
     </div>
 </body>
 </html>`;
@@ -249,7 +249,7 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
   return template;
 }
 
-function generateControlsByDomain(controls: ComplianceReport['controls'], lang: 'en' | 'ar', evidenceLinksAvailable: boolean = false): string {
+function generateControlsByDomain(controls: ComplianceReport['controls'], lang: 'en' | 'ar', evidenceLinksAvailable: boolean = false, baseUrl: string = ''): string {
   const domains = Array.from(new Set(controls.map(c => c.domain)));
   const isRTL = lang === 'ar';
   
@@ -283,14 +283,13 @@ function generateControlsByDomain(controls: ComplianceReport['controls'], lang: 
                     `<em>${lang === 'ar' ? 'لا توجد أدلة' : 'No evidence'}</em>` :
                     `<ul class="evidence-list">
                       ${control.evidence.map(ev => {
-                        const safeFileName = ev.fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
-                        const safePath = `evidence/${control.code}__${safeFileName}`;
-                        
                         if (evidenceLinksAvailable) {
+                          // Create clickable link to download evidence via API
+                          const downloadUrl = baseUrl ? `${baseUrl}/api/evidence/${ev.id}/download` : `#evidence-${ev.id}`;
                           return `
                             <li class="evidence-item">
                               <div class="evidence-filename">
-                                <a href="${safePath}" class="evidence-link">${ev.fileName}</a>
+                                <a href="${downloadUrl}" class="evidence-link" target="_blank">${ev.fileName}</a>
                               </div>
                               ${ev.description ? `<div class="evidence-description">${ev.description}</div>` : ''}
                             </li>

@@ -2494,7 +2494,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Enable clickable links when evidence files are attached, regardless of ZIP bundle
       const evidenceLinksAvailable = (evidenceMode === "attach" || evidenceMode === "both");
       
-      const html = renderComplianceHTML(report, language, evidenceLinksAvailable);
+      // Generate base URL for clickable links in PDF
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+      const host = req.headers['x-forwarded-host'] || req.headers.host;
+      const baseUrl = `${protocol}://${host}`;
+      
+      const html = renderComplianceHTML(report, language, evidenceLinksAvailable, baseUrl);
 
       if (needsZip) {
         res.setHeader("Content-Type", "application/zip");
