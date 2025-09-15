@@ -83,8 +83,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/readyz', async (req, res) => {
     // Readiness probe - check if the app is ready to serve traffic
     try {
-      const { checkDatabaseConnection } = await import("./db");
-      const isDbHealthy = await checkDatabaseConnection();
+      const { isDatabaseReady, checkDatabaseConnection } = await import("./db");
+      
+      // Use the cached readiness state first, fallback to fresh check
+      let isDbHealthy = isDatabaseReady();
+      
+      // If not ready, try a fresh check (but don't wait too long)
+      if (!isDbHealthy) {
+        isDbHealthy = await checkDatabaseConnection();
+      }
       
       if (!isDbHealthy) {
         return res.status(503).json({

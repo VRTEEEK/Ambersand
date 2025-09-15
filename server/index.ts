@@ -44,48 +44,77 @@ app.use((req, res, next) => {
 let isShuttingDown = false;
 
 async function gracefulShutdown(server: any, signal: string) {
-  if (isShuttingDown) return;
+  if (isShuttingDown || gracefulShutdownInProgress) return;
   isShuttingDown = true;
+  gracefulShutdownInProgress = true;
 
   console.log(`Received ${signal}. Starting graceful shutdown...`);
   
-  // Stop accepting new requests
-  server.close(() => {
-    console.log('HTTP server closed.');
-  });
-
-  // Close database connections
-  try {
-    const { pool } = await import("./db");
-    await pool.end();
-    console.log('Database pool closed.');
-  } catch (error) {
-    console.error('Error closing database pool:', error);
-  }
-
   // Set a timeout for forced shutdown
-  const timeout = setTimeout(() => {
+  const forceTimeout = setTimeout(() => {
     console.error('Forced shutdown due to timeout');
     process.exit(1);
   }, 10000); // 10 second timeout
 
-  // Exit gracefully
-  clearTimeout(timeout);
-  console.log('Graceful shutdown completed');
-  process.exit(0);
+  try {
+    // Stop accepting new requests and wait for existing connections to close
+    await new Promise<void>((resolve, reject) => {
+      server.close((err: any) => {
+        if (err) {
+          console.error('Error closing HTTP server:', err);
+          reject(err);
+        } else {
+          console.log('HTTP server closed.');
+          resolve();
+        }
+      });
+    });
+
+    // Close database connections
+    try {
+      const { pool } = await import("./db");
+      await pool.end();
+      console.log('Database pool closed.');
+    } catch (error) {
+      console.error('Error closing database pool:', error);
+    }
+
+    // Clear the timeout since we completed gracefully
+    clearTimeout(forceTimeout);
+    console.log('Graceful shutdown completed');
+    process.exit(0);
+  } catch (error) {
+    console.error('Error during graceful shutdown:', error);
+    clearTimeout(forceTimeout);
+    process.exit(1);
+  }
 }
+
+// Global variables for graceful shutdown
+let serverInstance: any = null;
+let gracefulShutdownInProgress = false;
 
 // Add process-level error handlers with graceful shutdown
 process.on('uncaughtException', async (error) => {
   console.error('UncaughtException:', error);
-  console.log('Application will be gracefully shut down...');
-  process.exit(1); // Exit and let supervisor restart
+  if (serverInstance && !gracefulShutdownInProgress) {
+    console.log('Application will be gracefully shut down...');
+    await gracefulShutdown(serverInstance, 'uncaughtException');
+  } else {
+    console.log('No server instance or shutdown in progress, exiting immediately');
+    process.exit(1);
+  }
 });
 
 process.on('unhandledRejection', async (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  console.log('Application will be gracefully shut down...');
-  process.exit(1); // Exit and let supervisor restart
+  if (serverInstance && !gracefulShutdownInProgress) {
+    console.log('Application will be gracefully shut down...');
+    await gracefulShutdown(serverInstance, 'unhandledRejection');
+  } else {
+    console.log('No server instance or shutdown in progress, exiting immediately');
+    process.exit(1);
+  }
 });
 
 (async () => {
@@ -109,6 +138,7 @@ process.on('unhandledRejection', async (reason, promise) => {
   }
 
   const server = await registerRoutes(app);
+  serverInstance = server; // Store server instance for graceful shutdown
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
