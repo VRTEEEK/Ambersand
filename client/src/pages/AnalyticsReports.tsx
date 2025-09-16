@@ -20,13 +20,29 @@ import {
   ListTodo, 
   BookOpen,
   BarChart3,
+  TrendingUp,
 } from 'lucide-react';
+
+// Analytics imports
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FilterSelector, type AnalyticsFilters } from "@/components/analytics/FilterSelector";
+import { fetchTaskMetrics } from "@/lib/analyticsApi";
+import { AlertTriangle, CheckCircle, Clock } from "lucide-react";
 
 export default function AnalyticsReports() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { t, language } = useI18n();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
+
+  // Analytics filters state
+  const [filters, setFilters] = useState<AnalyticsFilters>({
+    projectIds: [],
+    regulationIds: [],
+    dateFrom: undefined,
+    dateTo: undefined,
+  });
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -43,14 +59,27 @@ export default function AnalyticsReports() {
     }
   }, [isAuthenticated, authLoading, toast]);
 
+  // Dashboard metrics query
   const { data: metrics, isLoading: metricsLoading, error } = useQuery({
     queryKey: ['/api/dashboard/metrics'],
     retry: false,
   });
 
+  // Analytics metrics query
+  const { data: analyticsMetrics, isLoading: analyticsLoading, error: analyticsError } = useQuery({
+    queryKey: ['/api/analytics/tasks', filters],
+    queryFn: () => fetchTaskMetrics({
+      projectIds: filters.projectIds,
+      regulationIds: filters.regulationIds,
+      dateFrom: filters.dateFrom?.toISOString().split('T')[0],
+      dateTo: filters.dateTo?.toISOString().split('T')[0],
+    }),
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
   // Handle API errors
   useEffect(() => {
-    if (error && isUnauthorizedError(error as Error)) {
+    if ((error && isUnauthorizedError(error as Error)) || (analyticsError && isUnauthorizedError(analyticsError as Error))) {
       toast({
         title: "Unauthorized",
         description: "You are logged out. Logging in again...",
@@ -61,7 +90,7 @@ export default function AnalyticsReports() {
       }, 500);
       return;
     }
-  }, [error, toast]);
+  }, [error, analyticsError, toast]);
 
   if (authLoading) {
     return (
@@ -78,18 +107,53 @@ export default function AnalyticsReports() {
     return null;
   }
 
+  if (analyticsError && activeTab === 'analytics') {
+    return (
+      <AppLayout>
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center text-red-600">
+              Error loading analytics data. Please try again.
+            </div>
+          </CardContent>
+        </Card>
+      </AppLayout>
+    );
+  }
+
+  // Chart colors
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+
+  // Prepare data for analytics charts
+  const statusData = analyticsMetrics ? Object.entries(analyticsMetrics.totals.byStatus).map(([status, count]) => ({
+    status: status.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+    count
+  })) : [];
+
+  const projectData = analyticsMetrics?.byProject.slice(0, 10) || []; // Top 10 projects
+  const regulationData = analyticsMetrics?.byRegulation || [];
+  const assigneeData = analyticsMetrics?.byAssignee.slice(0, 8) || []; // Top 8 assignees
+  const severityData = analyticsMetrics?.bySeverity || [];
+
   return (
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
-        {/* Overview Tabs */}
+        {/* Overview and Analytics Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-1 mb-8">
+          <TabsList className="grid w-full grid-cols-2 mb-8">
             <TabsTrigger 
               value="overview"
               className={`flex items-center gap-2 ${language === 'ar' ? 'flex-row-reverse' : ''}`}
             >
               <BarChart3 className="w-4 h-4" />
               {language === 'ar' ? 'النظرة العامة' : 'Overview'}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="analytics"
+              className={`flex items-center gap-2 ${language === 'ar' ? 'flex-row-reverse' : ''}`}
+            >
+              <TrendingUp className="w-4 h-4" />
+              {language === 'ar' ? 'التحليلات' : 'Analytics'}
             </TabsTrigger>
           </TabsList>
 
@@ -182,6 +246,244 @@ export default function AnalyticsReports() {
               </div>
               <TasksList />
             </div>
+          </TabsContent>
+
+          {/* Analytics Tab - Detailed Analytics View */}
+          <TabsContent value="analytics" className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">Analytics & Reports</h1>
+                <p className="text-muted-foreground">
+                  Task and compliance analytics with real-time insights
+                </p>
+              </div>
+            </div>
+
+            {/* Filters */}
+            <FilterSelector filters={filters} onFiltersChange={setFilters} />
+
+            {analyticsLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Card key={i}>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <Skeleton className="h-4 w-16" />
+                      <Skeleton className="h-4 w-4" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-8 w-12 mb-2" />
+                      <Skeleton className="h-4 w-20" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <>
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
+                      <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{analyticsMetrics?.totals.total || 0}</div>
+                      <p className="text-xs text-muted-foreground">
+                        Across all projects
+                      </p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Completed</CardTitle>
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-green-600">
+                        {analyticsMetrics?.totals.byStatus.completed || 0}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {analyticsMetrics?.totals.total ? 
+                          Math.round((analyticsMetrics.totals.byStatus.completed / analyticsMetrics.totals.total) * 100) 
+                          : 0}% completion rate
+                      </p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+                      <Clock className="h-4 w-4 text-blue-600" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-blue-600">
+                        {analyticsMetrics?.totals.byStatus['in-progress'] || 0}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Active work items
+                      </p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">High Priority</CardTitle>
+                      <AlertTriangle className="h-4 w-4 text-red-600" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-red-600">
+                        {analyticsMetrics?.bySeverity.find(s => s.severity === 'high')?.count || 0}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Urgent attention needed
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Charts Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Task Status Distribution */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Task Status Distribution</CardTitle>
+                      <CardDescription>
+                        Breakdown of tasks by current status
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={statusData}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({status, percent}) => `${status} ${(percent * 100).toFixed(0)}%`}
+                              outerRadius={80}
+                              fill="#8884d8"
+                              dataKey="count"
+                            >
+                              {statusData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Tasks by Project */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Tasks by Project</CardTitle>
+                      <CardDescription>
+                        Top 10 projects by task count
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={projectData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis 
+                              dataKey="projectName" 
+                              angle={-45}
+                              textAnchor="end"
+                              height={80}
+                            />
+                            <YAxis />
+                            <Tooltip />
+                            <Bar dataKey="taskCount" fill="#8884d8" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Tasks by Regulation */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Tasks by Regulation</CardTitle>
+                      <CardDescription>
+                        Distribution across compliance frameworks
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={regulationData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="regulationName" />
+                            <YAxis />
+                            <Tooltip />
+                            <Bar dataKey="taskCount" fill="#82ca9d" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Tasks by Assignee */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Tasks by Assignee</CardTitle>
+                      <CardDescription>
+                        Workload distribution among team members
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={assigneeData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis 
+                              dataKey="assigneeName" 
+                              angle={-45}
+                              textAnchor="end"
+                              height={80}
+                            />
+                            <YAxis />
+                            <Tooltip />
+                            <Bar dataKey="taskCount" fill="#ffc658" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Task Severity Distribution */}
+                {severityData.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Task Priority Distribution</CardTitle>
+                      <CardDescription>
+                        Tasks categorized by severity levels
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={severityData} layout="horizontal">
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis type="number" />
+                            <YAxis dataKey="severity" type="category" />
+                            <Tooltip />
+                            <Bar dataKey="count" fill="#ff7300" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            )}
           </TabsContent>
         </Tabs>
       </div>
