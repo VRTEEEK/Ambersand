@@ -6,11 +6,10 @@ import sanitizeFilename from 'sanitize-filename';
 import { ComplianceReport } from './reportData';
 import { createReadStream, existsSync } from 'fs';
 import { Response } from 'express';
-import { execSync } from 'child_process';
+import { execSync, spawn } from 'child_process';
 import path from 'path';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { convert as htmlToText } from 'html-to-text';
-import puppeteer from 'puppeteer';
 
 // Optimize HTML content for better PDF generation performance
 function optimizeHtmlForPdf(html: string): string {
@@ -158,10 +157,19 @@ export async function buildPDF(html: string): Promise<Buffer> {
     const optimizedHtml = optimizeHtmlForPdf(html);
     console.log('📄 HTML optimized for PDF generation');
 
-    // Use JavaScript PDF generation by default for better reliability and performance
-    return await buildPDFWithJavaScript(optimizedHtml);
+    // Try WeasyPrint first (modern, full CSS support + clickable links)
+    try {
+      console.log('🎯 Attempting WeasyPrint PDF generation...');
+      return await buildPdfWithWeasy(optimizedHtml);
+    } catch (weasyprintError) {
+      console.error('❌ WeasyPrint failed, falling back to JavaScript PDF:', weasyprintError);
+      
+      // Fallback to JavaScript PDF generation
+      console.log('🔄 Using JavaScript PDF fallback...');
+      return await buildPDFWithJavaScript(optimizedHtml);
+    }
   } catch (error) {
-    console.error('❌ PDF generation failed:', error);
+    console.error('❌ PDF generation failed completely:', error);
     console.error('📝 Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
@@ -280,77 +288,147 @@ async function buildPDFWithWkhtmltopdf(html: string): Promise<Buffer> {
   });
 }
 
-// Modern PDF generation using Puppeteer for full HTML/CSS support and clickable links
-async function buildPDFWithJavaScript(html: string): Promise<Buffer> {
-  let browser: puppeteer.Browser | null = null;
-  
-  try {
-    console.log('📄 Generating PDF using modern browser-based rendering...');
+// WeasyPrint PDF generation with full HTML/CSS support and clickable links
+async function buildPdfWithWeasy(html: string): Promise<Buffer> {
+  return new Promise<Buffer>((resolve, reject) => {
+    console.log('📄 Generating PDF using WeasyPrint...');
     console.log('🔍 HTML content length:', html.length);
 
-    // Launch Puppeteer browser
-    browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-gpu'
+    const proc = spawn("weasyprint", ["-", "-"], {
+      env: process.env,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    const chunks: Buffer[] = [];
+    const errs: Buffer[] = [];
+
+    proc.stdout.on("data", (d) => chunks.push(Buffer.from(d)));
+    proc.stderr.on("data", (d) => errs.push(Buffer.from(d)));
+
+    proc.on("error", (error) => {
+      console.error('❌ WeasyPrint process error:', error);
+      reject(error);
+    });
+    
+    proc.on("close", (code) => {
+      if (code === 0) {
+        const pdfBuffer = Buffer.concat(chunks);
+        console.log(`✅ WeasyPrint PDF generated successfully (${pdfBuffer.length} bytes)`);
+        return resolve(pdfBuffer);
+      }
+      const errorMessage = Buffer.concat(errs).toString();
+      console.error(`❌ WeasyPrint exited with code ${code}:`, errorMessage);
+      reject(new Error(`WeasyPrint exited ${code}: ${errorMessage}`));
+    });
+
+    proc.stdin.write(html);
+    proc.stdin.end();
+  });
+}
+
+// Fallback PDF generation using basic JavaScript (simplified text-based approach)
+async function buildPDFWithJavaScript(html: string): Promise<Buffer> {
+  try {
+    console.log('📄 Generating PDF using JavaScript fallback...');
+    console.log('🔍 HTML content length:', html.length);
+
+    // Create a new PDF document
+    const pdfDoc = await PDFDocument.create();
+    const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+    const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+    // Define page dimensions and margins
+    const pageWidth = 595.28; // A4 width in points
+    const pageHeight = 841.89; // A4 height in points
+    const margin = 40;
+    const contentWidth = pageWidth - 2 * margin;
+
+    let page = pdfDoc.addPage([pageWidth, pageHeight]);
+    let yPosition = pageHeight - margin;
+    let pageNumber = 1;
+
+    // Helper function to add new page when needed
+    const checkAndAddNewPage = (requiredHeight: number = 20) => {
+      if (yPosition - requiredHeight < margin + 40) { // Leave space for footer
+        // Add footer to current page
+        page.drawText(`Generated on ${new Date().toLocaleDateString()} | Page ${pageNumber}`, {
+          x: margin,
+          y: 25,
+          size: 9,
+          font: timesRomanFont,
+          color: rgb(0.6, 0.6, 0.6),
+        });
+        
+        page = pdfDoc.addPage([pageWidth, pageHeight]);
+        yPosition = pageHeight - margin;
+        pageNumber++;
+      }
+    };
+
+    // Simple text extraction and rendering
+    const text = htmlToText(html, {
+      wordwrap: false,
+      preserveNewlines: true,
+      selectors: [
+        { selector: 'h1', options: { uppercase: false, format: 'block' } },
+        { selector: 'h2', options: { uppercase: false, format: 'block' } },
+        { selector: 'h3', options: { uppercase: false, format: 'block' } },
+        { selector: 'table', options: { uppercaseHeaderCells: false } },
+        { selector: '.summary-number', options: { format: 'inline' } },
+        { selector: '.summary-label', options: { format: 'inline' } }
       ]
     });
 
-    const page = await browser.newPage();
+    const lines = text.split('\n').filter(line => line.trim()).slice(0, 200);
+    console.log('📄 JavaScript fallback extracted', lines.length, 'lines');
 
-    // Set viewport for consistent rendering
-    await page.setViewport({ width: 1200, height: 800 });
-
-    // Set the HTML content
-    await page.setContent(html, {
-      waitUntil: ['domcontentloaded', 'networkidle0'],
-      timeout: 30000
+    // Add title
+    checkAndAddNewPage(40);
+    page.drawText('Compliance Report (Simplified)', {
+      x: margin,
+      y: yPosition,
+      size: 18,
+      font: helveticaBoldFont,
+      color: rgb(0.15, 0.6, 0.65),
     });
+    yPosition -= 35;
 
-    // Wait a moment for any CSS animations or transitions to complete
-    await page.waitForTimeout(1000);
-
-    // Generate PDF with modern styling support
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      margin: {
-        top: '20mm',
-        bottom: '20mm',
-        left: '12mm',
-        right: '12mm'
-      },
-      printBackground: true, // Essential for gradients and background colors
-      preferCSSPageSize: false,
-      displayHeaderFooter: true,
-      headerTemplate: '<div style="font-size: 10px; width: 100%; text-align: center; color: #666;"></div>',
-      footerTemplate: `
-        <div style="font-size: 10px; width: 100%; text-align: center; color: #666; padding: 5px;">
-          <span>Generated on ${new Date().toLocaleDateString()}</span>
-          <span style="margin: 0 10px;">|</span>
-          <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
-        </div>
-      `,
-      timeout: 60000
-    });
-
-    console.log(`✅ Modern PDF generated successfully (${pdfBuffer.length} bytes)`);
-    return pdfBuffer;
-
-  } catch (error) {
-    console.error('❌ Modern PDF generation failed:', error);
-    throw new Error(`Modern PDF generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  } finally {
-    // Always close the browser to prevent memory leaks
-    if (browser) {
-      await browser.close();
+    // Add content
+    for (const line of lines) {
+      if (line.trim()) {
+        const isHeader = line.length < 100 && 
+                        (line.includes('Compliance') || line.includes('Report') ||
+                         line.includes('Control') || line.match(/^[\d-]+:/));
+        
+        checkAndAddNewPage(15);
+        page.drawText(line.trim().substring(0, 100), {
+          x: margin,
+          y: yPosition,
+          size: isHeader ? 12 : 10,
+          font: isHeader ? helveticaBoldFont : timesRomanFont,
+          color: rgb(0, 0, 0),
+        });
+        yPosition -= (isHeader ? 16 : 12);
+      }
     }
+
+    // Add footer to the last page
+    page.drawText(`Generated on ${new Date().toLocaleDateString()} | Page ${pageNumber}`, {
+      x: margin,
+      y: 25,
+      size: 9,
+      font: timesRomanFont,
+      color: rgb(0.6, 0.6, 0.6),
+    });
+
+    const pdfBytes = await pdfDoc.save();
+    console.log(`✅ JavaScript fallback PDF generated successfully (${pdfBytes.length} bytes)`);
+    
+    return Buffer.from(pdfBytes);
+  } catch (error) {
+    console.error('❌ JavaScript PDF generation failed:', error);
+    throw new Error(`JavaScript PDF generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 

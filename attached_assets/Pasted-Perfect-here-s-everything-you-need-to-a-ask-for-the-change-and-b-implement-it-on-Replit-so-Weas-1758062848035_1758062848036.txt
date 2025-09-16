@@ -1,0 +1,188 @@
+Perfect—here’s everything you need to (a) ask for the change, and (b) implement it on Replit so WeasyPrint is the default and “JavaScript PDF” is only a fallback.
+
+1) Message you can paste to your team (or as a Replit Support ticket)
+
+Subject: Switch PDF generation to WeasyPrint (keep JS-PDF as fallback)
+
+We’re moving report export to WeasyPrint to fix formatting and make evidence links clickable without relying on Chromium (which isn’t stable in Replit prod).
+
+Plan:
+	•	Add WeasyPrint (+ Cairo/Pango deps) to the Replit environment.
+	•	New server helper runs WeasyPrint via CLI and streams the PDF.
+	•	Keep our current JavaScript PDF builder as a fallback only if WeasyPrint fails.
+	•	Remove/deprecate Puppeteer/Chromium paths.
+
+Why WeasyPrint:
+	•	No headless browser needed.
+	•	Honors print CSS, page breaks, RTL, and embeds clickable <a> links.
+	•	Works in Replit with system libs (Cairo/Pango) and a small wrapper.
+
+Please proceed with the infra change; I’ll push the code diff that prefers WeasyPrint and leaves JS-PDF as fallback.
+
+⸻
+
+2) Replit setup (Nix) — add WeasyPrint & native deps
+
+In your repo root, update/create replit.nix:
+
+{ pkgs }:
+let
+  py = pkgs.python311;  # or python310 if that’s your base
+in pkgs.mkShell {
+  packages = [
+    py
+    py.pkgs.pip
+    # WeasyPrint runtime deps:
+    pkgs.cairo
+    pkgs.pango
+    pkgs.harfbuzz
+    pkgs.gdk-pixbuf
+    pkgs.freetype
+    pkgs.fontconfig
+    pkgs.libffi
+    pkgs.libxml2
+    pkgs.libxslt
+    # (optional) ghostscript if you later need it
+  ];
+  shellHook = ''
+    pip install --user weasyprint==62.3
+    export PATH=$HOME/.local/bin:$PATH
+  '';
+}
+
+If your project uses Poetry/requirements, you can also add weasyprint==62.3 there.
+Re-run the Replit environment so weasyprint CLI is available.
+
+⸻
+
+3) Print-safe CSS (so PDF looks great + links are clickable)
+
+Add/extend your report HTML’s print CSS (where you render the report HTML):
+
+@media print {
+  a { text-decoration: underline; }
+  .evidence-link {
+    background: none !important;
+    color: #0ea5e9 !important;
+    text-decoration: underline !important;
+    box-shadow: none !important;
+    transform: none !important;
+    display: inline !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+  tr, td, th { page-break-inside: avoid; break-inside: avoid; }
+  .avoid-break { page-break-inside: avoid; break-inside: avoid; }
+  .header, .summary-card, .domain-section, .control-table th {
+    background: #fff !important;
+    color: #111 !important;
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+  }
+}
+@page { size: A4; margin: 20mm 16mm; }
+
+Also ensure evidence links are absolute (include protocol/host) and use real anchors:
+
+<a class="evidence-link" href="https://your.domain/api/evidence/ID/download?sig=...&exp=..." target="_blank" rel="noopener">
+  Evidence NAME
+</a>
+
+
+⸻
+
+4) Server code — prefer WeasyPrint, keep JS as fallback
+
+4.1 Create a WeasyPrint builder
+
+server/reports/buildPdfWeasy.ts
+
+import { spawn } from "node:child_process";
+
+export async function buildPdfWithWeasy(html: string): Promise<Buffer> {
+  return new Promise<Buffer>((resolve, reject) => {
+    const proc = spawn("weasyprint", ["-", "-"], {
+      env: process.env,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    const chunks: Buffer[] = [];
+    const errs: Buffer[] = [];
+
+    proc.stdout.on("data", (d) => chunks.push(Buffer.from(d)));
+    proc.stderr.on("data", (d) => errs.push(Buffer.from(d)));
+
+    proc.on("error", reject);
+    proc.on("close", (code) => {
+      if (code === 0) return resolve(Buffer.concat(chunks));
+      reject(new Error(`WeasyPrint exited ${code}: ${Buffer.concat(errs).toString()}`));
+    });
+
+    proc.stdin.write(html);
+    proc.stdin.end();
+  });
+}
+
+We use the CLI because it’s the most reliable path on Replit.
+
+4.2 Wire it into your export route
+
+Where you currently choose between buildPDFWithJavaScript and the (broken) Chromium path, switch to:
+
+import { buildPdfWithWeasy } from "./buildPdfWeasy";
+import { renderComplianceHTML } from "./html";          // your existing HTML renderer
+import { buildPDFWithJavaScript } from "./buildPdfJS";  // your existing JS fallback (pdfmake/jsPDF/…)
+
+// inside your handler:
+const html = renderComplianceHTML(report, lang, true /* evidenceLinks */, baseUrl);
+
+let pdf: Buffer | null = null;
+try {
+  pdf = await buildPdfWithWeasy(html);
+} catch (e) {
+  console.error("WeasyPrint failed, falling back to JS-PDF:", e);
+  pdf = await buildPDFWithJavaScript(html); // existing function
+}
+
+res.setHeader("Content-Type", "application/pdf");
+res.setHeader("Content-Disposition", `inline; filename="compliance-report.pdf"`);
+res.end(pdf);
+
+4.3 Remove Chromium/Puppeteer in prod
+	•	Delete/disable the Chromium builder and any launch flags in production builds.
+	•	Keep only:
+	•	WeasyPrint (default).
+	•	JS-PDF (fallback).
+
+⸻
+
+5) Fonts & RTL (Arabic)
+
+In your HTML <head>, include robust fonts so glyphs embed:
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Naskh+Arabic:wght@400;600&display=swap">
+<style>
+  body { font-family: 'Inter','Noto Naskh Arabic',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif; }
+  html[dir="rtl"] body { font-family: 'Noto Naskh Arabic','Inter',system-ui,...; }
+</style>
+
+Set dir="rtl" on <html> for Arabic reports. WeasyPrint respects this and will keep link annotations.
+
+⸻
+
+6) Testing checklist
+	•	Export a long report:
+	•	Table headers repeat per page.
+	•	No row splits in the middle.
+	•	Evidence links are clickable in macOS Preview/Adobe.
+	•	Arabic text shapes correctly (Noto Naskh).
+	•	Temporarily break WeasyPrint (rename the binary) → verify JS fallback kicks in and PDF still returns (even if “plainer”).
+	•	Very large report → ensure Replit memory/time limits aren’t exceeded.
+
+⸻
+
+If you want, tell me your handler file path and I’ll give you a drop-in diff targeting your exact function names.

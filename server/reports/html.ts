@@ -21,6 +21,9 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Compliance Report - ${report.project.name}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Naskh+Arabic:wght@400;600&display=swap">
     <style>
         @page {
             size: A4;
@@ -38,7 +41,7 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
         }
         
         body {
-            font-family: 'Inter', 'Segoe UI', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Inter', 'Noto Naskh Arabic', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
             line-height: 1.7;
             color: #1e293b;
             direction: ${direction};
@@ -387,6 +390,96 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
         .evidence-link:active {
             transform: translateY(0);
             box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
+        }
+
+        html[dir="rtl"] body { 
+            font-family: 'Noto Naskh Arabic', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; 
+        }
+
+        /* Print-specific styles for WeasyPrint PDF generation */
+        @media print {
+            body {
+                font-family: 'Inter', 'Noto Naskh Arabic', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+            
+            html[dir="rtl"] body { 
+                font-family: 'Noto Naskh Arabic', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; 
+            }
+            
+            a { 
+                color: #0ea5e9 !important;
+                text-decoration: underline !important; 
+            }
+            
+            .evidence-link {
+                background: none !important;
+                color: #0ea5e9 !important;
+                text-decoration: underline !important;
+                box-shadow: none !important;
+                transform: none !important;
+                display: inline !important;
+                padding: 2px 4px !important;
+                border: 1px solid #0ea5e9 !important;
+                border-radius: 3px !important;
+                font-weight: bold !important;
+            }
+            
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
+            tr, td, th { 
+                page-break-inside: avoid; 
+                break-inside: avoid; 
+            }
+            
+            .avoid-break, .control-row, .domain-group { 
+                page-break-inside: avoid; 
+                break-inside: avoid; 
+            }
+            
+            .header {
+                background: linear-gradient(135deg, #0f172a 0%, #334155 100%) !important;
+                color: white !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+            
+            .summary-section {
+                background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%) !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+            
+            .summary-item {
+                background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+            
+            .domain-header {
+                background: linear-gradient(135deg, #0f172a 0%, #334155 100%) !important;
+                color: white !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+            
+            .control-table th {
+                background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
+                color: white !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+            
+            .status-badge {
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+        }
+
+        @page { 
+            size: A4; 
+            margin: 20mm 16mm; 
         }
         
         .evidence-note {
