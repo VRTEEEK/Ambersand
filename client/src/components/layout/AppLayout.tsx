@@ -97,7 +97,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       current: location === '/evidence',
     },
     {
-      title: language === 'ar' ? 'النظرة العامة' : 'Overview',
+      title: language === 'ar' ? 'لوحة القيادة والتحليلات' : 'Dashboard & Analytics',
       href: '/analytics',
       icon: BarChart3,
       current: location === '/analytics',
