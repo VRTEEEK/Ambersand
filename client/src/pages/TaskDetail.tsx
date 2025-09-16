@@ -1137,15 +1137,31 @@ export default function TaskDetail() {
                   <Button
                     onClick={() => {
                       // Simple route setup - in production this would be a proper dialog
-                      console.log('Available users:', users.map(u => ({ id: u.id, email: u.email, role: u.role })));
+                      console.log('Available users:', users.map(u => ({ 
+                        id: u.id, 
+                        email: u.email, 
+                        role: u.role,
+                        name: u.name,
+                        fullUserData: u 
+                      })));
                       
                       // Find reviewers - try multiple role types since the exact roles may vary
-                      const reviewers = users.filter(u => 
+                      let reviewers = users.filter(u => 
                         u.role === 'manager' || 
                         u.role === 'viewer' || 
                         u.role === 'admin' ||
                         (u.role && u.role !== currentUser?.role && u.id !== currentUser?.id)
                       );
+                      
+                      // Fallback: if no users found with expected roles, use any other users except current user
+                      if (reviewers.length === 0) {
+                        reviewers = users.filter(u => 
+                          u.id !== currentUser?.id && 
+                          u.email && 
+                          u.email !== currentUser?.email
+                        );
+                        console.log('No users with expected roles found, using fallback reviewers');
+                      }
                       
                       console.log('Filtered reviewers:', reviewers.map(u => ({ id: u.id, email: u.email, role: u.role })));
                       
