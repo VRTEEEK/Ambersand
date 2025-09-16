@@ -289,9 +289,9 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
         }
 
         .control-code {
-            font-weight: 700;
+            font-weight: 400;
             color: #5a9a9a;
-            font-size: 11pt;
+            font-size: 9pt;
             padding: 8px 12px;
             background: linear-gradient(135deg, #e6fffa 0%, #f0fdfa 100%);
             border-radius: 8px;
@@ -308,8 +308,8 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
             display: inline-block;
             padding: 8px 12px;
             border-radius: 20px;
-            font-size: 10pt;
-            font-weight: 700;
+            font-size: 8pt;
+            font-weight: 400;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -536,11 +536,17 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
             
             .status-badge { 
                 padding: 2px 6px; 
-                font-size: 7.5pt; 
+                font-size: 6.5pt; 
+                font-weight: 400;
                 border: none; 
                 box-shadow: none; 
                 background: #e5f4f2; 
                 color: #0d4d4b; 
+            }
+            
+            .control-code {
+                font-weight: 400;
+                font-size: 7pt;
             }
             
             .domain-group { 
