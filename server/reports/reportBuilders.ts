@@ -13,9 +13,9 @@ export async function buildPDF(html: string): Promise<Buffer> {
       console.log('🚀 Generating PDF with wkhtmltopdf...');
 
       // Configure wkhtmltopdf options for optimal PDF generation
-      const options = {
+      const options: any = {
         pageSize: 'A4',
-        orientation: 'portrait',
+        orientation: 'Portrait',
         marginTop: '20mm',
         marginBottom: '20mm',
         marginLeft: '12mm',
