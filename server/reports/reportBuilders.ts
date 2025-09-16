@@ -6,6 +6,8 @@ import sanitizeFilename from 'sanitize-filename';
 import { ComplianceReport } from './reportData';
 import { createReadStream, existsSync } from 'fs';
 import { Response } from 'express';
+import { execSync } from 'child_process';
+import path from 'path';
 
 export async function buildPDF(html: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -44,7 +46,6 @@ export async function buildPDF(html: string): Promise<Buffer> {
       };
 
       // Check if wkhtmltopdf is available
-      const { execSync } = require('child_process');
       try {
         execSync('which wkhtmltopdf', { stdio: 'ignore' });
         console.log('✅ wkhtmltopdf binary found in PATH');
@@ -71,7 +72,7 @@ export async function buildPDF(html: string): Promise<Buffer> {
 
           if (foundPath && foundPath.length > 0) {
             console.log(`📍 Found wkhtmltopdf at: ${foundPath}`);
-            process.env.PATH = `${require('path').dirname(foundPath)}:${process.env.PATH}`;
+            process.env.PATH = `${path.dirname(foundPath)}:${process.env.PATH}`;
             console.log('✅ Added wkhtmltopdf to PATH');
           } else {
             throw new Error('wkhtmltopdf binary not found in any common locations.');
