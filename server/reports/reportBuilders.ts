@@ -201,6 +201,7 @@ async function buildPDFWithWkhtmltopdf(html: string): Promise<Buffer> {
 async function buildPDFWithJavaScript(html: string): Promise<Buffer> {
   try {
     console.log('📄 Generating PDF using JavaScript fallback...');
+    console.log('🔍 HTML content length:', html.length);
     
     // Create a new PDF document
     const pdfDoc = await PDFDocument.create();
@@ -249,7 +250,6 @@ async function buildPDFWithJavaScript(html: string): Promise<Buffer> {
       const { x, size, font, color, maxWidth, lineHeight = size * 1.2 } = options;
       const words = text.split(' ');
       let currentLine = '';
-      let currentY = options.y;
 
       for (const word of words) {
         const testLine = currentLine ? `${currentLine} ${word}` : word;
@@ -279,163 +279,223 @@ async function buildPDFWithJavaScript(html: string): Promise<Buffer> {
       }
     };
 
-    // Parse HTML content and extract structured data
+    // Clean HTML content and remove styles
     const htmlContent = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+    console.log('🔍 HTML after style removal length:', htmlContent.length);
     
-    // Extract title
-    const titleMatch = htmlContent.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-    if (titleMatch) {
-      checkAndAddNewPage(40);
-      drawWrappedText(titleMatch[1].replace(/<[^>]+>/g, '').trim(), {
-        x: margin,
-        y: yPosition,
-        size: 20,
-        font: helveticaBoldFont,
-        color: rgb(0.15, 0.6, 0.65), // Brand color #2699A6
-        maxWidth: contentWidth,
-        lineHeight: 26
-      });
-      yPosition -= 30; // Extra space after title
-    }
+    // Extract title from header section
+    const headerMatch = htmlContent.match(/<div class="header"[^>]*>([\s\S]*?)<\/div>/i);
+    if (headerMatch) {
+      console.log('✅ Found header section');
+      const titleMatch = headerMatch[1].match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+      if (titleMatch) {
+        console.log('✅ Found title:', titleMatch[1].replace(/<[^>]+>/g, '').trim().substring(0, 50));
+        checkAndAddNewPage(40);
+        drawWrappedText(titleMatch[1].replace(/<[^>]+>/g, '').trim(), {
+          x: margin,
+          y: yPosition,
+          size: 20,
+          font: helveticaBoldFont,
+          color: rgb(0.15, 0.6, 0.65), // Brand color #2699A6
+          maxWidth: contentWidth,
+          lineHeight: 26
+        });
+        yPosition -= 30;
+      }
 
-    // Extract project info
-    const subtitleMatch = htmlContent.match(/<div class="subtitle"[^>]*>([\s\S]*?)<\/div>/i);
-    if (subtitleMatch) {
-      checkAndAddNewPage(20);
-      drawWrappedText(subtitleMatch[1].replace(/<[^>]+>/g, '').trim(), {
-        x: margin,
-        y: yPosition,
-        size: 14,
-        font: helveticaFont,
-        color: rgb(0.4, 0.4, 0.4),
-        maxWidth: contentWidth,
-        lineHeight: 18
-      });
-      yPosition -= 20;
+      // Extract subtitle info
+      const subtitleMatches = headerMatch[1].match(/<div class="subtitle"[^>]*>([\s\S]*?)<\/div>/gi);
+      if (subtitleMatches) {
+        console.log('✅ Found', subtitleMatches.length, 'subtitle sections');
+        for (const subtitleMatch of subtitleMatches) {
+          const subtitleText = subtitleMatch.replace(/<[^>]+>/g, '').trim();
+          if (subtitleText) {
+            checkAndAddNewPage(20);
+            drawWrappedText(subtitleText, {
+              x: margin,
+              y: yPosition,
+              size: 14,
+              font: helveticaFont,
+              color: rgb(0.4, 0.4, 0.4),
+              maxWidth: contentWidth,
+              lineHeight: 18
+            });
+            yPosition -= 10;
+          }
+        }
+        yPosition -= 20;
+      }
     }
 
     // Extract summary section
     const summaryMatch = htmlContent.match(/<div class="summary-section"[^>]*>([\s\S]*?)<\/div>/i);
     if (summaryMatch) {
-      yPosition -= 20; // Space before summary
+      console.log('✅ Found summary section');
+      yPosition -= 20;
       
       // Summary header
-      checkAndAddNewPage(25);
-      drawWrappedText("Compliance Summary", {
-        x: margin,
-        y: yPosition,
-        size: 16,
-        font: helveticaBoldFont,
-        color: rgb(0, 0, 0),
-        maxWidth: contentWidth,
-        lineHeight: 20
-      });
-      yPosition -= 15;
-
-      // Extract summary metrics
-      const summaryContent = summaryMatch[1];
-      const metrics = [
-        { label: 'Total Controls', match: summaryContent.match(/Total Controls[\s\S]*?(\d+)/i) },
-        { label: 'Approved Controls', match: summaryContent.match(/Approved[\s\S]*?(\d+)/i) },
-        { label: 'Pending Controls', match: summaryContent.match(/Pending[\s\S]*?(\d+)/i) },
-        { label: 'In Progress', match: summaryContent.match(/In Progress[\s\S]*?(\d+)/i) },
-        { label: 'Under Review', match: summaryContent.match(/Under Review[\s\S]*?(\d+)/i) }
-      ];
-
-      for (const metric of metrics) {
-        if (metric.match) {
-          checkAndAddNewPage(20);
-          drawWrappedText(`${metric.label}: ${metric.match[1]}`, {
-            x: margin + 20,
-            y: yPosition,
-            size: 12,
-            font: timesRomanFont,
-            color: rgb(0, 0, 0),
-            maxWidth: contentWidth - 20,
-            lineHeight: 16
-          });
-          yPosition -= 5;
-        }
+      const summaryHeaderMatch = summaryMatch[1].match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
+      if (summaryHeaderMatch) {
+        checkAndAddNewPage(25);
+        drawWrappedText(summaryHeaderMatch[1].replace(/<[^>]+>/g, '').trim(), {
+          x: margin,
+          y: yPosition,
+          size: 16,
+          font: helveticaBoldFont,
+          color: rgb(0, 0, 0),
+          maxWidth: contentWidth,
+          lineHeight: 20
+        });
+        yPosition -= 15;
       }
-      yPosition -= 20;
+
+      // Extract summary metrics from summary-item divs
+      const summaryItems = summaryMatch[1].match(/<div class="summary-item"[^>]*>([\s\S]*?)<\/div>/gi);
+      if (summaryItems) {
+        console.log('✅ Found', summaryItems.length, 'summary items');
+        for (const item of summaryItems) {
+          const numberMatch = item.match(/<span class="summary-number"[^>]*>([\s\S]*?)<\/span>/i);
+          const labelMatch = item.match(/<span class="summary-label"[^>]*>([\s\S]*?)<\/span>/i);
+          
+          if (numberMatch && labelMatch) {
+            const number = numberMatch[1].replace(/<[^>]+>/g, '').trim();
+            const label = labelMatch[1].replace(/<[^>]+>/g, '').trim();
+            
+            checkAndAddNewPage(20);
+            drawWrappedText(`${label}: ${number}`, {
+              x: margin + 20,
+              y: yPosition,
+              size: 12,
+              font: timesRomanFont,
+              color: rgb(0, 0, 0),
+              maxWidth: contentWidth - 20,
+              lineHeight: 16
+            });
+            yPosition -= 5;
+          }
+        }
+        yPosition -= 20;
+      }
     }
 
     // Extract and format control details
     const controlsMatch = htmlContent.match(/<div class="controls-section"[^>]*>([\s\S]*?)<\/div>/i);
     if (controlsMatch) {
-      checkAndAddNewPage(25);
-      drawWrappedText("Control Details", {
-        x: margin,
-        y: yPosition,
-        size: 16,
-        font: helveticaBoldFont,
-        color: rgb(0, 0, 0),
-        maxWidth: contentWidth,
-        lineHeight: 20
-      });
-      yPosition -= 20;
+      console.log('✅ Found controls section');
+      
+      // Controls header
+      const controlsHeaderMatch = controlsMatch[1].match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
+      if (controlsHeaderMatch) {
+        checkAndAddNewPage(25);
+        drawWrappedText(controlsHeaderMatch[1].replace(/<[^>]+>/g, '').trim(), {
+          x: margin,
+          y: yPosition,
+          size: 16,
+          font: helveticaBoldFont,
+          color: rgb(0, 0, 0),
+          maxWidth: contentWidth,
+          lineHeight: 20
+        });
+        yPosition -= 20;
+      }
 
-      // Extract individual controls
-      const controlMatches = htmlContent.match(/<div class="control-item"[^>]*>[\s\S]*?<\/div>/gi);
-      if (controlMatches) {
-        for (const controlMatch of controlMatches) {
-          // Extract control code and title
-          const codeMatch = controlMatch.match(/<h3[^>]*>([\s\S]*?)<\/h3>/i);
-          const statusMatch = controlMatch.match(/Status[^:]*:?\s*([^<\n]+)/i);
-          const evidenceMatch = controlMatch.match(/Evidence[^:]*:?\s*([^<\n]+)/i);
-          
-          if (codeMatch) {
-            checkAndAddNewPage(40);
+      // Extract domain groups
+      const domainGroups = controlsMatch[1].match(/<div class="domain-group"[^>]*>([\s\S]*?)<\/div>/gi);
+      if (domainGroups) {
+        console.log('✅ Found', domainGroups.length, 'domain groups');
+        
+        for (const domainGroup of domainGroups) {
+          // Extract domain header
+          const domainHeaderMatch = domainGroup.match(/<h3 class="domain-header"[^>]*>([\s\S]*?)<\/h3>/i);
+          if (domainHeaderMatch) {
+            const domainName = domainHeaderMatch[1].replace(/<[^>]+>/g, '').trim();
+            console.log('📋 Processing domain:', domainName.substring(0, 50));
             
-            // Control header
-            drawWrappedText(codeMatch[1].replace(/<[^>]+>/g, '').trim(), {
+            checkAndAddNewPage(30);
+            drawWrappedText(domainName, {
               x: margin,
               y: yPosition,
-              size: 14,
+              size: 15,
               font: helveticaBoldFont,
-              color: rgb(0.15, 0.6, 0.65),
+              color: rgb(0.15, 0.6, 0.65), // Brand color
               maxWidth: contentWidth,
-              lineHeight: 18
+              lineHeight: 20
             });
-            yPosition -= 10;
+            yPosition -= 25;
+          }
 
-            // Status
-            if (statusMatch) {
-              drawWrappedText(`Status: ${statusMatch[1].trim()}`, {
-                x: margin + 15,
-                y: yPosition,
-                size: 11,
-                font: timesRomanFont,
-                color: rgb(0.2, 0.2, 0.2),
-                maxWidth: contentWidth - 15,
-                lineHeight: 14
-              });
-              yPosition -= 5;
-            }
+          // Extract table rows from this domain
+          const tableMatch = domainGroup.match(/<table class="control-table"[^>]*>([\s\S]*?)<\/table>/i);
+          if (tableMatch) {
+            const controlRows = tableMatch[1].match(/<tr class="control-row"[^>]*>([\s\S]*?)<\/tr>/gi);
+            if (controlRows) {
+              console.log('🔍 Found', controlRows.length, 'control rows in this domain');
+              
+              for (const row of controlRows) {
+                const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/gi);
+                if (cells && cells.length >= 3) {
+                  // Extract code, title, status, evidence
+                  const code = cells[0] ? cells[0].replace(/<[^>]+>/g, '').trim() : '';
+                  const title = cells[1] ? cells[1].replace(/<[^>]+>/g, '').trim() : '';
+                  const status = cells[2] ? cells[2].replace(/<[^>]+>/g, '').trim() : '';
+                  const evidence = cells[3] ? cells[3].replace(/<[^>]+>/g, '').trim() : '';
+                  
+                  if (code) {
+                    checkAndAddNewPage(50);
+                    
+                    // Control code and title
+                    drawWrappedText(`${code}: ${title}`, {
+                      x: margin,
+                      y: yPosition,
+                      size: 12,
+                      font: helveticaBoldFont,
+                      color: rgb(0, 0, 0),
+                      maxWidth: contentWidth,
+                      lineHeight: 16
+                    });
+                    yPosition -= 8;
 
-            // Evidence
-            if (evidenceMatch) {
-              drawWrappedText(`Evidence: ${evidenceMatch[1].trim()}`, {
-                x: margin + 15,
-                y: yPosition,
-                size: 11,
-                font: timesRomanFont,
-                color: rgb(0.2, 0.2, 0.2),
-                maxWidth: contentWidth - 15,
-                lineHeight: 14
-              });
-              yPosition -= 5;
+                    // Status
+                    if (status) {
+                      drawWrappedText(`Status: ${status}`, {
+                        x: margin + 15,
+                        y: yPosition,
+                        size: 10,
+                        font: timesRomanFont,
+                        color: rgb(0.3, 0.3, 0.3),
+                        maxWidth: contentWidth - 15,
+                        lineHeight: 14
+                      });
+                      yPosition -= 6;
+                    }
+
+                    // Evidence
+                    if (evidence && evidence !== 'No evidence') {
+                      drawWrappedText(`Evidence: ${evidence}`, {
+                        x: margin + 15,
+                        y: yPosition,
+                        size: 10,
+                        font: timesRomanFont,
+                        color: rgb(0.3, 0.3, 0.3),
+                        maxWidth: contentWidth - 15,
+                        lineHeight: 14
+                      });
+                      yPosition -= 6;
+                    }
+                    
+                    yPosition -= 10; // Space between controls
+                  }
+                }
+              }
             }
-            
-            yPosition -= 15; // Space between controls
           }
         }
       }
     }
 
-    // If no structured content was found, fall back to text conversion
-    if (!titleMatch && !summaryMatch && !controlsMatch) {
-      console.log('⚠️ No structured HTML found, falling back to text conversion...');
+    // If minimal content was extracted, fall back to text conversion
+    if (!headerMatch && !summaryMatch && !controlsMatch) {
+      console.log('⚠️ No structured content found, using text fallback...');
       
       const text = htmlToText(html, {
         wordwrap: false,
@@ -443,27 +503,27 @@ async function buildPDFWithJavaScript(html: string): Promise<Buffer> {
           { selector: 'h1', options: { uppercase: false, format: 'block' } },
           { selector: 'h2', options: { uppercase: false, format: 'block' } },
           { selector: 'h3', options: { uppercase: false, format: 'block' } },
-          { selector: 'p', options: { format: 'block' } },
           { selector: 'table', options: { uppercaseHeaderCells: false } }
         ]
       });
 
       const lines = text.split('\n').filter(line => line.trim());
+      console.log('📄 Text fallback extracted', lines.length, 'lines');
+      
       for (const line of lines) {
         if (line.trim()) {
           const isHeader = line.length < 100 && 
                           (line.includes('Compliance') || line.includes('Report') || 
-                           line.includes('Project') || line.includes('Control') ||
-                           line.match(/^\d+[\.-]/)); // Numbered items
+                           line.includes('Control') || line.match(/^[\d-]+:/));
 
           drawWrappedText(line.trim(), {
             x: margin,
             y: yPosition,
-            size: isHeader ? 14 : 12,
+            size: isHeader ? 14 : 11,
             font: isHeader ? helveticaBoldFont : timesRomanFont,
             color: rgb(0, 0, 0),
             maxWidth: contentWidth,
-            lineHeight: isHeader ? 18 : 16
+            lineHeight: isHeader ? 18 : 14
           });
           yPosition -= (isHeader ? 10 : 5);
         }
