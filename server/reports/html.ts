@@ -66,38 +66,60 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
         }
         
         .summary-section {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 30px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 40px;
+            border: 2px solid #2699A6;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        
+
+        .summary-title {
+            text-align: center;
+            font-size: 18pt;
+            font-weight: bold;
+            color: #2699A6;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
         .summary-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 20px;
         }
-        
+
         .summary-item {
             text-align: center;
-            padding: 15px;
+            padding: 20px 15px;
             background: white;
-            border-radius: 6px;
-            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            border: 2px solid #e5e7eb;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s;
         }
-        
+
+        .summary-item:hover {
+            transform: translateY(-2px);
+            border-color: #2699A6;
+        }
+
         .summary-number {
-            font-size: 32pt;
+            font-size: 36pt;
             font-weight: bold;
             color: #2699A6;
             display: block;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
         }
-        
+
         .summary-label {
-            font-size: 11pt;
-            color: #666;
+            font-size: 10pt;
+            color: #555;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            font-weight: 600;
+            margin-top: 5px;
         }
         
         .controls-section {
@@ -122,21 +144,48 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 20px;
-            font-size: 10pt;
+            font-size: 9pt;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-radius: 6px;
+            overflow: hidden;
         }
-        
+
         .control-table th {
-            background: #f3f4f6;
-            padding: 12px 8px;
+            background: linear-gradient(135deg, #2699A6 0%, #1e7a85 100%);
+            color: white;
+            padding: 15px 10px;
             text-align: ${isRTL ? 'right' : 'left'};
-            border: 1px solid #d1d5db;
+            border: none;
             font-weight: bold;
+            font-size: 10pt;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
-        
+
         .control-table td {
-            padding: 10px 8px;
-            border: 1px solid #d1d5db;
+            padding: 12px 10px;
+            border-bottom: 1px solid #e5e7eb;
+            border-right: 1px solid #e5e7eb;
             vertical-align: top;
+            background: white;
+        }
+
+        .control-table tr:nth-child(even) td {
+            background: #f9fafb;
+        }
+
+        .control-table tr:hover td {
+            background: #f0f9ff;
+        }
+
+        .control-code {
+            font-weight: bold;
+            color: #2699A6;
+            font-size: 10pt;
+            padding: 4px 8px;
+            background: #e0f2fe;
+            border-radius: 4px;
+            display: inline-block;
         }
         
         .control-row {
@@ -186,11 +235,21 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
             color: #2699A6;
             text-decoration: underline;
             font-weight: bold;
+            padding: 2px 6px;
+            background: #f0f9ff;
+            border-radius: 3px;
+            border: 1px solid #2699A6;
+            display: inline-block;
+            margin: 2px;
+            transition: all 0.2s;
         }
-        
+
         .evidence-link:hover {
-            color: #1e7a85;
-            text-decoration: underline;
+            color: white;
+            background: #2699A6;
+            text-decoration: none;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(38, 153, 166, 0.3);
         }
         
         .evidence-note {
@@ -228,7 +287,7 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
     </div>
 
     <div class="summary-section">
-        <h2>${lang === 'ar' ? 'ملخص الامتثال' : 'Compliance Summary'}</h2>
+        <div class="summary-title">${lang === 'ar' ? 'لوحة معلومات الامتثال' : 'Compliance Dashboard'}</div>
         <div class="summary-grid">
             <div class="summary-item">
                 <span class="summary-number">${report.totals.controls}</span>
@@ -310,8 +369,8 @@ function generateControlsByDomain(controls: ComplianceReport['controls'], lang: 
           <tbody>
             ${domainControls.map(control => `
               <tr class="control-row">
-                <td><strong>${control.code}</strong></td>
-                <td>${isRTL && control.titleAr ? control.titleAr : control.title}</td>
+                <td><span class="control-code">${control.code}</span></td>
+                <td><strong>${isRTL && control.titleAr ? control.titleAr : control.title}</strong></td>
                 <td>
                   <span class="status-badge status-${control.status}">
                     ${getStatusLabel(control.status, lang)}
@@ -325,10 +384,15 @@ function generateControlsByDomain(controls: ComplianceReport['controls'], lang: 
                         if (evidenceLinksAvailable) {
                           // Create clickable link to download evidence via API
                           const downloadUrl = baseUrl ? `${baseUrl}/api/evidence/${ev.id}/download` : `#evidence-${ev.id}`;
+                          const fileType = ev.fileName.toLowerCase().includes('.pdf') ? '[PDF]' :
+                                         ev.fileName.toLowerCase().includes('.png') || ev.fileName.toLowerCase().includes('.jpg') ? '[IMG]' :
+                                         ev.fileName.toLowerCase().includes('.doc') ? '[DOC]' : '[FILE]';
                           return `
                             <li class="evidence-item">
                               <div class="evidence-filename">
-                                <a href="${downloadUrl}" class="evidence-link" target="_blank">${ev.fileName}</a>
+                                <a href="${downloadUrl}" class="evidence-link" target="_blank">
+                                  ${fileType} ${ev.fileName} [DOWNLOAD]
+                                </a>
                               </div>
                               ${ev.description ? `<div class="evidence-description">${ev.description}</div>` : ''}
                             </li>

@@ -64,59 +64,69 @@ function parseHtmlContent(html: string): {
     result.subtitle = subtitleMatch[1].replace(/<[^>]+>/g, '').trim();
   }
 
-  // Extract summary items - improved parsing
-  const summarySection = html.match(/<div class="summary-section"[^>]*>([\s\S]*?)<\/div>/i);
-  if (summarySection) {
-    const summaryMatches = summarySection[1].match(/<div class="summary-item"[^>]*>([\s\S]*?)<\/div>/gi);
-    if (summaryMatches) {
-      result.summary = { items: [] };
-      summaryMatches.forEach(item => {
-        const numberMatch = item.match(/<span class="summary-number"[^>]*>([\s\S]*?)<\/span>/i);
-        const labelMatch = item.match(/<span class="summary-label"[^>]*>([\s\S]*?)<\/span>/i);
-        if (numberMatch && labelMatch) {
-          result.summary.items.push({
-            label: labelMatch[1].replace(/<[^>]+>/g, '').trim(),
-            value: numberMatch[1].replace(/<[^>]+>/g, '').trim()
-          });
-        }
-      });
+  // Extract summary items - improved parsing with simpler regex
+  const summaryNumbers = html.match(/<span class="summary-number"[^>]*>([\s\S]*?)<\/span>/gi);
+  const summaryLabels = html.match(/<span class="summary-label"[^>]*>([\s\S]*?)<\/span>/gi);
+  if (summaryNumbers && summaryLabels && summaryNumbers.length === summaryLabels.length) {
+    result.summary = { items: [] };
+    for (let i = 0; i < summaryNumbers.length; i++) {
+      const numberText = summaryNumbers[i].replace(/<[^>]+>/g, '').trim();
+      const labelText = summaryLabels[i].replace(/<[^>]+>/g, '').trim();
+      if (numberText && labelText) {
+        result.summary.items.push({
+          label: labelText,
+          value: numberText
+        });
+      }
     }
   }
 
-  // Extract controls by domain - improved parsing
-  const controlsSection = html.match(/<div class="controls-section"[^>]*>([\s\S]*?)<\/div>/i);
-  if (controlsSection) {
-    const domainGroups = controlsSection[1].match(/<div class="domain-group"[^>]*>([\s\S]*?)<\/div>/gi);
-    if (domainGroups) {
-      result.controls = [];
-      domainGroups.forEach(group => {
-        const domainHeaderMatch = group.match(/<h3 class="domain-header"[^>]*>([\s\S]*?)<\/h3>/i);
-        const domainName = domainHeaderMatch ? domainHeaderMatch[1].replace(/<[^>]+>/g, '').trim() : 'Unknown Domain';
+  // Extract controls by domain - simplified approach
+  const domainHeaders = html.match(/<h3 class="domain-header"[^>]*>([\s\S]*?)<\/h3>/gi);
+  const controlRows = html.match(/<tr class="control-row"[^>]*>([\s\S]*?)<\/tr>/gi);
 
-        const controlTable = group.match(/<table class="control-table"[^>]*>([\s\S]*?)<\/table>/i);
-        const controls: any[] = [];
+  if (domainHeaders && controlRows) {
+    result.controls = [];
 
-        if (controlTable) {
-          const controlRows = controlTable[1].match(/<tr class="control-row"[^>]*>([\s\S]*?)<\/tr>/gi);
-          if (controlRows) {
-            controlRows.forEach(row => {
-              const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/gi);
-              if (cells && cells.length >= 3) {
-                const code = cells[0] ? cells[0].replace(/<[^>]+>/g, '').trim() : '';
-                const title = cells[1] ? cells[1].replace(/<[^>]+>/g, '').trim() : '';
-                const status = cells[2] ? cells[2].replace(/<[^>]+>/g, '').replace(/status-\w+/g, '').trim() : '';
-                const evidence = cells[3] ? cells[3].replace(/<[^>]+>/g, '').replace(/No evidence/g, '').trim() : 'No evidence';
+    // Extract domain names
+    const domains = domainHeaders.map(header =>
+      header.replace(/<[^>]+>/g, '').trim()
+    );
 
-                if (code) { // Only add if we have a valid control code
-                  controls.push({ code, title, status, evidence });
-                }
-              }
-            });
-          }
+    console.log('🔍 Found domains:', domains);
+    console.log('🔍 Found control rows:', controlRows.length);
+
+    // Process each control row
+    let controlIndex = 0;
+    let currentDomainIndex = 0;
+    let currentDomainControls: any[] = [];
+
+    controlRows.forEach(row => {
+      const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/gi);
+      if (cells && cells.length >= 3) {
+        const code = cells[0] ? cells[0].replace(/<[^>]+>/g, '').trim() : '';
+        const title = cells[1] ? cells[1].replace(/<[^>]+>/g, '').trim() : '';
+        const status = cells[2] ? cells[2].replace(/<[^>]+>/g, '').replace(/status-\w+/g, '').trim() : '';
+        const evidence = cells[3] ? cells[3].replace(/<[^>]+>/g, '').replace(/No evidence/g, '').trim() : 'No evidence';
+
+        if (code) {
+          currentDomainControls.push({ code, title, status, evidence });
+          console.log(`✅ Parsed control: ${code} - ${title}`);
         }
+      }
+    });
 
-        if (controls.length > 0) {
-          result.controls.push({ domain: domainName, controls });
+    // For simplicity, group all controls under one domain or distribute evenly
+    if (domains.length > 0 && currentDomainControls.length > 0) {
+      const controlsPerDomain = Math.ceil(currentDomainControls.length / domains.length);
+
+      domains.forEach((domain, index) => {
+        const startIndex = index * controlsPerDomain;
+        const endIndex = Math.min(startIndex + controlsPerDomain, currentDomainControls.length);
+        const domainControls = currentDomainControls.slice(startIndex, endIndex);
+
+        if (domainControls.length > 0) {
+          result.controls.push({ domain, controls: domainControls });
         }
       });
     }
@@ -319,8 +329,15 @@ async function buildPDFWithJavaScript(html: string): Promise<Buffer> {
       maxWidth: number;
       lineHeight?: number;
     }) => {
+      // Clean text of Unicode characters that can't be encoded in PDFs
+      const cleanText = text
+        .replace(/[\u{1F300}-\u{1F9FF}]/gu, '') // Remove emojis
+        .replace(/[\u{2000}-\u{206F}]/gu, ' ') // Replace special spaces with regular spaces
+        .replace(/[^\x00-\x7F]/g, '?') // Replace non-ASCII characters with ?
+        .trim();
+
       const { x, size, font, color, maxWidth, lineHeight = size * 1.2 } = options;
-      const words = text.split(' ');
+      const words = cleanText.split(' ');
       let currentLine = '';
 
       for (const word of words) {

@@ -2957,6 +2957,134 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const uploadsDir = path.join(process.cwd(), 'uploads');
   app.use('/uploads', isAuthenticated, express.static(uploadsDir)); // TODO: Implement signed download route for better security
 
+  // Debug endpoint to test PDF generation and compare HTML vs PDF content
+  app.get("/api/debug/pdf-content/:projectId", async (req: any, res) => {
+    try {
+      const projectId = parseInt(req.params.projectId);
+      console.log(`🔍 Debug: Testing PDF content for project ${projectId}`);
+
+      const { getComplianceReportData } = await import('./reports/reportData');
+      const { renderComplianceHTML } = await import('./reports/html');
+      const { buildPDF } = await import('./reports/reportBuilders');
+
+      // Create mock data if no real data exists
+      let report;
+      try {
+        report = await getComplianceReportData({
+          projectId,
+          regulationCode: 'NCA-ECC-2:2024',
+          controlStatusFilter: 'all'
+        });
+      } catch (error) {
+        console.log('📝 Creating mock data for testing');
+        report = {
+          project: { id: projectId, name: 'Test Project', nameAr: null, organizationId: 'test' },
+          regulation: { code: 'NCA-ECC-2:2024', name: 'Essential Cybersecurity Controls', version: '2024' },
+          generatedAt: new Date().toISOString(),
+          totals: { controls: 3, approved: 1, pending: 1, inProgress: 1, review: 0, blocked: 0 },
+          controls: [
+            {
+              id: 1, code: 'ECC-1.1', title: 'Information Security Policy',
+              titleAr: 'سياسة أمن المعلومات', domain: 'Governance',
+              status: 'completed' as const, evidence: [
+                { id: 1, title: 'Security Policy Document', fileName: 'security-policy.pdf', filePath: '/test/path', description: 'Main security policy document' }
+              ]
+            },
+            {
+              id: 2, code: 'ECC-2.1', title: 'Access Control Management',
+              titleAr: 'إدارة التحكم في الوصول', domain: 'Access Control',
+              status: 'in-progress' as const, evidence: []
+            },
+            {
+              id: 3, code: 'ECC-3.1', title: 'Network Security',
+              titleAr: 'أمن الشبكة', domain: 'Network Security',
+              status: 'pending' as const, evidence: [
+                { id: 2, title: 'Network Diagram', fileName: 'network-diagram.png', filePath: '/test/path2', description: 'Current network topology' }
+              ]
+            }
+          ]
+        };
+      }
+
+      const html = renderComplianceHTML(report, 'en', true, 'http://localhost:5001');
+
+      // Save HTML for inspection
+      const fs = await import('fs');
+      fs.writeFileSync('/tmp/debug-report.html', html);
+
+      // Generate PDF
+      const pdfBuffer = await buildPDF(html);
+      fs.writeFileSync('/tmp/debug-report.pdf', pdfBuffer);
+
+      res.json({
+        success: true,
+        report: {
+          projectName: report.project.name,
+          controlsCount: report.controls.length,
+          totals: report.totals,
+        },
+        html: {
+          length: html.length,
+          saved: '/tmp/debug-report.html',
+          preview: html.substring(0, 2000)
+        },
+        pdf: {
+          size: pdfBuffer.length,
+          saved: '/tmp/debug-report.pdf'
+        },
+        message: 'Check /tmp/debug-report.html and /tmp/debug-report.pdf to compare content'
+      });
+    } catch (error) {
+      console.error('Debug PDF content error:', error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+    }
+  });
+
+  // Debug endpoint for testing compliance report data generation (no auth required)
+  app.get("/api/debug/compliance-report-data/:projectId", async (req: any, res) => {
+    try {
+      const projectId = parseInt(req.params.projectId);
+      console.log(`🔍 Debug: Getting compliance report data for project ${projectId}`);
+
+      const { getComplianceReportData } = await import('./reports/reportData');
+      const { renderComplianceHTML } = await import('./reports/html');
+
+      const report = await getComplianceReportData({
+        projectId,
+        regulationCode: 'NCA-ECC-2:2024',
+        controlStatusFilter: 'all'
+      });
+
+      const html = renderComplianceHTML(report, 'en', false, '');
+
+      res.json({
+        report: {
+          projectName: report.project.name,
+          controlsCount: report.controls.length,
+          totals: report.totals,
+          domains: Array.from(new Set(report.controls.map(c => c.domain))),
+          sampleControls: report.controls.slice(0, 3).map(c => ({
+            code: c.code,
+            title: c.title,
+            domain: c.domain,
+            evidenceCount: c.evidence.length
+          }))
+        },
+        htmlLength: html.length,
+        htmlPreview: html.substring(0, 1000)
+      });
+    } catch (error) {
+      console.error('Debug endpoint error:', error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
