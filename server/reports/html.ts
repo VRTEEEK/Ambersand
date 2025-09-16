@@ -27,243 +27,191 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
             margin: 16mm;
             @top-center {
                 content: "Compliance Report - ${report.project.name}";
-                font-size: 10pt;
-                color: #666;
+                font-size: 9pt;
+                color: #333;
             }
             @bottom-center {
-                content: "Generated on ${new Date(report.generatedAt).toLocaleDateString()} | Page " counter(page) " of " counter(pages);
+                content: "Generated on ${new Date(report.generatedAt).toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US')} | Page " counter(page) " of " counter(pages);
                 font-size: 9pt;
-                color: #666;
+                color: #333;
             }
         }
         
         body {
             font-family: 'Arial', sans-serif;
-            line-height: 1.6;
+            line-height: 1.4;
             color: #333;
             direction: ${direction};
             margin: 0;
             padding: 0;
+            font-size: 11pt;
         }
         
         .header {
-            border-bottom: 3px solid #2699A6;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 30px;
         }
         
-        .header h1 {
-            color: #2699A6;
-            font-size: 28pt;
-            margin: 0;
+        .header .main-title {
+            font-size: 18pt;
             font-weight: bold;
+            color: #333;
+            margin: 0 0 30px 0;
+        }
+        
+        .header .project-name {
+            font-size: 24pt;
+            font-weight: bold;
+            color: #333;
+            margin: 0 0 10px 0;
         }
         
         .header .subtitle {
             font-size: 14pt;
-            color: #666;
-            margin-top: 10px;
+            color: #333;
+            margin: 5px 0;
+        }
+
+        .header .generated-date {
+            font-size: 12pt;
+            color: #333;
+            margin: 20px 0;
         }
         
         .summary-section {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            padding: 30px;
-            border-radius: 12px;
             margin-bottom: 40px;
-            border: 2px solid #2699A6;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
         .summary-title {
-            text-align: center;
-            font-size: 18pt;
+            font-size: 16pt;
             font-weight: bold;
-            color: #2699A6;
-            margin-bottom: 20px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            color: #333;
+            margin-bottom: 30px;
         }
 
         .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 20px;
+            display: table;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .summary-row {
+            display: table-row;
         }
 
         .summary-item {
+            display: table-cell;
             text-align: center;
-            padding: 20px 15px;
-            background: white;
-            border-radius: 8px;
-            border: 2px solid #e5e7eb;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            transition: transform 0.2s;
-        }
-
-        .summary-item:hover {
-            transform: translateY(-2px);
-            border-color: #2699A6;
+            padding: 30px 20px;
+            width: 50%;
+            vertical-align: top;
         }
 
         .summary-number {
-            font-size: 36pt;
+            font-size: 48pt;
             font-weight: bold;
-            color: #2699A6;
+            color: #333;
             display: block;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+            line-height: 1;
         }
 
         .summary-label {
             font-size: 10pt;
-            color: #555;
+            color: #333;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-weight: 600;
+            font-weight: bold;
             margin-top: 5px;
+            display: block;
         }
         
         .controls-section {
-            margin-top: 40px;
+            margin-top: 50px;
+        }
+        
+        .controls-title {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 30px;
         }
         
         .domain-group {
-            margin-bottom: 40px;
+            margin-bottom: 30px;
             page-break-inside: avoid;
         }
         
         .domain-header {
-            background: #2699A6;
-            color: white;
-            padding: 15px 20px;
-            font-size: 16pt;
+            font-size: 12pt;
             font-weight: bold;
-            margin-bottom: 0;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 5px;
         }
         
         .control-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
-            font-size: 9pt;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            border-radius: 6px;
-            overflow: hidden;
+            margin-bottom: 30px;
+            font-size: 10pt;
         }
 
         .control-table th {
-            background: linear-gradient(135deg, #2699A6 0%, #1e7a85 100%);
-            color: white;
-            padding: 15px 10px;
-            text-align: ${isRTL ? 'right' : 'left'};
-            border: none;
+            background: white;
+            color: #333;
+            padding: 10px 8px;
+            text-align: left;
+            border-bottom: 1px solid #333;
             font-weight: bold;
-            font-size: 10pt;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            font-size: 11pt;
         }
 
         .control-table td {
-            padding: 12px 10px;
-            border-bottom: 1px solid #e5e7eb;
-            border-right: 1px solid #e5e7eb;
+            padding: 10px 8px;
+            border-bottom: none;
             vertical-align: top;
             background: white;
         }
 
-        .control-table tr:nth-child(even) td {
-            background: #f9fafb;
-        }
-
-        .control-table tr:hover td {
-            background: #f0f9ff;
-        }
-
         .control-code {
             font-weight: bold;
-            color: #2699A6;
-            font-size: 10pt;
-            padding: 4px 8px;
-            background: #e0f2fe;
-            border-radius: 4px;
-            display: inline-block;
+            color: #333;
         }
         
         .control-row {
             page-break-inside: avoid;
         }
         
-        .status-badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 9pt;
+        .control-title {
+            color: #333;
+        }
+        
+        .control-status {
             font-weight: bold;
             text-transform: uppercase;
+            color: #333;
         }
         
-        .status-completed { background: #dcfce7; color: #166534; }
-        .status-in-progress { background: #fef3c7; color: #92400e; }
-        .status-review { background: #e0e7ff; color: #3730a3; }
-        .status-pending { background: #f3f4f6; color: #374151; }
-        .status-blocked { background: #fecaca; color: #991b1b; }
-        
-        .evidence-list {
-            margin: 0;
-            padding: 0;
-            list-style: none;
-        }
-        
-        .evidence-item {
-            margin: 5px 0;
-            padding: 8px;
-            background: #f9fafb;
-            border-radius: 4px;
-            font-size: 9pt;
+        .evidence-content {
+            color: #333;
         }
         
         .evidence-filename {
-            font-weight: bold;
-            color: #2699A6;
-        }
-        
-        .evidence-filename-plain {
-            font-weight: bold;
-            color: #374151;
-        }
-        
-        .evidence-link {
-            color: #2699A6;
-            text-decoration: underline;
-            font-weight: bold;
-            padding: 2px 6px;
-            background: #f0f9ff;
-            border-radius: 3px;
-            border: 1px solid #2699A6;
-            display: inline-block;
-            margin: 2px;
-            transition: all 0.2s;
-        }
-
-        .evidence-link:hover {
-            color: white;
-            background: #2699A6;
-            text-decoration: none;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(38, 153, 166, 0.3);
-        }
-        
-        .evidence-note {
-            margin-top: 8px;
-            padding: 6px;
-            background: #fef3c7;
-            border-radius: 4px;
-            font-size: 8pt;
-            color: #92400e;
+            color: #333;
+            display: block;
+            margin-bottom: 2px;
         }
         
         .evidence-description {
-            color: #666;
-            margin-top: 4px;
+            color: #333;
+            font-style: italic;
+            font-size: 9pt;
+            margin-top: 2px;
+        }
+        
+        .no-evidence {
+            color: #333;
+            font-style: italic;
         }
         
         .page-break {
@@ -277,39 +225,47 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
 </head>
 <body>
     <div class="header">
-        <h1>${isRTL ? report.project.nameAr || report.project.name : report.project.name}</h1>
+        <div class="main-title">Compliance Report - ${isRTL ? report.project.nameAr || report.project.name : report.project.name}</div>
+        
+        <div class="project-name">${isRTL ? report.project.nameAr || report.project.name : report.project.name}</div>
+        
         <div class="subtitle">
             ${lang === 'ar' ? 'تقرير الامتثال' : 'Compliance Report'} - ${report.regulation.name}
         </div>
-        <div class="subtitle">
-            ${lang === 'ar' ? 'تاريخ الإنشاء:' : 'Generated on:'} ${new Date(report.generatedAt).toLocaleDateString()}
+        
+        <div class="generated-date">
+            ${lang === 'ar' ? 'تاريخ الإنشاء:' : 'Generated on:'} ${new Date(report.generatedAt).toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US')}
         </div>
     </div>
 
     <div class="summary-section">
-        <div class="summary-title">${lang === 'ar' ? 'لوحة معلومات الامتثال' : 'Compliance Dashboard'}</div>
+        <div class="summary-title">${lang === 'ar' ? 'ملخص الامتثال' : 'Compliance Summary'}</div>
         <div class="summary-grid">
-            <div class="summary-item">
-                <span class="summary-number">${report.totals.controls}</span>
-                <span class="summary-label">${lang === 'ar' ? 'إجمالي الضوابط' : 'Total Controls'}</span>
+            <div class="summary-row">
+                <div class="summary-item">
+                    <span class="summary-number">${report.totals.controls}</span>
+                    <span class="summary-label">${lang === 'ar' ? 'إجمالي الضوابط' : 'Total Controls'}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-number">${report.totals.approved}</span>
+                    <span class="summary-label">${lang === 'ar' ? 'موافق عليها' : 'Approved'}</span>
+                </div>
             </div>
-            <div class="summary-item">
-                <span class="summary-number">${report.totals.approved}</span>
-                <span class="summary-label">${lang === 'ar' ? 'موافق عليها' : 'Approved'}</span>
-            </div>
-            <div class="summary-item">
-                <span class="summary-number">${report.totals.pending}</span>
-                <span class="summary-label">${lang === 'ar' ? 'معلقة' : 'Pending'}</span>
-            </div>
-            <div class="summary-item">
-                <span class="summary-number">${report.totals.inProgress}</span>
-                <span class="summary-label">${lang === 'ar' ? 'قيد التنفيذ' : 'In Progress'}</span>
+            <div class="summary-row">
+                <div class="summary-item">
+                    <span class="summary-number">${report.totals.pending}</span>
+                    <span class="summary-label">${lang === 'ar' ? 'معلقة' : 'Pending'}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-number">${report.totals.inProgress}</span>
+                    <span class="summary-label">${lang === 'ar' ? 'قيد التنفيذ' : 'In Progress'}</span>
+                </div>
             </div>
         </div>
     </div>
 
     <div class="controls-section">
-        <h2>${lang === 'ar' ? 'تفاصيل الضوابط' : 'Control Details'}</h2>
+        <div class="controls-title">${lang === 'ar' ? 'تفاصيل الضوابط' : 'Control Details'}</div>
         ${generateControlsByDomain(report.controls, lang, evidenceLinksAvailable, baseUrl)}
     </div>
 </body>
@@ -338,9 +294,9 @@ function generateControlsByDomain(controls: ComplianceReport['controls'], lang: 
     console.log('⚠️ No domains found, generating empty controls message');
     return `
       <div class="domain-group">
-        <div style="padding: 40px; text-align: center; background: #f9fafb; border-radius: 8px; margin: 20px 0;">
-          <h3 style="color: #6b7280; margin-bottom: 10px;">${lang === 'ar' ? 'لا توجد ضوابط' : 'No Controls Available'}</h3>
-          <p style="color: #9ca3af; font-size: 14px;">
+        <div style="padding: 40px; text-align: center; margin: 20px 0;">
+          <h3 style="color: #333; margin-bottom: 10px;">${lang === 'ar' ? 'لا توجد ضوابط' : 'No Controls Available'}</h3>
+          <p style="color: #333; font-size: 14px;">
             ${lang === 'ar'
               ? 'لم يتم العثور على ضوابط لهذا المشروع. يرجى إضافة ضوابط لإنشاء التقرير.'
               : 'No controls found for this project. Please add controls to generate the report.'
@@ -356,62 +312,32 @@ function generateControlsByDomain(controls: ComplianceReport['controls'], lang: 
 
     return `
       <div class="domain-group">
-        <h3 class="domain-header">${domain}</h3>
+        <div class="domain-header">${domain}</div>
+        
         <table class="control-table">
           <thead>
             <tr>
-              <th>${lang === 'ar' ? 'الرمز' : 'Code'}</th>
-              <th>${lang === 'ar' ? 'العنوان' : 'Title'}</th>
-              <th>${lang === 'ar' ? 'الحالة' : 'Status'}</th>
-              <th>${lang === 'ar' ? 'الأدلة' : 'Evidence'}</th>
+              <th style="width: 10%;">${lang === 'ar' ? 'الرمز' : 'Code'}</th>
+              <th style="width: 50%;">${lang === 'ar' ? 'العنوان' : 'Title'}</th>
+              <th style="width: 15%;">${lang === 'ar' ? 'الحالة' : 'Status'}</th>
+              <th style="width: 25%;">${lang === 'ar' ? 'الأدلة' : 'Evidence'}</th>
             </tr>
           </thead>
           <tbody>
             ${domainControls.map(control => `
               <tr class="control-row">
                 <td><span class="control-code">${control.code}</span></td>
-                <td><strong>${isRTL && control.titleAr ? control.titleAr : control.title}</strong></td>
-                <td>
-                  <span class="status-badge status-${control.status}">
-                    ${getStatusLabel(control.status, lang)}
-                  </span>
-                </td>
-                <td>
+                <td class="control-title">${isRTL && control.titleAr ? control.titleAr : control.title}</td>
+                <td class="control-status">${getStatusLabel(control.status, lang)}</td>
+                <td class="evidence-content">
                   ${control.evidence.length === 0 ? 
-                    `<em>${lang === 'ar' ? 'لا توجد أدلة' : 'No evidence'}</em>` :
-                    `<ul class="evidence-list">
-                      ${control.evidence.map(ev => {
-                        if (evidenceLinksAvailable) {
-                          // Create clickable link to download evidence via API
-                          const downloadUrl = baseUrl ? `${baseUrl}/api/evidence/${ev.id}/download` : `#evidence-${ev.id}`;
-                          const fileType = ev.fileName.toLowerCase().includes('.pdf') ? '[PDF]' :
-                                         ev.fileName.toLowerCase().includes('.png') || ev.fileName.toLowerCase().includes('.jpg') ? '[IMG]' :
-                                         ev.fileName.toLowerCase().includes('.doc') ? '[DOC]' : '[FILE]';
-                          return `
-                            <li class="evidence-item">
-                              <div class="evidence-filename">
-                                <a href="${downloadUrl}" class="evidence-link" target="_blank">
-                                  ${fileType} ${ev.fileName} [DOWNLOAD]
-                                </a>
-                              </div>
-                              ${ev.description ? `<div class="evidence-description">${ev.description}</div>` : ''}
-                            </li>
-                          `;
-                        } else {
-                          return `
-                            <li class="evidence-item">
-                              <div class="evidence-filename-plain">${ev.fileName}</div>
-                              ${ev.description ? `<div class="evidence-description">${ev.description}</div>` : ''}
-                            </li>
-                          `;
-                        }
-                      }).join('')}
-                      ${!evidenceLinksAvailable && control.evidence.length > 0 ? 
-                        `<li class="evidence-note">
-                          <em>${lang === 'ar' ? 'ملف الأدلة متوفر بصيغة منفصلة' : 'Evidence file: Evidence files available in ZIP bundle'}</em>
-                        </li>` : ''
+                    `<span class="no-evidence">${lang === 'ar' ? 'لا توجد أدلة' : 'No evidence'}</span>` :
+                    control.evidence.map(ev => `
+                      <div class="evidence-filename">${ev.fileName}</div>
+                      ${ev.description ? `<div class="evidence-description">${lang === 'ar' ? 'ملف أدلة:' : 'Evidence file:'} ${ev.description}</div>` : 
+                        `<div class="evidence-description">${lang === 'ar' ? 'ملف أدلة:' : 'Evidence file:'} ${ev.fileName}</div>`
                       }
-                    </ul>`
+                    `).join('')
                   }
                 </td>
               </tr>
