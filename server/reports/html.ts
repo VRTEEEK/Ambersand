@@ -250,6 +250,7 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
             margin-bottom: 0;
             font-size: 10pt;
             background: white;
+            table-layout: fixed;
         }
 
         .control-table th {
@@ -263,6 +264,9 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
             text-transform: uppercase;
             letter-spacing: 0.3px;
             position: relative;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            hyphens: auto;
         }
 
         .control-table td {
@@ -272,6 +276,9 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
             background: white;
             transition: background-color 0.2s ease;
             font-weight: 400;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            hyphens: auto;
         }
 
         .control-table tr:nth-child(even) td {
@@ -612,6 +619,12 @@ function generateControlsByDomain(controls: ComplianceReport['controls'], lang: 
       <div class="domain-group">
         <h3 class="domain-header">${domain}</h3>
         <table class="control-table">
+          <colgroup>
+            <col style="width: 12%;">
+            <col style="width: 46%;">
+            <col style="width: 12%;">
+            <col style="width: 30%;">
+          </colgroup>
           <thead>
             <tr>
               <th>${lang === 'ar' ? 'الرمز' : 'Code'}</th>
