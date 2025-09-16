@@ -8,6 +8,8 @@ import { createReadStream, existsSync } from 'fs';
 import { Response } from 'express';
 import { execSync } from 'child_process';
 import path from 'path';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { convert as htmlToText } from 'html-to-text';
 
 export async function buildPDF(html: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -52,9 +54,8 @@ export async function buildPDF(html: string): Promise<Buffer> {
       } catch (error) {
         console.warn('⚠️ wkhtmltopdf binary not found in PATH. Attempting to use nix-env to locate...');
         try {
-          // Try to find wkhtmltopdf in common locations
+          // Try to find wkhtmltopdf in common locations with timeout
           const locations = [
-            '/nix/store/*/bin/wkhtmltopdf',
             '/usr/bin/wkhtmltopdf',
             '/usr/local/bin/wkhtmltopdf'
           ];
@@ -62,11 +63,34 @@ export async function buildPDF(html: string): Promise<Buffer> {
           let foundPath = null;
           for (const location of locations) {
             try {
-              execSync(`ls ${location}`, { stdio: 'ignore' });
-              foundPath = location.includes('*') ? execSync(`find /nix/store -name wkhtmltopdf -executable 2>/dev/null | head -1`).toString().trim() : location;
+              execSync(`ls ${location}`, { stdio: 'ignore', timeout: 5000 });
+              foundPath = location;
               break;
             } catch (e) {
               // Continue searching
+            }
+          }
+
+          // Try Nix store search with timeout
+          if (!foundPath) {
+            try {
+              const nixPath = execSync('find /nix/store -maxdepth 2 -name "*wkhtmltopdf*" -type d 2>/dev/null | head -1', { 
+                stdio: 'pipe', 
+                timeout: 10000,
+                encoding: 'utf8'
+              }).toString().trim();
+              
+              if (nixPath) {
+                const binaryPath = `${nixPath}/bin/wkhtmltopdf`;
+                try {
+                  execSync(`test -f ${binaryPath}`, { stdio: 'ignore', timeout: 2000 });
+                  foundPath = binaryPath;
+                } catch (e) {
+                  // Binary not found in expected location
+                }
+              }
+            } catch (e) {
+              console.warn('⚠️  Nix store search timed out or failed');
             }
           }
 
@@ -78,7 +102,9 @@ export async function buildPDF(html: string): Promise<Buffer> {
             throw new Error('wkhtmltopdf binary not found in any common locations.');
           }
         } catch (searchError) {
-          throw new Error('wkhtmltopdf binary not found. Please ensure wkhtmltopdf is installed in your environment.');
+          console.error('❌ wkhtmltopdf search failed:', searchError);
+          console.log('🔄 Falling back to JavaScript PDF generation...');
+          return buildPDFWithJavaScript(html);
         }
       }
 
@@ -154,6 +180,93 @@ export async function buildPDF(html: string): Promise<Buffer> {
       reject(new Error(`PDF generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`));
     }
   });
+}
+
+// Fallback PDF generation using pure JavaScript
+async function buildPDFWithJavaScript(html: string): Promise<Buffer> {
+  try {
+    console.log('📄 Generating PDF using JavaScript fallback...');
+    
+    // Convert HTML to plain text with some formatting preserved
+    const text = htmlToText(html, {
+      wordwrap: 80,
+      selectors: [
+        { selector: 'h1', options: { uppercase: false, format: 'block' } },
+        { selector: 'h2', options: { uppercase: false, format: 'block' } },
+        { selector: 'h3', options: { uppercase: false, format: 'block' } },
+        { selector: 'p', options: { format: 'block' } },
+        { selector: 'table', options: { uppercaseHeaderCells: false } }
+      ]
+    });
+
+    // Create a new PDF document
+    const pdfDoc = await PDFDocument.create();
+    const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+    const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+    // Define page dimensions and margins
+    const pageWidth = 595.28; // A4 width in points
+    const pageHeight = 841.89; // A4 height in points
+    const margin = 50;
+    const contentWidth = pageWidth - 2 * margin;
+    const contentHeight = pageHeight - 2 * margin;
+
+    let page = pdfDoc.addPage([pageWidth, pageHeight]);
+    let yPosition = pageHeight - margin;
+
+    // Split text into lines and add to PDF
+    const lines = text.split('\n');
+    const fontSize = 12;
+    const lineHeight = fontSize * 1.2;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // Check if we need a new page
+      if (yPosition - lineHeight < margin) {
+        page = pdfDoc.addPage([pageWidth, pageHeight]);
+        yPosition = pageHeight - margin;
+      }
+
+      // Determine if this is a header (simple heuristic)
+      const isHeader = line.length > 0 && line.length < 100 && 
+                      (line.includes('Compliance') || line.includes('Report') || 
+                       line.includes('Project') || line.includes('Control'));
+
+      // Draw the text
+      page.drawText(line, {
+        x: margin,
+        y: yPosition,
+        size: isHeader ? fontSize + 2 : fontSize,
+        font: isHeader ? helveticaBoldFont : timesRomanFont,
+        color: rgb(0, 0, 0),
+        maxWidth: contentWidth,
+      });
+
+      yPosition -= lineHeight;
+    }
+
+    // Add footer with generation info
+    const footerText = `Generated on ${new Date().toLocaleDateString()} | Page 1`;
+    const pages = pdfDoc.getPages();
+    pages.forEach((page, index) => {
+      page.drawText(footerText.replace('Page 1', `Page ${index + 1}`), {
+        x: margin,
+        y: 30,
+        size: 10,
+        font: timesRomanFont,
+        color: rgb(0.5, 0.5, 0.5),
+      });
+    });
+
+    const pdfBytes = await pdfDoc.save();
+    console.log(`✅ JavaScript PDF generated successfully (${pdfBytes.length} bytes)`);
+    
+    return Buffer.from(pdfBytes);
+  } catch (error) {
+    console.error('❌ JavaScript PDF generation failed:', error);
+    throw new Error(`JavaScript PDF generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
 export async function buildDOCX(report: ComplianceReport): Promise<Buffer> {
