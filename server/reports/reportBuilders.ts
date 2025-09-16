@@ -157,13 +157,8 @@ export async function buildPDF(html: string): Promise<Buffer> {
     const optimizedHtml = optimizeHtmlForPdf(html);
     console.log('📄 HTML optimized for PDF generation');
 
-    // Use wkhtmltopdf for better CSS support and styled PDFs
-    try {
-      return await buildPDFWithWkhtmltopdf(optimizedHtml);
-    } catch (wkhtmlError) {
-      console.warn('⚠️ wkhtmltopdf failed, falling back to JavaScript PDF generation:', wkhtmlError);
-      return await buildPDFWithJavaScript(optimizedHtml);
-    }
+    // Use JavaScript PDF generation by default for better reliability and performance
+    return await buildPDFWithJavaScript(optimizedHtml);
   } catch (error) {
     console.error('❌ PDF generation failed:', error);
     console.error('📝 Error details:', {
