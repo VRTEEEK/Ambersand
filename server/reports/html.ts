@@ -52,10 +52,10 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
         }
         
         .header {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            background: linear-gradient(135deg, ${theme.primary[600]} 0%, ${theme.primary[500]} 50%, hsl(174, 50%, 55%) 100%);
             color: white;
-            padding: 40px 30px;
-            margin: -20px -16mm 40px -16mm;
+            padding: 25px 20px;
+            margin: -20px -16mm 30px -16mm;
             text-align: center;
             position: relative;
             overflow: hidden;
@@ -78,44 +78,44 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
         }
         
         .header h1 {
-            font-size: 32pt;
-            margin: 0 0 15px 0;
-            font-weight: 700;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-            letter-spacing: -0.02em;
+            font-size: 24pt;
+            margin: 0 0 10px 0;
+            font-weight: 600;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            letter-spacing: -0.01em;
         }
         
         .header .subtitle {
-            font-size: 16pt;
+            font-size: 14pt;
             opacity: 0.95;
-            margin: 8px 0;
-            font-weight: 500;
+            margin: 6px 0;
+            font-weight: 400;
         }
         
         .header .generated-date {
-            font-size: 12pt;
+            font-size: 10pt;
             opacity: 0.8;
-            margin-top: 15px;
-            padding-top: 15px;
+            margin-top: 10px;
+            padding-top: 10px;
             border-top: 1px solid rgba(255, 255, 255, 0.2);
         }
         
         .summary-section {
             background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-            padding: 40px 30px;
-            border-radius: 16px;
-            margin-bottom: 50px;
+            padding: 30px 25px;
+            border-radius: 12px;
+            margin-bottom: 35px;
             border: 1px solid #cbd5e1;
-            box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
+            box-shadow: 0 6px 24px rgba(15, 23, 42, 0.06);
             position: relative;
         }
 
         .summary-title {
             text-align: center;
-            font-size: 22pt;
-            font-weight: 700;
+            font-size: 18pt;
+            font-weight: 600;
             color: #0f172a;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             text-transform: none;
             letter-spacing: -0.01em;
             position: relative;
@@ -555,7 +555,11 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
       .replace(/#4a8080/gi, theme.primary[600])
       .replace(/#3a6b6b/gi, theme.primary[600])
       .replace(/rgba\(\s*90\s*,\s*154\s*,\s*154\s*,\s*([0-9.]+)\s*\)/gi, (_m, a) => hsla(theme.primary[500], Number(a)))
-      .replace(/rgba\(\s*74\s*,\s*128\s*,\s*128\s*,\s*([0-9.]+)\s*\)/gi, (_m, a) => hsla(theme.primary[600], Number(a)));
+      .replace(/rgba\(\s*74\s*,\s*128\s*,\s*128\s*,\s*([0-9.]+)\s*\)/gi, (_m, a) => hsla(theme.primary[600], Number(a)))
+      // Replace dark header colors with teal theme
+      .replace(/#0f172a/gi, theme.primary[600])
+      .replace(/#1e293b/gi, theme.primary[500])
+      .replace(/#334155/gi, 'hsl(174, 50%, 55%)');
     
     console.log('🎨 Applied theme colors to PDF template');
     return replacedHtml;
