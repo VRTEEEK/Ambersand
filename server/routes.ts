@@ -2508,6 +2508,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Export route
   app.post("/api/reports/compliance/export", isAuthenticated, async (req: any, res) => {
+    console.log('📋 Compliance report export request received:', {
+      user: req.user?.claims?.sub,
+      body: JSON.stringify(req.body, null, 2)
+    });
+
     const schema = z.object({
       projectId: z.number(),
       regulationCode: z.string().optional(),
@@ -2538,15 +2543,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const selected = { pdf: !!formats?.pdf, docx: !!formats?.docx, xlsx: !!formats?.xlsx };
       const count = Object.values(selected).filter(Boolean).length;
 
-      const needsZip = evidenceMode !== "link" || count !== 1;
-      // Enable clickable links when evidence files are attached, regardless of ZIP bundle
-      const evidenceLinksAvailable = (evidenceMode === "attach" || evidenceMode === "both");
-      
+      // Determine if ZIP is needed based on evidence mode and format count
+      // ZIP is needed when:
+      // 1. Evidence mode is "attach" or "both" (need to include evidence files)
+      // 2. Multiple formats are requested
+      const needsZip = evidenceMode === "attach" || evidenceMode === "both" || count > 1;
+      // Enable clickable links when evidence files are linked, attached, or both
+      const evidenceLinksAvailable = (evidenceMode === "link" || evidenceMode === "attach" || evidenceMode === "both");
+
       // Generate base URL for clickable links in PDF
       const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
       const host = req.headers['x-forwarded-host'] || req.headers.host;
       const baseUrl = `${protocol}://${host}`;
-      
+
       const html = renderComplianceHTML(report, language, evidenceLinksAvailable, baseUrl);
 
       if (needsZip) {
@@ -2585,7 +2594,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ message: "Select at least one format." });
     } catch (err) {
       console.error("Export error:", err);
-      return res.status(500).json({ message: "Failed to export compliance report" });
+      const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
+      return res.status(500).json({
+        message: "Failed to export compliance report",
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? (err instanceof Error ? err.stack : err) : undefined
+      });
     }
   });
 

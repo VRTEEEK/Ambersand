@@ -8,44 +8,119 @@ import { createReadStream, existsSync } from 'fs';
 import { Response } from 'express';
 
 export async function buildPDF(html: string): Promise<Buffer> {
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-accelerated-2d-canvas',
-      '--no-first-run',
-      '--no-zygote',
-      '--disable-gpu',
-      '--disable-web-security',
-      '--disable-features=VizDisplayCompositor'
-    ]
-  });
-  
+  let browser;
   try {
+    console.log('🚀 Launching Puppeteer for PDF generation...');
+    browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-gpu',
+        '--disable-web-security',
+        '--disable-features=VizDisplayCompositor',
+        '--disable-extensions',
+        '--disable-plugins'
+      ]
+    });
+
     const page = await browser.newPage();
-    
-    // Enable screen media to preserve clickable links in PDF
-    await page.emulateMediaType('screen');
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-    
+
+    // Set reasonable timeouts
+    page.setDefaultTimeout(30000);
+    page.setDefaultNavigationTimeout(30000);
+
+    // Configure page to preserve links and improve rendering
+    await page.setExtraHTTPHeaders({ 'Accept-Language': 'en' });
+    await page.emulateMediaType('print'); // Use print media type for PDFs
+    await page.setViewport({ width: 1200, height: 800 });
+
+    console.log('📄 Loading HTML content...');
+    await page.setContent(html, {
+      waitUntil: ['networkidle0', 'domcontentloaded'],
+      timeout: 30000
+    });
+
+    // Wait for any dynamic content to load
+    await page.evaluate(() => {
+      return new Promise((resolve) => {
+        // Wait for images to load
+        const images = Array.from(document.querySelectorAll('img'));
+        if (images.length === 0) {
+          resolve(undefined);
+          return;
+        }
+
+        let loadedImages = 0;
+        images.forEach(img => {
+          if (img.complete) {
+            loadedImages++;
+          } else {
+            img.onload = img.onerror = () => {
+              loadedImages++;
+              if (loadedImages === images.length) {
+                resolve(undefined);
+              }
+            };
+          }
+        });
+
+        if (loadedImages === images.length) {
+          resolve(undefined);
+        }
+
+        // Timeout after 5 seconds
+        setTimeout(() => resolve(undefined), 5000);
+      });
+    });
+
+    // Inject JavaScript to ensure links are properly formatted
+    await page.evaluate(() => {
+      const links = document.querySelectorAll('a[href]');
+      links.forEach(link => {
+        // Preserve existing href for clickability in PDF viewers that support it
+        const htmlElement = link as HTMLElement;
+        htmlElement.style.color = '#2699A6';
+        htmlElement.style.textDecoration = 'underline';
+      });
+    });
+
+    console.log('🖨️  Generating PDF...');
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
-      preferCSSPageSize: true,
+      preferCSSPageSize: false,
       omitBackground: false,
+      tagged: true,
+      outline: true,
+      displayHeaderFooter: true,
+      headerTemplate: '<div></div>', // Empty header
+      footerTemplate: `
+        <div style="width: 100%; font-size: 10px; text-align: center; color: #666;">
+          Generated on ${new Date().toLocaleDateString()} | Page <span class="pageNumber"></span> of <span class="totalPages"></span>
+        </div>
+      `,
       margin: {
-        top: '16mm',
-        bottom: '16mm',
+        top: '20mm',
+        bottom: '20mm',
         left: '12mm',
         right: '12mm'
       }
     });
-    
+
+    console.log('✅ PDF generated successfully');
     return Buffer.from(pdfBuffer);
+  } catch (error) {
+    console.error('❌ PDF generation failed:', error);
+    throw new Error(`PDF generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   } finally {
-    await browser.close();
+    if (browser) {
+      await browser.close();
+    }
   }
 }
 
@@ -309,12 +384,16 @@ export async function streamBundle(params: {
             const safeFileName = sanitizeFilename(`${control.code}__${ev.fileName}`);
             console.log(`📎 Adding evidence file: ${ev.fileName} -> evidence/${safeFileName}`);
             console.log(`📂 Source path: ${ev.filePath}`);
-            archive.append(createReadStream(ev.filePath), { name: `evidence/${safeFileName}` });
+            try {
+              archive.append(createReadStream(ev.filePath), { name: `evidence/${safeFileName}` });
+            } catch (error) {
+              console.error(`❌ Failed to add evidence file ${ev.fileName}:`, error);
+              // Log the error but continue processing other files
+            }
           } else {
-            console.log(`❌ Evidence file not found: ${ev.fileName} at ${ev.filePath}`);
-            // Add placeholder for missing files
-            const placeholder = `Evidence file not found: ${ev.fileName}\nControl: ${control.code}\nOriginal path: ${ev.filePath}\nGenerated at: ${new Date().toISOString()}`;
-            archive.append(Buffer.from(placeholder), { name: `evidence/${control.code}__${ev.fileName}.missing.txt` });
+            console.warn(`⚠️  Evidence file not found: ${ev.fileName} at ${ev.filePath}`);
+            // Skip missing files instead of creating placeholders
+            // This prevents cluttering the export with placeholder files
           }
         }
       }

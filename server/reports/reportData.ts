@@ -2,6 +2,7 @@ import { db } from "../db";
 import { projects, projectControls, eccControls, evidence, tasks, users } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import path from "path";
+import { existsSync } from "fs";
 
 export interface ComplianceReport {
   project: { 
@@ -55,35 +56,52 @@ export async function getComplianceReportData(params: {
 }): Promise<ComplianceReport> {
   const { projectId, regulationCode, controlStatusFilter, organizationId } = params;
 
-  // Get project details
-  const projectConditions = [eq(projects.id, projectId)];
-  if (organizationId) {
-    projectConditions.push(eq(projects.organizationId, organizationId));
-  }
-  
-  const project = await db.select()
-    .from(projects)
-    .where(and(...projectConditions))
-    .limit(1);
+  let project: any[];
+  try {
+    console.log(`📊 Generating compliance report for project ${projectId}...`);
 
-  if (!project[0]) {
-    throw new Error(`Project ${projectId} not found or access denied`);
+    // Get project details
+    const projectConditions = [eq(projects.id, projectId)];
+    if (organizationId) {
+      projectConditions.push(eq(projects.organizationId, organizationId));
+    }
+
+    project = await db.select()
+      .from(projects)
+      .where(and(...projectConditions))
+      .limit(1);
+
+    if (!project[0]) {
+      throw new Error(`Project ${projectId} not found or access denied`);
+    }
+
+    console.log(`✅ Project found: ${project[0].name}`);
+  } catch (error) {
+    console.error(`❌ Database error while fetching project ${projectId}:`, error);
+    throw new Error(`Failed to retrieve project data: ${error instanceof Error ? error.message : 'Unknown database error'}`);
   }
 
   // Get project controls with their status and ECC control details
-  const projectControlsQuery = db.select({
-    id: projectControls.id,
-    eccControlId: projectControls.eccControlId,
-    status: projectControls.status,
-    assignedTo: projectControls.assignedTo,
-    updatedAt: projectControls.updatedAt,
-    eccControl: eccControls
-  })
-    .from(projectControls)
-    .innerJoin(eccControls, eq(projectControls.eccControlId, eccControls.id))
-    .where(eq(projectControls.projectId, projectId));
+  let filteredControls;
+  try {
+    const projectControlsQuery = db.select({
+      id: projectControls.id,
+      eccControlId: projectControls.eccControlId,
+      status: projectControls.status,
+      assignedTo: projectControls.assignedTo,
+      updatedAt: projectControls.updatedAt,
+      eccControl: eccControls
+    })
+      .from(projectControls)
+      .innerJoin(eccControls, eq(projectControls.eccControlId, eccControls.id))
+      .where(eq(projectControls.projectId, projectId));
 
-  let filteredControls = await projectControlsQuery;
+    filteredControls = await projectControlsQuery;
+    console.log(`📋 Found ${filteredControls.length} controls for project`);
+  } catch (error) {
+    console.error(`❌ Database error while fetching project controls:`, error);
+    throw new Error(`Failed to retrieve project controls: ${error instanceof Error ? error.message : 'Unknown database error'}`);
+  }
 
   // Apply status filter
   if (controlStatusFilter && controlStatusFilter !== 'all') {
@@ -99,15 +117,22 @@ export async function getComplianceReportData(params: {
   // Get evidence for each control
   const controlsWithEvidence = await Promise.all(
     filteredControls.map(async (control) => {
-      const controlEvidence = await db.select()
-        .from(evidence)
-        .where(eq(evidence.eccControlId, control.eccControlId));
+      let controlEvidence: any[] = [];
+      try {
+        controlEvidence = await db.select()
+          .from(evidence)
+          .where(eq(evidence.eccControlId, control.eccControlId));
 
-      console.log(`🔍 Control ${control.eccControl.code}: Found ${controlEvidence.length} evidence files`);
-      if (controlEvidence.length > 0) {
-        controlEvidence.forEach(ev => {
-          console.log(`  📄 Evidence: ${ev.title} (${ev.fileName}) at ${ev.filePath}`);
-        });
+        console.log(`🔍 Control ${control.eccControl.code}: Found ${controlEvidence.length} evidence files`);
+        if (controlEvidence.length > 0) {
+          controlEvidence.forEach(ev => {
+            console.log(`  📄 Evidence: ${ev.title} (${ev.fileName}) at ${ev.filePath}`);
+          });
+        }
+      } catch (error) {
+        console.error(`❌ Error fetching evidence for control ${control.eccControl.code}:`, error);
+        // Continue with empty evidence array
+        controlEvidence = [];
       }
 
       return {
@@ -120,9 +145,28 @@ export async function getComplianceReportData(params: {
         status: control.status as 'pending' | 'in-progress' | 'review' | 'completed' | 'blocked',
         approver: control.assignedTo || null,
         updatedAt: control.updatedAt?.toISOString(),
-        evidence: controlEvidence.map(ev => {
-          // Ensure absolute file path
-          const absPath = path.isAbsolute(ev.filePath) ? ev.filePath : path.join(process.cwd(), ev.filePath);
+        evidence: (controlEvidence as any[]).map(ev => {
+          // Ensure absolute file path and validate it exists
+          let absPath = path.isAbsolute(ev.filePath) ? ev.filePath : path.join(process.cwd(), ev.filePath);
+
+          // Try common upload directories if the original path doesn't exist
+          if (!path.isAbsolute(ev.filePath)) {
+            const possiblePaths = [
+              path.join(process.cwd(), ev.filePath),
+              path.join(process.cwd(), 'uploads', ev.fileName),
+              path.join(process.cwd(), 'evidence', ev.fileName),
+              path.join(process.cwd(), 'public', 'uploads', ev.fileName)
+            ];
+
+            for (const possiblePath of possiblePaths) {
+              if (existsSync(possiblePath)) {
+                absPath = possiblePath;
+                console.log(`📍 Found evidence file at: ${absPath}`);
+                break;
+              }
+            }
+          }
+
           return {
             id: ev.id,
             title: ev.title,
