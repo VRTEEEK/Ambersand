@@ -399,7 +399,7 @@ async function buildPDFWithJavaScript(html: string): Promise<Buffer> {
         yPosition -= 20;
       }
 
-      // Extract domain groups
+      // Extract domain groups and control tables
       const domainGroups = controlsMatch[1].match(/<div class="domain-group"[^>]*>([\s\S]*?)<\/div>/gi);
       if (domainGroups) {
         console.log('✅ Found', domainGroups.length, 'domain groups');
@@ -439,6 +439,8 @@ async function buildPDFWithJavaScript(html: string): Promise<Buffer> {
                   const title = cells[1] ? cells[1].replace(/<[^>]+>/g, '').trim() : '';
                   const status = cells[2] ? cells[2].replace(/<[^>]+>/g, '').trim() : '';
                   const evidence = cells[3] ? cells[3].replace(/<[^>]+>/g, '').trim() : '';
+                  
+                  console.log(`📄 Processing control: ${code} - ${title.substring(0, 30)}...`);
                   
                   if (code) {
                     checkAndAddNewPage(50);
@@ -485,6 +487,100 @@ async function buildPDFWithJavaScript(html: string): Promise<Buffer> {
                     
                     yPosition -= 10; // Space between controls
                   }
+                }
+              }
+            } else {
+              console.log('⚠️ No control rows found in table');
+            }
+          } else {
+            console.log('⚠️ No table found in domain group');
+            
+            // If no table found, try to extract any control information from the content
+            const controlTexts = domainGroup.match(/<strong[^>]*>[\d-]+<\/strong>/gi);
+            if (controlTexts) {
+              console.log('📝 Found', controlTexts.length, 'control codes in text format');
+              for (const controlText of controlTexts) {
+                const code = controlText.replace(/<[^>]+>/g, '').trim();
+                if (code) {
+                  checkAndAddNewPage(30);
+                  drawWrappedText(`Control: ${code}`, {
+                    x: margin + 15,
+                    y: yPosition,
+                    size: 11,
+                    font: helveticaBoldFont,
+                    color: rgb(0, 0, 0),
+                    maxWidth: contentWidth - 15,
+                    lineHeight: 15
+                  });
+                  yPosition -= 8;
+                }
+              }
+            }
+          }
+        }
+      } else {
+        console.log('⚠️ No domain groups found, trying alternative parsing...');
+        
+        // Alternative parsing - look for any table in the controls section
+        const anyTable = controlsMatch[1].match(/<table[^>]*>([\s\S]*?)<\/table>/i);
+        if (anyTable) {
+          console.log('✅ Found alternative table structure');
+          const allRows = anyTable[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi);
+          if (allRows) {
+            console.log('🔍 Found', allRows.length, 'total rows (including headers)');
+            
+            // Skip header row and process data rows
+            for (let i = 1; i < allRows.length; i++) {
+              const row = allRows[i];
+              const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/gi);
+              if (cells && cells.length >= 2) {
+                const code = cells[0] ? cells[0].replace(/<[^>]+>/g, '').trim() : '';
+                const title = cells[1] ? cells[1].replace(/<[^>]+>/g, '').trim() : '';
+                const status = cells[2] ? cells[2].replace(/<[^>]+>/g, '').trim() : '';
+                const evidence = cells[3] ? cells[3].replace(/<[^>]+>/g, '').trim() : '';
+                
+                if (code && code.match(/[\d-]+/)) {
+                  console.log(`📄 Alternative processing control: ${code}`);
+                  
+                  checkAndAddNewPage(40);
+                  drawWrappedText(`${code}: ${title}`, {
+                    x: margin,
+                    y: yPosition,
+                    size: 12,
+                    font: helveticaBoldFont,
+                    color: rgb(0, 0, 0),
+                    maxWidth: contentWidth,
+                    lineHeight: 16
+                  });
+                  yPosition -= 10;
+
+                  if (status) {
+                    drawWrappedText(`Status: ${status}`, {
+                      x: margin + 15,
+                      y: yPosition,
+                      size: 10,
+                      font: timesRomanFont,
+                      color: rgb(0.3, 0.3, 0.3),
+                      maxWidth: contentWidth - 15,
+                      lineHeight: 14
+                    });
+                    yPosition -= 8;
+                  }
+
+                  if (evidence && evidence !== 'No evidence') {
+                    drawWrappedText(`Evidence: ${evidence}`, {
+                      x: margin + 15,
+                      y: yPosition,
+                      size: 10,
+                      font: timesRomanFont,
+                      color: rgb(0.3, 0.3, 0.3),
+                      maxWidth: contentWidth - 15,
+                      lineHeight: 14
+                    });
+                    yPosition -= 8;
+                  }
+                  
+                  yPosition -= 10;
                 }
               }
             }
