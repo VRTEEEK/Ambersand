@@ -188,28 +188,23 @@ export function ExportComplianceDialog({
                       Select one or more formats for your compliance report
                     </FormDescription>
                     <div className="grid grid-cols-3 gap-4">
-                      <div className="flex flex-col space-y-2 p-3 border rounded-lg">
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="pdf"
-                            checked={field.value.pdf}
-                            onCheckedChange={(checked) =>
-                              field.onChange({
-                                ...field.value,
-                                pdf: checked as boolean
-                              })
-                            }
-                          />
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-red-600" />
-                            <Label htmlFor="pdf" className="text-sm font-medium">
-                              PDF Report
-                            </Label>
-                          </div>
+                      <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                        <Checkbox
+                          id="pdf"
+                          checked={field.value.pdf}
+                          onCheckedChange={(checked) =>
+                            field.onChange({
+                              ...field.value,
+                              pdf: checked as boolean
+                            })
+                          }
+                        />
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-red-600" />
+                          <Label htmlFor="pdf" className="text-sm font-medium">
+                            PDF Report
+                          </Label>
                         </div>
-                        <p className="text-xs text-amber-600 ml-6">
-                          ⚠️ PDF export may not be available in published applications. Use DOCX or XLSX as alternatives.
-                        </p>
                       </div>
 
                       <div className="flex items-center space-x-2 p-3 border rounded-lg">

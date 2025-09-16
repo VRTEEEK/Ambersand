@@ -10,11 +10,10 @@ import { Response } from 'express';
 export async function buildPDF(html: string): Promise<Buffer> {
   let browser;
   
-  // Check if we're in production/deployed environment
-  const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';
-  
   try {
     console.log('🚀 Launching Puppeteer for PDF generation...');
+    
+    // Use Puppeteer's bundled Chromium with deployment-safe flags
     const puppeteerOptions: any = {
       headless: true,
       args: [
@@ -31,67 +30,22 @@ export async function buildPDF(html: string): Promise<Buffer> {
         '--disable-plugins',
         '--disable-background-timer-throttling',
         '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding'
+        '--disable-renderer-backgrounding',
+        '--single-process',
+        '--no-default-browser-check',
+        '--disable-default-apps'
       ]
     };
     
-    // In production/deployed environment, use system Chromium
-    if (isProduction) {
-      console.log('🔧 Production environment detected - using system Chromium');
-      
-      // Try multiple methods to find Chromium
-      let chromiumPath = null;
-      const { execSync } = require('child_process');
-      
-      try {
-        // Method 1: Try which command
-        chromiumPath = execSync('which chromium 2>/dev/null || which chromium-browser 2>/dev/null || echo ""', { encoding: 'utf8' }).trim();
-        if (chromiumPath) {
-          console.log('📍 Found Chromium via which:', chromiumPath);
-        }
-      } catch (e) {
-        console.log('⚠️  which command failed');
-      }
-      
-      // Method 2: Try common Nix store paths if which failed
-      if (!chromiumPath) {
-        try {
-          const nixPaths = execSync('find /nix/store -name "chromium" -type f -executable 2>/dev/null | head -1', { encoding: 'utf8' }).trim();
-          if (nixPaths) {
-            chromiumPath = nixPaths;
-            console.log('📍 Found Chromium via nix store search:', chromiumPath);
-          }
-        } catch (e) {
-          console.log('⚠️  nix store search failed');
-        }
-      }
-      
-      // Method 3: Try /usr/bin paths
-      if (!chromiumPath) {
-        const commonPaths = ['/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome'];
-        for (const path of commonPaths) {
-          try {
-            execSync(`test -x "${path}"`, { encoding: 'utf8' });
-            chromiumPath = path;
-            console.log('📍 Found Chromium at common path:', chromiumPath);
-            break;
-          } catch (e) {
-            // Continue checking
-          }
-        }
-      }
-      
-      if (chromiumPath) {
-        puppeteerOptions.executablePath = chromiumPath;
-        console.log('✅ Using Chromium executable:', chromiumPath);
-      } else {
-        console.error('❌ Could not find Chromium executable in deployed environment');
-        // Fall back to letting Puppeteer try to find it
-        console.log('🔄 Falling back to default Puppeteer browser detection');
-      }
+    // Allow override via environment variable if needed
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+      puppeteerOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+      console.log('📍 Using custom Chromium path from env:', process.env.PUPPETEER_EXECUTABLE_PATH);
+    } else {
+      console.log('🔧 Using Puppeteer bundled Chromium');
     }
     
-    console.log('🔧 Puppeteer options:', puppeteerOptions);
+    console.log('🔧 Puppeteer options:', JSON.stringify(puppeteerOptions, null, 2));
     browser = await puppeteer.launch(puppeteerOptions);
 
     const page = await browser.newPage();
@@ -182,13 +136,7 @@ export async function buildPDF(html: string): Promise<Buffer> {
     return Buffer.from(pdfBuffer);
   } catch (error) {
     console.error('❌ PDF generation failed:', error);
-    
-    // If we're in production and PDF generation fails, provide a helpful error
-    if (isProduction) {
-      throw new Error('PDF generation is not available in the published environment. Please use DOCX or XLSX export options instead, or contact support for assistance with PDF generation in deployed applications.');
-    } else {
-      throw new Error(`PDF generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
+    throw new Error(`PDF generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   } finally {
     if (browser) {
       await browser.close();

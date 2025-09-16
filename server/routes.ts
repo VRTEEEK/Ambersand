@@ -2547,18 +2547,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // ZIP is needed when:
       // 1. Evidence mode is "attach" or "both" (need to include evidence files)
       // 2. Multiple formats are requested
-      // Check for published environment and PDF format
-      const isPublished = process.env.REPLIT_DEPLOYMENT === '1';
-      
-      if (isPublished && selected.pdf) {
-        return res.status(400).json({
-          message: 'PDF export is not available in published applications due to browser dependencies. Please use DOCX or XLSX export instead.',
-          availableFormats: ['docx', 'xlsx'],
-          suggestion: 'Try selecting DOCX format for a Microsoft Word document or XLSX for an Excel spreadsheet.',
-          alternativeAction: 'You can also select multiple formats to get a ZIP bundle with DOCX and XLSX files.'
-        });
-      }
-      
       const needsZip = evidenceMode === "attach" || evidenceMode === "both" || count > 1;
       // Enable clickable links when evidence files are linked, attached, or both
       const evidenceLinksAvailable = (evidenceMode === "link" || evidenceMode === "attach" || evidenceMode === "both");
@@ -2585,18 +2573,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Single file + link-only → return file directly
       if (selected.pdf) {
-        // Check if we're in a published environment
-        const isPublished = process.env.REPLIT_DEPLOYMENT === '1';
-        
-        if (isPublished) {
-          return res.status(400).json({
-            message: 'PDF export is not available in published applications due to browser dependencies. Please use DOCX or XLSX export instead.',
-            availableFormats: ['docx', 'xlsx'],
-            suggestion: 'Try selecting DOCX format for a Microsoft Word document or XLSX for an Excel spreadsheet.',
-            alternativeAction: 'You can also select multiple formats to get a ZIP bundle with DOCX and XLSX files.'
-          });
-        }
-        
         const buf = await buildPDF(html);
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader("Content-Disposition", `attachment; filename="Compliance_Report_${report.project.name}.pdf"`);
