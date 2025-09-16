@@ -86,120 +86,13 @@ export default function Dashboard() {
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
         {/* Dashboard Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
-            <TabsTrigger 
-              value="regulations" 
-              className={`flex items-center gap-2 ${language === 'ar' ? 'flex-row-reverse' : ''}`}
-            >
-              <FileText className="w-4 h-4" />
-              {language === 'ar' ? 'الأنظمة' : 'Regulations'}
-            </TabsTrigger>
-            <TabsTrigger 
-              value="reports"
-              className={`flex items-center gap-2 ${language === 'ar' ? 'flex-row-reverse' : ''}`}
-            >
-              <BarChart3 className="w-4 h-4" />
-              {language === 'ar' ? 'التقارير والتحليلات' : 'Reports and Analytics'}
-            </TabsTrigger>
-          </TabsList>
+        <div className="w-full">
 
-          {/* Regulations Tab - Default View */}
-          <TabsContent value="regulations" className="space-y-6">
+          {/* Regulations - Default View */}
+          <div className="space-y-6">
             <RegulationBanner projectId={39} />
-          </TabsContent>
-
-          {/* Reports and Analytics Tab - KPI Heavy View */}
-          <TabsContent value="reports" className="space-y-8">
-            {/* Hero Section with Background */}
-            <div 
-              className="relative overflow-hidden rounded-2xl"
-              style={{
-                backgroundImage: `url(${heroBackgroundPath})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat',
-              }}
-            >
-              {/* Overlay for better text readability */}
-              <div className="absolute inset-0 bg-gradient-to-r from-teal-600/90 via-teal-700/80 to-teal-800/90"></div>
-            </div>
-
-            {/* Key Metrics Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {metricsLoading ? (
-                // Loading skeletons
-                Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="bg-white rounded-xl p-6 shadow-sm border">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <Skeleton className="h-4 w-24 mb-2" />
-                        <Skeleton className="h-8 w-16 mb-1" />
-                        <Skeleton className="h-3 w-32" />
-                      </div>
-                      <Skeleton className="w-12 h-12 rounded-lg" />
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <>
-                  <MetricsCard
-                    title={t('dashboard.overallCompliance')}
-                    value={`${metrics?.overallCompliance || 0}%`}
-                    trend={{
-                      value: "+5% from last month",
-                      isPositive: true,
-                    }}
-                    icon={Shield}
-                    progress={metrics?.overallCompliance || 0}
-                  />
-                  
-                  <MetricsCard
-                    title={t('dashboard.activeProjects')}
-                    value={metrics?.activeProjects || 0}
-                    subtitle="8 on track, 4 overdue"
-                    icon={FolderOpen}
-                  />
-                  
-                  <MetricsCard
-                    title={t('dashboard.pendingTasks')}
-                    value={metrics?.pendingTasks || 0}
-                    trend={{
-                      value: "6 urgent",
-                      isPositive: false,
-                    }}
-                    icon={ListTodo}
-                  />
-                  
-                  <MetricsCard
-                    title={t('dashboard.regulations')}
-                    value={`${metrics?.regulationsCovered || 0}/5`}
-                    subtitle="ECC, PDPL, NDMO"
-                    icon={BookOpen}
-                  />
-                </>
-              )}
-            </div>
-
-            {/* Charts and Analytics Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ComplianceChart 
-                data={metrics?.complianceTrend || []}
-              />
-              <RegulationStatus 
-                regulations={metrics?.regulationStatus || []}
-              />
-            </div>
-
-            {/* Projects and Tasks Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <ProjectsList />
-              </div>
-              <TasksList />
-            </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+        </div>
       </div>
     </AppLayout>
   );

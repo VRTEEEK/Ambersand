@@ -1,319 +1,189 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FilterSelector, type AnalyticsFilters } from "@/components/analytics/FilterSelector";
-import { fetchTaskMetrics } from "@/lib/analyticsApi";
-import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, CheckCircle, Clock, TrendingUp } from "lucide-react";
-import AppLayout from "@/components/layout/AppLayout";
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { useI18n } from '@/hooks/use-i18n';
+import { useToast } from '@/hooks/use-toast';
+import { useQuery } from '@tanstack/react-query';
+import { isUnauthorizedError } from '@/lib/authUtils';
+import heroBackgroundPath from "@assets/image_1752308988455.png";
+import AppLayout from '@/components/layout/AppLayout';
+import { MetricsCard } from '@/components/dashboard/MetricsCard';
+import { ComplianceChart } from '@/components/dashboard/ComplianceChart';
+import { RegulationStatus } from '@/components/dashboard/RegulationStatus';
+import { ProjectsList } from '@/components/dashboard/ProjectsList';
+import { TasksList } from '@/components/dashboard/TasksList';
+
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  Shield, 
+  FolderOpen, 
+  ListTodo, 
+  BookOpen,
+  BarChart3,
+} from 'lucide-react';
 
 export default function AnalyticsReports() {
-  const [filters, setFilters] = useState<AnalyticsFilters>({
-    projectIds: [],
-    regulationIds: [],
-    dateFrom: undefined,
-    dateTo: undefined,
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { t, language } = useI18n();
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("overview");
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      toast({
+        title: "Unauthorized",
+        description: "You are logged out. Logging in again...",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/api/login";
+      }, 500);
+      return;
+    }
+  }, [isAuthenticated, authLoading, toast]);
+
+  const { data: metrics, isLoading: metricsLoading, error } = useQuery({
+    queryKey: ['/api/dashboard/metrics'],
+    retry: false,
   });
 
-  const { data: metrics, isLoading, error } = useQuery({
-    queryKey: ['/api/analytics/tasks', filters],
-    queryFn: () => fetchTaskMetrics({
-      projectIds: filters.projectIds,
-      regulationIds: filters.regulationIds,
-      dateFrom: filters.dateFrom?.toISOString().split('T')[0],
-      dateTo: filters.dateTo?.toISOString().split('T')[0],
-    }),
-    refetchInterval: 30000, // Refresh every 30 seconds
-  });
+  // Handle API errors
+  useEffect(() => {
+    if (error && isUnauthorizedError(error as Error)) {
+      toast({
+        title: "Unauthorized",
+        description: "You are logged out. Logging in again...",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/api/login";
+      }, 500);
+      return;
+    }
+  }, [error, toast]);
 
-  if (error) {
+  if (authLoading) {
     return (
-      <AppLayout>
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center text-red-600">
-              Error loading analytics data. Please try again.
-            </div>
-          </CardContent>
-        </Card>
-      </AppLayout>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
+          <p className="mt-4 text-slate-600">{t('common.loading')}</p>
+        </div>
+      </div>
     );
   }
 
-  // Chart colors
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
-
-  // Prepare data for charts
-  const statusData = metrics ? Object.entries(metrics.totals.byStatus).map(([status, count]) => ({
-    status: status.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-    count
-  })) : [];
-
-  const projectData = metrics?.byProject.slice(0, 10) || []; // Top 10 projects
-  const regulationData = metrics?.byRegulation || [];
-  const assigneeData = metrics?.byAssignee.slice(0, 8) || []; // Top 8 assignees
-  const severityData = metrics?.bySeverity || [];
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Analytics & Reports</h1>
-          <p className="text-muted-foreground">
-            Task and compliance analytics with real-time insights
-          </p>
-        </div>
-        <FilterSelector 
-          filters={filters} 
-          onFiltersChange={setFilters}
-          className="w-auto"
-        />
-      </div>
+      <div className="space-y-6 animate-fade-in">
+        {/* Overview Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-1 mb-8">
+            <TabsTrigger 
+              value="overview"
+              className={`flex items-center gap-2 ${language === 'ar' ? 'flex-row-reverse' : ''}`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              {language === 'ar' ? 'النظرة العامة' : 'Overview'}
+            </TabsTrigger>
+          </TabsList>
 
-      {/* KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : (
-              <div className="text-2xl font-bold">{metrics?.totals.all || 0}</div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              All tasks in selected scope
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Overdue Tasks</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : (
-              <div className="text-2xl font-bold text-red-600">{metrics?.totals.overdue || 0}</div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Past due date
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed Today</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : (
-              <div className="text-2xl font-bold text-green-600">{metrics?.totals.completedToday || 0}</div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Finished today
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-            <Clock className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : (
-              <div className="text-2xl font-bold text-blue-600">
-                {(metrics?.totals.byStatus['in-progress'] || 0) + (metrics?.totals.byStatus['review'] || 0)}
-              </div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Active work
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts Grid */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Task Status Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Task Status Distribution</CardTitle>
-            <CardDescription>Breakdown of tasks by current status</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-64 w-full" />
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={statusData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="count"
-                    label={({ status, count }) => `${status}: ${count}`}
-                  >
-                    {statusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Tasks by Project */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Tasks by Project</CardTitle>
-            <CardDescription>Task distribution across projects</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-64 w-full" />
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={projectData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="name" 
-                    angle={-45}
-                    textAnchor="end"
-                    height={80}
-                    interval={0}
-                  />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#0088FE" />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Tasks by Regulation */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Tasks by Regulation</CardTitle>
-            <CardDescription>Compliance task distribution</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-64 w-full" />
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={regulationData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="code" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#00C49F" />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Tasks by Assignee */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Tasks by Assignee</CardTitle>
-            <CardDescription>Workload distribution across team members</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-64 w-full" />
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={assigneeData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="name" 
-                    angle={-45}
-                    textAnchor="end"
-                    height={80}
-                    interval={0}
-                  />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#FFBB28" />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Priority/Severity Distribution */}
-      <div className="grid gap-6 md:grid-cols-1">
-        <Card>
-          <CardHeader>
-            <CardTitle>Task Priority Distribution</CardTitle>
-            <CardDescription>Tasks categorized by priority level</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-64 w-full" />
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={severityData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="severity" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#FF8042" />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Summary */}
-      {metrics && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Analytics Summary</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-2 text-sm">
-              <div className="flex justify-between">
-                <span>Date Range:</span>
-                <span>
-                  {filters.dateFrom ? filters.dateFrom.toLocaleDateString() : 'All time'} - {' '}
-                  {filters.dateTo ? filters.dateTo.toLocaleDateString() : 'Present'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Filtered Projects:</span>
-                <span>{filters.projectIds.length > 0 ? filters.projectIds.length : 'All'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Filtered Regulations:</span>
-                <span>{filters.regulationIds.length > 0 ? filters.regulationIds.length : 'All'}</span>
-              </div>
+          {/* Overview Tab - KPI Heavy View */}
+          <TabsContent value="overview" className="space-y-8">
+            {/* Hero Section with Background */}
+            <div 
+              className="relative overflow-hidden rounded-2xl"
+              style={{
+                backgroundImage: `url(${heroBackgroundPath})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+              }}
+            >
+              {/* Overlay for better text readability */}
+              <div className="absolute inset-0 bg-gradient-to-r from-teal-600/90 via-teal-700/80 to-teal-800/90"></div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+
+            {/* Key Metrics Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {metricsLoading ? (
+                // Loading skeletons
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="bg-white rounded-xl p-6 shadow-sm border">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <Skeleton className="h-4 w-24 mb-2" />
+                        <Skeleton className="h-8 w-16 mb-1" />
+                        <Skeleton className="h-3 w-32" />
+                      </div>
+                      <Skeleton className="w-12 h-12 rounded-lg" />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <>
+                  <MetricsCard
+                    title={t('dashboard.overallCompliance')}
+                    value={`${metrics?.overallCompliance || 0}%`}
+                    trend={{
+                      value: "+5% from last month",
+                      isPositive: true,
+                    }}
+                    icon={Shield}
+                    progress={metrics?.overallCompliance || 0}
+                  />
+                  
+                  <MetricsCard
+                    title={t('dashboard.activeProjects')}
+                    value={metrics?.activeProjects || 0}
+                    subtitle="8 on track, 4 overdue"
+                    icon={FolderOpen}
+                  />
+                  
+                  <MetricsCard
+                    title={t('dashboard.pendingTasks')}
+                    value={metrics?.pendingTasks || 0}
+                    trend={{
+                      value: "6 urgent",
+                      isPositive: false,
+                    }}
+                    icon={ListTodo}
+                  />
+                  
+                  <MetricsCard
+                    title={t('dashboard.regulations')}
+                    value={`${metrics?.regulationsCovered || 0}/5`}
+                    subtitle="ECC, PDPL, NDMO"
+                    icon={BookOpen}
+                  />
+                </>
+              )}
+            </div>
+
+            {/* Charts and Analytics Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ComplianceChart 
+                data={metrics?.complianceTrend || []}
+              />
+              <RegulationStatus 
+                regulations={metrics?.regulationStatus || []}
+              />
+            </div>
+
+            {/* Projects and Tasks Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <ProjectsList />
+              </div>
+              <TasksList />
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
   );
