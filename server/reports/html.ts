@@ -509,6 +509,60 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
         .no-break {
             page-break-inside: avoid;
         }
+        
+        /* Compact print styles for better table layout */
+        @media print {
+            body { 
+                font-size: 8.5pt; 
+            }
+            
+            h1 { 
+                font-size: 16pt; 
+            }
+            
+            h2 { 
+                font-size: 13pt; 
+            }
+            
+            .control-table th { 
+                padding: 6px 8px; 
+                font-size: 8.5pt; 
+            }
+            
+            .control-table td { 
+                padding: 6px 8px; 
+                font-size: 8.5pt; 
+            }
+            
+            .status-badge { 
+                padding: 2px 6px; 
+                font-size: 7.5pt; 
+                border: none; 
+                box-shadow: none; 
+                background: #e5f4f2; 
+                color: #0d4d4b; 
+            }
+            
+            .domain-group { 
+                margin-bottom: 12px; 
+                box-shadow: none; 
+            }
+            
+            .evidence-link { 
+                display: inline; 
+                padding: 0; 
+                border: none; 
+                background: none; 
+                text-decoration: underline; 
+                font-weight: 600; 
+            }
+            
+            .evidence-item { 
+                padding: 2px 0; 
+                border: none; 
+                background: transparent; 
+            }
+        }
     </style>
 </head>
 <body>
