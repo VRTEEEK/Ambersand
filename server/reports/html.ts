@@ -190,6 +190,10 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
         
         .controls-section {
             margin-top: 25px;
+            min-height: 50vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
         
         .controls-section h2 {
