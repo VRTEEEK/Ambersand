@@ -1,4 +1,5 @@
 import { ComplianceReport } from "./reportData";
+import { theme, hsla } from '../../shared/theme';
 
 export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar' = 'en', evidenceLinksAvailable: boolean = false, baseUrl: string = ''): string {
   console.log('🎨 Rendering compliance HTML report:', {
@@ -547,7 +548,20 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
 </body>
 </html>`;
 
-  return template;
+  // Apply theme colors to replace hardcoded hex values
+  const applyTheme = (html: string): string => {
+    const replacedHtml = html
+      .replace(/#5a9a9a/gi, theme.primary[500])
+      .replace(/#4a8080/gi, theme.primary[600])
+      .replace(/#3a6b6b/gi, theme.primary[600])
+      .replace(/rgba\(\s*90\s*,\s*154\s*,\s*154\s*,\s*([0-9.]+)\s*\)/gi, (_m, a) => hsla(theme.primary[500], Number(a)))
+      .replace(/rgba\(\s*74\s*,\s*128\s*,\s*128\s*,\s*([0-9.]+)\s*\)/gi, (_m, a) => hsla(theme.primary[600], Number(a)));
+    
+    console.log('🎨 Applied theme colors to PDF template');
+    return replacedHtml;
+  };
+
+  return applyTheme(template);
 }
 
 function generateControlsByDomain(controls: ComplianceReport['controls'], lang: 'en' | 'ar', evidenceLinksAvailable: boolean = false, baseUrl: string = ''): string {
