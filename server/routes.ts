@@ -2503,8 +2503,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Regulations routes
   app.use("/api/regulations", regulationsRouter);
 
-  // Projects routes  
+  // Projects routes
   app.use("/api/projects", projectsRouter);
+
+  // Test PDF generation endpoint (public for testing)
+  app.get("/api/test-pdf-public", async (req: any, res) => {
+    try {
+      const { buildPDF } = await import('./reports/reportBuilders');
+
+      const testHtml = `
+        <html>
+        <head>
+          <title>PDF Test</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px; }
+            h1 { color: #2699A6; }
+            .test-content { background: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 8px; }
+          </style>
+        </head>
+        <body>
+          <h1>wkhtmltopdf Test Document</h1>
+          <p>This is a test document to verify that wkhtmltopdf is working correctly.</p>
+          <div class="test-content">
+            <h3>System Information</h3>
+            <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Environment:</strong> ${process.env.NODE_ENV || 'development'}</p>
+            <p><strong>User ID:</strong> ${req.user?.claims?.sub || 'N/A'}</p>
+          </div>
+          <p>If you can see this PDF, wkhtmltopdf is functioning properly!</p>
+        </body>
+        </html>
+      `;
+
+      const pdfBuffer = await buildPDF(testHtml);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="wkhtmltopdf-test.pdf"');
+      res.send(pdfBuffer);
+
+    } catch (error) {
+      console.error('PDF test failed:', error);
+      res.status(500).json({
+        error: 'PDF generation failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        details: 'Check server logs for more information'
+      });
+    }
+  });
 
   // Export route
   app.post("/api/reports/compliance/export", isAuthenticated, async (req: any, res) => {

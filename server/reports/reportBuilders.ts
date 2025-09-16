@@ -1,4 +1,4 @@
-import puppeteer from 'puppeteer';
+import wkhtmltopdf from 'wkhtmltopdf';
 import { Document, Packer, Paragraph, HeadingLevel, Table, TableRow, TableCell, WidthType, AlignmentType } from 'docx';
 import ExcelJS from 'exceljs';
 import archiver from 'archiver';
@@ -8,140 +8,151 @@ import { createReadStream, existsSync } from 'fs';
 import { Response } from 'express';
 
 export async function buildPDF(html: string): Promise<Buffer> {
-  let browser;
-  
-  try {
-    console.log('🚀 Launching Puppeteer for PDF generation...');
-    
-    // Use Puppeteer's bundled Chromium with deployment-safe flags
-    const puppeteerOptions: any = {
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--disable-gpu',
-        '--disable-web-security',
-        '--disable-features=VizDisplayCompositor',
-        '--disable-extensions',
-        '--disable-plugins',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-        '--single-process',
-        '--no-default-browser-check',
-        '--disable-default-apps'
-      ]
-    };
-    
-    // Allow override via environment variable if needed
-    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-      puppeteerOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-      console.log('📍 Using custom Chromium path from env:', process.env.PUPPETEER_EXECUTABLE_PATH);
-    } else {
-      console.log('🔧 Using Puppeteer bundled Chromium');
-    }
-    
-    console.log('🔧 Puppeteer options:', JSON.stringify(puppeteerOptions, null, 2));
-    browser = await puppeteer.launch(puppeteerOptions);
+  return new Promise((resolve, reject) => {
+    try {
+      console.log('🚀 Generating PDF with wkhtmltopdf...');
 
-    const page = await browser.newPage();
+      // Configure wkhtmltopdf options for optimal PDF generation
+      const options = {
+        pageSize: 'A4',
+        orientation: 'portrait',
+        marginTop: '20mm',
+        marginBottom: '20mm',
+        marginLeft: '12mm',
+        marginRight: '12mm',
+        printMediaType: true,
+        enableLocalFileAccess: true,
+        javascriptDelay: 1000, // Wait for JS to execute
+        loadErrorHandling: 'ignore',
+        loadMediaErrorHandling: 'ignore',
+        encoding: 'utf-8',
+        userStyleSheet: '',
+        // Footer with page numbers
+        footerCenter: `Generated on ${new Date().toLocaleDateString()} | Page [page] of [topage]`,
+        footerFontSize: 10,
+        footerSpacing: 5,
+        // Enable features for better rendering
+        enableIntelligentShrinking: true,
+        minimumFontSize: 8,
+        // Timeout settings
+        javascriptTimeout: 30000,
+        // Quality settings
+        quality: 94,
+        // Disable problematic features that can cause crashes
+        noStop: true,
+        debugJavascript: false
+      };
 
-    // Set reasonable timeouts
-    page.setDefaultTimeout(30000);
-    page.setDefaultNavigationTimeout(30000);
+      // Check if wkhtmltopdf is available
+      const { execSync } = require('child_process');
+      try {
+        execSync('which wkhtmltopdf', { stdio: 'ignore' });
+        console.log('✅ wkhtmltopdf binary found in PATH');
+      } catch (error) {
+        console.warn('⚠️ wkhtmltopdf binary not found in PATH. Attempting to use nix-env to locate...');
+        try {
+          // Try to find wkhtmltopdf in common locations
+          const locations = [
+            '/nix/store/*/bin/wkhtmltopdf',
+            '/usr/bin/wkhtmltopdf',
+            '/usr/local/bin/wkhtmltopdf'
+          ];
 
-    // Configure page to preserve links and improve rendering
-    await page.setExtraHTTPHeaders({ 'Accept-Language': 'en' });
-    await page.emulateMediaType('print'); // Use print media type for PDFs
-    await page.setViewport({ width: 1200, height: 800 });
-
-    console.log('📄 Loading HTML content...');
-    await page.setContent(html, {
-      waitUntil: ['networkidle0', 'domcontentloaded'],
-      timeout: 30000
-    });
-
-    // Wait for any dynamic content to load
-    await page.evaluate(() => {
-      return new Promise((resolve) => {
-        // Wait for images to load
-        const images = Array.from(document.querySelectorAll('img'));
-        if (images.length === 0) {
-          resolve(undefined);
-          return;
-        }
-
-        let loadedImages = 0;
-        images.forEach(img => {
-          if (img.complete) {
-            loadedImages++;
-          } else {
-            img.onload = img.onerror = () => {
-              loadedImages++;
-              if (loadedImages === images.length) {
-                resolve(undefined);
-              }
-            };
+          let foundPath = null;
+          for (const location of locations) {
+            try {
+              execSync(`ls ${location}`, { stdio: 'ignore' });
+              foundPath = location.includes('*') ? execSync(`find /nix/store -name wkhtmltopdf -executable 2>/dev/null | head -1`).toString().trim() : location;
+              break;
+            } catch (e) {
+              // Continue searching
+            }
           }
-        });
 
-        if (loadedImages === images.length) {
-          resolve(undefined);
+          if (foundPath && foundPath.length > 0) {
+            console.log(`📍 Found wkhtmltopdf at: ${foundPath}`);
+            process.env.PATH = `${require('path').dirname(foundPath)}:${process.env.PATH}`;
+            console.log('✅ Added wkhtmltopdf to PATH');
+          } else {
+            throw new Error('wkhtmltopdf binary not found in any common locations.');
+          }
+        } catch (searchError) {
+          throw new Error('wkhtmltopdf binary not found. Please ensure wkhtmltopdf is installed in your environment.');
         }
-
-        // Timeout after 5 seconds
-        setTimeout(() => resolve(undefined), 5000);
-      });
-    });
-
-    // Inject JavaScript to ensure links are properly formatted
-    await page.evaluate(() => {
-      const links = document.querySelectorAll('a[href]');
-      links.forEach(link => {
-        // Preserve existing href for clickability in PDF viewers that support it
-        const htmlElement = link as HTMLElement;
-        htmlElement.style.color = '#2699A6';
-        htmlElement.style.textDecoration = 'underline';
-      });
-    });
-
-    console.log('🖨️  Generating PDF...');
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      preferCSSPageSize: false,
-      omitBackground: false,
-      tagged: true,
-      outline: true,
-      displayHeaderFooter: true,
-      headerTemplate: '<div></div>', // Empty header
-      footerTemplate: `
-        <div style="width: 100%; font-size: 10px; text-align: center; color: #666;">
-          Generated on ${new Date().toLocaleDateString()} | Page <span class="pageNumber"></span> of <span class="totalPages"></span>
-        </div>
-      `,
-      margin: {
-        top: '20mm',
-        bottom: '20mm',
-        left: '12mm',
-        right: '12mm'
       }
-    });
 
-    console.log('✅ PDF generated successfully');
-    return Buffer.from(pdfBuffer);
-  } catch (error) {
-    console.error('❌ PDF generation failed:', error);
-    throw new Error(`PDF generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  } finally {
-    if (browser) {
-      await browser.close();
+      // Set custom binary path if provided
+      if (process.env.WKHTMLTOPDF_PATH) {
+        console.log('📍 Using custom wkhtmltopdf path:', process.env.WKHTMLTOPDF_PATH);
+        process.env.PATH = `${process.env.WKHTMLTOPDF_PATH}:${process.env.PATH}`;
+      }
+
+      console.log('🔧 wkhtmltopdf options:', JSON.stringify(options, null, 2));
+      console.log('📄 Processing HTML content...');
+
+      // Enhance HTML for better PDF rendering
+      const enhancedHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              line-height: 1.4;
+              color: #333;
+            }
+            a {
+              color: #2699A6 !important;
+              text-decoration: underline !important;
+            }
+            @media print {
+              .no-print { display: none !important; }
+              a { color: #2699A6 !important; }
+            }
+            img { max-width: 100%; height: auto; }
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid #ddd; padding: 8px; }
+          </style>
+        </head>
+        <body>
+          ${html}
+        </body>
+        </html>
+      `;
+
+      console.log('🖨️  Generating PDF...');
+
+      // Generate PDF using wkhtmltopdf
+      const pdfStream = wkhtmltopdf(enhancedHtml, options);
+      const chunks: Buffer[] = [];
+
+      pdfStream.on('data', (chunk: Buffer) => {
+        chunks.push(chunk);
+      });
+
+      pdfStream.on('end', () => {
+        const pdfBuffer = Buffer.concat(chunks);
+        console.log(`✅ PDF generated successfully (${pdfBuffer.length} bytes)`);
+        resolve(pdfBuffer);
+      });
+
+      pdfStream.on('error', (error: Error) => {
+        console.error('❌ PDF generation failed:', error);
+        reject(new Error(`PDF generation failed: ${error.message}`));
+      });
+
+      // Set timeout for the entire operation
+      setTimeout(() => {
+        reject(new Error('PDF generation timed out after 60 seconds'));
+      }, 60000);
+
+    } catch (error) {
+      console.error('❌ PDF generation failed:', error);
+      reject(new Error(`PDF generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`));
     }
-  }
+  });
 }
 
 export async function buildDOCX(report: ComplianceReport): Promise<Buffer> {
