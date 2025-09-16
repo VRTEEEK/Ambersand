@@ -10,6 +10,7 @@ import { execSync } from 'child_process';
 import path from 'path';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { convert as htmlToText } from 'html-to-text';
+import puppeteer from 'puppeteer';
 
 // Optimize HTML content for better PDF generation performance
 function optimizeHtmlForPdf(html: string): string {
@@ -279,347 +280,77 @@ async function buildPDFWithWkhtmltopdf(html: string): Promise<Buffer> {
   });
 }
 
-// Enhanced PDF generation using pure JavaScript
+// Modern PDF generation using Puppeteer for full HTML/CSS support and clickable links
 async function buildPDFWithJavaScript(html: string): Promise<Buffer> {
+  let browser: puppeteer.Browser | null = null;
+  
   try {
-    console.log('📄 Generating PDF using JavaScript...');
+    console.log('📄 Generating PDF using modern browser-based rendering...');
     console.log('🔍 HTML content length:', html.length);
 
-    // Create a new PDF document
-    const pdfDoc = await PDFDocument.create();
-    const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
-    const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
-
-    // Define page dimensions and margins
-    const pageWidth = 595.28; // A4 width in points
-    const pageHeight = 841.89; // A4 height in points
-    const margin = 40;
-    const contentWidth = pageWidth - 2 * margin;
-
-    let page = pdfDoc.addPage([pageWidth, pageHeight]);
-    let yPosition = pageHeight - margin;
-    let pageNumber = 1;
-
-    // Helper function to add new page when needed
-    const checkAndAddNewPage = (requiredHeight: number = 20) => {
-      if (yPosition - requiredHeight < margin + 40) { // Leave space for footer
-        // Add footer to current page
-        page.drawText(`Generated on ${new Date().toLocaleDateString()} | Page ${pageNumber}`, {
-          x: margin,
-          y: 25,
-          size: 9,
-          font: timesRomanFont,
-          color: rgb(0.6, 0.6, 0.6),
-        });
-        
-        page = pdfDoc.addPage([pageWidth, pageHeight]);
-        yPosition = pageHeight - margin;
-        pageNumber++;
-      }
-    };
-
-    // Helper function to draw wrapped text
-    const drawWrappedText = (text: string, options: {
-      x: number;
-      y: number;
-      size: number;
-      font: any;
-      color: any;
-      maxWidth: number;
-      lineHeight?: number;
-    }) => {
-      // Clean text of Unicode characters that can't be encoded in PDFs
-      const cleanText = text
-        .replace(/[\u{1F300}-\u{1F9FF}]/gu, '') // Remove emojis
-        .replace(/[\u{2000}-\u{206F}]/gu, ' ') // Replace special spaces with regular spaces
-        .replace(/[^\x00-\x7F]/g, '?') // Replace non-ASCII characters with ?
-        .trim();
-
-      const { x, size, font, color, maxWidth, lineHeight = size * 1.2 } = options;
-      const words = cleanText.split(' ');
-      let currentLine = '';
-
-      for (const word of words) {
-        const testLine = currentLine ? `${currentLine} ${word}` : word;
-        const textWidth = font.widthOfTextAtSize(testLine, size);
-        
-        if (textWidth <= maxWidth) {
-          currentLine = testLine;
-        } else {
-          if (currentLine) {
-            checkAndAddNewPage(lineHeight);
-            page.drawText(currentLine, { x, y: yPosition, size, font, color });
-            yPosition -= lineHeight;
-            currentLine = word;
-          } else {
-            // Single word is too long, draw it anyway
-            checkAndAddNewPage(lineHeight);
-            page.drawText(word, { x, y: yPosition, size, font, color });
-            yPosition -= lineHeight;
-          }
-        }
-      }
-      
-      if (currentLine) {
-        checkAndAddNewPage(lineHeight);
-        page.drawText(currentLine, { x, y: yPosition, size, font, color });
-        yPosition -= lineHeight;
-      }
-    };
-
-    // Clean HTML content and remove styles
-    const htmlContent = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
-    console.log('🔍 Processing HTML content for PDF generation');
-
-    // More robust content extraction with improved parsing
-    const contentSections = parseHtmlContent(htmlContent);
-
-    // Render document title
-    if (contentSections.title) {
-      console.log('✅ Rendering document title');
-      checkAndAddNewPage(40);
-      drawWrappedText(contentSections.title, {
-        x: margin,
-        y: yPosition,
-        size: 20,
-        font: helveticaBoldFont,
-        color: rgb(0.15, 0.6, 0.65), // Brand color #2699A6
-        maxWidth: contentWidth,
-        lineHeight: 26
-      });
-      yPosition -= 35;
-    }
-
-    // Render subtitle
-    if (contentSections.subtitle) {
-      console.log('✅ Rendering subtitle');
-      checkAndAddNewPage(25);
-      drawWrappedText(contentSections.subtitle, {
-        x: margin,
-        y: yPosition,
-        size: 14,
-        font: helveticaFont,
-        color: rgb(0.4, 0.4, 0.4),
-        maxWidth: contentWidth,
-        lineHeight: 18
-      });
-      yPosition -= 30;
-    }
-
-    // Render summary section
-    if (contentSections.summary && contentSections.summary.items.length > 0) {
-      console.log('✅ Rendering summary section');
-      yPosition -= 20;
-
-      // Summary header
-      checkAndAddNewPage(25);
-      drawWrappedText('Summary', {
-        x: margin,
-        y: yPosition,
-        size: 16,
-        font: helveticaBoldFont,
-        color: rgb(0, 0, 0),
-        maxWidth: contentWidth,
-        lineHeight: 20
-      });
-      yPosition -= 25;
-
-      // Render summary items
-      for (const item of contentSections.summary.items) {
-        checkAndAddNewPage(20);
-        drawWrappedText(`${item.label}: ${item.value}`, {
-          x: margin + 20,
-          y: yPosition,
-          size: 12,
-          font: timesRomanFont,
-          color: rgb(0, 0, 0),
-          maxWidth: contentWidth - 20,
-          lineHeight: 16
-        });
-        yPosition -= 8;
-      }
-      yPosition -= 20;
-    }
-
-    // Render controls section
-    if (contentSections.controls && contentSections.controls.length > 0) {
-      console.log('✅ Rendering controls section');
-
-      // Controls header
-      checkAndAddNewPage(25);
-      drawWrappedText('Controls', {
-        x: margin,
-        y: yPosition,
-        size: 16,
-        font: helveticaBoldFont,
-        color: rgb(0, 0, 0),
-        maxWidth: contentWidth,
-        lineHeight: 20
-      });
-      yPosition -= 30;
-
-      // Render controls by domain
-      for (const domainGroup of contentSections.controls) {
-        if (domainGroup.controls.length === 0) continue;
-
-        // Domain header
-        checkAndAddNewPage(30);
-        drawWrappedText(domainGroup.domain, {
-          x: margin,
-          y: yPosition,
-          size: 15,
-          font: helveticaBoldFont,
-          color: rgb(0.15, 0.6, 0.65), // Brand color
-          maxWidth: contentWidth,
-          lineHeight: 20
-        });
-        yPosition -= 25;
-
-        // Render controls in this domain
-        for (const control of domainGroup.controls) {
-          if (!control.code) continue;
-
-          checkAndAddNewPage(50);
-
-          // Control code and title
-          drawWrappedText(`${control.code}: ${control.title}`, {
-            x: margin,
-            y: yPosition,
-            size: 12,
-            font: helveticaBoldFont,
-            color: rgb(0, 0, 0),
-            maxWidth: contentWidth,
-            lineHeight: 16
-          });
-          yPosition -= 8;
-
-          // Status
-          if (control.status) {
-            drawWrappedText(`Status: ${control.status}`, {
-              x: margin + 15,
-              y: yPosition,
-              size: 10,
-              font: timesRomanFont,
-              color: rgb(0.3, 0.3, 0.3),
-              maxWidth: contentWidth - 15,
-              lineHeight: 14
-            });
-            yPosition -= 6;
-          }
-
-          // Evidence
-          if (control.evidence && control.evidence !== 'No evidence') {
-            drawWrappedText(`Evidence: ${control.evidence}`, {
-              x: margin + 15,
-              y: yPosition,
-              size: 10,
-              font: timesRomanFont,
-              color: rgb(0.3, 0.3, 0.3),
-              maxWidth: contentWidth - 15,
-              lineHeight: 14
-            });
-            yPosition -= 6;
-          }
-
-          yPosition -= 10; // Space between controls
-        }
-
-        yPosition -= 15; // Space between domains
-      }
-    }
-
-    // If minimal content was extracted, fall back to text conversion
-    const hasMinimalContent = contentSections.title ||
-                             (contentSections.summary && contentSections.summary.items.length > 0) ||
-                             (contentSections.controls && contentSections.controls.length > 0);
-
-    if (!hasMinimalContent) {
-      console.log('⚠️ No structured content found, using text fallback...');
-      
-      const text = htmlToText(html, {
-        wordwrap: false,
-        preserveNewlines: true,
-        selectors: [
-          { selector: 'h1', options: { uppercase: false, format: 'block' } },
-          { selector: 'h2', options: { uppercase: false, format: 'block' } },
-          { selector: 'h3', options: { uppercase: false, format: 'block' } },
-          { selector: 'table', options: { uppercaseHeaderCells: false } },
-          { selector: '.summary-number', options: { format: 'inline' } },
-          { selector: '.summary-label', options: { format: 'inline' } }
-        ]
-      });
-
-      const lines = text.split('\n').filter(line => line.trim()).slice(0, 200); // Limit to prevent infinite content
-      console.log('📄 Text fallback extracted', lines.length, 'lines');
-
-      // Add a fallback title if we don't have content
-      if (lines.length === 0) {
-        drawWrappedText('Compliance Report', {
-          x: margin,
-          y: yPosition,
-          size: 20,
-          font: helveticaBoldFont,
-          color: rgb(0.15, 0.6, 0.65),
-          maxWidth: contentWidth,
-          lineHeight: 26
-        });
-        yPosition -= 35;
-
-        drawWrappedText('No content could be extracted from the report data. Please check the report generation process.', {
-          x: margin,
-          y: yPosition,
-          size: 12,
-          font: timesRomanFont,
-          color: rgb(0.6, 0.6, 0.6),
-          maxWidth: contentWidth,
-          lineHeight: 16
-        });
-      } else {
-        for (const line of lines) {
-          if (line.trim()) {
-            const isHeader = line.length < 100 &&
-                            (line.includes('Compliance') || line.includes('Report') ||
-                             line.includes('Control') || line.match(/^[\d-]+:/) ||
-                             line.includes('Summary') || line.includes('Details'));
-
-            const isNumber = /^\d+$/.test(line.trim());
-            const isLabel = line.toLowerCase().includes('total') ||
-                           line.toLowerCase().includes('approved') ||
-                           line.toLowerCase().includes('pending') ||
-                           line.toLowerCase().includes('progress');
-
-            drawWrappedText(line.trim(), {
-              x: margin + (isNumber ? 0 : isLabel ? 10 : 0),
-              y: yPosition,
-              size: isHeader ? 14 : isNumber ? 16 : 11,
-              font: isHeader ? helveticaBoldFont : isNumber ? helveticaBoldFont : timesRomanFont,
-              color: isNumber ? rgb(0.15, 0.6, 0.65) : rgb(0, 0, 0),
-              maxWidth: contentWidth - (isNumber ? 0 : isLabel ? 10 : 0),
-              lineHeight: isHeader ? 18 : isNumber ? 20 : 14
-            });
-            yPosition -= (isHeader ? 12 : isNumber ? 8 : 6);
-          }
-        }
-      }
-    }
-
-    // Add footer to the last page
-    page.drawText(`Generated on ${new Date().toLocaleDateString()} | Page ${pageNumber}`, {
-      x: margin,
-      y: 25,
-      size: 9,
-      font: timesRomanFont,
-      color: rgb(0.6, 0.6, 0.6),
+    // Launch Puppeteer browser
+    browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu'
+      ]
     });
 
-    const pdfBytes = await pdfDoc.save();
-    console.log(`✅ JavaScript PDF generated successfully (${pdfBytes.length} bytes)`);
-    
-    return Buffer.from(pdfBytes);
+    const page = await browser.newPage();
+
+    // Set viewport for consistent rendering
+    await page.setViewport({ width: 1200, height: 800 });
+
+    // Set the HTML content
+    await page.setContent(html, {
+      waitUntil: ['domcontentloaded', 'networkidle0'],
+      timeout: 30000
+    });
+
+    // Wait a moment for any CSS animations or transitions to complete
+    await page.waitForTimeout(1000);
+
+    // Generate PDF with modern styling support
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      margin: {
+        top: '20mm',
+        bottom: '20mm',
+        left: '12mm',
+        right: '12mm'
+      },
+      printBackground: true, // Essential for gradients and background colors
+      preferCSSPageSize: false,
+      displayHeaderFooter: true,
+      headerTemplate: '<div style="font-size: 10px; width: 100%; text-align: center; color: #666;"></div>',
+      footerTemplate: `
+        <div style="font-size: 10px; width: 100%; text-align: center; color: #666; padding: 5px;">
+          <span>Generated on ${new Date().toLocaleDateString()}</span>
+          <span style="margin: 0 10px;">|</span>
+          <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
+        </div>
+      `,
+      timeout: 60000
+    });
+
+    console.log(`✅ Modern PDF generated successfully (${pdfBuffer.length} bytes)`);
+    return pdfBuffer;
+
   } catch (error) {
-    console.error('❌ JavaScript PDF generation failed:', error);
-    throw new Error(`JavaScript PDF generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error('❌ Modern PDF generation failed:', error);
+    throw new Error(`Modern PDF generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  } finally {
+    // Always close the browser to prevent memory leaks
+    if (browser) {
+      await browser.close();
+    }
   }
 }
 
