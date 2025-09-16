@@ -24,232 +24,369 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
     <style>
         @page {
             size: A4;
-            margin: 16mm;
+            margin: 20mm 16mm;
             @top-center {
                 content: "Compliance Report - ${report.project.name}";
                 font-size: 10pt;
-                color: #666;
+                color: #64748b;
             }
             @bottom-center {
                 content: "Generated on ${new Date(report.generatedAt).toLocaleDateString()} | Page " counter(page) " of " counter(pages);
                 font-size: 9pt;
-                color: #666;
+                color: #64748b;
             }
         }
         
         body {
-            font-family: 'Arial', sans-serif;
-            line-height: 1.6;
-            color: #333;
+            font-family: 'Inter', 'Segoe UI', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.7;
+            color: #1e293b;
             direction: ${direction};
             margin: 0;
             padding: 0;
+            background: #ffffff;
         }
         
         .header {
-            border-bottom: 3px solid #2699A6;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            color: white;
+            padding: 40px 30px;
+            margin: -20px -16mm 40px -16mm;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") repeat;
+            z-index: 1;
+        }
+        
+        .header-content {
+            position: relative;
+            z-index: 2;
         }
         
         .header h1 {
-            color: #2699A6;
-            font-size: 28pt;
-            margin: 0;
-            font-weight: bold;
+            font-size: 32pt;
+            margin: 0 0 15px 0;
+            font-weight: 700;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            letter-spacing: -0.02em;
         }
         
         .header .subtitle {
-            font-size: 14pt;
-            color: #666;
-            margin-top: 10px;
+            font-size: 16pt;
+            opacity: 0.95;
+            margin: 8px 0;
+            font-weight: 500;
+        }
+        
+        .header .generated-date {
+            font-size: 12pt;
+            opacity: 0.8;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
         }
         
         .summary-section {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            padding: 30px;
-            border-radius: 12px;
-            margin-bottom: 40px;
-            border: 2px solid #2699A6;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            padding: 40px 30px;
+            border-radius: 16px;
+            margin-bottom: 50px;
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
+            position: relative;
         }
 
         .summary-title {
             text-align: center;
-            font-size: 18pt;
-            font-weight: bold;
-            color: #2699A6;
-            margin-bottom: 20px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            font-size: 22pt;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 30px;
+            text-transform: none;
+            letter-spacing: -0.01em;
+            position: relative;
+        }
+
+        .summary-title::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(90deg, #0ea5e9, #06b6d4);
+            border-radius: 2px;
         }
 
         .summary-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 25px;
+            margin-top: 20px;
         }
 
         .summary-item {
             text-align: center;
-            padding: 20px 15px;
-            background: white;
-            border-radius: 8px;
-            border: 2px solid #e5e7eb;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            transition: transform 0.2s;
+            padding: 30px 20px;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .summary-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #0ea5e9, #06b6d4);
         }
 
         .summary-item:hover {
-            transform: translateY(-2px);
-            border-color: #2699A6;
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.15);
         }
 
         .summary-number {
-            font-size: 36pt;
-            font-weight: bold;
-            color: #2699A6;
+            font-size: 42pt;
+            font-weight: 800;
+            color: #0f172a;
             display: block;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+            margin-bottom: 8px;
+            line-height: 1;
         }
 
         .summary-label {
-            font-size: 10pt;
-            color: #555;
+            font-size: 11pt;
+            color: #64748b;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.8px;
             font-weight: 600;
             margin-top: 5px;
         }
         
         .controls-section {
-            margin-top: 40px;
+            margin-top: 50px;
+        }
+        
+        .controls-section h2 {
+            font-size: 24pt;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        .controls-section h2::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 3px;
+            background: linear-gradient(90deg, #0ea5e9, #06b6d4);
+            border-radius: 2px;
         }
         
         .domain-group {
-            margin-bottom: 40px;
+            margin-bottom: 50px;
             page-break-inside: avoid;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
+            border: 1px solid #e2e8f0;
         }
         
         .domain-header {
-            background: #2699A6;
+            background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
             color: white;
-            padding: 15px 20px;
-            font-size: 16pt;
-            font-weight: bold;
+            padding: 20px 25px;
+            font-size: 18pt;
+            font-weight: 700;
             margin-bottom: 0;
+            position: relative;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        .domain-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M20 20L0 20L0 0L20 0Z'/%3E%3C/g%3E%3C/svg%3E") repeat;
         }
         
         .control-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
-            font-size: 9pt;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            border-radius: 6px;
-            overflow: hidden;
-        }
-
-        .control-table th {
-            background: linear-gradient(135deg, #2699A6 0%, #1e7a85 100%);
-            color: white;
-            padding: 15px 10px;
-            text-align: ${isRTL ? 'right' : 'left'};
-            border: none;
-            font-weight: bold;
+            margin-bottom: 0;
             font-size: 10pt;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .control-table td {
-            padding: 12px 10px;
-            border-bottom: 1px solid #e5e7eb;
-            border-right: 1px solid #e5e7eb;
-            vertical-align: top;
             background: white;
         }
 
+        .control-table th {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            color: white;
+            padding: 18px 15px;
+            text-align: ${isRTL ? 'right' : 'left'};
+            border: none;
+            font-weight: 700;
+            font-size: 11pt;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+        }
+
+        .control-table td {
+            padding: 16px 15px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: top;
+            background: white;
+            transition: background-color 0.2s ease;
+        }
+
         .control-table tr:nth-child(even) td {
-            background: #f9fafb;
+            background: #f8fafc;
         }
 
         .control-table tr:hover td {
-            background: #f0f9ff;
+            background: #e0f2fe !important;
         }
 
         .control-code {
-            font-weight: bold;
-            color: #2699A6;
-            font-size: 10pt;
-            padding: 4px 8px;
-            background: #e0f2fe;
-            border-radius: 4px;
+            font-weight: 700;
+            color: #0ea5e9;
+            font-size: 11pt;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%);
+            border-radius: 8px;
+            border: 1px solid #0ea5e9;
             display: inline-block;
+            box-shadow: 0 2px 4px rgba(14, 165, 233, 0.1);
         }
         
         .control-row {
             page-break-inside: avoid;
+            border-bottom: 1px solid #f1f5f9;
         }
         
         .status-badge {
             display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 9pt;
-            font-weight: bold;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 10pt;
+            font-weight: 700;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
         
-        .status-completed { background: #dcfce7; color: #166534; }
-        .status-in-progress { background: #fef3c7; color: #92400e; }
-        .status-review { background: #e0e7ff; color: #3730a3; }
-        .status-pending { background: #f3f4f6; color: #374151; }
-        .status-blocked { background: #fecaca; color: #991b1b; }
+        .status-completed { 
+            background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); 
+            color: #166534; 
+            border: 1px solid #22c55e;
+        }
+        .status-in-progress { 
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); 
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+        .status-review { 
+            background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%); 
+            color: #3730a3;
+            border: 1px solid #6366f1;
+        }
+        .status-pending { 
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); 
+            color: #374151;
+            border: 1px solid #9ca3af;
+        }
+        .status-blocked { 
+            background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%); 
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
         
         .evidence-list {
             margin: 0;
             padding: 0;
             list-style: none;
+            max-width: 100%;
         }
         
         .evidence-item {
-            margin: 5px 0;
-            padding: 8px;
-            background: #f9fafb;
-            border-radius: 4px;
-            font-size: 9pt;
+            margin: 8px 0;
+            padding: 12px 15px;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-radius: 8px;
+            font-size: 10pt;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s ease;
+        }
+
+        .evidence-item:hover {
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%);
+            border-color: #0ea5e9;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
         }
         
         .evidence-filename {
-            font-weight: bold;
-            color: #2699A6;
+            font-weight: 700;
+            color: #0ea5e9;
         }
         
         .evidence-filename-plain {
-            font-weight: bold;
-            color: #374151;
+            font-weight: 700;
+            color: #334155;
         }
         
         .evidence-link {
-            color: #2699A6;
-            text-decoration: underline;
-            font-weight: bold;
-            padding: 2px 6px;
-            background: #f0f9ff;
-            border-radius: 3px;
-            border: 1px solid #2699A6;
+            color: #ffffff !important;
+            text-decoration: none !important;
+            font-weight: 700;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
+            border-radius: 6px;
+            border: none;
             display: inline-block;
-            margin: 2px;
-            transition: all 0.2s;
+            margin: 4px 2px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+            font-size: 10pt;
+            letter-spacing: 0.3px;
         }
 
         .evidence-link:hover {
-            color: white;
-            background: #2699A6;
-            text-decoration: none;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(38, 153, 166, 0.3);
+            background: linear-gradient(135deg, #0284c7 0%, #0891b2 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(14, 165, 233, 0.4);
+        }
+
+        .evidence-link:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
         }
         
         .evidence-note {
@@ -277,12 +414,14 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
 </head>
 <body>
     <div class="header">
-        <h1>${isRTL ? report.project.nameAr || report.project.name : report.project.name}</h1>
-        <div class="subtitle">
-            ${lang === 'ar' ? 'تقرير الامتثال' : 'Compliance Report'} - ${report.regulation.name}
-        </div>
-        <div class="subtitle">
-            ${lang === 'ar' ? 'تاريخ الإنشاء:' : 'Generated on:'} ${new Date(report.generatedAt).toLocaleDateString()}
+        <div class="header-content">
+            <h1>${isRTL ? report.project.nameAr || report.project.name : report.project.name}</h1>
+            <div class="subtitle">
+                ${lang === 'ar' ? 'تقرير الامتثال' : 'Compliance Report'} - ${report.regulation.name}
+            </div>
+            <div class="generated-date">
+                ${lang === 'ar' ? 'تاريخ الإنشاء:' : 'Generated on:'} ${new Date(report.generatedAt).toLocaleDateString()}
+            </div>
         </div>
     </div>
 
