@@ -1137,13 +1137,31 @@ export default function TaskDetail() {
                   <Button
                     onClick={() => {
                       // Simple route setup - in production this would be a proper dialog
-                      const reviewers = users.filter(u => u.role === 'manager' || u.role === 'viewer');
+                      console.log('Available users:', users.map(u => ({ id: u.id, email: u.email, role: u.role })));
+                      
+                      // Find reviewers - try multiple role types since the exact roles may vary
+                      const reviewers = users.filter(u => 
+                        u.role === 'manager' || 
+                        u.role === 'viewer' || 
+                        u.role === 'admin' ||
+                        (u.role && u.role !== currentUser?.role && u.id !== currentUser?.id)
+                      );
+                      
+                      console.log('Filtered reviewers:', reviewers.map(u => ({ id: u.id, email: u.email, role: u.role })));
+                      
                       if (reviewers.length > 0) {
                         const steps = reviewers.slice(0, 2).map((user, index) => ({
                           userId: user.id,
                           role: user.role || 'reviewer'
                         }));
+                        console.log('Creating workflow steps:', steps);
                         setRouteMutation.mutate(steps);
+                      } else {
+                        toast({
+                          title: language === 'ar' ? 'خطأ' : 'Error',
+                          description: language === 'ar' ? 'لا يوجد مستخدمون مؤهلون للمراجعة' : 'No eligible reviewers found',
+                          variant: "destructive"
+                        });
                       }
                     }}
                     disabled={setRouteMutation.isPending}
