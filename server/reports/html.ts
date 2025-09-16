@@ -128,7 +128,7 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
             transform: translateX(-50%);
             width: 60px;
             height: 3px;
-            background: linear-gradient(90deg, #0ea5e9, #06b6d4);
+            background: linear-gradient(90deg, #5a9a9a, #4a8080);
             border-radius: 2px;
         }
 
@@ -158,7 +158,7 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
             left: 0;
             right: 0;
             height: 4px;
-            background: linear-gradient(90deg, #0ea5e9, #06b6d4);
+            background: linear-gradient(90deg, #5a9a9a, #4a8080);
         }
 
         .summary-item:hover {
@@ -205,7 +205,7 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
             transform: translateX(-50%);
             width: 80px;
             height: 3px;
-            background: linear-gradient(90deg, #0ea5e9, #06b6d4);
+            background: linear-gradient(90deg, #5a9a9a, #4a8080);
             border-radius: 2px;
         }
         
@@ -274,19 +274,19 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
         }
 
         .control-table tr:hover td {
-            background: #e0f2fe !important;
+            background: #e6fffa !important;
         }
 
         .control-code {
             font-weight: 700;
-            color: #0ea5e9;
+            color: #5a9a9a;
             font-size: 11pt;
             padding: 8px 12px;
-            background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%);
+            background: linear-gradient(135deg, #e6fffa 0%, #f0fdfa 100%);
             border-radius: 8px;
-            border: 1px solid #0ea5e9;
+            border: 1px solid #5a9a9a;
             display: inline-block;
-            box-shadow: 0 2px 4px rgba(14, 165, 233, 0.1);
+            box-shadow: 0 2px 4px rgba(90, 154, 154, 0.1);
         }
         
         .control-row {
@@ -349,15 +349,15 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
         }
 
         .evidence-item:hover {
-            background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%);
-            border-color: #0ea5e9;
+            background: linear-gradient(135deg, #e6fffa 0%, #f0fdfa 100%);
+            border-color: #5a9a9a;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
+            box-shadow: 0 4px 12px rgba(90, 154, 154, 0.15);
         }
         
         .evidence-filename {
             font-weight: 700;
-            color: #0ea5e9;
+            color: #5a9a9a;
         }
         
         .evidence-filename-plain {
@@ -370,26 +370,26 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
             text-decoration: none !important;
             font-weight: 700;
             padding: 8px 16px;
-            background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
+            background: linear-gradient(135deg, #5a9a9a 0%, #4a8080 100%);
             border-radius: 6px;
             border: none;
             display: inline-block;
             margin: 4px 2px;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+            box-shadow: 0 4px 12px rgba(90, 154, 154, 0.3);
             font-size: 10pt;
             letter-spacing: 0.3px;
         }
 
         .evidence-link:hover {
-            background: linear-gradient(135deg, #0284c7 0%, #0891b2 100%);
+            background: linear-gradient(135deg, #4a8080 0%, #3a6b6b 100%);
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(14, 165, 233, 0.4);
+            box-shadow: 0 8px 20px rgba(90, 154, 154, 0.4);
         }
 
         .evidence-link:active {
             transform: translateY(0);
-            box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
+            box-shadow: 0 2px 8px rgba(90, 154, 154, 0.3);
         }
 
         html[dir="rtl"] body { 
@@ -409,19 +409,19 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
             }
             
             a { 
-                color: #0ea5e9 !important;
+                color: #5a9a9a !important;
                 text-decoration: underline !important; 
             }
             
             .evidence-link {
                 background: none !important;
-                color: #0ea5e9 !important;
+                color: #5a9a9a !important;
                 text-decoration: underline !important;
                 box-shadow: none !important;
                 transform: none !important;
                 display: inline !important;
                 padding: 2px 4px !important;
-                border: 1px solid #0ea5e9 !important;
+                border: 1px solid #5a9a9a !important;
                 border-radius: 3px !important;
                 font-weight: bold !important;
             }

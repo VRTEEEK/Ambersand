@@ -2475,7 +2475,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Evidence not found" });
       }
 
-      res.download(evidenceItem.filePath, evidenceItem.fileName);
+      // Ensure the file path is relative to the project root
+      const fs = await import('fs');
+      const path = await import('path');
+      
+      // Handle both relative and absolute paths
+      const filePath = evidenceItem.filePath.startsWith('/') 
+        ? evidenceItem.filePath 
+        : path.join(process.cwd(), evidenceItem.filePath);
+      
+      // Check if file exists before attempting download
+      if (!fs.existsSync(filePath)) {
+        console.error(`Evidence file not found: ${evidenceItem.fileName} at ${filePath}`);
+        return res.status(404).json({ 
+          message: "Evidence file not found on server",
+          details: `File "${evidenceItem.fileName}" is missing from storage`
+        });
+      }
+
+      res.download(filePath, evidenceItem.fileName);
     } catch (error) {
       console.error("Error downloading evidence:", error);
       res.status(500).json({ message: "Failed to download evidence" });
