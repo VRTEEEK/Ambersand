@@ -695,32 +695,38 @@ function generateControlsByDomain(controls: ComplianceReport['controls'], lang: 
                   ${control.evidence.length === 0 ? 
                     `<em>${lang === 'ar' ? 'لا توجد أدلة' : 'No evidence'}</em>` :
                     `<ul class="evidence-list">
-                      ${control.evidence.map(ev => {
+                      ${control.evidence.slice(0, 2).map(ev => {
                         if (evidenceLinksAvailable) {
                           // Create clickable link to download evidence via API
                           const downloadUrl = baseUrl ? `${baseUrl}/api/evidence/${ev.id}/download` : `#evidence-${ev.id}`;
                           const fileType = ev.fileName.toLowerCase().includes('.pdf') ? '[PDF]' :
                                          ev.fileName.toLowerCase().includes('.png') || ev.fileName.toLowerCase().includes('.jpg') ? '[IMG]' :
                                          ev.fileName.toLowerCase().includes('.doc') ? '[DOC]' : '[FILE]';
+                          // Truncate long filenames for better layout
+                          const displayName = ev.fileName.length > 25 ? ev.fileName.substring(0, 22) + '...' : ev.fileName;
                           return `
                             <li class="evidence-item">
                               <div class="evidence-filename">
                                 <a href="${downloadUrl}" class="evidence-link" target="_blank">
-                                  ${fileType} ${ev.fileName} [DOWNLOAD]
+                                  ${fileType} ${displayName}
                                 </a>
                               </div>
-                              ${ev.description ? `<div class="evidence-description">${ev.description}</div>` : ''}
                             </li>
                           `;
                         } else {
+                          const displayName = ev.fileName.length > 25 ? ev.fileName.substring(0, 22) + '...' : ev.fileName;
                           return `
                             <li class="evidence-item">
-                              <div class="evidence-filename-plain">${ev.fileName}</div>
-                              ${ev.description ? `<div class="evidence-description">${ev.description}</div>` : ''}
+                              <div class="evidence-filename-plain">${displayName}</div>
                             </li>
                           `;
                         }
                       }).join('')}
+                      ${control.evidence.length > 2 ? 
+                        `<li class="evidence-item">
+                          <em>+${control.evidence.length - 2} ${lang === 'ar' ? 'المزيد' : 'more'}</em>
+                        </li>` : ''
+                      }
                       ${!evidenceLinksAvailable && control.evidence.length > 0 ? 
                         `<li class="evidence-note">
                           <em>${lang === 'ar' ? 'ملف الأدلة متوفر بصيغة منفصلة' : 'Evidence file: Evidence files available in ZIP bundle'}</em>
