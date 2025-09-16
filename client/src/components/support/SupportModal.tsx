@@ -10,6 +10,8 @@ interface SupportModalProps {
 export function SupportModal({ open, onClose }: SupportModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [email, setEmail] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -35,6 +37,26 @@ export function SupportModal({ open, onClose }: SupportModalProps) {
       return;
     }
 
+    const e = email.trim();
+    if (e.length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const p = phoneNumber.trim();
+    if (p.length > 0 && !/^[\+\d\s\-\(\)]+$/.test(p)) {
+      toast({
+        title: "Invalid Phone Number",
+        description: "Please enter a valid phone number.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch("/api/support", {
@@ -43,6 +65,8 @@ export function SupportModal({ open, onClose }: SupportModalProps) {
         body: JSON.stringify({ 
           title: t, 
           description: d, 
+          email: e || undefined,
+          phoneNumber: p || undefined,
           path: window.location.pathname 
         }),
       });
@@ -59,6 +83,8 @@ export function SupportModal({ open, onClose }: SupportModalProps) {
       onClose();
       setTitle("");
       setDescription("");
+      setEmail("");
+      setPhoneNumber("");
     } catch (error) {
       toast({
         title: "Failed to Send",
@@ -137,6 +163,40 @@ export function SupportModal({ open, onClose }: SupportModalProps) {
               />
               <div className="text-xs text-gray-500 dark:text-gray-400">
                 {description.length}/4000 characters
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label htmlFor="support-email" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Email Address
+                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">(optional)</span>
+                </label>
+                <input
+                  id="support-email"
+                  type="email"
+                  className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="your.email@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  maxLength={254}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label htmlFor="support-phone" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Phone Number
+                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">(optional)</span>
+                </label>
+                <input
+                  id="support-phone"
+                  type="tel"
+                  className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="+1 (555) 123-4567"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  maxLength={20}
+                />
               </div>
             </div>
           </div>

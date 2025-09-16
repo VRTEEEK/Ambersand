@@ -193,25 +193,25 @@ export default function AnalyticsReports() {
                 <>
                   <MetricsCard
                     title={t('dashboard.overallCompliance')}
-                    value={`${metrics?.overallCompliance || 0}%`}
+                    value={`${(metrics as any)?.overallCompliance || 0}%`}
                     trend={{
                       value: "+5% from last month",
                       isPositive: true,
                     }}
                     icon={Shield}
-                    progress={metrics?.overallCompliance || 0}
+                    progress={(metrics as any)?.overallCompliance || 0}
                   />
                   
                   <MetricsCard
                     title={t('dashboard.activeProjects')}
-                    value={metrics?.activeProjects || 0}
+                    value={(metrics as any)?.activeProjects || 0}
                     subtitle="8 on track, 4 overdue"
                     icon={FolderOpen}
                   />
                   
                   <MetricsCard
                     title={t('dashboard.pendingTasks')}
-                    value={metrics?.pendingTasks || 0}
+                    value={(metrics as any)?.pendingTasks || 0}
                     trend={{
                       value: "6 urgent",
                       isPositive: false,
@@ -221,7 +221,7 @@ export default function AnalyticsReports() {
                   
                   <MetricsCard
                     title={t('dashboard.regulations')}
-                    value={`${metrics?.regulationsCovered || 0}/5`}
+                    value={`${(metrics as any)?.regulationsCovered || 0}/5`}
                     subtitle="ECC, PDPL, NDMO"
                     icon={BookOpen}
                   />
@@ -232,10 +232,10 @@ export default function AnalyticsReports() {
             {/* Charts and Analytics Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <ComplianceChart 
-                data={metrics?.complianceTrend || []}
+                data={(metrics as any)?.complianceTrend || []}
               />
               <RegulationStatus 
-                regulations={metrics?.regulationStatus || []}
+                regulations={(metrics as any)?.regulationStatus || []}
               />
             </div>
 
@@ -288,7 +288,7 @@ export default function AnalyticsReports() {
                       <CheckCircle className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">{analyticsMetrics?.totals.total || 0}</div>
+                      <div className="text-2xl font-bold">{analyticsMetrics?.totals.all || 0}</div>
                       <p className="text-xs text-muted-foreground">
                         Across all projects
                       </p>
@@ -305,8 +305,8 @@ export default function AnalyticsReports() {
                         {analyticsMetrics?.totals.byStatus.completed || 0}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {analyticsMetrics?.totals.total ? 
-                          Math.round((analyticsMetrics.totals.byStatus.completed / analyticsMetrics.totals.total) * 100) 
+                        {analyticsMetrics?.totals.all ? 
+                          Math.round((analyticsMetrics.totals.byStatus.completed / analyticsMetrics.totals.all) * 100) 
                           : 0}% completion rate
                       </p>
                     </CardContent>
