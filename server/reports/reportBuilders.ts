@@ -197,81 +197,286 @@ async function buildPDFWithWkhtmltopdf(html: string): Promise<Buffer> {
   });
 }
 
-// Fallback PDF generation using pure JavaScript
+// Enhanced PDF generation using pure JavaScript
 async function buildPDFWithJavaScript(html: string): Promise<Buffer> {
   try {
     console.log('📄 Generating PDF using JavaScript fallback...');
     
-    // Convert HTML to plain text with some formatting preserved
-    const text = htmlToText(html, {
-      wordwrap: 80,
-      selectors: [
-        { selector: 'h1', options: { uppercase: false, format: 'block' } },
-        { selector: 'h2', options: { uppercase: false, format: 'block' } },
-        { selector: 'h3', options: { uppercase: false, format: 'block' } },
-        { selector: 'p', options: { format: 'block' } },
-        { selector: 'table', options: { uppercaseHeaderCells: false } }
-      ]
-    });
-
     // Create a new PDF document
     const pdfDoc = await PDFDocument.create();
     const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
     const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
     // Define page dimensions and margins
     const pageWidth = 595.28; // A4 width in points
     const pageHeight = 841.89; // A4 height in points
     const margin = 50;
     const contentWidth = pageWidth - 2 * margin;
-    const contentHeight = pageHeight - 2 * margin;
 
     let page = pdfDoc.addPage([pageWidth, pageHeight]);
     let yPosition = pageHeight - margin;
+    let pageNumber = 1;
 
-    // Split text into lines and add to PDF
-    const lines = text.split('\n');
-    const fontSize = 12;
-    const lineHeight = fontSize * 1.2;
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      
-      // Check if we need a new page
-      if (yPosition - lineHeight < margin) {
+    // Helper function to add new page when needed
+    const checkAndAddNewPage = (requiredHeight: number = 20) => {
+      if (yPosition - requiredHeight < margin + 40) { // Leave space for footer
+        // Add footer to current page
+        page.drawText(`Generated on ${new Date().toLocaleDateString()} | Page ${pageNumber}`, {
+          x: margin,
+          y: 25,
+          size: 9,
+          font: timesRomanFont,
+          color: rgb(0.6, 0.6, 0.6),
+        });
+        
         page = pdfDoc.addPage([pageWidth, pageHeight]);
         yPosition = pageHeight - margin;
+        pageNumber++;
       }
+    };
 
-      // Determine if this is a header (simple heuristic)
-      const isHeader = line.length > 0 && line.length < 100 && 
-                      (line.includes('Compliance') || line.includes('Report') || 
-                       line.includes('Project') || line.includes('Control'));
+    // Helper function to draw wrapped text
+    const drawWrappedText = (text: string, options: {
+      x: number;
+      y: number;
+      size: number;
+      font: any;
+      color: any;
+      maxWidth: number;
+      lineHeight?: number;
+    }) => {
+      const { x, size, font, color, maxWidth, lineHeight = size * 1.2 } = options;
+      const words = text.split(' ');
+      let currentLine = '';
+      let currentY = options.y;
 
-      // Draw the text
-      page.drawText(line, {
+      for (const word of words) {
+        const testLine = currentLine ? `${currentLine} ${word}` : word;
+        const textWidth = font.widthOfTextAtSize(testLine, size);
+        
+        if (textWidth <= maxWidth) {
+          currentLine = testLine;
+        } else {
+          if (currentLine) {
+            checkAndAddNewPage(lineHeight);
+            page.drawText(currentLine, { x, y: yPosition, size, font, color });
+            yPosition -= lineHeight;
+            currentLine = word;
+          } else {
+            // Single word is too long, draw it anyway
+            checkAndAddNewPage(lineHeight);
+            page.drawText(word, { x, y: yPosition, size, font, color });
+            yPosition -= lineHeight;
+          }
+        }
+      }
+      
+      if (currentLine) {
+        checkAndAddNewPage(lineHeight);
+        page.drawText(currentLine, { x, y: yPosition, size, font, color });
+        yPosition -= lineHeight;
+      }
+    };
+
+    // Parse HTML content and extract structured data
+    const htmlContent = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+    
+    // Extract title
+    const titleMatch = htmlContent.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+    if (titleMatch) {
+      checkAndAddNewPage(40);
+      drawWrappedText(titleMatch[1].replace(/<[^>]+>/g, '').trim(), {
         x: margin,
         y: yPosition,
-        size: isHeader ? fontSize + 2 : fontSize,
-        font: isHeader ? helveticaBoldFont : timesRomanFont,
-        color: rgb(0, 0, 0),
+        size: 20,
+        font: helveticaBoldFont,
+        color: rgb(0.15, 0.6, 0.65), // Brand color #2699A6
         maxWidth: contentWidth,
+        lineHeight: 26
       });
-
-      yPosition -= lineHeight;
+      yPosition -= 30; // Extra space after title
     }
 
-    // Add footer with generation info
-    const footerText = `Generated on ${new Date().toLocaleDateString()} | Page 1`;
-    const pages = pdfDoc.getPages();
-    pages.forEach((page, index) => {
-      page.drawText(footerText.replace('Page 1', `Page ${index + 1}`), {
+    // Extract project info
+    const subtitleMatch = htmlContent.match(/<div class="subtitle"[^>]*>([\s\S]*?)<\/div>/i);
+    if (subtitleMatch) {
+      checkAndAddNewPage(20);
+      drawWrappedText(subtitleMatch[1].replace(/<[^>]+>/g, '').trim(), {
         x: margin,
-        y: 30,
-        size: 10,
-        font: timesRomanFont,
-        color: rgb(0.5, 0.5, 0.5),
+        y: yPosition,
+        size: 14,
+        font: helveticaFont,
+        color: rgb(0.4, 0.4, 0.4),
+        maxWidth: contentWidth,
+        lineHeight: 18
       });
+      yPosition -= 20;
+    }
+
+    // Extract summary section
+    const summaryMatch = htmlContent.match(/<div class="summary-section"[^>]*>([\s\S]*?)<\/div>/i);
+    if (summaryMatch) {
+      yPosition -= 20; // Space before summary
+      
+      // Summary header
+      checkAndAddNewPage(25);
+      drawWrappedText("Compliance Summary", {
+        x: margin,
+        y: yPosition,
+        size: 16,
+        font: helveticaBoldFont,
+        color: rgb(0, 0, 0),
+        maxWidth: contentWidth,
+        lineHeight: 20
+      });
+      yPosition -= 15;
+
+      // Extract summary metrics
+      const summaryContent = summaryMatch[1];
+      const metrics = [
+        { label: 'Total Controls', match: summaryContent.match(/Total Controls[\s\S]*?(\d+)/i) },
+        { label: 'Approved Controls', match: summaryContent.match(/Approved[\s\S]*?(\d+)/i) },
+        { label: 'Pending Controls', match: summaryContent.match(/Pending[\s\S]*?(\d+)/i) },
+        { label: 'In Progress', match: summaryContent.match(/In Progress[\s\S]*?(\d+)/i) },
+        { label: 'Under Review', match: summaryContent.match(/Under Review[\s\S]*?(\d+)/i) }
+      ];
+
+      for (const metric of metrics) {
+        if (metric.match) {
+          checkAndAddNewPage(20);
+          drawWrappedText(`${metric.label}: ${metric.match[1]}`, {
+            x: margin + 20,
+            y: yPosition,
+            size: 12,
+            font: timesRomanFont,
+            color: rgb(0, 0, 0),
+            maxWidth: contentWidth - 20,
+            lineHeight: 16
+          });
+          yPosition -= 5;
+        }
+      }
+      yPosition -= 20;
+    }
+
+    // Extract and format control details
+    const controlsMatch = htmlContent.match(/<div class="controls-section"[^>]*>([\s\S]*?)<\/div>/i);
+    if (controlsMatch) {
+      checkAndAddNewPage(25);
+      drawWrappedText("Control Details", {
+        x: margin,
+        y: yPosition,
+        size: 16,
+        font: helveticaBoldFont,
+        color: rgb(0, 0, 0),
+        maxWidth: contentWidth,
+        lineHeight: 20
+      });
+      yPosition -= 20;
+
+      // Extract individual controls
+      const controlMatches = htmlContent.match(/<div class="control-item"[^>]*>[\s\S]*?<\/div>/gi);
+      if (controlMatches) {
+        for (const controlMatch of controlMatches) {
+          // Extract control code and title
+          const codeMatch = controlMatch.match(/<h3[^>]*>([\s\S]*?)<\/h3>/i);
+          const statusMatch = controlMatch.match(/Status[^:]*:?\s*([^<\n]+)/i);
+          const evidenceMatch = controlMatch.match(/Evidence[^:]*:?\s*([^<\n]+)/i);
+          
+          if (codeMatch) {
+            checkAndAddNewPage(40);
+            
+            // Control header
+            drawWrappedText(codeMatch[1].replace(/<[^>]+>/g, '').trim(), {
+              x: margin,
+              y: yPosition,
+              size: 14,
+              font: helveticaBoldFont,
+              color: rgb(0.15, 0.6, 0.65),
+              maxWidth: contentWidth,
+              lineHeight: 18
+            });
+            yPosition -= 10;
+
+            // Status
+            if (statusMatch) {
+              drawWrappedText(`Status: ${statusMatch[1].trim()}`, {
+                x: margin + 15,
+                y: yPosition,
+                size: 11,
+                font: timesRomanFont,
+                color: rgb(0.2, 0.2, 0.2),
+                maxWidth: contentWidth - 15,
+                lineHeight: 14
+              });
+              yPosition -= 5;
+            }
+
+            // Evidence
+            if (evidenceMatch) {
+              drawWrappedText(`Evidence: ${evidenceMatch[1].trim()}`, {
+                x: margin + 15,
+                y: yPosition,
+                size: 11,
+                font: timesRomanFont,
+                color: rgb(0.2, 0.2, 0.2),
+                maxWidth: contentWidth - 15,
+                lineHeight: 14
+              });
+              yPosition -= 5;
+            }
+            
+            yPosition -= 15; // Space between controls
+          }
+        }
+      }
+    }
+
+    // If no structured content was found, fall back to text conversion
+    if (!titleMatch && !summaryMatch && !controlsMatch) {
+      console.log('⚠️ No structured HTML found, falling back to text conversion...');
+      
+      const text = htmlToText(html, {
+        wordwrap: false,
+        selectors: [
+          { selector: 'h1', options: { uppercase: false, format: 'block' } },
+          { selector: 'h2', options: { uppercase: false, format: 'block' } },
+          { selector: 'h3', options: { uppercase: false, format: 'block' } },
+          { selector: 'p', options: { format: 'block' } },
+          { selector: 'table', options: { uppercaseHeaderCells: false } }
+        ]
+      });
+
+      const lines = text.split('\n').filter(line => line.trim());
+      for (const line of lines) {
+        if (line.trim()) {
+          const isHeader = line.length < 100 && 
+                          (line.includes('Compliance') || line.includes('Report') || 
+                           line.includes('Project') || line.includes('Control') ||
+                           line.match(/^\d+[\.-]/)); // Numbered items
+
+          drawWrappedText(line.trim(), {
+            x: margin,
+            y: yPosition,
+            size: isHeader ? 14 : 12,
+            font: isHeader ? helveticaBoldFont : timesRomanFont,
+            color: rgb(0, 0, 0),
+            maxWidth: contentWidth,
+            lineHeight: isHeader ? 18 : 16
+          });
+          yPosition -= (isHeader ? 10 : 5);
+        }
+      }
+    }
+
+    // Add footer to the last page
+    page.drawText(`Generated on ${new Date().toLocaleDateString()} | Page ${pageNumber}`, {
+      x: margin,
+      y: 25,
+      size: 9,
+      font: timesRomanFont,
+      color: rgb(0.6, 0.6, 0.6),
     });
 
     const pdfBytes = await pdfDoc.save();
