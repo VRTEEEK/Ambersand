@@ -214,8 +214,7 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
         }
         
         .domain-group {
-            margin-bottom: 50px;
-            page-break-inside: avoid;
+            margin-bottom: 16px;
             background: white;
             border-radius: 12px;
             overflow: hidden;
@@ -302,7 +301,6 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
         }
         
         .control-row {
-            page-break-inside: avoid;
             border-bottom: 1px solid #f1f5f9;
         }
         
@@ -440,14 +438,10 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
             
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
             tr, td, th { 
-                page-break-inside: avoid; 
-                break-inside: avoid; 
-            }
-            
-            .avoid-break, .control-row, .domain-group { 
-                page-break-inside: avoid; 
-                break-inside: avoid; 
+                page-break-inside: auto; 
             }
             
             .header {
