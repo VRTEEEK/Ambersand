@@ -11,7 +11,10 @@ export async function buildPDF(html: string): Promise<Buffer> {
   let browser;
   try {
     console.log('🚀 Launching Puppeteer for PDF generation...');
-    browser = await puppeteer.launch({
+    
+    // Check if we're in production/deployed environment
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';
+    const puppeteerOptions: any = {
       headless: true,
       args: [
         '--no-sandbox',
@@ -24,9 +27,32 @@ export async function buildPDF(html: string): Promise<Buffer> {
         '--disable-web-security',
         '--disable-features=VizDisplayCompositor',
         '--disable-extensions',
-        '--disable-plugins'
+        '--disable-plugins',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding'
       ]
-    });
+    };
+    
+    // In production/deployed environment, use system Chromium
+    if (isProduction) {
+      console.log('🔧 Production environment detected - using system Chromium');
+      puppeteerOptions.executablePath = '/nix/store/*/bin/chromium';
+      // Try to find the actual chromium path
+      try {
+        const { execSync } = require('child_process');
+        const chromiumPath = execSync('which chromium || which chromium-browser || echo "/nix/store/*/bin/chromium"', { encoding: 'utf8' }).trim();
+        console.log('📍 Found Chromium at:', chromiumPath);
+        if (chromiumPath && !chromiumPath.includes('not found')) {
+          puppeteerOptions.executablePath = chromiumPath;
+        }
+      } catch (e) {
+        console.warn('⚠️  Could not detect Chromium path, using default');
+      }
+    }
+    
+    console.log('🔧 Puppeteer options:', puppeteerOptions);
+    browser = await puppeteer.launch(puppeteerOptions);
 
     const page = await browser.newPage();
 
