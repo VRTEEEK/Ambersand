@@ -1,6 +1,16 @@
 import { ComplianceReport } from "./reportData";
 
 export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar' = 'en', evidenceLinksAvailable: boolean = false, baseUrl: string = ''): string {
+  console.log('🎨 Rendering compliance HTML report:', {
+    projectName: report.project.name,
+    regulationName: report.regulation.name,
+    totalControls: report.controls.length,
+    totalsData: report.totals,
+    controlsPreview: report.controls.slice(0, 3).map(c => ({ code: c.code, title: c.title, domain: c.domain })),
+    lang,
+    evidenceLinksAvailable
+  });
+
   const isRTL = lang === 'ar';
   const direction = isRTL ? 'rtl' : 'ltr';
 
@@ -250,12 +260,41 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
 }
 
 function generateControlsByDomain(controls: ComplianceReport['controls'], lang: 'en' | 'ar', evidenceLinksAvailable: boolean = false, baseUrl: string = ''): string {
+  console.log('🔧 Generating controls by domain:', {
+    totalControls: controls.length,
+    domains: Array.from(new Set(controls.map(c => c.domain))),
+    evidenceLinksAvailable,
+    sampleControl: controls[0] ? {
+      code: controls[0].code,
+      title: controls[0].title,
+      domain: controls[0].domain,
+      evidenceCount: controls[0].evidence?.length || 0
+    } : null
+  });
+
   const domains = Array.from(new Set(controls.map(c => c.domain)));
   const isRTL = lang === 'ar';
   
+  if (domains.length === 0) {
+    console.log('⚠️ No domains found, generating empty controls message');
+    return `
+      <div class="domain-group">
+        <div style="padding: 40px; text-align: center; background: #f9fafb; border-radius: 8px; margin: 20px 0;">
+          <h3 style="color: #6b7280; margin-bottom: 10px;">${lang === 'ar' ? 'لا توجد ضوابط' : 'No Controls Available'}</h3>
+          <p style="color: #9ca3af; font-size: 14px;">
+            ${lang === 'ar'
+              ? 'لم يتم العثور على ضوابط لهذا المشروع. يرجى إضافة ضوابط لإنشاء التقرير.'
+              : 'No controls found for this project. Please add controls to generate the report.'
+            }
+          </p>
+        </div>
+      </div>
+    `;
+  }
+
   return domains.map(domain => {
     const domainControls = controls.filter(c => c.domain === domain);
-    
+
     return `
       <div class="domain-group">
         <h3 class="domain-header">${domain}</h3>
