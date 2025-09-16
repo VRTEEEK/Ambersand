@@ -189,14 +189,14 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
         }
         
         .controls-section {
-            margin-top: 50px;
+            margin-top: 25px;
         }
         
         .controls-section h2 {
-            font-size: 24pt;
-            font-weight: 700;
+            font-size: 20pt;
+            font-weight: 600;
             color: #0f172a;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             text-align: center;
             position: relative;
         }
@@ -253,24 +253,25 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
         }
 
         .control-table th {
-            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            background: linear-gradient(135deg, ${theme.primary[600]} 0%, ${theme.primary[500]} 100%);
             color: white;
-            padding: 18px 15px;
+            padding: 12px 12px;
             text-align: ${isRTL ? 'right' : 'left'};
             border: none;
-            font-weight: 700;
-            font-size: 11pt;
+            font-weight: 600;
+            font-size: 10pt;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
             position: relative;
         }
 
         .control-table td {
-            padding: 16px 15px;
+            padding: 12px 12px;
             border-bottom: 1px solid #f1f5f9;
             vertical-align: top;
             background: white;
             transition: background-color 0.2s ease;
+            font-weight: 400;
         }
 
         .control-table tr:nth-child(even) td {
@@ -623,7 +624,7 @@ function generateControlsByDomain(controls: ComplianceReport['controls'], lang: 
             ${domainControls.map(control => `
               <tr class="control-row">
                 <td><span class="control-code">${control.code}</span></td>
-                <td><strong>${isRTL && control.titleAr ? control.titleAr : control.title}</strong></td>
+                <td>${isRTL && control.titleAr ? control.titleAr : control.title}</td>
                 <td>
                   <span class="status-badge status-${control.status}">
                     ${getStatusLabel(control.status, lang)}
