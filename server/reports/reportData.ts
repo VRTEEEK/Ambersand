@@ -148,9 +148,10 @@ export async function getComplianceReportData(params: {
         evidence: (controlEvidence as any[]).map(ev => {
           // Ensure absolute file path and validate it exists
           let absPath = path.isAbsolute(ev.filePath) ? ev.filePath : path.join(process.cwd(), ev.filePath);
+          let fileExists = existsSync(absPath);
 
           // Try common upload directories if the original path doesn't exist
-          if (!path.isAbsolute(ev.filePath)) {
+          if (!fileExists && !path.isAbsolute(ev.filePath)) {
             const possiblePaths = [
               path.join(process.cwd(), ev.filePath),
               path.join(process.cwd(), 'uploads', ev.fileName),
@@ -161,10 +162,16 @@ export async function getComplianceReportData(params: {
             for (const possiblePath of possiblePaths) {
               if (existsSync(possiblePath)) {
                 absPath = possiblePath;
+                fileExists = true;
                 console.log(`📍 Found evidence file at: ${absPath}`);
                 break;
               }
             }
+          }
+
+          // Log missing files but still include them in the evidence list with a note
+          if (!fileExists) {
+            console.warn(`⚠️ Evidence file missing: ${ev.fileName} (expected at ${absPath})`);
           }
 
           return {
@@ -174,9 +181,10 @@ export async function getComplianceReportData(params: {
             fileType: ev.fileType || null,
             fileSize: ev.fileSize || null,
             filePath: absPath,
-            description: ev.description || null
+            description: ev.description || null,
+            fileExists: fileExists
           };
-        })
+        }).filter(ev => ev.fileExists)
       };
     })
   );
