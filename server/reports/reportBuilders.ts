@@ -11,80 +11,152 @@ import path from 'path';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { convert as htmlToText } from 'html-to-text';
 
+// Optimize HTML content for better PDF generation performance
+function optimizeHtmlForPdf(html: string): string {
+  console.log('🔧 Optimizing HTML for PDF generation...');
+
+  // Remove unnecessary whitespace and newlines to reduce processing time
+  let optimized = html
+    .replace(/\s+/g, ' ')
+    .replace(/>\s+</g, '><')
+    .trim();
+
+  // Remove script tags and other non-essential elements
+  optimized = optimized
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<link[^>]*rel=["']stylesheet["'][^>]*>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '');
+
+  // Ensure tables have proper border styles for PDF rendering
+  optimized = optimized.replace(/<table([^>]*)>/gi, '<table$1 style="border-collapse: collapse; width: 100%; margin-bottom: 20px;">');
+  optimized = optimized.replace(/<th([^>]*)>/gi, '<th$1 style="border: 1px solid #ddd; padding: 8px; background: #f5f5f5; font-weight: bold; text-align: left;">');
+  optimized = optimized.replace(/<td([^>]*)>/gi, '<td$1 style="border: 1px solid #ddd; padding: 8px;">');
+
+  console.log(`📏 HTML size reduced from ${html.length} to ${optimized.length} characters`);
+  return optimized;
+}
+
+// Parse HTML content into structured sections for PDF generation
+function parseHtmlContent(html: string): {
+  title?: string;
+  subtitle?: string;
+  summary?: { items: Array<{ label: string; value: string }> };
+  controls?: Array<{ domain: string; controls: Array<{ code: string; title: string; status: string; evidence: string }> }>;
+} {
+  const result: any = {};
+
+  // Extract title - try multiple patterns
+  let titleMatch = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  if (!titleMatch) {
+    titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  }
+  if (titleMatch) {
+    result.title = titleMatch[1].replace(/<[^>]+>/g, '').replace('Compliance Report - ', '').trim();
+  }
+
+  // Extract subtitle - try multiple patterns
+  let subtitleMatch = html.match(/<div class="subtitle"[^>]*>([\s\S]*?)<\/div>/i);
+  if (!subtitleMatch) {
+    // Try finding subtitle in header div
+    subtitleMatch = html.match(/<div class="header"[^>]*>[\s\S]*?<div[^>]*>(.*?Compliance Report.*?)<\/div>/i);
+  }
+  if (subtitleMatch) {
+    result.subtitle = subtitleMatch[1].replace(/<[^>]+>/g, '').trim();
+  }
+
+  // Extract summary items - improved parsing
+  const summarySection = html.match(/<div class="summary-section"[^>]*>([\s\S]*?)<\/div>/i);
+  if (summarySection) {
+    const summaryMatches = summarySection[1].match(/<div class="summary-item"[^>]*>([\s\S]*?)<\/div>/gi);
+    if (summaryMatches) {
+      result.summary = { items: [] };
+      summaryMatches.forEach(item => {
+        const numberMatch = item.match(/<span class="summary-number"[^>]*>([\s\S]*?)<\/span>/i);
+        const labelMatch = item.match(/<span class="summary-label"[^>]*>([\s\S]*?)<\/span>/i);
+        if (numberMatch && labelMatch) {
+          result.summary.items.push({
+            label: labelMatch[1].replace(/<[^>]+>/g, '').trim(),
+            value: numberMatch[1].replace(/<[^>]+>/g, '').trim()
+          });
+        }
+      });
+    }
+  }
+
+  // Extract controls by domain - improved parsing
+  const controlsSection = html.match(/<div class="controls-section"[^>]*>([\s\S]*?)<\/div>/i);
+  if (controlsSection) {
+    const domainGroups = controlsSection[1].match(/<div class="domain-group"[^>]*>([\s\S]*?)<\/div>/gi);
+    if (domainGroups) {
+      result.controls = [];
+      domainGroups.forEach(group => {
+        const domainHeaderMatch = group.match(/<h3 class="domain-header"[^>]*>([\s\S]*?)<\/h3>/i);
+        const domainName = domainHeaderMatch ? domainHeaderMatch[1].replace(/<[^>]+>/g, '').trim() : 'Unknown Domain';
+
+        const controlTable = group.match(/<table class="control-table"[^>]*>([\s\S]*?)<\/table>/i);
+        const controls: any[] = [];
+
+        if (controlTable) {
+          const controlRows = controlTable[1].match(/<tr class="control-row"[^>]*>([\s\S]*?)<\/tr>/gi);
+          if (controlRows) {
+            controlRows.forEach(row => {
+              const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/gi);
+              if (cells && cells.length >= 3) {
+                const code = cells[0] ? cells[0].replace(/<[^>]+>/g, '').trim() : '';
+                const title = cells[1] ? cells[1].replace(/<[^>]+>/g, '').trim() : '';
+                const status = cells[2] ? cells[2].replace(/<[^>]+>/g, '').replace(/status-\w+/g, '').trim() : '';
+                const evidence = cells[3] ? cells[3].replace(/<[^>]+>/g, '').replace(/No evidence/g, '').trim() : 'No evidence';
+
+                if (code) { // Only add if we have a valid control code
+                  controls.push({ code, title, status, evidence });
+                }
+              }
+            });
+          }
+        }
+
+        if (controls.length > 0) {
+          result.controls.push({ domain: domainName, controls });
+        }
+      });
+    }
+  }
+
+  console.log('📋 Parsed content sections:', {
+    title: !!result.title,
+    subtitle: !!result.subtitle,
+    summaryItems: result.summary?.items?.length || 0,
+    domainGroups: result.controls?.length || 0,
+    totalControls: result.controls?.reduce((sum: number, group: any) => sum + group.controls.length, 0) || 0
+  });
+
+  return result;
+}
+
 export async function buildPDF(html: string): Promise<Buffer> {
   try {
-    console.log('🚀 Generating PDF with wkhtmltopdf...');
+    console.log('🚀 Generating PDF...');
+    console.log('📊 Input HTML length:', html.length);
+    console.log('📋 HTML preview (first 500 chars):', html.substring(0, 500));
 
-    // Check if wkhtmltopdf is available
-    try {
-      execSync('which wkhtmltopdf', { stdio: 'ignore' });
-      console.log('✅ wkhtmltopdf binary found in PATH');
-      
-      // If wkhtmltopdf is available, use it
-      return await buildPDFWithWkhtmltopdf(html);
-    } catch (error) {
-      console.warn('⚠️ wkhtmltopdf binary not found in PATH. Attempting to use nix-env to locate...');
-      
-      try {
-        // Try to find wkhtmltopdf in common locations with timeout
-        const locations = [
-          '/usr/bin/wkhtmltopdf',
-          '/usr/local/bin/wkhtmltopdf'
-        ];
-
-        let foundPath = null;
-        for (const location of locations) {
-          try {
-            execSync(`ls ${location}`, { stdio: 'ignore', timeout: 5000 });
-            foundPath = location;
-            break;
-          } catch (e) {
-            // Continue searching
-          }
-        }
-
-        // Try Nix store search with timeout
-        if (!foundPath) {
-          try {
-            const nixPath = execSync('find /nix/store -maxdepth 2 -name "*wkhtmltopdf*" -type d 2>/dev/null | head -1', { 
-              stdio: 'pipe', 
-              timeout: 10000,
-              encoding: 'utf8'
-            }).toString().trim();
-            
-            if (nixPath) {
-              const binaryPath = `${nixPath}/bin/wkhtmltopdf`;
-              try {
-                execSync(`test -f ${binaryPath}`, { stdio: 'ignore', timeout: 2000 });
-                foundPath = binaryPath;
-              } catch (e) {
-                // Binary not found in expected location
-              }
-            }
-          } catch (e) {
-            console.warn('⚠️  Nix store search timed out or failed');
-          }
-        }
-
-        if (foundPath && foundPath.length > 0) {
-          console.log(`📍 Found wkhtmltopdf at: ${foundPath}`);
-          process.env.PATH = `${path.dirname(foundPath)}:${process.env.PATH}`;
-          console.log('✅ Added wkhtmltopdf to PATH');
-          
-          // Try wkhtmltopdf after updating PATH
-          return await buildPDFWithWkhtmltopdf(html);
-        } else {
-          throw new Error('wkhtmltopdf binary not found in any common locations.');
-        }
-      } catch (searchError) {
-        console.error('❌ wkhtmltopdf search failed:', searchError);
-        console.log('🔄 Falling back to JavaScript PDF generation...');
-        return await buildPDFWithJavaScript(html);
-      }
+    if (!html || html.length < 50) {
+      throw new Error('Invalid or empty HTML content provided for PDF generation');
     }
+
+    // Optimize HTML content first to improve performance
+    const optimizedHtml = optimizeHtmlForPdf(html);
+    console.log('📄 HTML optimized for PDF generation');
+
+    // Use JavaScript PDF generation by default for better reliability and performance
+    return await buildPDFWithJavaScript(optimizedHtml);
   } catch (error) {
-    console.error('❌ PDF generation failed, falling back to JavaScript:', error);
-    return await buildPDFWithJavaScript(html);
+    console.error('❌ PDF generation failed:', error);
+    console.error('📝 Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      htmlLength: html?.length || 0
+    });
+    throw new Error(`PDF generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -200,9 +272,9 @@ async function buildPDFWithWkhtmltopdf(html: string): Promise<Buffer> {
 // Enhanced PDF generation using pure JavaScript
 async function buildPDFWithJavaScript(html: string): Promise<Buffer> {
   try {
-    console.log('📄 Generating PDF using JavaScript fallback...');
+    console.log('📄 Generating PDF using JavaScript...');
     console.log('🔍 HTML content length:', html.length);
-    
+
     // Create a new PDF document
     const pdfDoc = await PDFDocument.create();
     const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
@@ -212,7 +284,7 @@ async function buildPDFWithJavaScript(html: string): Promise<Buffer> {
     // Define page dimensions and margins
     const pageWidth = 595.28; // A4 width in points
     const pageHeight = 841.89; // A4 height in points
-    const margin = 50;
+    const margin = 40;
     const contentWidth = pageWidth - 2 * margin;
 
     let page = pdfDoc.addPage([pageWidth, pageHeight]);
@@ -281,347 +353,236 @@ async function buildPDFWithJavaScript(html: string): Promise<Buffer> {
 
     // Clean HTML content and remove styles
     const htmlContent = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
-    console.log('🔍 HTML after style removal length:', htmlContent.length);
-    
-    // Extract title from header section
-    const headerMatch = htmlContent.match(/<div class="header"[^>]*>([\s\S]*?)<\/div>/i);
-    if (headerMatch) {
-      console.log('✅ Found header section');
-      const titleMatch = headerMatch[1].match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-      if (titleMatch) {
-        console.log('✅ Found title:', titleMatch[1].replace(/<[^>]+>/g, '').trim().substring(0, 50));
-        checkAndAddNewPage(40);
-        drawWrappedText(titleMatch[1].replace(/<[^>]+>/g, '').trim(), {
-          x: margin,
-          y: yPosition,
-          size: 20,
-          font: helveticaBoldFont,
-          color: rgb(0.15, 0.6, 0.65), // Brand color #2699A6
-          maxWidth: contentWidth,
-          lineHeight: 26
-        });
-        yPosition -= 30;
-      }
+    console.log('🔍 Processing HTML content for PDF generation');
 
-      // Extract subtitle info
-      const subtitleMatches = headerMatch[1].match(/<div class="subtitle"[^>]*>([\s\S]*?)<\/div>/gi);
-      if (subtitleMatches) {
-        console.log('✅ Found', subtitleMatches.length, 'subtitle sections');
-        for (const subtitleMatch of subtitleMatches) {
-          const subtitleText = subtitleMatch.replace(/<[^>]+>/g, '').trim();
-          if (subtitleText) {
-            checkAndAddNewPage(20);
-            drawWrappedText(subtitleText, {
-              x: margin,
-              y: yPosition,
-              size: 14,
-              font: helveticaFont,
-              color: rgb(0.4, 0.4, 0.4),
-              maxWidth: contentWidth,
-              lineHeight: 18
-            });
-            yPosition -= 10;
-          }
-        }
-        yPosition -= 20;
-      }
+    // More robust content extraction with improved parsing
+    const contentSections = parseHtmlContent(htmlContent);
+
+    // Render document title
+    if (contentSections.title) {
+      console.log('✅ Rendering document title');
+      checkAndAddNewPage(40);
+      drawWrappedText(contentSections.title, {
+        x: margin,
+        y: yPosition,
+        size: 20,
+        font: helveticaBoldFont,
+        color: rgb(0.15, 0.6, 0.65), // Brand color #2699A6
+        maxWidth: contentWidth,
+        lineHeight: 26
+      });
+      yPosition -= 35;
     }
 
-    // Extract summary section
-    const summaryMatch = htmlContent.match(/<div class="summary-section"[^>]*>([\s\S]*?)<\/div>/i);
-    if (summaryMatch) {
-      console.log('✅ Found summary section');
+    // Render subtitle
+    if (contentSections.subtitle) {
+      console.log('✅ Rendering subtitle');
+      checkAndAddNewPage(25);
+      drawWrappedText(contentSections.subtitle, {
+        x: margin,
+        y: yPosition,
+        size: 14,
+        font: helveticaFont,
+        color: rgb(0.4, 0.4, 0.4),
+        maxWidth: contentWidth,
+        lineHeight: 18
+      });
+      yPosition -= 30;
+    }
+
+    // Render summary section
+    if (contentSections.summary && contentSections.summary.items.length > 0) {
+      console.log('✅ Rendering summary section');
       yPosition -= 20;
-      
-      // Summary header
-      const summaryHeaderMatch = summaryMatch[1].match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
-      if (summaryHeaderMatch) {
-        checkAndAddNewPage(25);
-        drawWrappedText(summaryHeaderMatch[1].replace(/<[^>]+>/g, '').trim(), {
-          x: margin,
-          y: yPosition,
-          size: 16,
-          font: helveticaBoldFont,
-          color: rgb(0, 0, 0),
-          maxWidth: contentWidth,
-          lineHeight: 20
-        });
-        yPosition -= 15;
-      }
 
-      // Extract summary metrics from summary-item divs
-      const summaryItems = summaryMatch[1].match(/<div class="summary-item"[^>]*>([\s\S]*?)<\/div>/gi);
-      if (summaryItems) {
-        console.log('✅ Found', summaryItems.length, 'summary items');
-        for (const item of summaryItems) {
-          const numberMatch = item.match(/<span class="summary-number"[^>]*>([\s\S]*?)<\/span>/i);
-          const labelMatch = item.match(/<span class="summary-label"[^>]*>([\s\S]*?)<\/span>/i);
-          
-          if (numberMatch && labelMatch) {
-            const number = numberMatch[1].replace(/<[^>]+>/g, '').trim();
-            const label = labelMatch[1].replace(/<[^>]+>/g, '').trim();
-            
-            checkAndAddNewPage(20);
-            drawWrappedText(`${label}: ${number}`, {
-              x: margin + 20,
-              y: yPosition,
-              size: 12,
-              font: timesRomanFont,
-              color: rgb(0, 0, 0),
-              maxWidth: contentWidth - 20,
-              lineHeight: 16
-            });
-            yPosition -= 5;
-          }
-        }
-        yPosition -= 20;
+      // Summary header
+      checkAndAddNewPage(25);
+      drawWrappedText('Summary', {
+        x: margin,
+        y: yPosition,
+        size: 16,
+        font: helveticaBoldFont,
+        color: rgb(0, 0, 0),
+        maxWidth: contentWidth,
+        lineHeight: 20
+      });
+      yPosition -= 25;
+
+      // Render summary items
+      for (const item of contentSections.summary.items) {
+        checkAndAddNewPage(20);
+        drawWrappedText(`${item.label}: ${item.value}`, {
+          x: margin + 20,
+          y: yPosition,
+          size: 12,
+          font: timesRomanFont,
+          color: rgb(0, 0, 0),
+          maxWidth: contentWidth - 20,
+          lineHeight: 16
+        });
+        yPosition -= 8;
       }
+      yPosition -= 20;
     }
 
-    // Extract and format control details
-    const controlsMatch = htmlContent.match(/<div class="controls-section"[^>]*>([\s\S]*?)<\/div>/i);
-    if (controlsMatch) {
-      console.log('✅ Found controls section');
-      
+    // Render controls section
+    if (contentSections.controls && contentSections.controls.length > 0) {
+      console.log('✅ Rendering controls section');
+
       // Controls header
-      const controlsHeaderMatch = controlsMatch[1].match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
-      if (controlsHeaderMatch) {
-        checkAndAddNewPage(25);
-        drawWrappedText(controlsHeaderMatch[1].replace(/<[^>]+>/g, '').trim(), {
+      checkAndAddNewPage(25);
+      drawWrappedText('Controls', {
+        x: margin,
+        y: yPosition,
+        size: 16,
+        font: helveticaBoldFont,
+        color: rgb(0, 0, 0),
+        maxWidth: contentWidth,
+        lineHeight: 20
+      });
+      yPosition -= 30;
+
+      // Render controls by domain
+      for (const domainGroup of contentSections.controls) {
+        if (domainGroup.controls.length === 0) continue;
+
+        // Domain header
+        checkAndAddNewPage(30);
+        drawWrappedText(domainGroup.domain, {
           x: margin,
           y: yPosition,
-          size: 16,
+          size: 15,
           font: helveticaBoldFont,
-          color: rgb(0, 0, 0),
+          color: rgb(0.15, 0.6, 0.65), // Brand color
           maxWidth: contentWidth,
           lineHeight: 20
         });
-        yPosition -= 20;
-      }
+        yPosition -= 25;
 
-      // Extract domain groups and control tables
-      const domainGroups = controlsMatch[1].match(/<div class="domain-group"[^>]*>([\s\S]*?)<\/div>/gi);
-      if (domainGroups) {
-        console.log('✅ Found', domainGroups.length, 'domain groups');
-        
-        for (const domainGroup of domainGroups) {
-          // Extract domain header
-          const domainHeaderMatch = domainGroup.match(/<h3 class="domain-header"[^>]*>([\s\S]*?)<\/h3>/i);
-          if (domainHeaderMatch) {
-            const domainName = domainHeaderMatch[1].replace(/<[^>]+>/g, '').trim();
-            console.log('📋 Processing domain:', domainName.substring(0, 50));
-            
-            checkAndAddNewPage(30);
-            drawWrappedText(domainName, {
-              x: margin,
+        // Render controls in this domain
+        for (const control of domainGroup.controls) {
+          if (!control.code) continue;
+
+          checkAndAddNewPage(50);
+
+          // Control code and title
+          drawWrappedText(`${control.code}: ${control.title}`, {
+            x: margin,
+            y: yPosition,
+            size: 12,
+            font: helveticaBoldFont,
+            color: rgb(0, 0, 0),
+            maxWidth: contentWidth,
+            lineHeight: 16
+          });
+          yPosition -= 8;
+
+          // Status
+          if (control.status) {
+            drawWrappedText(`Status: ${control.status}`, {
+              x: margin + 15,
               y: yPosition,
-              size: 15,
-              font: helveticaBoldFont,
-              color: rgb(0.15, 0.6, 0.65), // Brand color
-              maxWidth: contentWidth,
-              lineHeight: 20
+              size: 10,
+              font: timesRomanFont,
+              color: rgb(0.3, 0.3, 0.3),
+              maxWidth: contentWidth - 15,
+              lineHeight: 14
             });
-            yPosition -= 25;
+            yPosition -= 6;
           }
 
-          // Extract table rows from this domain
-          const tableMatch = domainGroup.match(/<table class="control-table"[^>]*>([\s\S]*?)<\/table>/i);
-          if (tableMatch) {
-            const controlRows = tableMatch[1].match(/<tr class="control-row"[^>]*>([\s\S]*?)<\/tr>/gi);
-            if (controlRows) {
-              console.log('🔍 Found', controlRows.length, 'control rows in this domain');
-              
-              for (const row of controlRows) {
-                const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/gi);
-                if (cells && cells.length >= 3) {
-                  // Extract code, title, status, evidence
-                  const code = cells[0] ? cells[0].replace(/<[^>]+>/g, '').trim() : '';
-                  const title = cells[1] ? cells[1].replace(/<[^>]+>/g, '').trim() : '';
-                  const status = cells[2] ? cells[2].replace(/<[^>]+>/g, '').trim() : '';
-                  const evidence = cells[3] ? cells[3].replace(/<[^>]+>/g, '').trim() : '';
-                  
-                  console.log(`📄 Processing control: ${code} - ${title.substring(0, 30)}...`);
-                  
-                  if (code) {
-                    checkAndAddNewPage(50);
-                    
-                    // Control code and title
-                    drawWrappedText(`${code}: ${title}`, {
-                      x: margin,
-                      y: yPosition,
-                      size: 12,
-                      font: helveticaBoldFont,
-                      color: rgb(0, 0, 0),
-                      maxWidth: contentWidth,
-                      lineHeight: 16
-                    });
-                    yPosition -= 8;
-
-                    // Status
-                    if (status) {
-                      drawWrappedText(`Status: ${status}`, {
-                        x: margin + 15,
-                        y: yPosition,
-                        size: 10,
-                        font: timesRomanFont,
-                        color: rgb(0.3, 0.3, 0.3),
-                        maxWidth: contentWidth - 15,
-                        lineHeight: 14
-                      });
-                      yPosition -= 6;
-                    }
-
-                    // Evidence
-                    if (evidence && evidence !== 'No evidence') {
-                      drawWrappedText(`Evidence: ${evidence}`, {
-                        x: margin + 15,
-                        y: yPosition,
-                        size: 10,
-                        font: timesRomanFont,
-                        color: rgb(0.3, 0.3, 0.3),
-                        maxWidth: contentWidth - 15,
-                        lineHeight: 14
-                      });
-                      yPosition -= 6;
-                    }
-                    
-                    yPosition -= 10; // Space between controls
-                  }
-                }
-              }
-            } else {
-              console.log('⚠️ No control rows found in table');
-            }
-          } else {
-            console.log('⚠️ No table found in domain group');
-            
-            // If no table found, try to extract any control information from the content
-            const controlTexts = domainGroup.match(/<strong[^>]*>[\d-]+<\/strong>/gi);
-            if (controlTexts) {
-              console.log('📝 Found', controlTexts.length, 'control codes in text format');
-              for (const controlText of controlTexts) {
-                const code = controlText.replace(/<[^>]+>/g, '').trim();
-                if (code) {
-                  checkAndAddNewPage(30);
-                  drawWrappedText(`Control: ${code}`, {
-                    x: margin + 15,
-                    y: yPosition,
-                    size: 11,
-                    font: helveticaBoldFont,
-                    color: rgb(0, 0, 0),
-                    maxWidth: contentWidth - 15,
-                    lineHeight: 15
-                  });
-                  yPosition -= 8;
-                }
-              }
-            }
+          // Evidence
+          if (control.evidence && control.evidence !== 'No evidence') {
+            drawWrappedText(`Evidence: ${control.evidence}`, {
+              x: margin + 15,
+              y: yPosition,
+              size: 10,
+              font: timesRomanFont,
+              color: rgb(0.3, 0.3, 0.3),
+              maxWidth: contentWidth - 15,
+              lineHeight: 14
+            });
+            yPosition -= 6;
           }
+
+          yPosition -= 10; // Space between controls
         }
-      } else {
-        console.log('⚠️ No domain groups found, trying alternative parsing...');
-        
-        // Alternative parsing - look for any table in the controls section
-        const anyTable = controlsMatch[1].match(/<table[^>]*>([\s\S]*?)<\/table>/i);
-        if (anyTable) {
-          console.log('✅ Found alternative table structure');
-          const allRows = anyTable[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi);
-          if (allRows) {
-            console.log('🔍 Found', allRows.length, 'total rows (including headers)');
-            
-            // Skip header row and process data rows
-            for (let i = 1; i < allRows.length; i++) {
-              const row = allRows[i];
-              const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/gi);
-              if (cells && cells.length >= 2) {
-                const code = cells[0] ? cells[0].replace(/<[^>]+>/g, '').trim() : '';
-                const title = cells[1] ? cells[1].replace(/<[^>]+>/g, '').trim() : '';
-                const status = cells[2] ? cells[2].replace(/<[^>]+>/g, '').trim() : '';
-                const evidence = cells[3] ? cells[3].replace(/<[^>]+>/g, '').trim() : '';
-                
-                if (code && code.match(/[\d-]+/)) {
-                  console.log(`📄 Alternative processing control: ${code}`);
-                  
-                  checkAndAddNewPage(40);
-                  drawWrappedText(`${code}: ${title}`, {
-                    x: margin,
-                    y: yPosition,
-                    size: 12,
-                    font: helveticaBoldFont,
-                    color: rgb(0, 0, 0),
-                    maxWidth: contentWidth,
-                    lineHeight: 16
-                  });
-                  yPosition -= 10;
 
-                  if (status) {
-                    drawWrappedText(`Status: ${status}`, {
-                      x: margin + 15,
-                      y: yPosition,
-                      size: 10,
-                      font: timesRomanFont,
-                      color: rgb(0.3, 0.3, 0.3),
-                      maxWidth: contentWidth - 15,
-                      lineHeight: 14
-                    });
-                    yPosition -= 8;
-                  }
-
-                  if (evidence && evidence !== 'No evidence') {
-                    drawWrappedText(`Evidence: ${evidence}`, {
-                      x: margin + 15,
-                      y: yPosition,
-                      size: 10,
-                      font: timesRomanFont,
-                      color: rgb(0.3, 0.3, 0.3),
-                      maxWidth: contentWidth - 15,
-                      lineHeight: 14
-                    });
-                    yPosition -= 8;
-                  }
-                  
-                  yPosition -= 10;
-                }
-              }
-            }
-          }
-        }
+        yPosition -= 15; // Space between domains
       }
     }
 
     // If minimal content was extracted, fall back to text conversion
-    if (!headerMatch && !summaryMatch && !controlsMatch) {
+    const hasMinimalContent = contentSections.title ||
+                             (contentSections.summary && contentSections.summary.items.length > 0) ||
+                             (contentSections.controls && contentSections.controls.length > 0);
+
+    if (!hasMinimalContent) {
       console.log('⚠️ No structured content found, using text fallback...');
       
       const text = htmlToText(html, {
         wordwrap: false,
+        preserveNewlines: true,
         selectors: [
           { selector: 'h1', options: { uppercase: false, format: 'block' } },
           { selector: 'h2', options: { uppercase: false, format: 'block' } },
           { selector: 'h3', options: { uppercase: false, format: 'block' } },
-          { selector: 'table', options: { uppercaseHeaderCells: false } }
+          { selector: 'table', options: { uppercaseHeaderCells: false } },
+          { selector: '.summary-number', options: { format: 'inline' } },
+          { selector: '.summary-label', options: { format: 'inline' } }
         ]
       });
 
-      const lines = text.split('\n').filter(line => line.trim());
+      const lines = text.split('\n').filter(line => line.trim()).slice(0, 200); // Limit to prevent infinite content
       console.log('📄 Text fallback extracted', lines.length, 'lines');
-      
-      for (const line of lines) {
-        if (line.trim()) {
-          const isHeader = line.length < 100 && 
-                          (line.includes('Compliance') || line.includes('Report') || 
-                           line.includes('Control') || line.match(/^[\d-]+:/));
 
-          drawWrappedText(line.trim(), {
-            x: margin,
-            y: yPosition,
-            size: isHeader ? 14 : 11,
-            font: isHeader ? helveticaBoldFont : timesRomanFont,
-            color: rgb(0, 0, 0),
-            maxWidth: contentWidth,
-            lineHeight: isHeader ? 18 : 14
-          });
-          yPosition -= (isHeader ? 10 : 5);
+      // Add a fallback title if we don't have content
+      if (lines.length === 0) {
+        drawWrappedText('Compliance Report', {
+          x: margin,
+          y: yPosition,
+          size: 20,
+          font: helveticaBoldFont,
+          color: rgb(0.15, 0.6, 0.65),
+          maxWidth: contentWidth,
+          lineHeight: 26
+        });
+        yPosition -= 35;
+
+        drawWrappedText('No content could be extracted from the report data. Please check the report generation process.', {
+          x: margin,
+          y: yPosition,
+          size: 12,
+          font: timesRomanFont,
+          color: rgb(0.6, 0.6, 0.6),
+          maxWidth: contentWidth,
+          lineHeight: 16
+        });
+      } else {
+        for (const line of lines) {
+          if (line.trim()) {
+            const isHeader = line.length < 100 &&
+                            (line.includes('Compliance') || line.includes('Report') ||
+                             line.includes('Control') || line.match(/^[\d-]+:/) ||
+                             line.includes('Summary') || line.includes('Details'));
+
+            const isNumber = /^\d+$/.test(line.trim());
+            const isLabel = line.toLowerCase().includes('total') ||
+                           line.toLowerCase().includes('approved') ||
+                           line.toLowerCase().includes('pending') ||
+                           line.toLowerCase().includes('progress');
+
+            drawWrappedText(line.trim(), {
+              x: margin + (isNumber ? 0 : isLabel ? 10 : 0),
+              y: yPosition,
+              size: isHeader ? 14 : isNumber ? 16 : 11,
+              font: isHeader ? helveticaBoldFont : isNumber ? helveticaBoldFont : timesRomanFont,
+              color: isNumber ? rgb(0.15, 0.6, 0.65) : rgb(0, 0, 0),
+              maxWidth: contentWidth - (isNumber ? 0 : isLabel ? 10 : 0),
+              lineHeight: isHeader ? 18 : isNumber ? 20 : 14
+            });
+            yPosition -= (isHeader ? 12 : isNumber ? 8 : 6);
+          }
         }
       }
     }

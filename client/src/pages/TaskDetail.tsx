@@ -535,6 +535,19 @@ export default function TaskDetail() {
               )}
             </CardContent>
           </Card>
+
+          {/* Comments Section - Task Details */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                {language === 'ar' ? 'التعليقات - تفاصيل المهمة' : 'Comments - Task Details'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Comments targetType="task" targetId={parseInt(taskId || '0')} />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="controls">
@@ -671,6 +684,19 @@ export default function TaskDetail() {
                   )}
                 </>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Comments Section - Controls */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                {language === 'ar' ? 'التعليقات - الضوابط' : 'Comments - Controls'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Comments targetType="task" targetId={parseInt(taskId || '0')} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -940,6 +966,19 @@ export default function TaskDetail() {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Comments Section - Evidence */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                {language === 'ar' ? 'التعليقات - الأدلة' : 'Comments - Evidence'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Comments targetType="task" targetId={parseInt(taskId || '0')} />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="workflow" className="space-y-4">
@@ -1189,13 +1228,13 @@ export default function TaskDetail() {
               
             </CardContent>
           </Card>
-          
-          {/* Comments Section - Moved inside workflow tab */}
+
+          {/* Comments Section - Workflow */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5" />
-                {language === 'ar' ? 'التعليقات' : 'Comments'}
+                {language === 'ar' ? 'التعليقات - سير العمل' : 'Comments - Workflow'}
               </CardTitle>
             </CardHeader>
             <CardContent>
