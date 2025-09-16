@@ -121,7 +121,7 @@ export async function getComplianceReportData(params: {
       try {
         controlEvidence = await db.select()
           .from(evidence)
-          .where(eq(evidence.eccControlId, control.eccControlId));
+          .where(eq(evidence.eccControlId, control.eccControlId!));
 
         console.log(`🔍 Control ${control.eccControl.code}: Found ${controlEvidence.length} evidence files`);
         if (controlEvidence.length > 0) {
@@ -136,7 +136,7 @@ export async function getComplianceReportData(params: {
       }
 
       return {
-        id: control.eccControlId,
+        id: control.eccControlId!,
         code: control.eccControl.code,
         title: control.eccControl.titleEn || control.eccControl.controlEn,
         titleAr: control.eccControl.titleAr || control.eccControl.controlAr || null,
