@@ -135,18 +135,21 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
 
         .summary-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 25px;
-            margin-top: 20px;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         .summary-item {
             text-align: center;
-            padding: 30px 20px;
+            padding: 20px 15px;
             background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-            border-radius: 12px;
+            border-radius: 8px;
             border: 1px solid #e2e8f0;
-            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+            box-shadow: 0 3px 12px rgba(15, 23, 42, 0.06);
             transition: all 0.3s ease;
             position: relative;
             overflow: hidden;
@@ -158,7 +161,7 @@ export function renderComplianceHTML(report: ComplianceReport, lang: 'en' | 'ar'
             top: 0;
             left: 0;
             right: 0;
-            height: 4px;
+            height: 3px;
             background: linear-gradient(90deg, #5a9a9a, #4a8080);
         }
 
