@@ -96,11 +96,11 @@ export default function Dashboard() {
               {language === 'ar' ? 'الأنظمة' : 'Regulations'}
             </TabsTrigger>
             <TabsTrigger 
-              value="overview"
+              value="reports"
               className={`flex items-center gap-2 ${language === 'ar' ? 'flex-row-reverse' : ''}`}
             >
               <BarChart3 className="w-4 h-4" />
-              {language === 'ar' ? 'النظرة العامة' : 'Overview'}
+              {language === 'ar' ? 'التقارير والتحليلات' : 'Reports and Analytics'}
             </TabsTrigger>
           </TabsList>
 
@@ -109,8 +109,8 @@ export default function Dashboard() {
             <RegulationBanner projectId={39} />
           </TabsContent>
 
-          {/* Overview Tab - KPI Heavy View */}
-          <TabsContent value="overview" className="space-y-8">
+          {/* Reports and Analytics Tab - KPI Heavy View */}
+          <TabsContent value="reports" className="space-y-8">
             {/* Hero Section with Background */}
             <div 
               className="relative overflow-hidden rounded-2xl"
