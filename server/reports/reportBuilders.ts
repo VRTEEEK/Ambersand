@@ -12,10 +12,86 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { convert as htmlToText } from 'html-to-text';
 
 export async function buildPDF(html: string): Promise<Buffer> {
+  try {
+    console.log('🚀 Generating PDF with wkhtmltopdf...');
+
+    // Check if wkhtmltopdf is available
+    try {
+      execSync('which wkhtmltopdf', { stdio: 'ignore' });
+      console.log('✅ wkhtmltopdf binary found in PATH');
+      
+      // If wkhtmltopdf is available, use it
+      return await buildPDFWithWkhtmltopdf(html);
+    } catch (error) {
+      console.warn('⚠️ wkhtmltopdf binary not found in PATH. Attempting to use nix-env to locate...');
+      
+      try {
+        // Try to find wkhtmltopdf in common locations with timeout
+        const locations = [
+          '/usr/bin/wkhtmltopdf',
+          '/usr/local/bin/wkhtmltopdf'
+        ];
+
+        let foundPath = null;
+        for (const location of locations) {
+          try {
+            execSync(`ls ${location}`, { stdio: 'ignore', timeout: 5000 });
+            foundPath = location;
+            break;
+          } catch (e) {
+            // Continue searching
+          }
+        }
+
+        // Try Nix store search with timeout
+        if (!foundPath) {
+          try {
+            const nixPath = execSync('find /nix/store -maxdepth 2 -name "*wkhtmltopdf*" -type d 2>/dev/null | head -1', { 
+              stdio: 'pipe', 
+              timeout: 10000,
+              encoding: 'utf8'
+            }).toString().trim();
+            
+            if (nixPath) {
+              const binaryPath = `${nixPath}/bin/wkhtmltopdf`;
+              try {
+                execSync(`test -f ${binaryPath}`, { stdio: 'ignore', timeout: 2000 });
+                foundPath = binaryPath;
+              } catch (e) {
+                // Binary not found in expected location
+              }
+            }
+          } catch (e) {
+            console.warn('⚠️  Nix store search timed out or failed');
+          }
+        }
+
+        if (foundPath && foundPath.length > 0) {
+          console.log(`📍 Found wkhtmltopdf at: ${foundPath}`);
+          process.env.PATH = `${path.dirname(foundPath)}:${process.env.PATH}`;
+          console.log('✅ Added wkhtmltopdf to PATH');
+          
+          // Try wkhtmltopdf after updating PATH
+          return await buildPDFWithWkhtmltopdf(html);
+        } else {
+          throw new Error('wkhtmltopdf binary not found in any common locations.');
+        }
+      } catch (searchError) {
+        console.error('❌ wkhtmltopdf search failed:', searchError);
+        console.log('🔄 Falling back to JavaScript PDF generation...');
+        return await buildPDFWithJavaScript(html);
+      }
+    }
+  } catch (error) {
+    console.error('❌ PDF generation failed, falling back to JavaScript:', error);
+    return await buildPDFWithJavaScript(html);
+  }
+}
+
+// Separate function for wkhtmltopdf
+async function buildPDFWithWkhtmltopdf(html: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     try {
-      console.log('🚀 Generating PDF with wkhtmltopdf...');
-
       // Configure wkhtmltopdf options for optimal PDF generation
       const options: any = {
         pageSize: 'A4',
@@ -46,67 +122,6 @@ export async function buildPDF(html: string): Promise<Buffer> {
         noStop: true,
         debugJavascript: false
       };
-
-      // Check if wkhtmltopdf is available
-      try {
-        execSync('which wkhtmltopdf', { stdio: 'ignore' });
-        console.log('✅ wkhtmltopdf binary found in PATH');
-      } catch (error) {
-        console.warn('⚠️ wkhtmltopdf binary not found in PATH. Attempting to use nix-env to locate...');
-        try {
-          // Try to find wkhtmltopdf in common locations with timeout
-          const locations = [
-            '/usr/bin/wkhtmltopdf',
-            '/usr/local/bin/wkhtmltopdf'
-          ];
-
-          let foundPath = null;
-          for (const location of locations) {
-            try {
-              execSync(`ls ${location}`, { stdio: 'ignore', timeout: 5000 });
-              foundPath = location;
-              break;
-            } catch (e) {
-              // Continue searching
-            }
-          }
-
-          // Try Nix store search with timeout
-          if (!foundPath) {
-            try {
-              const nixPath = execSync('find /nix/store -maxdepth 2 -name "*wkhtmltopdf*" -type d 2>/dev/null | head -1', { 
-                stdio: 'pipe', 
-                timeout: 10000,
-                encoding: 'utf8'
-              }).toString().trim();
-              
-              if (nixPath) {
-                const binaryPath = `${nixPath}/bin/wkhtmltopdf`;
-                try {
-                  execSync(`test -f ${binaryPath}`, { stdio: 'ignore', timeout: 2000 });
-                  foundPath = binaryPath;
-                } catch (e) {
-                  // Binary not found in expected location
-                }
-              }
-            } catch (e) {
-              console.warn('⚠️  Nix store search timed out or failed');
-            }
-          }
-
-          if (foundPath && foundPath.length > 0) {
-            console.log(`📍 Found wkhtmltopdf at: ${foundPath}`);
-            process.env.PATH = `${path.dirname(foundPath)}:${process.env.PATH}`;
-            console.log('✅ Added wkhtmltopdf to PATH');
-          } else {
-            throw new Error('wkhtmltopdf binary not found in any common locations.');
-          }
-        } catch (searchError) {
-          console.error('❌ wkhtmltopdf search failed:', searchError);
-          console.log('🔄 Falling back to JavaScript PDF generation...');
-          return buildPDFWithJavaScript(html);
-        }
-      }
 
       // Set custom binary path if provided
       if (process.env.WKHTMLTOPDF_PATH) {
