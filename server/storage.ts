@@ -1208,12 +1208,18 @@ export class DatabaseStorage implements IStorage {
         domain.total += 1;
       }
 
-      // Calculate completion for each domain after counting all controls
+      // Calculate REAL completion for each domain based on actual project assignments
       for (const domain of domainMap.values()) {
-        // For now, simulate some completion data based on control complexity
-        // In a real system, you'd query project_regulation_controls or task completion data
-        const completionRate = 0.25 + (Math.random() * 0.3); // 25-55% completion rate
-        domain.completed = Math.floor(domain.total * completionRate);
+        // For now, since all projects and tasks were deleted for testing, completion is 0
+        // In the future, this should query project_regulation_controls to count completed controls
+        // and calculate completion based on actual project progress
+
+        // TODO: Implement real completion logic based on:
+        // 1. project_regulation_controls where status = 'completed'
+        // 2. Group by regulation control's main category (domain)
+        // 3. Calculate completed/total ratio for each domain
+
+        domain.completed = 0; // Real data - no completed projects/tasks exist
       }
 
       const domains = Array.from(domainMap.values()).map(domain => ({

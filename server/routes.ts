@@ -891,7 +891,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/dashboard/regulations', isAuthenticated, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user?.id || (req.user as any)?.claims?.sub);
+      console.log('🔍 Dashboard regulations debug:');
+      console.log('  - User ID:', req.user?.id || (req.user as any)?.claims?.sub);
+      console.log('  - User found:', user ? 'yes' : 'no');
+      console.log('  - User organizationId:', user?.organizationId);
+
       const regulations = await storage.getDynamicRegulations(user?.organizationId || undefined);
+      console.log('  - Regulations returned:', regulations.length);
+
       res.json(regulations);
     } catch (error) {
       console.error("Error fetching dashboard regulations:", error);

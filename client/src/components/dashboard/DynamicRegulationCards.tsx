@@ -3,7 +3,7 @@ import { useI18n } from '@/hooks/use-i18n';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Shield, FileText, BarChart3 } from 'lucide-react';
+import { Plus, Shield, FileText } from 'lucide-react';
 import { Link } from 'wouter';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -30,7 +30,9 @@ export function DynamicRegulationCards() {
   const { language, t } = useI18n();
 
   const { data: regulations, isLoading } = useQuery<RegulationData[]>({
-    queryKey: ['/api/dashboard/regulations'],
+    queryKey: ['/api/dashboard/regulations', Date.now()],
+    staleTime: 0,
+    gcTime: 0,
   });
 
   if (isLoading) {
@@ -67,56 +69,50 @@ export function DynamicRegulationCards() {
       {/* Regulation Cards Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {regulations?.map((regulation) => (
-          <Card
-            key={regulation.id}
-            className="bg-card border-border rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-200"
-          >
-            <CardContent className="p-8">
-              <div className="space-y-6">
-                {/* Regulation Header */}
-                <div className={`flex items-center gap-6 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  {/* Regulation Icon/Logo */}
-                  <div className="flex-shrink-0">
-                    <div className="w-20 h-20 bg-primary/10 rounded-2xl flex items-center justify-center">
-                      {regulation.logoUrl ? (
-                        <img
-                          src={regulation.logoUrl}
-                          alt={regulation.nameEn}
-                          className="w-12 h-12 object-contain"
-                        />
-                      ) : (
-                        <Shield className="w-10 h-10 text-primary" />
-                      )}
+          <Link key={regulation.id} href={`/regulations/${regulation.id}`}>
+            <Card className="bg-card border-border rounded-2xl shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer group hover:scale-[1.02]">
+              <CardContent className="p-8">
+                <div className="space-y-6">
+                  {/* Regulation Header */}
+                  <div className={`flex items-center gap-6 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    {/* Regulation Icon/Logo */}
+                    <div className="flex-shrink-0">
+                      <div className="w-20 h-20 bg-primary/10 rounded-2xl flex items-center justify-center">
+                        {regulation.logoUrl ? (
+                          <img
+                            src={regulation.logoUrl}
+                            alt={regulation.nameEn}
+                            className="w-12 h-12 object-contain"
+                          />
+                        ) : (
+                          <Shield className="w-10 h-10 text-primary" />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Title Section */}
+                    <div className={`flex-1 ${isRTL ? 'text-right' : 'text-left'}`}>
+                      <div className={`flex items-center gap-3 mb-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                        <h2 className="text-xl font-bold text-foreground group-hover:text-primary transition-colors">
+                          {language === 'ar' ? regulation.nameAr : regulation.nameEn}
+                        </h2>
+                        <Badge variant="secondary" className="text-xs font-medium">
+                          {regulation.code}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {regulation.publisher} • v{regulation.version}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Title Section */}
-                  <div className={`flex-1 ${isRTL ? 'text-right' : 'text-left'}`}>
-                    <div className={`flex items-center gap-3 mb-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                      <h2 className="text-xl font-bold text-foreground">
-                        {language === 'ar' ? regulation.nameAr : regulation.nameEn}
-                      </h2>
-                      <Badge variant="secondary" className="text-xs font-medium">
-                        {regulation.code}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {regulation.publisher} • v{regulation.version}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Domain Progress Grid */}
-                <div className="grid grid-cols-2 gap-4">
-                  {regulation.domains.slice(0, 4).map((domain, index) => (
-                    <Link
-                      key={domain.nameEn}
-                      href={`/regulations/${regulation.id}?domain=${encodeURIComponent(domain.nameEn)}`}
-                    >
-                      <Card className="bg-primary/8 border-primary/20 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer group hover:bg-primary/12">
+                  {/* Domain Progress Grid */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {regulation.domains.slice(0, 4).map((domain) => (
+                      <Card key={domain.nameEn} className="bg-primary/8 border-primary/20 rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
                         <CardContent className="p-4 text-center">
                           <div className="space-y-3">
-                            <div className="text-2xl font-bold text-primary group-hover:scale-105 transition-transform duration-200">
+                            <div className="text-2xl font-bold text-primary transition-transform duration-200">
                               {domain.completed}/{domain.total}
                             </div>
                             <div className="space-y-1">
@@ -138,28 +134,28 @@ export function DynamicRegulationCards() {
                           </div>
                         </CardContent>
                       </Card>
-                    </Link>
-                  ))}
-                </div>
-
-                {/* More Domains Indicator */}
-                {regulation.domains.length > 4 && (
-                  <div className="text-center">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-xs"
-                    >
-                      {language === 'ar'
-                        ? `+ ${regulation.domains.length - 4} مجالات أخرى`
-                        : `+ ${regulation.domains.length - 4} more domains`
-                      }
-                    </Button>
+                    ))}
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+
+                  {/* More Domains Indicator */}
+                  {regulation.domains.length > 4 && (
+                    <div className="text-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                      >
+                        {language === 'ar'
+                          ? `+ ${regulation.domains.length - 4} مجالات أخرى`
+                          : `+ ${regulation.domains.length - 4} more domains`
+                        }
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
 
