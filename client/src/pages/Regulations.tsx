@@ -28,7 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { BookOpen, Shield, Database, Plus, Settings, FileText, Building, CheckSquare, Square, AlertTriangle, Edit, Trash2, MoreVertical, Upload, FileSpreadsheet, XCircle, CheckCircle, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { usePermissions } from '@/hooks/use-permissions';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 
 // Custom regulation schema
 const customRegulationSchema = z.object({
@@ -70,6 +70,7 @@ type ProjectFormData = z.infer<typeof projectSchema>;
 export default function Regulations() {
   const { t, language } = useI18n();
   const { can } = usePermissions();
+  const [location, navigate] = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
