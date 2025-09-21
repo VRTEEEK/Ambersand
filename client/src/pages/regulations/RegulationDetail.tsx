@@ -239,7 +239,7 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
             </div>
             
             {/* Controls List */}
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
               {selectedDomain.items.map(control => {
                 const isSelected = selected.has(control.id);
                 return (
