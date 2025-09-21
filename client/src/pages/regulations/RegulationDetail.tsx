@@ -327,7 +327,7 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
         )}
 
         {/* Floating Create Project Button */}
-        {selected.size > 0 && can('project:create') && (
+        {selected.size > 0 && can('create_projects_from_regulations') && (
           <div className="fixed bottom-8 right-8 z-50">
             <Button
               size="lg"
