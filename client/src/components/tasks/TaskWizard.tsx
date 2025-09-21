@@ -100,22 +100,27 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
     enabled: isOpen,
   });
 
-  // Get unique domains from project controls (handle both ECC and custom controls)
+  // Get unique domains from project controls (handle regulation controls and legacy controls)
   const domains = Array.from(new Set(
     (projectControls as any[]).map((pc: any) => {
       const control = pc.control;
       if (!control) return null;
-      
-      // Handle ECC controls (domainEn/domainAr)
+
+      // Handle new regulation controls (main_category_en/main_category_ar)
+      if (control.mainCategoryEn || control.mainCategoryAr) {
+        return language === 'ar' ? control.mainCategoryAr : control.mainCategoryEn;
+      }
+
+      // Handle legacy ECC controls (domainEn/domainAr)
       if (control.domainEn || control.domainAr) {
         return language === 'ar' ? control.domainAr : control.domainEn;
       }
-      
+
       // Handle custom controls (mainDomain/mainDomainAr)
       if (control.mainDomain || control.mainDomainAr) {
         return language === 'ar' ? control.mainDomainAr || control.mainDomain : control.mainDomain;
       }
-      
+
       return null;
     })
   )).filter(Boolean).sort();
@@ -132,19 +137,19 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
     (domain as string).toLowerCase().includes(domainSearch.toLowerCase())
   );
 
-  // Get controls for selected domain (handle both ECC and custom controls)
+  // Get controls for selected domain (handle regulation controls and legacy controls)
   const domainControls = (projectControls as any[]).filter((pc: any) => {
     const control = pc.control;
     if (!control) return false;
-    
+
     // Get domain based on control type
     let controlDomain;
     if (language === 'ar') {
-      controlDomain = control.domainAr || control.mainDomainAr || control.mainDomain;
+      controlDomain = control.mainCategoryAr || control.domainAr || control.mainDomainAr || control.mainDomain;
     } else {
-      controlDomain = control.domainEn || control.mainDomain;
+      controlDomain = control.mainCategoryEn || control.domainEn || control.mainDomain;
     }
-    
+
     return controlDomain === selectedDomain;
   });
 
@@ -171,8 +176,8 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
           
           const taskResponse = await apiRequest('/api/tasks', 'POST', {
             ...cleanTaskData,
-            title: `${cleanTaskData.title} - ${control?.control?.code}`,
-            titleAr: cleanTaskData.titleAr ? `${cleanTaskData.titleAr} - ${control?.control?.code}` : '',
+            title: `${cleanTaskData.title} - ${control?.control?.clause || control?.control?.code}`,
+            titleAr: cleanTaskData.titleAr ? `${cleanTaskData.titleAr} - ${control?.control?.clause || control?.control?.code}` : '',
             description: cleanTaskData.description ? `${cleanTaskData.description}\n\nControl: ${controlTitle}` : `Control: ${controlTitle}`,
             controlIds: [Number(controlId)]
           });
@@ -685,7 +690,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                           const control = (projectControls as any[]).find((pc: any) => pc.control?.id === controlId);
                           return (
                             <Badge key={controlId} variant="secondary" className="flex items-center gap-1">
-                              {control?.control?.code || controlId}
+                              {control?.control?.clause || control?.control?.code || controlId}
                               <X 
                                 className="h-3 w-3 cursor-pointer" 
                                 onClick={() => handleControlToggle(controlId)}
@@ -711,16 +716,16 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                             htmlFor={`control-${projectControl.control?.id}`}
                             className="text-sm font-medium cursor-pointer"
                           >
-                            {projectControl.control?.code} - {
-                              language === 'ar' 
-                                ? (projectControl.control?.controlAr || projectControl.control?.control)
-                                : (projectControl.control?.controlEn || projectControl.control?.control)
+                            {projectControl.control?.clause} - {
+                              language === 'ar'
+                                ? (projectControl.control?.mainControlAr || projectControl.control?.controlAr || projectControl.control?.control)
+                                : (projectControl.control?.mainControlEn || projectControl.control?.controlEn || projectControl.control?.control)
                             }
                           </Label>
                           <p className="text-xs text-gray-600 mt-1">
-                            {language === 'ar' 
-                              ? (projectControl.control?.subdomainAr || projectControl.control?.subDomainAr)
-                              : (projectControl.control?.subdomainEn || projectControl.control?.subDomain)
+                            {language === 'ar'
+                              ? (projectControl.control?.subCategoryAr || projectControl.control?.subdomainAr || projectControl.control?.subDomainAr)
+                              : (projectControl.control?.subCategoryEn || projectControl.control?.subdomainEn || projectControl.control?.subDomain)
                             }
                           </p>
                         </div>
@@ -841,7 +846,7 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
                         const control = (projectControls as any[]).find((pc: any) => pc.control?.id === controlId);
                         return (
                           <Badge key={controlId} variant="secondary">
-                            {control?.control?.code || controlId}
+                            {control?.control?.clause || control?.control?.code || controlId}
                           </Badge>
                         );
                       })}

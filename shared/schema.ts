@@ -137,12 +137,14 @@ export const projects = pgTable("projects", {
   progress: integer("progress").default(0), // percentage 0-100
   organizationId: varchar("organization_id"),
   ownerId: varchar("owner_id").notNull(), // Project owner (required)
-  regulationType: varchar("regulation_type"), // ecc, pdpl, ndmo
+  regulationType: varchar("regulation_type"), // ecc, pdpl, ndmo - LEGACY
+  regulationId: integer("regulation_id").references(() => regulations.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_projects_organization_id").on(table.organizationId),
-  index("idx_projects_regulation_type").on(table.regulationType),
+  index("idx_projects_regulation_type").on(table.regulationType), // LEGACY
+  index("idx_projects_regulation_id").on(table.regulationId),
   index("idx_projects_owner_id").on(table.ownerId)
 ]);
 
@@ -432,9 +434,14 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
     fields: [projects.ownerId],
     references: [users.id],
   }),
+  regulation: one(regulations, {
+    fields: [projects.regulationId],
+    references: [regulations.id],
+  }),
   tasks: many(tasks),
   evidence: many(evidence),
-  projectControls: many(projectControls),
+  projectControls: many(projectControls), // LEGACY
+  projectRegulationControls: many(projectRegulationControls),
 }));
 
 export const projectControlsRelations = relations(projectControls, ({ one }) => ({
@@ -449,6 +456,17 @@ export const projectControlsRelations = relations(projectControls, ({ one }) => 
   customControl: one(customControls, {
     fields: [projectControls.customControlId],
     references: [customControls.id],
+  }),
+}));
+
+export const projectRegulationControlsRelations = relations(projectRegulationControls, ({ one }) => ({
+  project: one(projects, {
+    fields: [projectRegulationControls.projectId],
+    references: [projects.id],
+  }),
+  control: one(regulationControls, {
+    fields: [projectRegulationControls.controlId],
+    references: [regulationControls.id],
   }),
 }));
 

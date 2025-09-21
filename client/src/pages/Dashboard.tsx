@@ -11,14 +11,14 @@ import { ComplianceChart } from '@/components/dashboard/ComplianceChart';
 import { RegulationStatus } from '@/components/dashboard/RegulationStatus';
 import { ProjectsList } from '@/components/dashboard/ProjectsList';
 import { TasksList } from '@/components/dashboard/TasksList';
-import { RegulationBanner } from '@/components/dashboard/RegulationBanner';
+import { DynamicRegulationCards } from '@/components/dashboard/DynamicRegulationCards';
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Shield, 
-  FolderOpen, 
-  ListTodo, 
+import {
+  Shield,
+  FolderOpen,
+  ListTodo,
   BookOpen,
   TrendingUp,
   Clock,
@@ -85,14 +85,21 @@ export default function Dashboard() {
   return (
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
-        {/* Dashboard Tabs */}
-        <div className="w-full">
-
-          {/* Regulations - Default View */}
-          <div className="space-y-6">
-            <RegulationBanner projectId={39} />
-          </div>
+        {/* Dashboard Header */}
+        <div className="text-center space-y-4">
+          <h1 className="text-3xl font-bold text-foreground">
+            {language === 'ar' ? 'لوحة الامتثال' : 'Compliance Dashboard'}
+          </h1>
+          <p className="text-muted-foreground">
+            {language === 'ar'
+              ? 'عرض شامل لحالة الامتثال للأنظمة المختلفة'
+              : 'Comprehensive view of your compliance status across regulations'
+            }
+          </p>
         </div>
+
+        {/* Dynamic Regulations Cards */}
+        <DynamicRegulationCards />
       </div>
     </AppLayout>
   );

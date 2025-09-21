@@ -11,10 +11,14 @@ router.post("/", isAuthenticated, async (req: any, res) => {
   try {
     const orgId = req.user?.claims?.org as string;
     const userId = req.user?.id as string;
-    const { name, description, regulationId, controlIds } = req.body;
+    const { name, description, regulationId, controlIds, regulationType } = req.body;
 
     if (!name || !Array.isArray(controlIds) || controlIds.length === 0) {
       return res.status(400).json({ message: "Name and at least one control are required" });
+    }
+
+    if (!regulationId) {
+      return res.status(400).json({ message: "Regulation ID is required" });
     }
 
     // Create the project
@@ -23,7 +27,8 @@ router.post("/", isAuthenticated, async (req: any, res) => {
       description,
       organizationId: orgId,
       ownerId: userId,
-      regulationType: 'regulation'
+      regulationType: regulationType || 'regulation', // Legacy field
+      regulationId: regulationId
     }).returning();
 
     // Validate controls belong to regulation

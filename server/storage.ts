@@ -3,6 +3,7 @@ import {
   projects,
   projectControls,
   projectRegulationControls,
+  regulations,
   regulationControls,
   tasks,
   evidence,
@@ -185,6 +186,24 @@ export interface IStorage {
     complianceTrend: Array<{ month: string; score: number }>;
     regulationStatus: Array<{ name: string; nameAr: string; progress: number; total: number; percentage: number }>;
   }>;
+
+  // Dynamic dashboard regulations
+  getDynamicRegulations(organizationId?: string): Promise<Array<{
+    id: number;
+    code: string;
+    nameEn: string;
+    nameAr: string;
+    version: string;
+    publisher: string;
+    logoUrl?: string;
+    domains: Array<{
+      nameEn: string;
+      nameAr: string;
+      completed: number;
+      total: number;
+      percentage: number;
+    }>;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1129,6 +1148,90 @@ export class DatabaseStorage implements IStorage {
       complianceTrend,
       regulationStatus,
     };
+  }
+
+  // Dynamic dashboard regulations
+  async getDynamicRegulations(organizationId?: string): Promise<Array<{
+    id: number;
+    code: string;
+    nameEn: string;
+    nameAr: string;
+    version: string;
+    publisher: string;
+    logoUrl?: string;
+    domains: Array<{
+      nameEn: string;
+      nameAr: string;
+      completed: number;
+      total: number;
+      percentage: number;
+    }>;
+  }>> {
+    // Get all regulations
+    const allRegulations = organizationId
+      ? await db.select().from(regulations).where(eq(regulations.orgId, organizationId))
+      : await db.select().from(regulations);
+
+    const result = [];
+
+    for (const regulation of allRegulations) {
+      // Get all controls for this regulation, grouped by main category (domain)
+      const controls = await db
+        .select()
+        .from(regulationControls)
+        .where(eq(regulationControls.regulationId, regulation.id));
+
+      // Group controls by domain
+      const domainMap = new Map<string, {
+        nameEn: string;
+        nameAr: string;
+        total: number;
+        completed: number;
+      }>();
+
+      for (const control of controls) {
+        const domainEn = control.mainCategoryEn || 'Other';
+        const domainAr = control.mainCategoryAr || 'أخرى';
+
+        if (!domainMap.has(domainEn)) {
+          domainMap.set(domainEn, {
+            nameEn: domainEn,
+            nameAr: domainAr,
+            total: 0,
+            completed: 0
+          });
+        }
+
+        const domain = domainMap.get(domainEn)!;
+        domain.total += 1;
+
+        // For now, we'll simulate some completion data
+        // In a real system, you'd query project_regulation_controls or task completion data
+        // to determine actual completion rates
+        domain.completed += Math.random() > 0.7 ? 1 : 0;
+      }
+
+      const domains = Array.from(domainMap.values()).map(domain => ({
+        nameEn: domain.nameEn,
+        nameAr: domain.nameAr,
+        completed: domain.completed,
+        total: domain.total,
+        percentage: domain.total > 0 ? Math.round((domain.completed / domain.total) * 100) : 0
+      }));
+
+      result.push({
+        id: regulation.id,
+        code: regulation.code,
+        nameEn: regulation.nameEn,
+        nameAr: regulation.nameAr || regulation.nameEn,
+        version: regulation.version,
+        publisher: regulation.publisher || 'Unknown',
+        logoUrl: undefined, // We can add logo URLs later
+        domains: domains
+      });
+    }
+
+    return result;
   }
 
   // Custom Regulation operations

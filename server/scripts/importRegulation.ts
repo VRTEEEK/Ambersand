@@ -96,15 +96,15 @@ const HEADER_MAP = {
   mainControlEn: [
     'control en', 'title en', 'main_control_en', 'control title en',
     'control', 'title', 'control name', 'requirement', 'description',
-    'control statement', 'objective'
+    'control statement', 'objective', 'main control'
   ],
   mainControlAr: [
     'control ar', 'title ar', 'main_control_ar', 'control title ar',
-    'control arabic', 'title arabic', 'control name arabic'
+    'control arabic', 'title arabic', 'control name arabic', 'الضابط الأساسي'
   ],
   subControlEn: [
     'sub control en', 'subtitle en', 'sub_control_en', 'sub control',
-    'sub requirement', 'detailed control'
+    'sub requirement', 'detailed control', 'الضابط الفرعي'
   ],
   subControlAr: [
     'sub control ar', 'subtitle ar', 'sub_control_ar', 'sub control arabic'

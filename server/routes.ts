@@ -887,6 +887,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Dynamic dashboard regulations
+  app.get('/api/dashboard/regulations', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user?.id || (req.user as any)?.claims?.sub);
+      const regulations = await storage.getDynamicRegulations(user?.organizationId || undefined);
+      res.json(regulations);
+    } catch (error) {
+      console.error("Error fetching dashboard regulations:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard regulations" });
+    }
+  });
+
   // Projects routes
   app.get('/api/projects', isAuthenticated, async (req: any, res) => {
     try {
@@ -922,16 +934,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(userId);
       console.log("User found:", user ? "yes" : "no");
       
-      // Extract controlIds and regulationType from the request body
-      const { controlIds, regulationType, ...projectBody } = req.body;
+      // Extract controlIds, regulationType, and regulationId from the request body
+      const { controlIds, regulationType, regulationId, ...projectBody } = req.body;
       console.log("Extracted controlIds:", controlIds);
       console.log("Regulation type:", regulationType);
+      console.log("Regulation ID:", regulationId);
       console.log("Project body:", projectBody);
       
       const projectData = insertProjectSchema.parse({
         ...projectBody,
         ownerId: userId,
         organizationId: user?.organizationId,
+        regulationType: regulationType, // Legacy field
+        regulationId: regulationId, // New field for regulation association
       });
       console.log("Parsed project data:", projectData);
       

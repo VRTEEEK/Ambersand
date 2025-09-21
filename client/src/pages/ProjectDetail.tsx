@@ -422,7 +422,9 @@ export default function ProjectDetail() {
 
   // Group controls by domain
   const groupedControls = projectControls?.reduce((acc: any, control: any) => {
-    const domain = language === 'ar' ? control.control?.domainAr : control.control?.domainEn;
+    const domain = language === 'ar'
+      ? (control.control?.mainCategoryAr || control.control?.domainAr)
+      : (control.control?.mainCategoryEn || control.control?.domainEn);
     if (!acc[domain]) {
       acc[domain] = [];
     }
@@ -1007,24 +1009,24 @@ export default function ProjectDetail() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-2 leading-tight">
-                                {language === 'ar' && control.control?.subdomainAr 
-                                  ? control.control?.subdomainAr 
-                                  : control.control?.subdomainEn || control.control?.titleEn || control.control?.titleAr || 'No title available'}
+                                {language === 'ar' && (control.control?.subCategoryAr || control.control?.subdomainAr)
+                                  ? (control.control?.subCategoryAr || control.control?.subdomainAr)
+                                  : (control.control?.subCategoryEn || control.control?.subdomainEn || control.control?.titleEn || control.control?.titleAr || 'No title available')}
                               </h3>
                               
                               {/* Control Description */}
                               <p className="text-sm text-gray-700 dark:text-gray-300 mb-2 line-clamp-2">
-                                {language === 'ar' && control.control?.controlAr 
-                                  ? control.control?.controlAr 
-                                  : control.control?.controlEn || 'No description available'}
+                                {language === 'ar' && (control.control?.mainControlAr || control.control?.controlAr)
+                                  ? (control.control?.mainControlAr || control.control?.controlAr)
+                                  : (control.control?.mainControlEn || control.control?.controlEn || 'No description available')}
                               </p>
                               
                               {/* Implementation Guidance */}
-                              {(control.control?.implementationGuidanceEn || control.control?.implementationGuidanceAr) && (
+                              {(control.control?.descriptionEn || control.control?.descriptionAr || control.control?.implementationGuidanceEn || control.control?.implementationGuidanceAr) && (
                                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
-                                  {language === 'ar' && control.control?.implementationGuidanceAr 
-                                    ? control.control?.implementationGuidanceAr 
-                                    : control.control?.implementationGuidanceEn}
+                                  {language === 'ar' && (control.control?.descriptionAr || control.control?.implementationGuidanceAr)
+                                    ? (control.control?.descriptionAr || control.control?.implementationGuidanceAr)
+                                    : (control.control?.descriptionEn || control.control?.implementationGuidanceEn)}
                                 </p>
                               )}
                               <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -1032,9 +1034,11 @@ export default function ProjectDetail() {
                                   {language === 'ar' ? 'الأدلة المطلوبة:' : 'Evidence Required:'}
                                 </span>
                                 <span className="ml-1">
-                                  {language === 'ar' 
-                                    ? (control.control?.evidenceAr || control.control?.evidenceRequiredAr || 'وثائق ، سياسات ، إجراءات ، وأدلة تدقيق')
-                                    : (control.control?.evidenceEn || control.control?.evidenceRequiredEn || 'Documentation, policies, procedures, and audit evidence')}
+                                  {control.control?.evidenceTypes && control.control?.evidenceTypes?.length > 0
+                                    ? control.control?.evidenceTypes.join(', ')
+                                    : (language === 'ar'
+                                        ? (control.control?.evidenceAr || control.control?.evidenceRequiredAr || 'وثائق ، سياسات ، إجراءات ، وأدلة تدقيق')
+                                        : (control.control?.evidenceEn || control.control?.evidenceRequiredEn || 'Documentation, policies, procedures, and audit evidence'))}
                                 </span>
                               </div>
                             </div>

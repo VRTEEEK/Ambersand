@@ -98,8 +98,8 @@ export default function Regulations() {
   }>>([]);
   const [editingControlId, setEditingControlId] = useState<string | null>(null);
   
-  // --- NEW: custom-regulation project state ---
-  const [sourceType, setSourceType] = useState<'ecc' | 'custom' | null>(null);
+  // --- NEW: regulation project state ---
+  const [sourceType, setSourceType] = useState<'ecc' | 'custom' | 'regulation' | null>(null);
   const [activeRegulation, setActiveRegulation] = useState<any | null>(null);
   const [activeRegulationControls, setActiveRegulationControls] = useState<any[]>([]);
   
@@ -508,19 +508,33 @@ export default function Regulations() {
     setIsEditDialogOpen(true); // <-- ensure we open here
   };
 
-  // Open ECC (existing behavior)
-  const openEccProjectDialog = () => {
-    setSourceType('ecc');
-    setActiveRegulation(null);
-    setActiveRegulationControls([]);
-    setIsProjectDialogOpen(true);
+  // Open ECC (now using migrated NCA-ECC-2024 regulation)
+  const openEccProjectDialog = async () => {
+    try {
+      // Find the migrated ECC regulation
+      const eccRegulation = regulationsSummary?.find((reg: any) => reg.code === 'NCA-ECC-2024');
+      if (eccRegulation) {
+        await openCustomProjectDialog(eccRegulation);
+      } else {
+        console.error('NCA-ECC-2024 regulation not found');
+        // Fallback to legacy behavior if regulation not found
+        setSourceType('ecc');
+        setActiveRegulation(null);
+        setActiveRegulationControls([]);
+        setIsProjectDialogOpen(true);
+      }
+    } catch (error) {
+      console.error('Error opening ECC project dialog:', error);
+    }
   };
 
-  // Open from a custom regulation card
+  // Open from a regulation card (custom or standard)
   const openCustomProjectDialog = async (regulation: any) => {
     try {
-      console.log('Opening custom project dialog for regulation:', regulation);
-      setSourceType('custom');
+      console.log('Opening project dialog for regulation:', regulation);
+      // Determine source type: custom regulations vs standard regulations
+      const isCustomRegulation = regulation.category === 'custom' || regulation.category === 'internal';
+      setSourceType(isCustomRegulation ? 'custom' : 'regulation');
       setActiveRegulation(regulation);
 
       // Use embedded controls if present; otherwise fetch details
@@ -548,10 +562,10 @@ export default function Regulations() {
 
   // Resolve control data for Selected Controls UI
   const resolveControl = (id: number | string) => {
-    if (sourceType === 'custom') {
+    if (sourceType === 'custom' || sourceType === 'regulation') {
       return activeRegulationControls.find((c: any) => c.id === id);
     }
-    return controls?.find((c: any) => c.id === id); // ECC default
+    return controls?.find((c: any) => c.id === id); // ECC legacy fallback
   };
 
   const handleDeleteRegulation = (regulation: any) => {
@@ -582,8 +596,8 @@ export default function Regulations() {
       const projectData = {
         ...data,
         controlIds: selectedControlIds,
-        regulationType: sourceType, // 'ecc' | 'custom'
-        regulationId: sourceType === 'custom' ? activeRegulation?.id : undefined,
+        regulationType: sourceType, // 'ecc' | 'custom' | 'regulation' - Legacy field
+        regulationId: activeRegulation?.id, // Always pass the regulation ID if available
       };
       console.log('Creating project with payload:', projectData);
       return await apiRequest('/api/projects', 'POST', projectData);
@@ -2611,8 +2625,8 @@ export default function Regulations() {
                       )}
                     />
 
-                    {/* Custom Control Selection */}
-                    {sourceType === 'custom' && (
+                    {/* Regulation Control Selection */}
+                    {(sourceType === 'custom' || sourceType === 'regulation') && (
                       <div className="space-y-2">
                         <FormLabel>{language === 'ar' ? 'اختر الضوابط' : 'Choose Controls'}</FormLabel>
                         <div className="max-h-48 overflow-y-auto rounded-md border p-3 space-y-2 bg-slate-50">
