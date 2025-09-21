@@ -1502,6 +1502,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Regulations summary endpoint for Library page
+  app.get('/api/regulations/summary', isAuthenticated, async (req, res) => {
+    try {
+      // Import the necessary modules
+      const { regulations, regulationControls } = await import('../shared/schema');
+      const { db } = await import('./db');
+      const { count, eq, asc } = await import('drizzle-orm');
+      
+      // Get regulations with their control counts
+      const regulationsWithCounts = await db.select({
+        id: regulations.id,
+        code: regulations.code,
+        nameEn: regulations.nameEn,
+        nameAr: regulations.nameAr,
+        version: regulations.version,
+        status: regulations.status,
+        totalControls: count(regulationControls.id)
+      })
+      .from(regulations)
+      .leftJoin(regulationControls, eq(regulationControls.regulationId, regulations.id))
+      .groupBy(
+        regulations.id,
+        regulations.code,
+        regulations.nameEn,
+        regulations.nameAr,
+        regulations.version,
+        regulations.status
+      )
+      .orderBy(asc(regulations.code));
+
+      res.json(regulationsWithCounts);
+    } catch (error) {
+      console.error("Error fetching regulations summary:", error);
+      res.status(500).json({ message: "Failed to fetch regulations summary" });
+    }
+  });
+
   // Evidence routes
   app.get('/api/evidence', isAuthenticated, async (req, res) => {
     try {
