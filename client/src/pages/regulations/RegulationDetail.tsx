@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Search } from 'lucide-react';
+import { ArrowLeft, Search, Shield } from 'lucide-react';
 import { CreateProjectBar } from '@/components/regulations/CreateProjectBar';
 
 type Control = {
@@ -136,47 +136,63 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
   }
 
   return (
-    <div className={inline ? "max-w-7xl mx-auto" : "p-6 max-w-7xl mx-auto"}>
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
+    <div className="space-y-0">
+      {/* Green Header */}
+      <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 text-white p-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Shield className="h-6 w-6" />
+            <h1 className="text-xl font-bold">
+              {language === 'ar' ? 'ضوابط الأمن السيبراني الأساسية' : 'Essential Cybersecurity Controls'}
+            </h1>
+            {inline && onBack && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={onBack}
+                className="text-white hover:bg-white/20 ml-auto"
+                data-testid="button-hide-details"
+              >
+                {language === 'ar' ? 'إخفاء التفاصيل' : 'Hide Details'}
+              </Button>
+            )}
+          </div>
+          
+          {/* Search in header */}
+          <div className="w-full max-w-sm">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/70 h-4 w-4" />
+              <input
+                type="text"
+                placeholder={language === 'ar' ? 'البحث في الضوابط...' : 'Search controls...'}
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 rounded-lg border border-white/30 bg-white/10 backdrop-blur-sm text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-white/40 transition-all"
+                data-testid="input-search-controls"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Content Area */}
+      <div className={inline ? "p-6" : "p-6 max-w-7xl mx-auto"}>
+
+        {/* Non-inline back button */}
         {!inline && (
-          <Button variant="ghost" size="sm" onClick={() => onBack ? onBack() : navigate('/regulations')} data-testid="button-back">
-            <ArrowLeft className="h-4 w-4" />
-            {language === 'ar' ? 'العودة للتنظيمات' : 'Back to Regulations'}
-          </Button>
+          <div className="mb-6">
+            <Button variant="ghost" size="sm" onClick={() => onBack ? onBack() : navigate('/regulations')} data-testid="button-back">
+              <ArrowLeft className="h-4 w-4" />
+              {language === 'ar' ? 'العودة للتنظيمات' : 'Back to Regulations'}
+            </Button>
+          </div>
         )}
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-regulation-title">
-            {language === 'ar' && regulation.nameAr ? regulation.nameAr : regulation.nameEn}
-          </h1>
-          <p className="text-sm text-muted-foreground" data-testid="text-regulation-code">
-            {regulation.code} - {regulation.version}
-          </p>
-        </div>
-        <Badge variant={regulation.status === 'active' ? 'default' : 'secondary'} data-testid="badge-status">
-          {regulation.status}
-        </Badge>
-      </div>
 
-      {/* Search and Language Toggle */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={language==='ar'?'ابحث في الضوابط...':'Search controls…'}
-            className="pl-10"
-            value={q} 
-            onChange={e=>setQ(e.target.value)}
-            data-testid="input-search"
-          />
-        </div>
-      </div>
-
-      {!selectedDomain ? (
-        <>
-          <h2 className="text-xl font-semibold mb-4" data-testid="text-domains-title">
-            {language === 'ar' ? 'المجالات الرئيسية' : 'Main Domains'}
-          </h2>
+        {!selectedDomain ? (
+          <>
+            <h2 className="text-xl font-semibold mb-4" data-testid="text-domains-title">
+              {language === 'ar' ? 'المجالات الرئيسية' : 'Main Domains'}
+            </h2>
           
           {/* Domains Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -201,42 +217,43 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
                 <div className="h-1 bg-gradient-to-r from-teal-500/30 to-transparent rounded-full" />
               </Card>
             ))}
-          </div>
-        </>
-      ) : (
-        <>
-          {/* Domain Controls View */}
-          <div className="space-y-4">
-            {/* Breadcrumb */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setSelectedDomain(null)}
-                  className="text-slate-600 hover:text-slate-800"
-                  data-testid="button-back-to-domains"
-                >
-                  <ArrowLeft className="h-4 w-4 mr-1" />
-                  {language === 'ar' ? 'العودة للمجالات' : 'Back to Domains'}
-                </Button>
-                <span className="text-slate-400">{'>'}</span>
-                <span className="font-medium text-slate-700" data-testid="text-current-domain">
-                  {selectedDomain.label}
-                </span>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => {
-                  const allSelected = selectedDomain.items.every(item => selected.has(item.id));
-                  bulk(selectedDomain.items.map(item => item.id), !allSelected);
-                }}
-                data-testid="button-select-all"
-              >
-                {language === 'ar' ? 'تحديد الكل' : 'Select All'} {selectedDomain.items.length}
-              </Button>
             </div>
+          </>
+        ) : (
+          <>
+            {/* Domain Controls View */}
+            <div className="space-y-4">
+              {/* Breadcrumb */}
+              <div className="flex items-center justify-between bg-slate-50 p-4 rounded-lg border">
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setSelectedDomain(null)}
+                    className="text-slate-600 hover:text-slate-800"
+                    data-testid="button-back-to-domains"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-1" />
+                    {language === 'ar' ? 'العودة للمجالات' : 'Back to Domains'}
+                  </Button>
+                  <span className="text-slate-400">{'>'}</span>
+                  <span className="font-medium text-slate-700" data-testid="text-current-domain">
+                    {selectedDomain.label}
+                  </span>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    const allSelected = selectedDomain.items.every(item => selected.has(item.id));
+                    bulk(selectedDomain.items.map(item => item.id), !allSelected);
+                  }}
+                  className="bg-white hover:bg-slate-100"
+                  data-testid="button-select-all"
+                >
+                  {language === 'ar' ? 'تحديد الكل' : 'Select All'} {selectedDomain.items.length}
+                </Button>
+              </div>
             
             {/* Controls List */}
             <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
@@ -284,12 +301,12 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
                   </div>
                 );
               })}
+              </div>
             </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
 
-      {/* Create Project Bar */}
+        {/* Create Project Bar */}
       {selected.size > 0 && can('project:create') && (
         <CreateProjectBar
           count={selected.size}
@@ -320,8 +337,9 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
             }
           }}
           language={language}
-        />
-      )}
+          />
+        )}
+      </div>
     </div>
   );
 }
