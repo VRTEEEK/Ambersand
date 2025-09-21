@@ -208,9 +208,23 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
                   <div className="font-semibold text-lg" data-testid={`text-domain-${g.label.replace(/\s+/g, '-').toLowerCase()}`}>
                     {g.label}
                   </div>
-                  <Badge variant="outline" data-testid={`badge-count-${g.label.replace(/\s+/g, '-').toLowerCase()}`}>
-                    {g.items.length}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const selectedInDomain = g.items.filter(item => selected.has(item.id)).length;
+                      return selectedInDomain > 0 ? (
+                        <Badge 
+                          variant="default" 
+                          className="bg-teal-600 hover:bg-teal-700 text-white"
+                          data-testid={`badge-selected-${g.label.replace(/\s+/g, '-').toLowerCase()}`}
+                        >
+                          {selectedInDomain}
+                        </Badge>
+                      ) : null;
+                    })()}
+                    <Badge variant="outline" data-testid={`badge-count-${g.label.replace(/\s+/g, '-').toLowerCase()}`}>
+                      {g.items.length}
+                    </Badge>
+                  </div>
                 </div>
                 <div className="text-sm text-muted-foreground mb-3">
                   {language === 'ar' ? 'انقر لعرض الضوابط في هذا المجال' : 'Click to view controls under this domain'}
