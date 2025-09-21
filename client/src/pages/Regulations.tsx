@@ -2042,28 +2042,12 @@ export default function Regulations() {
 
         {/* Inline Regulation Details Section */}
         {inlineRegulationId && (
-          <div className="mt-8 p-6 bg-[#70A5A8] rounded-lg shadow-lg" data-testid="section-regulation-details">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-white">
-                {language === 'ar' ? 'ضوابط التنظيم' : 'Essential Cybersecurity Controls'}
-              </h2>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setInlineRegulationId(null)}
-                className="text-white hover:bg-white/20"
-                data-testid="button-hide-details"
-              >
-                {language === 'ar' ? 'إخفاء التفاصيل' : 'Hide Details'}
-              </Button>
-            </div>
-            <div className="bg-white rounded-lg">
-              <RegulationDetail 
-                id={inlineRegulationId} 
-                inline 
-                onBack={() => setInlineRegulationId(null)} 
-              />
-            </div>
+          <div className="mt-8 rounded-lg shadow-lg overflow-hidden" data-testid="section-regulation-details">
+            <RegulationDetail 
+              id={inlineRegulationId} 
+              inline 
+              onBack={() => setInlineRegulationId(null)} 
+            />
           </div>
         )}
 
