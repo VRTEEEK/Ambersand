@@ -830,7 +830,7 @@ export default function Regulations() {
   // Featured regulation codes in order
   const FEATURED_CODES = [
     'NCA-ECC-2024',
-    'DCC-2024', 
+    'DCC-2022', 
     'CSCC-2023',
     'CRFR-2023',
     'MVC-2024',
