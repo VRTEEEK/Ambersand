@@ -5,7 +5,20 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { X, CheckSquare, Square } from "lucide-react";
-import { Control } from "./DomainGrid";
+export interface Control {
+  id: number;
+  clauseNumber?: string | null;
+  domainEn?: string | null;
+  domainAr?: string | null;
+  subdomainEn?: string | null;
+  subdomainAr?: string | null;
+  controlEn?: string | null;
+  controlAr?: string | null;
+  descriptionEn?: string | null;
+  descriptionAr?: string | null;
+  evidenceTypes?: string[] | string | null;
+  weight?: number | null;
+}
 
 interface DomainDrawerProps {
   domainLabel: string;

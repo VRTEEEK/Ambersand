@@ -2,22 +2,7 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Shield } from "lucide-react";
-import { DomainDrawer } from "./DomainDrawer";
-
-export interface Control {
-  id: number;
-  clauseNumber?: string | null;
-  domainEn?: string | null;
-  domainAr?: string | null;
-  subdomainEn?: string | null;
-  subdomainAr?: string | null;
-  controlEn?: string | null;
-  controlAr?: string | null;
-  descriptionEn?: string | null;
-  descriptionAr?: string | null;
-  evidenceTypes?: string[] | string | null;
-  weight?: number | null;
-}
+import { DomainDrawer, Control } from "./DomainDrawer";
 
 interface DomainGridProps {
   grouped: Map<string, { label: string; controls: Control[] }>;
