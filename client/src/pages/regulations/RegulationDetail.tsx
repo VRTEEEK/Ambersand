@@ -138,7 +138,7 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
   return (
     <div className="space-y-0">
       {/* Green Header */}
-      <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 text-white p-6">
+      <div className="bg-gradient-to-r from-teal-600 to-teal-700 text-white p-6">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Shield className="h-6 w-6" />
