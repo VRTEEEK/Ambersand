@@ -989,7 +989,7 @@ export default function ProjectDetail() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {(controls as any[]).map((control: any) => {
-                    const controlTasks = tasks?.filter((task: any) => task.controlId === control.control.id) || [];
+                    const controlTasks = tasks?.filter((task: any) => task.controlId === control.control?.id) || [];
                     return (
                       <Card key={control.id} className="relative hover:shadow-md transition-shadow">
                         <CardContent className="p-4">
@@ -1007,24 +1007,24 @@ export default function ProjectDetail() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-2 leading-tight">
-                                {language === 'ar' && control.control.subdomainAr 
-                                  ? control.control.subdomainAr 
-                                  : control.control.subdomainEn || control.control.titleEn || control.control.titleAr}
+                                {language === 'ar' && control.control?.subdomainAr 
+                                  ? control.control?.subdomainAr 
+                                  : control.control?.subdomainEn || control.control?.titleEn || control.control?.titleAr || 'No title available'}
                               </h3>
                               
                               {/* Control Description */}
                               <p className="text-sm text-gray-700 dark:text-gray-300 mb-2 line-clamp-2">
-                                {language === 'ar' && control.control.controlAr 
-                                  ? control.control.controlAr 
-                                  : control.control.controlEn || 'No description available'}
+                                {language === 'ar' && control.control?.controlAr 
+                                  ? control.control?.controlAr 
+                                  : control.control?.controlEn || 'No description available'}
                               </p>
                               
                               {/* Implementation Guidance */}
-                              {(control.control.implementationGuidanceEn || control.control.implementationGuidanceAr) && (
+                              {(control.control?.implementationGuidanceEn || control.control?.implementationGuidanceAr) && (
                                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
-                                  {language === 'ar' && control.control.implementationGuidanceAr 
-                                    ? control.control.implementationGuidanceAr 
-                                    : control.control.implementationGuidanceEn}
+                                  {language === 'ar' && control.control?.implementationGuidanceAr 
+                                    ? control.control?.implementationGuidanceAr 
+                                    : control.control?.implementationGuidanceEn}
                                 </p>
                               )}
                               <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -1033,8 +1033,8 @@ export default function ProjectDetail() {
                                 </span>
                                 <span className="ml-1">
                                   {language === 'ar' 
-                                    ? (control.control.evidenceAr || control.control.evidenceRequiredAr || 'وثائق ، سياسات ، إجراءات ، وأدلة تدقيق')
-                                    : (control.control.evidenceEn || control.control.evidenceRequiredEn || 'Documentation, policies, procedures, and audit evidence')}
+                                    ? (control.control?.evidenceAr || control.control?.evidenceRequiredAr || 'وثائق ، سياسات ، إجراءات ، وأدلة تدقيق')
+                                    : (control.control?.evidenceEn || control.control?.evidenceRequiredEn || 'Documentation, policies, procedures, and audit evidence')}
                                 </span>
                               </div>
                             </div>
@@ -1053,7 +1053,7 @@ export default function ProjectDetail() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleCreateTask(control.control.id)}
+                              onClick={() => handleCreateTask(control.control?.id)}
                               className="text-xs px-2 py-1 h-6"
                             >
                               <Plus className="h-3 w-3 mr-1" />
@@ -1845,7 +1845,7 @@ function EditTaskForm({
                       <Button 
                         size="sm" 
                         variant="outline" 
-                        onClick={() => handleTemporaryRemoveControl(control.control.id)}
+                        onClick={() => handleTemporaryRemoveControl(control.control?.id)}
                         className="text-red-600 hover:text-red-700"
                       >
                         {language === 'ar' ? 'حذف' : 'Remove'}
@@ -1899,7 +1899,7 @@ function EditTaskForm({
                         <Button 
                           size="sm" 
                           variant="outline" 
-                          onClick={() => handleRestoreControl(control.control.id)}
+                          onClick={() => handleRestoreControl(control.control?.id)}
                           className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400"
                         >
                           {language === 'ar' ? 'استعادة' : 'Restore'}
@@ -2709,8 +2709,8 @@ function ControlSelector({
         {controls.map((control: any) => (
           <div key={control.id} className="flex items-start space-x-3 p-3 border rounded-lg">
             <Checkbox
-              checked={selectedControls.includes(control.control.id)}
-              onCheckedChange={() => handleControlToggle(control.control.id)}
+              checked={selectedControls.includes(control.control?.id)}
+              onCheckedChange={() => handleControlToggle(control.control?.id)}
             />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
