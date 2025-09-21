@@ -1,0 +1,172 @@
+Awesome—here’s a tight, drop-in Replit AI prompt to make the Library show five featured regulations (ECC, DCC, CSCC, CRFR, MVC) with live control counts, clean short labels (no years), and responsive layout.
+
+⸻
+
+🔧 Replit AI Prompt — Feature 5 Regulations (ECC, DCC, CSCC, CRFR, MVC)
+
+Goal: On the Regulation Library page, show exactly five top cards for these frameworks, in this order, with dynamic counts from the DB:
+	1.	ECC (code: NCA-ECC-2024)
+	2.	DCC (code: DCC-2022)
+	3.	CSCC (code: CSCC-2023)
+	4.	CRFR (code: CRFR-2023)
+	5.	MVC (code: MVC-2024)
+
+Keep the Custom Regulations section unchanged.
+
+Backend (verify)
+
+We already have (or add if missing):
+	•	GET /api/regulations/summary returning: { id, code, nameEn, nameAr, version, status, totalControls }.
+
+If it doesn’t exist, create it per this SQL aggregation:
+
+SELECT
+  r.id,
+  r.code,
+  r.name_en AS "nameEn",
+  r.name_ar AS "nameAr",
+  r.version,
+  r.status,
+  COUNT(rc.id)::int AS "totalControls"
+FROM regulations r
+LEFT JOIN regulation_controls rc ON rc.regulation_id = r.id
+GROUP BY r.id
+ORDER BY r.code ASC;
+
+Frontend changes (Library page)
+	1.	Replace any hardcoded cards with a data-driven list built from /api/regulations/summary.
+	2.	Pick exactly these five by code, in the order shown above. If a code is missing, still render a placeholder card with totalControls = 0 (but log a warning).
+	3.	Short labels (no year): map codes → display tags:
+	•	NCA-ECC-2024 → ECC
+	•	DCC-2022 → DCC
+	•	CSCC-2023 → CSCC
+	•	CRFR-2023 → CRFR
+	•	MVC-2024 → MVC
+	4.	Card content:
+	•	Title: SHORT_TAG (nameEn) e.g., ECC (Essential Cybersecurity Controls); fallback to nameAr if nameEn missing.
+	•	Subtext: optional description if your API includes it; otherwise omit.
+	•	Right-aligned status pill: active (green), coming_soon (amber), else gray.
+	•	Footer metric: Total Controls from totalControls.
+	•	CTA button “Open” → navigate to /regulations/:id (or your existing route).
+	5.	Responsive grid: 1 col (mobile), 2 cols (md), 3 cols (lg), 5 cols (xl).
+
+Concrete snippet (React / Tailwind)
+
+// client/src/pages/regulations/Library.tsx (or equivalent)
+import React from 'react';
+
+const FEATURED_CODES = [
+  'NCA-ECC-2024',
+  'DCC-2022',
+  'CSCC-2023',
+  'CRFR-2023',
+  'MVC-2024',
+];
+
+function shortCode(code: string) {
+  if (code.startsWith('NCA-ECC')) return 'ECC';
+  if (code.startsWith('DCC')) return 'DCC';
+  if (code.startsWith('CSCC')) return 'CSCC';
+  if (code.startsWith('CRFR')) return 'CRFR';
+  if (code.startsWith('MVC')) return 'MVC';
+  return code;
+}
+
+function StatusPill({ status }: { status?: string }) {
+  const label =
+    status === 'active' ? 'Active' :
+    status === 'coming_soon' ? 'Coming Soon' :
+    'Draft';
+  const cls =
+    status === 'active' ? 'bg-emerald-100 text-emerald-700' :
+    status === 'coming_soon' ? 'bg-amber-100 text-amber-700' :
+    'bg-neutral-100 text-neutral-700';
+  return <span className={`text-xs px-2 py-1 rounded-full ${cls}`}>{label}</span>;
+}
+
+export default function RegulationLibrary() {
+  const [summary, setSummary] = React.useState<any[]>([]);
+  React.useEffect(() => {
+    (async () => {
+      const r = await fetch('/api/regulations/summary');
+      setSummary(await r.json());
+    })();
+  }, []);
+
+  const byCode = React.useMemo(() => {
+    const m = new Map<string, any>();
+    for (const r of summary) m.set(r.code, r);
+    return m;
+  }, [summary]);
+
+  const featured = FEATURED_CODES.map(code => {
+    const r = byCode.get(code);
+    if (!r) {
+      console.warn('Featured regulation not found:', code);
+      return { id: null, code, nameEn: '', status: 'coming_soon', totalControls: 0 };
+    }
+    return r;
+  });
+
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-semibold">Regulation Library</h1>
+      <p className="text-sm opacity-70">Explore and browse regulatory frameworks and controls</p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mt-6">
+        {featured.map((r) => {
+          const label = shortCode(r.code);
+          const title = `${label}${r.nameEn ? ` (${r.nameEn})` : ''}`;
+          return (
+            <div key={r.code} className="rounded-2xl border shadow-sm p-5 bg-white">
+              <div className="flex items-start justify-between">
+                <div className="text-lg font-semibold">{title}</div>
+                <StatusPill status={r.status} />
+              </div>
+
+              {/* Optional description if your API provides it */}
+              {r.description ? (
+                <div className="text-sm opacity-70 mt-1 line-clamp-2">{r.description}</div>
+              ) : null}
+
+              <div className="mt-6 flex items-center justify-between">
+                <div className="text-xs uppercase opacity-60">Total Controls</div>
+                <div className="text-2xl font-bold">{r.totalControls ?? 0}</div>
+              </div>
+
+              <button
+                className="mt-4 w-full border rounded-xl py-2 text-sm hover:bg-neutral-50 disabled:opacity-50"
+                disabled={!r.id}
+                onClick={() => { if (r.id) window.location.href = `/regulations/${r.id}`; }}
+              >
+                Open
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Keep your existing Custom Regulations block below */}
+      {/* ... */}
+    </div>
+  );
+}
+
+Optional (nice UX)
+	•	If any code’s nameEn is empty, fall back to nameAr:
+
+const title = `${label} (${r.nameEn || r.nameAr || ''})`.trim();
+
+
+	•	Persist last-opened regulation code in localStorage if you have a detail page.
+
+Acceptance checklist
+	•	Page shows five cards exactly: ECC, DCC, CSCC, CRFR, MVC.
+	•	Titles show short tags (no years) + official name.
+	•	Total Controls reflect DB counts.
+	•	Buttons open each regulation’s detail page.
+	•	Custom regulations section unchanged.
+
+⸻
+
+Need me to also produce a tiny SQL to ensure those five rows exist (and are status='active') plus quick sanity counts?
