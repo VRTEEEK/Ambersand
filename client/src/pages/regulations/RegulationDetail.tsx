@@ -105,7 +105,14 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
           ...c,
           evidenceTypes: Array.isArray(c.evidenceTypes)
             ? c.evidenceTypes
-            : String(c.evidenceTypes ?? '').split(',').map(s=>s.trim()).filter(Boolean)
+            : (() => {
+                try {
+                  const parsed = JSON.parse(c.evidenceTypes || '[]');
+                  return Array.isArray(parsed) ? parsed : [];
+                } catch {
+                  return String(c.evidenceTypes ?? '').split(',').map(s=>s.trim()).filter(Boolean);
+                }
+              })()
         })));
       } catch (error) {
         toast({ title: 'Error loading controls', variant: 'destructive' });
@@ -388,18 +395,20 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
                           </Badge>
                         )}
                         <h4 className="font-medium text-slate-900" data-testid={`text-control-title-${control.id}`}>
-                          {language === 'ar' && control.controlAr ? control.controlAr : control.controlEn}
+                          {language === 'ar' && control.controlAr 
+                            ? control.controlAr 
+                            : control.controlEn || control.domainEn || `Control ${control.clauseNumber}`}
                         </h4>
                       </div>
                       <p className="text-sm text-slate-600 mb-2" data-testid={`text-control-description-${control.id}`}>
                         {(language === 'ar' && control.descriptionAr ? control.descriptionAr : control.descriptionEn) || 
-                         (language === 'ar' ? 'لا يوجد وصف متاح' : 'No description available')}
+                         (language === 'ar' ? 'تفاصيل الضابط غير متوفرة في قاعدة البيانات' : 'Control details not available in database')}
                       </p>
                       <p className="text-xs text-slate-500" data-testid={`text-evidence-required-${control.id}`}>
                         {language === 'ar' ? 'الأدلة المطلوبة:' : 'Evidence Required:'} 
                         {control.evidenceTypes && Array.isArray(control.evidenceTypes) && control.evidenceTypes.length > 0 
                           ? ` (${control.evidenceTypes.join(', ')})` 
-                          : ` (${language === 'ar' ? 'غير محدد' : 'Not specified'})`}
+                          : ` (${language === 'ar' ? 'غير محدد في قاعدة البيانات' : 'Not specified in database'})`}
                       </p>
                     </div>
                   </div>
