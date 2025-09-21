@@ -383,15 +383,16 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
               </div>
             
             {/* Controls List */}
-            <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-              {selectedDomain.items.map(control => {
+            <div className="space-y-3">
+              {pagedItems.map(control => {
                 const isSelected = selected.has(control.id);
                 return (
-                  <div 
-                    key={control.id} 
-                    className="flex items-start gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-                    data-testid={`control-item-${control.id}`}
-                  >
+                  <HoverCard key={control.id}>
+                    <HoverCardTrigger asChild>
+                      <div 
+                        className="flex items-start gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+                        data-testid={`control-item-${control.id}`}
+                      >
                     <input
                       type="checkbox"
                       checked={isSelected}
@@ -427,11 +428,98 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
                           : ` (${language === 'ar' ? 'غير محدد في قاعدة البيانات' : 'Not specified in database'})`}
                       </p>
                     </div>
-                  </div>
+                      </div>
+                    </HoverCardTrigger>
+                    <HoverCardContent 
+                      className="w-80" 
+                      side="right" 
+                      data-testid={`hover-content-${control.id}`}
+                      dir={language === 'ar' ? 'rtl' : 'ltr'}
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          {control.clauseNumber && (
+                            <Badge variant="secondary" className="bg-teal-100 text-teal-700 border-teal-200">
+                              {control.clauseNumber}
+                            </Badge>
+                          )}
+                          <h4 className="font-semibold text-sm">
+                            {language === 'ar' ? 'تفاصيل الضابط' : 'Control Details'}
+                          </h4>
+                        </div>
+                        <div>
+                          <h5 className="font-medium text-slate-900 mb-1">
+                            {language === 'ar' && control.controlAr 
+                              ? control.controlAr 
+                              : control.controlEn || control.domainEn || `Control ${control.clauseNumber}`}
+                          </h5>
+                          <p className="text-sm text-slate-600 mb-2">
+                            {(language === 'ar' && control.descriptionAr ? control.descriptionAr : control.descriptionEn) || 
+                             (language === 'ar' ? 'تفاصيل الضابط غير متوفرة في قاعدة البيانات' : 'Control details not available in database')}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            <span className="font-medium">
+                              {language === 'ar' ? 'الأدلة المطلوبة:' : 'Evidence Required:'}
+                            </span>{' '}
+                            {control.evidenceTypes && Array.isArray(control.evidenceTypes) && control.evidenceTypes.length > 0 
+                              ? control.evidenceTypes.join(', ') 
+                              : (language === 'ar' ? 'غير محدد في قاعدة البيانات' : 'Not specified in database')}
+                          </p>
+                        </div>
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
                 );
               })}
-              </div>
             </div>
+            
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex justify-center mt-6">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        onClick={() => setPage(Math.max(1, page - 1))}
+                        className={page === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                        data-testid="pagination-previous"
+                      />
+                    </PaginationItem>
+                    
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+                      <PaginationItem key={pageNum}>
+                        <PaginationLink
+                          onClick={() => setPage(pageNum)}
+                          isActive={page === pageNum}
+                          className="cursor-pointer"
+                          data-testid={`pagination-page-${pageNum}`}
+                        >
+                          {pageNum}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    
+                    <PaginationItem>
+                      <PaginationNext 
+                        onClick={() => setPage(Math.min(totalPages, page + 1))}
+                        className={page === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                        data-testid="pagination-next"
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
+            
+            {/* Pagination Info */}
+            {totalItems > 0 && (
+              <div className="text-center text-sm text-slate-500 mt-2" data-testid="pagination-info">
+                {language === 'ar' 
+                  ? `عرض ${startIndex + 1}-${Math.min(endIndex, totalItems)} من ${totalItems} ضابط`
+                  : `Showing ${startIndex + 1}-${Math.min(endIndex, totalItems)} of ${totalItems} controls`}
+              </div>
+            )}
+          </div>
           </>
         )}
 
