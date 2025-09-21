@@ -827,41 +827,81 @@ export default function Regulations() {
     return acc;
   }, {}) || {};
 
-  const regulationFrameworks = [
-    {
-      id: 'ecc',
-      name: 'ECC (Essential Cybersecurity Controls)',
-      nameAr: 'الضوابط الأساسية للأمن السيبراني',
-      description: 'Saudi cybersecurity regulatory framework for critical infrastructure protection',
-      descriptionAr: 'الإطار التنظيمي السعودي للأمن السيبراني لحماية البنى التحتية الحيوية',
-      icon: Shield,
-      color: 'teal',
-      totalControls: 201,
-      status: 'active',
-    },
-    {
-      id: 'pdpl',
-      name: 'PDPL (Personal Data Protection Law)',
-      nameAr: 'نظام حماية البيانات الشخصية',
-      description: 'Saudi personal data protection and privacy regulations',
-      descriptionAr: 'لوائح حماية البيانات الشخصية والخصوصية السعودية',
-      icon: Database,
-      color: 'orange',
-      totalControls: null,
-      status: 'planning',
-    },
-    {
-      id: 'ndmo',
-      name: 'NDMO (National Data Management Office)',
-      nameAr: 'مكتب إدارة البيانات الوطنية',
-      description: 'National data governance and management requirements',
-      descriptionAr: 'متطلبات حوكمة وإدارة البيانات الوطنية',
-      icon: BookOpen,
-      color: 'blue',
-      totalControls: null,
-      status: 'planning',
-    },
+  // Featured regulation codes in order
+  const FEATURED_CODES = [
+    'NCA-ECC-2024',
+    'DCC-2024', 
+    'CSCC-2023',
+    'CRFR-2023',
+    'MVC-2024',
   ];
+
+  // Function to get short code display
+  function shortCode(code: string) {
+    if (code.startsWith('NCA-ECC')) return 'ECC';
+    if (code.startsWith('DCC')) return 'DCC';
+    if (code.startsWith('CSCC')) return 'CSCC';
+    if (code.startsWith('CRFR')) return 'CRFR';
+    if (code.startsWith('MVC')) return 'MVC';
+    return code;
+  }
+
+  // Fetch regulations summary
+  const { data: regulationsSummary } = useQuery({
+    queryKey: ['/api/regulations/summary'],
+    queryFn: async () => {
+      const response = await fetch('/api/regulations/summary');
+      if (!response.ok) throw new Error('Failed to fetch regulations summary');
+      return response.json();
+    },
+  });
+
+  // Create regulation frameworks from API data
+  const regulationFrameworks = FEATURED_CODES.map(code => {
+    const regulation = regulationsSummary?.find((r: any) => r.code === code);
+    if (!regulation) {
+      return {
+        id: code.toLowerCase().replace('-', ''),
+        code,
+        name: shortCode(code),
+        nameAr: '',
+        totalControls: 0,
+        status: 'coming_soon',
+        icon: Shield,
+        color: 'gray',
+        description: 'Coming Soon',
+        descriptionAr: 'قريباً',
+      };
+    }
+
+    const label = shortCode(regulation.code);
+    const name = `${label}${regulation.nameEn ? ` (${regulation.nameEn})` : ''}`;
+    
+    // Map regulation codes to icons and colors
+    const getIconAndColor = (code: string) => {
+      if (code.startsWith('NCA-ECC')) return { icon: Shield, color: 'teal' };
+      if (code.startsWith('DCC')) return { icon: Database, color: 'blue' };
+      if (code.startsWith('CSCC')) return { icon: Shield, color: 'purple' };
+      if (code.startsWith('CRFR')) return { icon: AlertTriangle, color: 'orange' };
+      if (code.startsWith('MVC')) return { icon: CheckSquare, color: 'green' };
+      return { icon: Shield, color: 'gray' };
+    };
+
+    const { icon, color } = getIconAndColor(regulation.code);
+
+    return {
+      id: regulation.code.toLowerCase().replace('-', ''),
+      code: regulation.code,
+      name,
+      nameAr: regulation.nameAr || '',
+      totalControls: regulation.totalControls || 0,
+      status: regulation.status || 'active',
+      icon,
+      color,
+      description: `${regulation.totalControls || 0} controls available`,
+      descriptionAr: `${regulation.totalControls || 0} ضابط متاح`,
+    };
+  });
 
   // Get unique main categories from ECC controls
   const getMainCategories = () => {
@@ -1867,7 +1907,7 @@ export default function Regulations() {
         </div>
 
         {/* Regulation Frameworks Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {regulationFrameworks.map((framework, index) => {
             const Icon = framework.icon;
             const isSelected = selectedFramework === framework.id;
