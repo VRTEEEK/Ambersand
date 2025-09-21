@@ -212,7 +212,7 @@ export function RegulationDetail() {
         <CreateProjectBar
           count={selected.size}
           onClear={()=>setSelected(new Set())}
-          onCreate={async (name, description) => {
+          onCreate={async (name: string, description?: string) => {
             const body = {
               name, 
               description, 

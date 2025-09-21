@@ -1920,8 +1920,15 @@ export default function Regulations() {
                     : 'bg-gradient-to-br from-white via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900 hover:from-slate-50 hover:via-white hover:to-slate-50'
                 }`}
                 onClick={() => {
-                  setSelectedFramework(framework.id);
-                  setSelectedCategory(null);
+                  // Navigate to regulation detail page if regulation exists and has controls
+                  const regulation = regulationsSummary?.find((r: any) => r.code === framework.code);
+                  if (regulation && regulation.totalControls > 0) {
+                    navigate(`/regulations/${regulation.id}`);
+                  } else {
+                    // Fallback to old behavior for regulations without controls
+                    setSelectedFramework(framework.id);
+                    setSelectedCategory(null);
+                  }
                 }}
               >
                 {/* Animated background overlay */}
