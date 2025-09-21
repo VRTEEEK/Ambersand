@@ -9,7 +9,6 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Search } from 'lucide-react';
-import { DomainDrawer } from '@/components/regulations/DomainDrawer';
 import { CreateProjectBar } from '@/components/regulations/CreateProjectBar';
 
 type Control = {
@@ -53,7 +52,7 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
   const [regulation, setRegulation] = React.useState<Regulation | null>(null);
   const [q, setQ] = React.useState('');
   const [selected, setSelected] = React.useState<Set<number>>(new Set());
-  const [openDomain, setOpenDomain] = React.useState<string|null>(null);
+  const [selectedDomain, setSelectedDomain] = React.useState<{label: string, items: Control[]} | null>(null);
   const regId = propId ?? Number(paramId);
 
   // Fetch regulation info
@@ -173,46 +172,121 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
         </div>
       </div>
 
-      <h2 className="text-xl font-semibold mb-4" data-testid="text-domains-title">
-        {language === 'ar' ? 'المجالات الرئيسية' : 'Main Domains'}
-      </h2>
-      
-      {/* Domains Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {groups.map(g => (
-          <Card
-            key={g.label}
-            className="p-5 cursor-pointer hover:shadow-md transition-shadow border border-slate-200 hover:border-slate-300"
-            onClick={()=>setOpenDomain(g.label)}
-            data-testid={`card-domain-${g.label.replace(/\s+/g, '-').toLowerCase()}`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="font-semibold text-lg" data-testid={`text-domain-${g.label.replace(/\s+/g, '-').toLowerCase()}`}>
-                {g.label}
+      {!selectedDomain ? (
+        <>
+          <h2 className="text-xl font-semibold mb-4" data-testid="text-domains-title">
+            {language === 'ar' ? 'المجالات الرئيسية' : 'Main Domains'}
+          </h2>
+          
+          {/* Domains Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {groups.map(g => (
+              <Card
+                key={g.label}
+                className="p-5 cursor-pointer hover:shadow-md transition-shadow border border-slate-200 hover:border-slate-300"
+                onClick={()=>setSelectedDomain(g)}
+                data-testid={`card-domain-${g.label.replace(/\s+/g, '-').toLowerCase()}`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="font-semibold text-lg" data-testid={`text-domain-${g.label.replace(/\s+/g, '-').toLowerCase()}`}>
+                    {g.label}
+                  </div>
+                  <Badge variant="outline" data-testid={`badge-count-${g.label.replace(/\s+/g, '-').toLowerCase()}`}>
+                    {g.items.length}
+                  </Badge>
+                </div>
+                <div className="text-sm text-muted-foreground mb-3">
+                  {language === 'ar' ? 'انقر لعرض الضوابط في هذا المجال' : 'Click to view controls under this domain'}
+                </div>
+                <div className="h-1 bg-gradient-to-r from-teal-500/30 to-transparent rounded-full" />
+              </Card>
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Domain Controls View */}
+          <div className="space-y-4">
+            {/* Breadcrumb */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setSelectedDomain(null)}
+                  className="text-slate-600 hover:text-slate-800"
+                  data-testid="button-back-to-domains"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  {language === 'ar' ? 'العودة للمجالات' : 'Back to Domains'}
+                </Button>
+                <span className="text-slate-400">{'>'}</span>
+                <span className="font-medium text-slate-700" data-testid="text-current-domain">
+                  {selectedDomain.label}
+                </span>
               </div>
-              <Badge variant="outline" data-testid={`badge-count-${g.label.replace(/\s+/g, '-').toLowerCase()}`}>
-                {g.items.length}
-              </Badge>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  const allSelected = selectedDomain.items.every(item => selected.has(item.id));
+                  bulk(selectedDomain.items.map(item => item.id), !allSelected);
+                }}
+                data-testid="button-select-all"
+              >
+                {language === 'ar' ? 'تحديد الكل' : 'Select All'} {selectedDomain.items.length}
+              </Button>
             </div>
-            <div className="text-sm text-muted-foreground mb-3">
-              {language === 'ar' ? 'انقر لعرض الضوابط في هذا المجال' : 'Click to view controls under this domain'}
+            
+            {/* Controls List */}
+            <div className="space-y-3">
+              {selectedDomain.items.map(control => {
+                const isSelected = selected.has(control.id);
+                return (
+                  <div 
+                    key={control.id} 
+                    className="flex items-start gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                    data-testid={`control-item-${control.id}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggle(control.id)}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-1"
+                      data-testid={`checkbox-control-${control.id}`}
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        {control.clauseNumber && (
+                          <Badge 
+                            variant="secondary" 
+                            className="bg-teal-100 text-teal-700 border-teal-200"
+                            data-testid={`badge-clause-${control.id}`}
+                          >
+                            {control.clauseNumber}
+                          </Badge>
+                        )}
+                        <h4 className="font-medium text-slate-900" data-testid={`text-control-title-${control.id}`}>
+                          {language === 'ar' && control.controlAr ? control.controlAr : control.controlEn}
+                        </h4>
+                      </div>
+                      <p className="text-sm text-slate-600 mb-2" data-testid={`text-control-description-${control.id}`}>
+                        {(language === 'ar' && control.descriptionAr ? control.descriptionAr : control.descriptionEn) || 
+                         (language === 'ar' ? 'لا يوجد وصف متاح' : 'No description available')}
+                      </p>
+                      <p className="text-xs text-slate-500" data-testid={`text-evidence-required-${control.id}`}>
+                        {language === 'ar' ? 'الأدلة المطلوبة:' : 'Evidence Required:'} 
+                        {control.evidenceTypes && Array.isArray(control.evidenceTypes) && control.evidenceTypes.length > 0 
+                          ? ` (${control.evidenceTypes.join(', ')})` 
+                          : ` (${language === 'ar' ? 'غير محدد' : 'Not specified'})`}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div className="h-1 bg-gradient-to-r from-teal-500/30 to-transparent rounded-full" />
-          </Card>
-        ))}
-      </div>
-
-      {/* Domain Drawer */}
-      {openDomain && (
-        <DomainDrawer
-          domainLabel={openDomain}
-          items={groups.find(x=>x.label===openDomain)?.items || []}
-          selected={selected}
-          onClose={()=>setOpenDomain(null)}
-          onToggle={toggle}
-          onBulk={(add)=>bulk((groups.find(x=>x.label===openDomain)?.items||[]).map(i=>i.id), add)}
-          language={language}
-        />
+          </div>
+        </>
       )}
 
       {/* Create Project Bar */}
