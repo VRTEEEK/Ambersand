@@ -1209,20 +1209,46 @@ export class DatabaseStorage implements IStorage {
       }
 
       // Calculate REAL completion for each domain based on actual project assignments
-      for (const domain of domainMap.values()) {
-        // For now, since all projects and tasks were deleted for testing, completion is 0
-        // In the future, this should query project_regulation_controls to count completed controls
-        // and calculate completion based on actual project progress
+      try {
+        // Get all projects associated with this regulation that belong to the organization
+        const regulationProjects = organizationId 
+          ? await db.select()
+              .from(projects)
+              .where(and(
+                eq(projects.regulationId, regulation.id),
+                eq(projects.organizationId, organizationId)
+              ))
+          : await db.select()
+              .from(projects)
+              .where(eq(projects.regulationId, regulation.id));
 
-        // TODO: Implement real completion logic based on:
-        // 1. project_regulation_controls where status = 'completed'
-        // 2. Group by regulation control's main category (domain)
-        // 3. Calculate completed/total ratio for each domain
+        for (const project of regulationProjects) {
+          // Get completed tasks for this project
+          const completedTasks = await db.select()
+            .from(tasks)
+            .innerJoin(regulationControls, eq(tasks.controlId, regulationControls.id))
+            .where(and(
+              eq(tasks.projectId, project.id),
+              eq(tasks.status, 'completed'),
+              eq(regulationControls.regulationId, regulation.id)
+            ));
 
-        domain.completed = 0; // Real data - no completed projects/tasks exist
+          // Count completed controls per domain
+          for (const taskWithControl of completedTasks) {
+            const control = taskWithControl.regulation_controls;
+            const domainEn = control.mainCategoryEn || 'Other';
+            
+            if (domainMap.has(domainEn)) {
+              domainMap.get(domainEn)!.completed += 1;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error calculating domain completion:', error);
+        // Fall back to 0 if there's an error
       }
 
-      const domains = Array.from(domainMap.values()).map(domain => ({
+      const domains = [...domainMap.values()].map(domain => ({
         nameEn: domain.nameEn,
         nameAr: domain.nameAr,
         completed: domain.completed,

@@ -2271,7 +2271,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const approvedControlIds = new Set(
         projectControls
           .filter(pc => pc.status === 'completed')
-          .map(pc => pc.eccControlId)
+          .map(pc => pc.controlId)
       );
 
       // Group controls by domain and calculate approved/total counts
