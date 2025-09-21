@@ -14,6 +14,8 @@ import { Plus, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 
 type Control = {
   id: number; 
@@ -58,6 +60,8 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
   const [selected, setSelected] = React.useState<Set<number>>(new Set());
   const [selectedDomain, setSelectedDomain] = React.useState<{label: string, items: Control[]} | null>(null);
   const [showCreateDialog, setShowCreateDialog] = React.useState(false);
+  const [page, setPage] = React.useState(1);
+  const pageSize = 25;
   const [projectForm, setProjectForm] = React.useState({
     nameEn: '',
     nameAr: '',
@@ -152,6 +156,18 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
     }
     return Array.from(map.values()).sort((a,b)=>a.label.localeCompare(b.label));
   }, [filtered, language]);
+
+  // Reset page when domain or search changes
+  React.useEffect(() => {
+    setPage(1);
+  }, [selectedDomain, q]);
+
+  // Calculate pagination values for selected domain
+  const totalItems = selectedDomain?.items.length || 0;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const startIndex = (page - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const pagedItems = selectedDomain?.items.slice(startIndex, endIndex) || [];
 
   const toggle = (id:number) =>
     setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });

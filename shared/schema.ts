@@ -330,9 +330,16 @@ export const regulationControls = pgTable("regulation_controls", {
   subControlAr: text("sub_control_ar"),
   descriptionEn: text("description_en").notNull(),
   descriptionAr: text("description_ar"),
-  evidenceTypes: text("evidence_types"), // comma or $ separated
+  evidenceTypes: text("evidence_types").array(), // Array of evidence types
   weight: decimal("weight", { precision: 5, scale: 2 }).default("1.0"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  // Additional fields from XLSX files
+  clauseNumber: varchar("clause_number"),
+  rowNumber: integer("row_number"), // Row # from XLSX
+  clauseNumberAr: varchar("clause_number_ar"), // Arabic clause number
+  relatedControlsNumbering: text("related_controls_numbering"), // Controls requiring same evidence
+  companySpecificDescription: text("company_specific_description"), // Variable requirements
+  companySpecificDescriptionAr: text("company_specific_description_ar"), // Arabic variable requirements
 }, (t) => ({
   idxRegulation: index("regulation_controls_regulation_idx").on(t.regulationId),
   idxClause: index("regulation_controls_clause_idx").on(t.clause),

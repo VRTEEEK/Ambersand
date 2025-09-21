@@ -120,11 +120,18 @@ const HEADER_MAP = {
   ],
   evidenceTypes: [
     'evidence types', 'evidence', 'evidence_types', 'required evidence',
-    'evidence required', 'supporting evidence', 'proof', 'documentation'
+    'evidence required', 'supporting evidence', 'proof', 'documentation',
+    'evidence type', 'نوع الدليل المفترض تسليمه'
   ],
   weight: [
-    'weight', 'priority', 'score', 'importance', 'criticality', 'rating'
-  ]
+    'weight', 'priority', 'score', 'importance', 'criticality', 'rating',
+    'control or subcontrol weight in scoring', 'وزن الضابط أو الضابط الفرعي في التقييم'
+  ],
+  // Additional XLSX fields
+  rowNumber: ['#', 'row', 'no', 'number'],
+  clauseNumberAr: ['رقم البند', 'clause number ar', 'رقم البند '],
+  relatedControlsNumbering: ['ترقيم الضوابط التي تتطلب نفس الدليل', 'related controls numbering'],
+  companySpecificDescription: ['وصف خاص بناء على متطلبات متغيرة بناء على طبيعة عمل الشركة', 'company specific description']
 };
 
 function normalizeKey(key: string): string {
@@ -152,9 +159,9 @@ function getValue(row: any, aliases: string[]): string | null {
 function parseEvidenceTypes(evidenceStr: string | null): string[] {
   if (!evidenceStr) return [];
 
-  // Split by common delimiters and clean up
+  // Split by common delimiters including $ and clean up
   const types = evidenceStr
-    .split(/[,;|\/\n]/)
+    .split(/[,;|\/\n\$]/)
     .map(type => type.trim())
     .filter(type => type.length > 0);
 
@@ -265,6 +272,12 @@ async function main() {
           const evidenceTypesRaw = getValue(rawRow, HEADER_MAP.evidenceTypes);
           const weightStr = getValue(rawRow, HEADER_MAP.weight);
 
+          // Extract additional XLSX fields
+          const rowNumberStr = getValue(rawRow, HEADER_MAP.rowNumber);
+          const clauseNumberAr = getValue(rawRow, HEADER_MAP.clauseNumberAr);
+          const relatedControlsNumbering = getValue(rawRow, HEADER_MAP.relatedControlsNumbering);
+          const companySpecificDescription = getValue(rawRow, HEADER_MAP.companySpecificDescription);
+
           // Skip rows without essential data
           if (!clauseNumber && !mainControlEn) {
             skipped++;
@@ -274,6 +287,7 @@ async function main() {
           // Parse evidence types and weight
           const evidenceTypes = parseEvidenceTypes(evidenceTypesRaw);
           const weight = weightStr ? parseFloat(weightStr) : 1.0;
+          const rowNumber = rowNumberStr ? parseInt(rowNumberStr) : null;
 
           prepared++;
 
@@ -307,7 +321,11 @@ async function main() {
                 description_en,
                 description_ar,
                 evidence_types,
-                weight
+                weight,
+                row_number,
+                clause_number_ar,
+                related_controls_numbering,
+                company_specific_description
               ) VALUES (
                 ${regulationId},
                 ${clauseNumber || `IMPORT-${index + 1}`},
@@ -321,8 +339,12 @@ async function main() {
                 ${subControlAr || ''},
                 ${descriptionEn || ''},
                 ${descriptionAr || ''},
-                ${evidenceTypes.length > 0 ? sql`${evidenceTypes}` : sql`ARRAY[]::text[]`},
-                ${isNaN(weight) ? 1.0 : weight}
+                ${evidenceTypes.length > 0 ? sql.raw(`ARRAY[${evidenceTypes.map(e => `'${e.replace(/'/g, "''")}'`).join(',')}]`) : sql`ARRAY[]::TEXT[]`},
+                ${isNaN(weight) ? 1.0 : weight},
+                ${rowNumber},
+                ${clauseNumberAr || ''},
+                ${relatedControlsNumbering || ''},
+                ${companySpecificDescription || ''}
               )
               RETURNING id;
             `);
