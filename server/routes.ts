@@ -1539,6 +1539,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get controls for a specific regulation
+  app.get('/api/regulations/:id/controls', isAuthenticated, async (req, res) => {
+    try {
+      const regulationId = parseInt(req.params.id);
+      if (isNaN(regulationId)) {
+        return res.status(400).json({ message: "Invalid regulation ID" });
+      }
+
+      // Import the necessary modules
+      const { regulations, regulationControls } = await import('../shared/schema');
+      const { db } = await import('./db');
+      const { eq, asc } = await import('drizzle-orm');
+      
+      // First check if regulation exists
+      const regulation = await db.query.regulations.findFirst({
+        where: eq(regulations.id, regulationId)
+      });
+      
+      if (!regulation) {
+        return res.status(404).json({ message: "Regulation not found" });
+      }
+      
+      // Get all controls for this regulation with camelCase fields
+      const controls = await db.select({
+        id: regulationControls.id,
+        clauseNumber: regulationControls.clause,
+        domainEn: regulationControls.mainCategoryEn,
+        domainAr: regulationControls.mainCategoryAr,
+        subdomainEn: regulationControls.subCategoryEn,
+        subdomainAr: regulationControls.subCategoryAr,
+        controlEn: regulationControls.mainControlEn,
+        controlAr: regulationControls.mainControlAr,
+        descriptionEn: regulationControls.descriptionEn,
+        descriptionAr: regulationControls.descriptionAr,
+        evidenceTypes: regulationControls.evidenceTypes,
+        weight: regulationControls.weight
+      })
+      .from(regulationControls)
+      .where(eq(regulationControls.regulationId, regulationId))
+      .orderBy(asc(regulationControls.clause));
+
+      res.json(controls);
+    } catch (error) {
+      console.error("Error fetching regulation controls:", error);
+      res.status(500).json({ message: "Failed to fetch regulation controls" });
+    }
+  });
+
   // Evidence routes
   app.get('/api/evidence', isAuthenticated, async (req, res) => {
     try {

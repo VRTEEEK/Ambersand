@@ -1,0 +1,267 @@
+Here’s a tight, copy-paste Replit AI prompt to implement the flow: select a regulation → show “Main Domains & controls” → multi-select controls → “Create Project” — and make it work for any regulation (ECC, DCC, CSCC, CRFR, MVC).
+
+⸻
+
+🔧 Replit AI Prompt — “Select Regulation → Pick Controls → Create Project” (for all regulations)
+
+Goal
+When I click a regulation card (ECC/DCC/CSCC/CRFR/MVC), open a page/panel that shows Main Domains for that regulation, lets me multi-select controls, then creates a project prefilled with those controls.
+
+Use these API contracts (create if missing)
+	•	GET /api/regulations → list regs {id, code, nameEn, status}
+	•	GET /api/regulations/:id/controls → camelCase fields:
+
+{ id, clauseNumber, domainEn, domainAr, subdomainEn, subdomainAr,
+  controlEn, controlAr, descriptionEn, descriptionAr, evidenceTypes, weight }
+
+
+	•	POST /api/projects body:
+
+{ name: string, description?: string, regulationId: number, controlIds: number[] }
+
+Returns { id }.
+
+Frontend tasks
+	1.	Route: GET /regulations/:id (or a drawer if you prefer), mounted when a card is clicked.
+	2.	Build RegulationDetail with:
+	•	Header (title + search)
+	•	Main Domains grid (group by domainEn for lang='en', by domainAr if Arabic)
+	•	Clicking a domain opens a DomainDrawer listing controls in that domain with checkboxes
+	•	A sticky selection bar shows total selected and launches CreateProjectModal
+	3.	CreateProjectModal:
+	•	Fields: Project Name (required), Description (optional)
+	•	On submit → POST /api/projects with { regulationId: currentRegId, controlIds: selectedIds }
+	•	On success → navigate to /projects/:id
+
+Files to create/update
+	•	client/src/pages/regulations/RegulationDetail.tsx
+	•	client/src/components/regulations/DomainGrid.tsx
+	•	client/src/components/regulations/DomainDrawer.tsx
+	•	client/src/components/projects/CreateProjectModal.tsx
+	•	client/src/utils/search.ts (helpers)
+
+Minimal implementations
+
+RegulationDetail.tsx
+
+import React from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+
+type Control = {
+  id: number; clauseNumber?: string|null;
+  domainEn?: string|null; domainAr?: string|null;
+  subdomainEn?: string|null; subdomainAr?: string|null;
+  controlEn?: string|null; controlAr?: string|null;
+  descriptionEn?: string|null; descriptionAr?: string|null;
+  evidenceTypes?: string[]|string|null; weight?: number|null;
+};
+
+export default function RegulationDetail() {
+  const { id } = useParams();         // regulationId from route
+  const navigate = useNavigate();
+  const [controls, setControls] = React.useState<Control[]>([]);
+  const [q, setQ] = React.useState('');
+  const [lang, setLang] = React.useState<'en'|'ar'>('en');
+  const [selected, setSelected] = React.useState<Set<number>>(new Set());
+  const [openDomain, setOpenDomain] = React.useState<string|null>(null);
+  const regId = Number(id);
+
+  React.useEffect(() => {
+    (async () => {
+      const r = await fetch(`/api/regulations/${regId}/controls`);
+      const data = await r.json();
+      // normalize evidenceTypes
+      setControls(data.map((c:any) => ({
+        ...c,
+        evidenceTypes: Array.isArray(c.evidenceTypes)
+          ? c.evidenceTypes
+          : String(c.evidenceTypes ?? '').split(',').map(s=>s.trim()).filter(Boolean)
+      })));
+    })();
+  }, [regId]);
+
+  const filtered = React.useMemo(() => {
+    const qq = q.trim().toLowerCase();
+    if (!qq) return controls;
+    return controls.filter(c => {
+      const fields = [
+        c.clauseNumber, c.controlEn, c.controlAr, c.descriptionEn, c.descriptionAr,
+        c.domainEn, c.domainAr, c.subdomainEn, c.subdomainAr
+      ];
+      return fields.some(v => (v ?? '').toLowerCase().includes(qq));
+    });
+  }, [controls, q]);
+
+  const groups = React.useMemo(() => {
+    const map = new Map<string, {label:string, items:Control[]}>();
+    for (const c of filtered) {
+      const label = (lang === 'ar' ? c.domainAr : c.domainEn) || 'Uncategorized';
+      const key = label.trim().toLowerCase();
+      if (!map.has(key)) map.set(key, { label, items: [] });
+      map.get(key)!.items.push(c);
+    }
+    return Array.from(map.values()).sort((a,b)=>a.label.localeCompare(b.label));
+  }, [filtered, lang]);
+
+  const toggle = (id:number) =>
+    setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  const bulk = (ids:number[], add:boolean) =>
+    setSelected(s => { const n = new Set(s); ids.forEach(id => add ? n.add(id) : n.delete(id)); return n; });
+
+  return (
+    <div className="p-6">
+      <div className="flex items-center gap-3">
+        <input
+          placeholder={lang==='en'?'Search controls…':'ابحث…'}
+          className="border rounded-xl px-3 py-2 w-full"
+          value={q} onChange={e=>setQ(e.target.value)}
+        />
+        <select className="border rounded-xl px-2 py-2" value={lang} onChange={e=>setLang(e.target.value as any)}>
+          <option value="en">EN</option><option value="ar">AR</option>
+        </select>
+      </div>
+
+      <h2 className="mt-6 text-xl font-semibold">Main Domains</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+        {groups.map(g => (
+          <button
+            key={g.label}
+            className="text-left rounded-2xl border p-5 shadow-sm hover:shadow-md transition"
+            onClick={()=>setOpenDomain(g.label)}
+          >
+            <div className="flex items-center justify-between">
+              <div className="font-semibold">{g.label}</div>
+              <span className="text-xs bg-neutral-100 rounded-full px-2 py-1">{g.items.length}</span>
+            </div>
+            <div className="text-sm opacity-70 mt-2">Click to view controls under this domain</div>
+            <div className="mt-3 h-1 bg-emerald-100 rounded-full" />
+          </button>
+        ))}
+      </div>
+
+      {openDomain && (
+        <DomainDrawer
+          domainLabel={openDomain}
+          items={groups.find(x=>x.label===openDomain)?.items || []}
+          selected={selected}
+          onClose={()=>setOpenDomain(null)}
+          onToggle={toggle}
+          onBulk={(add)=>bulk((groups.find(x=>x.label===openDomain)?.items||[]).map(i=>i.id), add)}
+        />
+      )}
+
+      {selected.size > 0 && (
+        <CreateProjectBar
+          count={selected.size}
+          onClear={()=>setSelected(new Set())}
+          onCreate={async (name, description) => {
+            const body = {
+              name, description, regulationId: regId, controlIds: Array.from(selected)
+            };
+            const r = await fetch('/api/projects', {
+              method: 'POST', headers: {'Content-Type':'application/json'},
+              body: JSON.stringify(body)
+            });
+            if (!r.ok) { alert('Failed to create project'); return; }
+            const { id } = await r.json();
+            navigate(`/projects/${id}`);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function DomainDrawer({ domainLabel, items, selected, onClose, onToggle, onBulk }:{
+  domainLabel:string, items:Control[], selected:Set<number>,
+  onClose:()=>void, onToggle:(id:number)=>void, onBulk:(add:boolean)=>void
+}) {
+  return (
+    <div className="fixed inset-0 flex">
+      <div className="flex-1 bg-black/30" onClick={onClose} />
+      <div className="w-full sm:w-[520px] bg-white h-full shadow-2xl p-4 flex flex-col">
+        <div className="flex items-center justify-between">
+          <div className="text-lg font-semibold">{domainLabel}</div>
+          <button className="text-sm underline" onClick={onClose}>Close</button>
+        </div>
+        <div className="flex gap-2 mt-3">
+          <button className="text-xs border rounded px-2 py-1" onClick={()=>onBulk(true)}>Select all</button>
+          <button className="text-xs border rounded px-2 py-1" onClick={()=>onBulk(false)}>Deselect all</button>
+        </div>
+        <div className="mt-3 overflow-auto">
+          {items.map(c => (
+            <label key={c.id} className="flex gap-3 items-start border rounded-xl p-3 mb-2">
+              <input type="checkbox" checked={selected.has(c.id)} onChange={()=>onToggle(c.id)} />
+              <div>
+                <div className="font-medium">
+                  {c.clauseNumber ? `${c.clauseNumber} — ` : ''}{c.controlEn || c.controlAr}
+                </div>
+                <div className="text-sm opacity-70 line-clamp-2">{c.descriptionEn || c.descriptionAr || ''}</div>
+              </div>
+            </label>
+          ))}
+        </div>
+      </div }
+    </div>
+  );
+}
+
+function CreateProjectBar({ count, onClear, onCreate }:{
+  count:number, onClear:()=>void, onCreate:(name:string, desc?:string)=>void
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [name, setName] = React.useState('');
+  const [desc, setDesc] = React.useState('');
+  return (
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-3 flex items-center justify-between">
+      <div className="text-sm">Selected: <b>{count}</b></div>
+      <div className="flex gap-2">
+        <button className="border rounded px-3 py-2 text-sm" onClick={onClear}>Clear</button>
+        <button className="bg-emerald-600 text-white rounded px-3 py-2 text-sm" onClick={()=>setOpen(true)}>
+          Create Project
+        </button>
+      </div>
+      {open && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/30">
+          <div className="bg-white p-4 rounded-2xl w-[480px]">
+            <div className="text-lg font-semibold mb-2">Create Project</div>
+            <input className="border rounded w-full px-3 py-2 mb-2" placeholder="Project name"
+                   value={name} onChange={e=>setName(e.target.value)} />
+            <textarea className="border rounded w-full px-3 py-2 mb-3" placeholder="Description (optional)"
+                      value={desc} onChange={e=>setDesc(e.target.value)} />
+            <div className="flex justify-end gap-2">
+              <button className="border rounded px-3 py-2 text-sm" onClick={()=>setOpen(false)}>Cancel</button>
+              <button className="bg-emerald-600 text-white rounded px-3 py-2 text-sm"
+                      disabled={!name.trim()}
+                      onClick={()=>{ onCreate(name.trim(), desc.trim()||undefined); setOpen(false); }}>
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+Backend guardrails
+	•	In POST /api/projects, ignore any client-sent organizationId and set it server-side if you’re multi-tenant.
+	•	Validate controlIds belong to regulationId to avoid cross-mixing.
+
+Validation SQL idea
+
+-- ensure all provided controlIds belong to the same regulationId
+SELECT COUNT(*)=0 AS ok
+FROM regulation_controls
+WHERE id = ANY($1::int[]) AND regulation_id <> $2;
+
+Acceptance
+	•	Clicking any regulation card opens its Main Domains view.
+	•	I can search, open a domain, select controls, and Create Project.
+	•	The created project is linked to the chosen regulationId and pre-attached to the chosen controlIds.
+	•	Works for ECC, DCC, CSCC, CRFR, MVC identically.
+
+⸻
+
+Please generate the files above, wire the route /regulations/:id, and ensure the styling matches the current UI.
