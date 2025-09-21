@@ -9,7 +9,8 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Search, Shield } from 'lucide-react';
-import { CreateProjectBar } from '@/components/regulations/CreateProjectBar';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Plus } from 'lucide-react';
 
 type Control = {
   id: number; 
@@ -309,13 +310,15 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
         {/* Floating Create Project Button */}
         {selected.size > 0 && can('project:create') && (
           <div className="fixed bottom-8 right-8 z-50">
-            <CreateProjectBar
-              count={selected.size}
-              onClear={()=>setSelected(new Set())}
-              onCreate={async (name: string, description?: string) => {
+            <Button
+              size="lg"
+              className="bg-teal-600 hover:bg-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
+              onClick={async () => {
+                // Simple project creation - you can enhance this later
+                const projectName = `Regulation ${regId} Project`;
                 const body = {
-                  name, 
-                  description, 
+                  name: projectName, 
+                  description: `Project created from ${selected.size} selected controls`, 
                   regulationId: regId, 
                   controlIds: Array.from(selected)
                 };
@@ -337,8 +340,14 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
                   toast({ title: 'Failed to create project', variant: 'destructive' });
                 }
               }}
-              language={language}
-            />
+              data-testid="button-floating-create-project"
+            >
+              <Plus className="h-5 w-5" />
+              {language === 'ar' ? 'إنشاء مشروع' : 'Create Project'}
+              <Badge variant="secondary" className="bg-white text-teal-600 ml-2">
+                {selected.size}
+              </Badge>
+            </Button>
           </div>
         )}
       </div>
