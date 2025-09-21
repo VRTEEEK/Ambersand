@@ -8,7 +8,11 @@
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "db:migrate": "drizzle-kit migrate",
+    "migrate:ecc": "tsx server/scripts/migrateECC.ts",
+    "rollback:ecc": "tsx server/scripts/rollbackECC.ts",
+    "import:regulation": "tsx server/scripts/importRegulation.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -60,6 +64,7 @@
     "csv-parse": "^6.1.0",
     "date-fns": "^3.6.0",
     "docx": "^9.5.1",
+    "dotenv": "^16.6.1",
     "drizzle-orm": "^0.39.1",
     "drizzle-zod": "^0.7.0",
     "embla-carousel-react": "^8.6.0",
@@ -97,6 +102,7 @@
     "wouter": "^3.3.5",
     "ws": "^8.18.0",
     "xlsx": "^0.18.5",
+    "yargs": "^17.7.2",
     "zod": "^3.24.2",
     "zod-validation-error": "^3.4.0"
   },
@@ -114,6 +120,7 @@
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
     "@types/ws": "^8.5.13",
+    "@types/yargs": "^17.0.32",
     "@vitejs/plugin-react": "^4.3.2",
     "autoprefixer": "^10.4.20",
     "drizzle-kit": "^0.30.4",
