@@ -10,7 +10,10 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Search, Shield } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 type Control = {
   id: number; 
@@ -54,6 +57,17 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
   const [q, setQ] = React.useState('');
   const [selected, setSelected] = React.useState<Set<number>>(new Set());
   const [selectedDomain, setSelectedDomain] = React.useState<{label: string, items: Control[]} | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = React.useState(false);
+  const [projectForm, setProjectForm] = React.useState({
+    nameEn: '',
+    nameAr: '',
+    priority: 'Medium',
+    owner: '',
+    startDate: '',
+    endDate: '',
+    descriptionEn: '',
+    descriptionAr: ''
+  });
   const regId = propId ?? Number(paramId);
 
   // Fetch regulation info
@@ -62,6 +76,16 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
     queryFn: async () => {
       const response = await fetch('/api/regulations/summary');
       if (!response.ok) throw new Error('Failed to fetch regulations summary');
+      return response.json();
+    },
+  });
+
+  // Fetch users for project owner dropdown
+  const { data: users } = useQuery({
+    queryKey: ['/api/users'],
+    queryFn: async () => {
+      const response = await fetch('/api/users');
+      if (!response.ok) throw new Error('Failed to fetch users');
       return response.json();
     },
   });
@@ -127,6 +151,66 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
 
   const bulk = (ids:number[], add:boolean) =>
     setSelected(s => { const n = new Set(s); ids.forEach(id => add ? n.add(id) : n.delete(id)); return n; });
+
+  const handleFormChange = (field: string, value: string) => {
+    setProjectForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleCreateProject = async () => {
+    if (!projectForm.nameEn.trim() || !projectForm.owner) {
+      toast({ 
+        title: language === 'ar' ? 'خطأ' : 'Error', 
+        description: language === 'ar' ? 'يرجى ملء الحقول المطلوبة' : 'Please fill in required fields',
+        variant: 'destructive' 
+      });
+      return;
+    }
+
+    const body = {
+      name: projectForm.nameEn.trim(),
+      nameAr: projectForm.nameAr.trim() || null,
+      description: projectForm.descriptionEn.trim() || `Project created from ${selected.size} selected controls`,
+      descriptionAr: projectForm.descriptionAr.trim() || null,
+      priority: projectForm.priority,
+      ownerId: projectForm.owner,
+      startDate: projectForm.startDate || null,
+      endDate: projectForm.endDate || null,
+      regulationId: regId,
+      controlIds: Array.from(selected)
+    };
+
+    try {
+      const r = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      
+      if (!r.ok) {
+        const error = await r.text();
+        toast({ title: 'Failed to create project', description: error, variant: 'destructive' });
+        return;
+      }
+      
+      const { id } = await r.json();
+      toast({ title: 'Project created successfully' });
+      setShowCreateDialog(false);
+      setProjectForm({
+        nameEn: '',
+        nameAr: '',
+        priority: 'Medium',
+        owner: '',
+        startDate: '',
+        endDate: '',
+        descriptionEn: '',
+        descriptionAr: ''
+      });
+      setSelected(new Set());
+      navigate(`/projects/${id}`);
+    } catch (error) {
+      toast({ title: 'Failed to create project', variant: 'destructive' });
+    }
+  };
 
   if (!regulation) {
     return (
@@ -332,33 +416,7 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
             <Button
               size="lg"
               className="bg-teal-600 hover:bg-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
-              onClick={async () => {
-                // Simple project creation - you can enhance this later
-                const projectName = `Regulation ${regId} Project`;
-                const body = {
-                  name: projectName, 
-                  description: `Project created from ${selected.size} selected controls`, 
-                  regulationId: regId, 
-                  controlIds: Array.from(selected)
-                };
-                try {
-                  const r = await fetch('/api/projects', {
-                    method: 'POST', 
-                    headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify(body)
-                  });
-                  if (!r.ok) { 
-                    const error = await r.text();
-                    toast({ title: 'Failed to create project', description: error, variant: 'destructive' });
-                    return; 
-                  }
-                  const { id } = await r.json();
-                  toast({ title: 'Project created successfully' });
-                  navigate(`/projects/${id}`);
-                } catch (error) {
-                  toast({ title: 'Failed to create project', variant: 'destructive' });
-                }
-              }}
+              onClick={() => setShowCreateDialog(true)}
               data-testid="button-floating-create-project"
             >
               <Plus className="h-5 w-5" />
@@ -369,6 +427,195 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
             </Button>
           </div>
         )}
+
+        {/* Create Project Dialog */}
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center justify-between">
+                {language === 'ar' ? 'إنشاء مشروع امتثال جديد' : 'Create New Compliance Project'}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowCreateDialog(false)}
+                  className="p-1 h-6 w-6"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </DialogTitle>
+              <DialogDescription>
+                {language === 'ar' 
+                  ? `إنشاء مشروع امتثال جديد مع ${selected.size} ضوابط محددة`
+                  : `Create a new compliance project with ${selected.size} selected controls`}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6 py-4">
+              {/* Project Names */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="nameEn">
+                    {language === 'ar' ? 'اسم المشروع (إنجليزي)' : 'Project Name (English)'}
+                  </Label>
+                  <Input
+                    id="nameEn"
+                    value={projectForm.nameEn}
+                    onChange={(e) => handleFormChange('nameEn', e.target.value)}
+                    placeholder={language === 'ar' ? 'تنفيذ ضوابط الأمن السيبراني الأساسية' : 'ECC Compliance Implementation'}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="nameAr">
+                    {language === 'ar' ? 'اسم المشروع (عربي)' : 'Project Name (Arabic)'}
+                  </Label>
+                  <Input
+                    id="nameAr"
+                    value={projectForm.nameAr}
+                    onChange={(e) => handleFormChange('nameAr', e.target.value)}
+                    placeholder={language === 'ar' ? 'تطبيق ضوابط الأمن السيبراني الأساسية' : 'تطبيق ضوابط الأمن السيبراني الأساسية'}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
+              {/* Priority and Owner */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="priority">
+                    {language === 'ar' ? 'الأولوية' : 'Priority'}
+                  </Label>
+                  <Select value={projectForm.priority} onValueChange={(value) => handleFormChange('priority', value)}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Low">{language === 'ar' ? 'منخفضة' : 'Low'}</SelectItem>
+                      <SelectItem value="Medium">{language === 'ar' ? 'متوسطة' : 'Medium'}</SelectItem>
+                      <SelectItem value="High">{language === 'ar' ? 'عالية' : 'High'}</SelectItem>
+                      <SelectItem value="Critical">{language === 'ar' ? 'حرجة' : 'Critical'}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="owner">
+                    {language === 'ar' ? 'مالك المشروع *' : 'Project Owner *'}
+                  </Label>
+                  <Select value={projectForm.owner} onValueChange={(value) => handleFormChange('owner', value)}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder={language === 'ar' ? 'اختر المالك...' : 'Select owner...'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users?.map((user: any) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.firstName || user.lastName 
+                            ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
+                            : user.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Dates */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="startDate">
+                    {language === 'ar' ? 'تاريخ البداية' : 'Start Date'}
+                  </Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={projectForm.startDate}
+                    onChange={(e) => handleFormChange('startDate', e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="endDate">
+                    {language === 'ar' ? 'تاريخ الانتهاء' : 'End Date'}
+                  </Label>
+                  <Input
+                    id="endDate"
+                    type="date"
+                    value={projectForm.endDate}
+                    onChange={(e) => handleFormChange('endDate', e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
+              {/* Descriptions */}
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="descriptionEn">
+                    {language === 'ar' ? 'الوصف (إنجليزي)' : 'Description (English)'}
+                  </Label>
+                  <Textarea
+                    id="descriptionEn"
+                    value={projectForm.descriptionEn}
+                    onChange={(e) => handleFormChange('descriptionEn', e.target.value)}
+                    placeholder={language === 'ar' ? 'صف أهداف ونطاق المشروع...' : 'Describe the project goals and scope...'}
+                    className="mt-1 min-h-[80px]"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="descriptionAr">
+                    {language === 'ar' ? 'الوصف (عربي)' : 'Description (Arabic)'}
+                  </Label>
+                  <Textarea
+                    id="descriptionAr"
+                    value={projectForm.descriptionAr}
+                    onChange={(e) => handleFormChange('descriptionAr', e.target.value)}
+                    placeholder={language === 'ar' ? 'اشرح أهداف ونطاق المشروع...' : 'اشرح أهداف ونطاق المشروع...'}
+                    className="mt-1 min-h-[80px]"
+                  />
+                </div>
+              </div>
+
+              {/* Selected Controls */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-4 h-4 rounded border-2 border-teal-600 bg-teal-600 flex items-center justify-center">
+                    <div className="w-2 h-2 bg-white rounded-sm"></div>
+                  </div>
+                  <h3 className="font-medium">
+                    {language === 'ar' ? 'الضوابط المحددة' : 'Selected Controls'}
+                  </h3>
+                  <Badge variant="secondary">{selected.size}</Badge>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-lg max-h-32 overflow-y-auto">
+                  {Array.from(selected).map(controlId => {
+                    const control = controls.find(c => c.id === controlId);
+                    return (
+                      <div key={controlId} className="text-sm text-slate-600 mb-1">
+                        [{control?.clauseNumber || controlId}]
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Dialog Actions */}
+            <div className="flex items-center justify-end gap-3 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setShowCreateDialog(false)}
+              >
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+              <Button
+                onClick={handleCreateProject}
+                className="bg-teal-600 hover:bg-teal-700"
+                disabled={!projectForm.nameEn.trim() || !projectForm.owner}
+              >
+                {language === 'ar' ? 'إنشاء مشروع' : 'Create Project'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
