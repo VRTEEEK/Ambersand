@@ -74,6 +74,18 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+/* Animations for cards */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .hover-lift {
   transition: all 0.3s ease;
 }
