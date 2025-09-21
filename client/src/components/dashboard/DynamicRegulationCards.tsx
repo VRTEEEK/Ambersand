@@ -30,7 +30,8 @@ export function DynamicRegulationCards() {
   const { language, t } = useI18n();
 
   const { data: regulations, isLoading } = useQuery<RegulationData[]>({
-    queryKey: ['/api/dashboard/regulations', Date.now()],
+    queryKey: ['/api/dashboard/regulations'],
+    queryFn: () => fetch('/api/dashboard/regulations').then(res => res.json()),
     staleTime: 0,
     gcTime: 0,
   });

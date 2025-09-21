@@ -105,7 +105,7 @@ export interface IStorage {
   getProjectControls(projectId: number): Promise<any[]>;
   addControlsToProject(projectId: number, controlIds: number[]): Promise<void>;
   addControlsToProjectBySource(projectId: number, controlIds: number[], source: 'ecc'|'custom'): Promise<void>;
-  updateProjectControl(id: number, data: Partial<InsertProjectControl>): Promise<ProjectControl>;
+  updateProjectControl(id: number, data: Partial<InsertProjectRegulationControl>): Promise<ProjectRegulationControl>;
   removeControlFromProject(projectId: number, controlId: number): Promise<void>;
   
   // Task operations
@@ -1248,7 +1248,7 @@ export class DatabaseStorage implements IStorage {
         // Fall back to 0 if there's an error
       }
 
-      const domains = [...domainMap.values()].map(domain => ({
+      const domains = Array.from(domainMap.values()).map(domain => ({
         nameEn: domain.nameEn,
         nameAr: domain.nameAr,
         completed: domain.completed,
