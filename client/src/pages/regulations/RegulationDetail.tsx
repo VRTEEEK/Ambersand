@@ -306,38 +306,40 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
           </>
         )}
 
-        {/* Create Project Bar */}
-      {selected.size > 0 && can('project:create') && (
-        <CreateProjectBar
-          count={selected.size}
-          onClear={()=>setSelected(new Set())}
-          onCreate={async (name: string, description?: string) => {
-            const body = {
-              name, 
-              description, 
-              regulationId: regId, 
-              controlIds: Array.from(selected)
-            };
-            try {
-              const r = await fetch('/api/projects', {
-                method: 'POST', 
-                headers: {'Content-Type':'application/json'},
-                body: JSON.stringify(body)
-              });
-              if (!r.ok) { 
-                const error = await r.text();
-                toast({ title: 'Failed to create project', description: error, variant: 'destructive' });
-                return; 
-              }
-              const { id } = await r.json();
-              toast({ title: 'Project created successfully' });
-              navigate(`/projects/${id}`);
-            } catch (error) {
-              toast({ title: 'Failed to create project', variant: 'destructive' });
-            }
-          }}
-          language={language}
-          />
+        {/* Floating Create Project Button */}
+        {selected.size > 0 && can('project:create') && (
+          <div className="fixed bottom-8 right-8 z-50">
+            <CreateProjectBar
+              count={selected.size}
+              onClear={()=>setSelected(new Set())}
+              onCreate={async (name: string, description?: string) => {
+                const body = {
+                  name, 
+                  description, 
+                  regulationId: regId, 
+                  controlIds: Array.from(selected)
+                };
+                try {
+                  const r = await fetch('/api/projects', {
+                    method: 'POST', 
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify(body)
+                  });
+                  if (!r.ok) { 
+                    const error = await r.text();
+                    toast({ title: 'Failed to create project', description: error, variant: 'destructive' });
+                    return; 
+                  }
+                  const { id } = await r.json();
+                  toast({ title: 'Project created successfully' });
+                  navigate(`/projects/${id}`);
+                } catch (error) {
+                  toast({ title: 'Failed to create project', variant: 'destructive' });
+                }
+              }}
+              language={language}
+            />
+          </div>
         )}
       </div>
     </div>
