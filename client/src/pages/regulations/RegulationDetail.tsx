@@ -36,8 +36,14 @@ type Regulation = {
   status: string;
 };
 
-export function RegulationDetail() {
-  const { id } = useParams();
+interface RegulationDetailProps {
+  id?: number;
+  inline?: boolean;
+  onBack?: () => void;
+}
+
+export function RegulationDetail({ id: propId, inline = false, onBack }: RegulationDetailProps = {}) {
+  const { id: paramId } = useParams();
   const [, navigate] = useLocation();
   const { language } = useI18n();
   const { can } = usePermissions();
@@ -48,7 +54,7 @@ export function RegulationDetail() {
   const [q, setQ] = React.useState('');
   const [selected, setSelected] = React.useState<Set<number>>(new Set());
   const [openDomain, setOpenDomain] = React.useState<string|null>(null);
-  const regId = Number(id);
+  const regId = propId ?? Number(paramId);
 
   // Fetch regulation info
   const { data: regulationsSummary } = useQuery({
@@ -131,13 +137,15 @@ export function RegulationDetail() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className={inline ? "max-w-7xl mx-auto" : "p-6 max-w-7xl mx-auto"}>
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/regulations')} data-testid="button-back">
-          <ArrowLeft className="h-4 w-4" />
-          {language === 'ar' ? 'العودة للتنظيمات' : 'Back to Regulations'}
-        </Button>
+        {!inline && (
+          <Button variant="ghost" size="sm" onClick={() => onBack ? onBack() : navigate('/regulations')} data-testid="button-back">
+            <ArrowLeft className="h-4 w-4" />
+            {language === 'ar' ? 'العودة للتنظيمات' : 'Back to Regulations'}
+          </Button>
+        )}
         <div>
           <h1 className="text-2xl font-bold" data-testid="text-regulation-title">
             {language === 'ar' && regulation.nameAr ? regulation.nameAr : regulation.nameEn}

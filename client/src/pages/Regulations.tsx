@@ -29,6 +29,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { BookOpen, Shield, Database, Plus, Settings, FileText, Building, CheckSquare, Square, AlertTriangle, Edit, Trash2, MoreVertical, Upload, FileSpreadsheet, XCircle, CheckCircle, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { usePermissions } from '@/hooks/use-permissions';
 import { Link, useLocation } from 'wouter';
+import { RegulationDetail } from '@/pages/regulations/RegulationDetail';
 
 // Custom regulation schema
 const customRegulationSchema = z.object({
@@ -75,6 +76,7 @@ export default function Regulations() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [selectedFramework, setSelectedFramework] = useState<string | null>(null);
+  const [inlineRegulationId, setInlineRegulationId] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedControlIds, setSelectedControlIds] = useState<number[]>([]);
   const [customControlEntries, setCustomControlEntries] = useState<Array<{
@@ -1921,10 +1923,12 @@ export default function Regulations() {
                     : 'bg-gradient-to-br from-white via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900 hover:from-slate-50 hover:via-white hover:to-slate-50'
                 }`}
                 onClick={() => {
-                  // Navigate to regulation detail page if regulation exists and has controls
+                  // Show regulation details inline if regulation exists and has controls
                   const regulation = regulationsSummary?.find((r: any) => r.code === framework.code);
                   if (regulation && regulation.totalControls > 0) {
-                    navigate(`/regulations/${regulation.id}`);
+                    setInlineRegulationId(regulation.id);
+                    setSelectedFramework(framework.id);
+                    setSelectedCategory(null);
                   } else {
                     // Fallback to old behavior for regulations without controls
                     setSelectedFramework(framework.id);
@@ -2035,6 +2039,33 @@ export default function Regulations() {
             );
           })}
         </div>
+
+        {/* Inline Regulation Details Section */}
+        {inlineRegulationId && (
+          <div className="mt-8 p-6 bg-[#70A5A8] rounded-lg shadow-lg" data-testid="section-regulation-details">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-white">
+                {language === 'ar' ? 'ضوابط التنظيم' : 'Essential Cybersecurity Controls'}
+              </h2>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setInlineRegulationId(null)}
+                className="text-white hover:bg-white/20"
+                data-testid="button-hide-details"
+              >
+                {language === 'ar' ? 'إخفاء التفاصيل' : 'Hide Details'}
+              </Button>
+            </div>
+            <div className="bg-white rounded-lg">
+              <RegulationDetail 
+                id={inlineRegulationId} 
+                inline 
+                onBack={() => setInlineRegulationId(null)} 
+              />
+            </div>
+          </div>
+        )}
 
         {/* Custom Regulations Section */}
         {Array.isArray(customRegulations) && customRegulations.length > 0 && (
