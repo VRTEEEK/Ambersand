@@ -2445,38 +2445,6 @@ export default function Regulations() {
           </Card>
         )}
 
-        {/* Other Framework Details */}
-        {selectedFramework && selectedFramework !== 'ecc' && (
-          <Card className="glass-card border-0 shadow-xl bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
-            <CardHeader className="bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-t-lg">
-              <CardTitle className="flex items-center gap-3 text-xl font-bold">
-                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                  {selectedFramework === 'pdpl' && <Database className="h-6 w-6" />}
-                  {selectedFramework === 'ndmo' && <BookOpen className="h-6 w-6" />}
-                </div>
-                {regulationFrameworks.find(f => f.id === selectedFramework)?.nameAr && language === 'ar'
-                  ? regulationFrameworks.find(f => f.id === selectedFramework)?.nameAr
-                  : regulationFrameworks.find(f => f.id === selectedFramework)?.name
-                }
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-12 bg-gradient-to-br from-gray-50/50 to-white dark:from-gray-800/50 dark:to-gray-900">
-              <div className="text-center">
-                <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700/30 dark:to-gray-800/30 mb-6">
-                  {selectedFramework === 'pdpl' && <Database className="h-12 w-12 text-gray-600" />}
-                  {selectedFramework === 'ndmo' && <BookOpen className="h-12 w-12 text-gray-600" />}
-                </div>
-                <p className="text-lg text-gray-600 dark:text-gray-400 font-medium">
-                  {language === 'ar' 
-                    ? 'تفاصيل هذا الإطار التنظيمي ستكون متاحة قريباً'
-                    : 'Details for this regulatory framework will be available soon'
-                  }
-                </p>
-                <div className="mt-6 h-1 w-32 mx-auto bg-gradient-to-r from-gray-400 to-gray-500 rounded-full"></div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Floating Create Project Button - Shows when controls are selected */}
         {selectedControlIds.length > 0 && (
