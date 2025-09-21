@@ -699,14 +699,72 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
                   <Badge variant="secondary">{selected.size}</Badge>
                 </div>
                 <div className="bg-slate-50 p-3 rounded-lg max-h-32 overflow-y-auto">
-                  {Array.from(selected).map(controlId => {
-                    const control = controls.find(c => c.id === controlId);
-                    return (
-                      <div key={controlId} className="text-sm text-slate-600 mb-1">
-                        [{control?.clauseNumber || controlId}]
-                      </div>
-                    );
-                  })}
+                  <div className="flex flex-wrap gap-2">
+                    {Array.from(selected).map(controlId => {
+                      const control = controls.find(c => c.id === controlId);
+                      return (
+                        <HoverCard key={controlId}>
+                          <HoverCardTrigger asChild>
+                            <Badge 
+                              variant="outline" 
+                              className="cursor-pointer bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-100 transition-colors"
+                              data-testid={`selected-control-badge-${controlId}`}
+                            >
+                              {control?.clauseNumber || controlId}
+                              <button
+                                onClick={() => toggle(controlId)}
+                                className="ml-1 hover:text-red-600 transition-colors"
+                                aria-label="Remove control"
+                              >
+                                ×
+                              </button>
+                            </Badge>
+                          </HoverCardTrigger>
+                          <HoverCardContent 
+                            className="w-80" 
+                            side="top"
+                            data-testid={`selected-hover-content-${controlId}`}
+                            dir={language === 'ar' ? 'rtl' : 'ltr'}
+                          >
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                {control?.clauseNumber && (
+                                  <Badge variant="secondary" className="bg-teal-100 text-teal-700 border-teal-200">
+                                    {control.clauseNumber}
+                                  </Badge>
+                                )}
+                                <h4 className="font-semibold text-sm">
+                                  {language === 'ar' ? 'تفاصيل الضابط' : 'Control Details'}
+                                </h4>
+                              </div>
+                              <div>
+                                <h5 className="font-medium text-slate-900 mb-1">
+                                  {language === 'ar' && control?.controlAr 
+                                    ? control.controlAr 
+                                    : control?.controlEn || control?.domainEn || `Control ${control?.clauseNumber}`}
+                                </h5>
+                                <p className="text-sm text-slate-600 mb-2">
+                                  {(language === 'ar' && control?.descriptionAr ? control.descriptionAr : control?.descriptionEn) || 
+                                   (language === 'ar' ? 'تفاصيل الضابط غير متوفرة في قاعدة البيانات' : 'Control details not available in database')}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  <span className="font-medium">
+                                    {language === 'ar' ? 'الأدلة المطلوبة:' : 'Evidence Required:'}
+                                  </span>{' '}
+                                  {control?.evidenceTypes && Array.isArray(control.evidenceTypes) && control.evidenceTypes.length > 0 
+                                    ? control.evidenceTypes.join(', ') 
+                                    : (language === 'ar' ? 'غير محدد في قاعدة البيانات' : 'Not specified in database')}
+                                </p>
+                                <p className="text-xs text-slate-400 mt-2">
+                                  {language === 'ar' ? 'انقر × للإزالة' : 'Click × to remove'}
+                                </p>
+                              </div>
+                            </div>
+                          </HoverCardContent>
+                        </HoverCard>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
