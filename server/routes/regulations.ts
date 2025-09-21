@@ -105,38 +105,4 @@ router.get("/:id/subdomains", isAuthenticated, async (req, res) => {
   }
 });
 
-// GET controls for a regulation with normalized field names
-router.get("/:id/controls", isAuthenticated, async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    
-    const controls = await db.select({
-      id: regulationControls.id,
-      clauseNumber: regulationControls.clause,
-      domainEn: regulationControls.mainCategoryEn,
-      domainAr: regulationControls.mainCategoryAr,
-      subdomainEn: regulationControls.subCategoryEn,
-      subdomainAr: regulationControls.subCategoryAr,
-      controlEn: regulationControls.mainControlEn,
-      controlAr: regulationControls.mainControlAr,
-      descriptionEn: regulationControls.descriptionEn,
-      descriptionAr: regulationControls.descriptionAr,
-      evidenceTypes: regulationControls.evidenceTypes,
-      weight: regulationControls.weight
-    })
-    .from(regulationControls)
-    .where(eq(regulationControls.regulationId, id))
-    .orderBy(
-      asc(regulationControls.mainCategoryEn), 
-      asc(regulationControls.subCategoryEn), 
-      asc(regulationControls.clause)
-    );
-
-    res.json(controls);
-  } catch (error) {
-    console.error("Error fetching regulation controls:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
 export default router;

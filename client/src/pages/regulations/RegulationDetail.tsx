@@ -1,16 +1,66 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/hooks/use-i18n";
+import { usePermissions } from "@/hooks/use-permissions";
 import { useToast } from "@/hooks/use-toast";
-import { useDebouncedSearch } from "@/hooks/use-debounced-search";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { ArrowLeft, Search, X } from "lucide-react";
-import { DomainGrid, Control } from "@/components/regulations/DomainGrid";
-import { groupControlsByDomain, matchesQuery } from "@/utils/text";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  ArrowLeft,
+  Edit,
+  Plus,
+  CheckCircle2,
+  FileText,
+  Settings
+} from "lucide-react";
+import { ControlEditorDialog } from "@/components/regulations/ControlEditorDialog";
+import { ProjectCreateDialog } from "@/components/projects/ProjectCreateDialog";
+import { getRegulation, getDomains, getSubdomains, patchControl } from "@/lib/api/regulations";
+import { createProject } from "@/lib/api/projects";
+
+interface Control {
+  id: number;
+  clause?: string;
+  code?: string;
+  
+  // Unified regulation control fields
+  mainCategoryEn?: string;
+  mainCategoryAr?: string;
+  subCategoryEn?: string;
+  subCategoryAr?: string;
+  mainControlEn?: string;
+  mainControlAr?: string;
+  subControlEn?: string;
+  subControlAr?: string;
+  descriptionEn?: string;
+  descriptionAr?: string;
+  evidenceTypes?: string;
+  weight?: number;
+  
+  // Custom regulation control fields
+  mainDomain?: string;
+  mainDomainAr?: string;
+  subDomain?: string;
+  subDomainAr?: string;
+  control?: string;
+  controlAr?: string;
+  subControl?: string;
+  description?: string;
+  evidenceRequired?: boolean;
+  evidenceNote?: string;
+  evidenceNoteAr?: string;
+  
+  // Additional variant field names
+  domain?: string;
+  domainAr?: string;
+  subdomain?: string;
+  subdomainAr?: string;
+}
 
 interface Regulation {
   id: number;
@@ -27,250 +77,363 @@ export function RegulationDetail() {
   const { id } = useParams();
   const [, navigate] = useLocation();
   const { language } = useI18n();
+  const { can } = usePermissions();
   const { toast } = useToast();
-  
-  // Search functionality
-  const { searchTerm, debouncedSearchTerm, setSearchTerm } = useDebouncedSearch('', 250);
-  
-  // Selection state
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const queryClient = useQueryClient();
+
+  // State for filtering and selection
+  const [selectedDomain, setSelectedDomain] = useState<string>("");
+  const [selectedDomainEn, setSelectedDomainEn] = useState<string>("");
+  const [selectedDomainAr, setSelectedDomainAr] = useState<string>("");
+  const [selectedSubdomain, setSelectedSubdomain] = useState<string>("");
+  const [selectedControlIds, setSelectedControlIds] = useState<number[]>([]);
+  const [editingControl, setEditingControl] = useState<Control | null>(null);
+  const [showProjectDialog, setShowProjectDialog] = useState(false);
 
   // Fetch regulation data
-  const { data: regulation, isLoading: regulationLoading, error: regulationError } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["regulation", Number(id)],
-    queryFn: async () => {
-      const response = await fetch(`/api/regulations/${id}`);
-      if (!response.ok) throw new Error('Failed to fetch regulation');
-      const data = await response.json();
-      return data.regulation;
-    },
+    queryFn: () => getRegulation(Number(id!)),
+    enabled: !!id,
+  });
+  const regulation = data?.regulation;
+  const controls = data?.controls ?? [];
+
+  // Fetch domains for filter pane
+  const { data: domains = [] } = useQuery({
+    queryKey: ["reg-domains", Number(id)],
+    queryFn: () => getDomains(Number(id!)),
     enabled: !!id,
   });
 
-  // Fetch controls using the new endpoint
-  const { data: controls = [], isLoading: controlsLoading } = useQuery({
-    queryKey: ["regulation-controls", Number(id)],
-    queryFn: async () => {
-      const response = await fetch(`/api/regulations/${id}/controls`);
-      if (!response.ok) throw new Error('Failed to fetch controls');
-      return response.json();
-    },
-    enabled: !!id,
+  // Fetch subdomains when domain is selected
+  const { data: subdomains = [] } = useQuery({
+    queryKey: ["reg-subdomains", Number(id), selectedDomainEn, selectedDomainAr],
+    queryFn: () => getSubdomains(Number(id!), { domainEn: selectedDomainEn, domainAr: selectedDomainAr }),
+    enabled: !!selectedDomain && !!id,
   });
 
-  // Filter controls based on search
-  const filteredControls = useMemo(() => {
-    if (!debouncedSearchTerm.trim()) return controls;
-    return controls.filter((control: Control) => 
-      matchesQuery(control, debouncedSearchTerm, language)
+  // Filter controls based on selected domain/subdomain
+  const filteredControls = useMemo(() => controls.filter((c: Control) => {
+    const matchDomain = !selectedDomain || 
+      c.mainCategoryEn === selectedDomain || 
+      c.mainCategoryAr === selectedDomain ||
+      c.mainDomain === selectedDomain ||
+      c.mainDomainAr === selectedDomain ||
+      c.domain === selectedDomain ||
+      c.domainAr === selectedDomain;
+    
+    const matchSub = !selectedSubdomain || 
+      c.subCategoryEn === selectedSubdomain || 
+      c.subCategoryAr === selectedSubdomain ||
+      c.subDomain === selectedSubdomain ||
+      c.subDomainAr === selectedSubdomain ||
+      c.subdomain === selectedSubdomain ||
+      c.subdomainAr === selectedSubdomain;
+    
+    return matchDomain && matchSub;
+  }), [controls, selectedDomain, selectedSubdomain]);
+
+  // Control editing mutation
+  const editControlMutation = useMutation({
+    mutationFn: ({ controlId, data }: { controlId: number; data: any }) => 
+      patchControl(regulation!.id, controlId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["regulation", Number(id)] });
+      queryClient.invalidateQueries({ queryKey: ["reg-domains", Number(id)] });
+      queryClient.invalidateQueries({ queryKey: ["reg-subdomains", Number(id)] });
+      setEditingControl(null);
+      toast({ title: "Control updated successfully" });
+    },
+    onError: (error) => {
+      toast({ title: "Failed to update control", description: error.message, variant: "destructive" });
+    }
+  });
+
+  // Project creation mutation
+  const createProjectMutation = useMutation({
+    mutationFn: createProject,
+    onSuccess: (data) => {
+      toast({ title: "Project created successfully" });
+      navigate(`/projects/${data.projectId}`);
+    },
+    onError: (error) => {
+      toast({ title: "Failed to create project", description: error.message, variant: "destructive" });
+    }
+  });
+
+  // Handle domain selection
+  const handleDomainSelect = (domain: any) => {
+    setSelectedDomain(domain.mainCategoryEn || domain.mainDomainEn || domain.domain || "");
+    setSelectedDomainEn(domain.mainCategoryEn || domain.mainDomainEn || domain.domain || "");
+    setSelectedDomainAr(domain.mainCategoryAr || domain.mainDomainAr || domain.domainAr || "");
+    setSelectedSubdomain("");
+  };
+
+  // Handle subdomain selection
+  const handleSubdomainSelect = (subdomain: any) => {
+    setSelectedSubdomain(subdomain.subCategoryEn || subdomain.subDomainEn || subdomain.subdomain || "");
+  };
+
+  // Handle control selection
+  const handleControlSelect = (controlId: number, checked: boolean) => {
+    setSelectedControlIds(prev => 
+      checked 
+        ? [...prev, controlId]
+        : prev.filter(id => id !== controlId)
     );
-  }, [controls, debouncedSearchTerm, language]);
-
-  // Group filtered controls by domain
-  const groupedControls = useMemo(() => {
-    return groupControlsByDomain(filteredControls, language);
-  }, [filteredControls, language]);
-
-  // Handle control selection toggle
-  const handleToggle = (controlId: number) => {
-    setSelectedIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(controlId)) {
-        newSet.delete(controlId);
-      } else {
-        newSet.add(controlId);
-      }
-      return newSet;
-    });
-  };
-
-  // Handle bulk control addition
-  const handleBulkAdd = (controlIds: number[]) => {
-    setSelectedIds(prev => {
-      const newSet = new Set(prev);
-      controlIds.forEach(id => newSet.add(id));
-      return newSet;
-    });
-  };
-
-  // Handle clear selection
-  const handleClearSelection = () => {
-    setSelectedIds(new Set());
-  };
-
-  // Handle proceed action (placeholder for now)
-  const handleProceed = () => {
-    const selectedControlIds = Array.from(selectedIds);
-    console.log('Proceeding with selected controls:', selectedControlIds);
-    toast({ 
-      title: "Feature Coming Soon", 
-      description: `Selected ${selectedControlIds.length} controls for project creation.` 
-    });
   };
 
   // Loading and error states
-  if (regulationLoading || controlsLoading) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/regulations")}>
-            <ArrowLeft className="h-4 w-4" />
-            {language === 'ar' ? 'العودة للوائح' : 'Back to Regulations'}
-          </Button>
-          <div className="text-sm text-muted-foreground">
-            {language === 'ar' ? 'جاري التحميل...' : 'Loading regulation...'}
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
-  if (regulationError || !regulation) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/regulations")}>
-            <ArrowLeft className="h-4 w-4" />
-            {language === 'ar' ? 'العودة للوائح' : 'Back to Regulations'}
-          </Button>
-          <div className="text-sm text-destructive">
-            {language === 'ar' ? 'فشل في تحميل اللائحة' : 'Failed to load regulation.'}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (isLoading) return <div className="p-4 text-sm text-muted-foreground">Loading regulation…</div>;
+  if (error || !regulation) return <div className="p-4 text-sm text-destructive">Failed to load regulation.</div>;
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      {/* Header Card */}
-      <Card className="border-0 shadow-lg">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" onClick={() => navigate("/regulations")}>
-                <ArrowLeft className="h-4 w-4" />
-                {language === 'ar' ? 'العودة للوائح' : 'Back to Regulations'}
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {language === 'ar' && regulation.nameAr ? regulation.nameAr : regulation.nameEn}
-                </h1>
-                {regulation.nameAr && language === 'en' && (
-                  <p className="text-sm text-muted-foreground">{regulation.nameAr}</p>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary">{regulation.version}</Badge>
-              <Badge variant={regulation.status === "active" ? "default" : "secondary"}>
-                {regulation.status}
-              </Badge>
-            </div>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/regulations")}>
+            <ArrowLeft className="h-4 w-4" />
+            Back to Regulations
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">{regulation.nameEn}</h1>
+            {regulation.nameAr && <p className="text-sm text-muted-foreground">{regulation.nameAr}</p>}
           </div>
-        </CardHeader>
-      </Card>
-
-      {/* Search Bar */}
-      <Card className="border-0 shadow-sm">
-        <CardContent className="p-4">
-          <div className="relative max-w-lg">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder={language === 'ar' ? 'البحث في الضوابط...' : 'Search controls...'}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-10"
-              data-testid="search-input"
-            />
-            {searchTerm && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
-                onClick={() => setSearchTerm('')}
-                data-testid="clear-search-button"
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            )}
-          </div>
-          {debouncedSearchTerm && (
-            <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              {language === 'ar' 
-                ? `البحث عن: "${debouncedSearchTerm}" - ${filteredControls.length} نتيجة`
-                : `Searching for: "${debouncedSearchTerm}" - ${filteredControls.length} results`
-              }
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Main Domains Grid */}
-      {groupedControls.size === 0 ? (
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-12 text-center">
-            <div className="text-gray-500 dark:text-gray-400">
-              {debouncedSearchTerm 
-                ? (language === 'ar' ? 'لا توجد نتائج. جرب مصطلح بحث مختلف.' : 'No results. Try a different search term.')
-                : (language === 'ar' ? 'لا توجد ضوابط لهذه اللائحة.' : 'No controls found for this regulation.')
-              }
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-              {language === 'ar' ? 'المجالات الرئيسية' : 'Main Domains'}
-            </h2>
-            <Badge variant="outline" className="text-sm">
-              {language === 'ar' 
-                ? `${groupedControls.size} مجال` 
-                : `${groupedControls.size} ${groupedControls.size === 1 ? 'domain' : 'domains'}`
-              }
-            </Badge>
-          </div>
-          
-          <DomainGrid
-            grouped={groupedControls}
-            language={language}
-            selectedIds={selectedIds}
-            onToggle={handleToggle}
-            onBulkAdd={handleBulkAdd}
-            onProceed={handleProceed}
-          />
         </div>
-      )}
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary">{regulation.version}</Badge>
+          <Badge variant={regulation.status === "active" ? "default" : "secondary"}>
+            {regulation.status}
+          </Badge>
+        </div>
+      </div>
 
-      {/* Global Selection Bar */}
-      {selectedIds.size > 0 && (
+      {/* Action Bar */}
+      {selectedControlIds.length > 0 && can("project:create") && (
         <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
-          <Card className="shadow-2xl border-0 bg-white dark:bg-gray-900">
+          <Card className="shadow-lg">
             <CardContent className="p-4">
               <div className="flex items-center gap-4">
-                <Badge variant="default" className="bg-teal-600">
-                  {language === 'ar' ? `${selectedIds.size} محدد` : `${selectedIds.size} selected`}
-                </Badge>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleClearSelection}
-                  data-testid="clear-selection-button"
-                >
-                  {language === 'ar' ? 'مسح' : 'Clear'}
-                </Button>
-                <Button
-                  onClick={handleProceed}
-                  className="bg-teal-600 hover:bg-teal-700 text-white"
-                  data-testid="proceed-selection-button"
-                >
-                  {language === 'ar' ? 'إضافة للمشروع' : 'Add to Project'}
+                <span className="text-sm font-medium">
+                  {selectedControlIds.length} control(s) selected
+                </span>
+                <Button onClick={() => setShowProjectDialog(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Project from Selected ({selectedControlIds.length})
                 </Button>
               </div>
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* 3-Pane Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Left Pane: Domain/Subdomain Filter */}
+        <div className="lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Filter Controls</CardTitle>
+              <CardDescription>Select domain and subdomain to filter controls</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Domains */}
+              <div>
+                <h4 className="font-medium mb-2">Domains</h4>
+                <ScrollArea className="h-48">
+                  <div className="space-y-1">
+                    <Button
+                      variant={!selectedDomain ? "default" : "ghost"}
+                      className="w-full justify-start"
+                      onClick={() => {
+                        setSelectedDomain("");
+                        setSelectedDomainEn("");
+                        setSelectedDomainAr("");
+                        setSelectedSubdomain("");
+                      }}
+                    >
+                      All Domains
+                    </Button>
+                    {domains.map((domain: any, idx: number) => (
+                      <Button
+                        key={idx}
+                        variant={selectedDomain === (domain.mainCategoryEn || domain.domain) ? "default" : "ghost"}
+                        className="w-full justify-start"
+                        onClick={() => handleDomainSelect(domain)}
+                      >
+                        {language === "ar" ? 
+                          (domain.mainCategoryAr || domain.domainAr || domain.mainCategoryEn || domain.domain) :
+                          (domain.mainCategoryEn || domain.domain || domain.mainCategoryAr || domain.domainAr)
+                        }
+                      </Button>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+
+              {/* Subdomains */}
+              {selectedDomain && (
+                <div>
+                  <h4 className="font-medium mb-2">Subdomains</h4>
+                  <ScrollArea className="h-48">
+                    <div className="space-y-1">
+                      <Button
+                        variant={!selectedSubdomain ? "default" : "ghost"}
+                        className="w-full justify-start"
+                        onClick={() => setSelectedSubdomain("")}
+                      >
+                        All Subdomains
+                      </Button>
+                      {subdomains.map((subdomain: any, idx: number) => (
+                        <Button
+                          key={idx}
+                          variant={selectedSubdomain === (subdomain.subCategoryEn || subdomain.subdomain) ? "default" : "ghost"}
+                          className="w-full justify-start"
+                          onClick={() => handleSubdomainSelect(subdomain)}
+                        >
+                          {language === "ar" ? 
+                            (subdomain.subCategoryAr || subdomain.subdomainAr || subdomain.subCategoryEn || subdomain.subdomain) :
+                            (subdomain.subCategoryEn || subdomain.subdomain || subdomain.subCategoryAr || subdomain.subdomainAr)
+                          }
+                        </Button>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Pane: Controls List */}
+        <div className="lg:col-span-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center justify-between">
+                <span>Controls ({filteredControls.length})</span>
+                {(selectedDomain || selectedSubdomain) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedDomain("");
+                      setSelectedDomainEn("");
+                      setSelectedDomainAr("");
+                      setSelectedSubdomain("");
+                    }}
+                  >
+                    Show All Controls
+                  </Button>
+                )}
+              </CardTitle>
+              {(selectedDomain || selectedSubdomain) && (
+                <CardDescription>
+                  Filtered by: {selectedDomain && `Domain: ${selectedDomain}`}
+                  {selectedDomain && selectedSubdomain && " | "}
+                  {selectedSubdomain && `Subdomain: ${selectedSubdomain}`}
+                </CardDescription>
+              )}
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-96">
+                <div className="space-y-4">
+                  {filteredControls.map((control: Control) => (
+                    <div key={control.id} className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3">
+                          <Checkbox
+                            checked={selectedControlIds.includes(control.id)}
+                            onCheckedChange={(checked) => 
+                              handleControlSelect(control.id, checked as boolean)
+                            }
+                          />
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              {control.clause && (
+                                <Badge variant="outline">{control.clause}</Badge>
+                              )}
+                              {control.code && (
+                                <Badge variant="outline">{control.code}</Badge>
+                              )}
+                            </div>
+                            <h4 className="font-medium">
+                              {language === "ar" ? 
+                                ((control as any).mainControlAr || (control as any).controlAr || (control as any).mainControlEn || (control as any).control) :
+                                ((control as any).mainControlEn || (control as any).control || (control as any).mainControlAr || (control as any).controlAr)
+                              }
+                            </h4>
+                            <p className="text-sm text-muted-foreground">
+                              {language === "ar" ? 
+                                (control.descriptionAr || control.descriptionEn || control.description) :
+                                (control.descriptionEn || control.description || control.descriptionAr)
+                              }
+                            </p>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>
+                                {language === "ar" ? 
+                                  (control.mainCategoryAr || control.mainDomainAr || control.domainAr || control.mainCategoryEn || control.mainDomain || control.domain) :
+                                  (control.mainCategoryEn || control.mainDomain || control.domain || control.mainCategoryAr || control.mainDomainAr || control.domainAr)
+                                }
+                              </span>
+                              <span>→</span>
+                              <span>
+                                {language === "ar" ? 
+                                  (control.subCategoryAr || control.subDomainAr || control.subdomainAr || control.subCategoryEn || control.subDomain || control.subdomain) :
+                                  (control.subCategoryEn || control.subDomain || control.subdomain || control.subCategoryAr || control.subDomainAr || control.subdomainAr)
+                                }
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        {can("regulation:edit") && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingControl(control)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Control Editor Dialog */}
+      {editingControl && (
+        <ControlEditorDialog
+          control={editingControl}
+          open={!!editingControl}
+          onClose={() => setEditingControl(null)}
+          onSave={(data: any) => {
+            editControlMutation.mutate({ controlId: editingControl.id, data });
+          }}
+          isLoading={editControlMutation.isPending}
+        />
+      )}
+
+      {/* Project Create Dialog */}
+      {showProjectDialog && (
+        <ProjectCreateDialog
+          open={showProjectDialog}
+          onClose={() => setShowProjectDialog(false)}
+          onSave={(data: any) => {
+            createProjectMutation.mutate({
+              ...data,
+              regulationId: regulation.id,
+              controlIds: selectedControlIds
+            });
+          }}
+          isLoading={createProjectMutation.isPending}
+          selectedControlsCount={selectedControlIds.length}
+        />
       )}
     </div>
   );
