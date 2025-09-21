@@ -1373,12 +1373,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ECC Controls routes
+  // ECC Controls routes - Updated to use new regulations system
   app.get('/api/ecc-controls', isAuthenticated, async (req, res) => {
     try {
       const search = req.query.search as string | undefined;
-      const controls = await storage.getEccControls(search);
-      res.json(controls);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+      
+      // Import the necessary modules
+      const { regulations, regulationControls } = await import('../shared/schema');
+      const { db } = await import('./db');
+      const { eq, and, or, like, desc, asc, count } = await import('drizzle-orm');
+      
+      // Base query to get ECC controls from the new regulations system
+      let baseQuery = db.select({
+        id: regulationControls.id,
+        code: regulationControls.clause,
+        codeAr: regulationControls.clause, // Using same clause for both
+        domainEn: regulationControls.mainCategoryEn,
+        domainAr: regulationControls.mainCategoryAr,
+        subdomainEn: regulationControls.subCategoryEn,
+        subdomainAr: regulationControls.subCategoryAr,
+        controlEn: regulationControls.mainControlEn,
+        controlAr: regulationControls.mainControlAr,
+        titleEn: regulationControls.mainControlEn, // Map to main control
+        titleAr: regulationControls.mainControlAr, // Map to main control
+        implementationGuidanceEn: regulationControls.descriptionEn,
+        implementationGuidanceAr: regulationControls.descriptionAr,
+        evidenceEn: regulationControls.evidenceTypes,
+        evidenceAr: regulationControls.evidenceTypes,
+        evidenceRequiredEn: regulationControls.evidenceTypes,
+        evidenceRequiredAr: regulationControls.evidenceTypes,
+        requirementEn: regulationControls.descriptionEn,
+        requirementAr: regulationControls.descriptionAr,
+        weight: regulationControls.weight,
+        createdAt: regulationControls.createdAt,
+      })
+      .from(regulationControls)
+      .innerJoin(regulations, eq(regulationControls.regulationId, regulations.id))
+      .where(eq(regulations.code, 'NCA-ECC-2024'));
+
+      // Add search conditions if provided
+      if (search) {
+        baseQuery = baseQuery.where(
+          and(
+            eq(regulations.code, 'NCA-ECC-2024'),
+            or(
+              like(regulationControls.clause, `%${search}%`),
+              like(regulationControls.mainCategoryEn, `%${search}%`),
+              like(regulationControls.mainCategoryAr, `%${search}%`),
+              like(regulationControls.subCategoryEn, `%${search}%`),
+              like(regulationControls.subCategoryAr, `%${search}%`),
+              like(regulationControls.mainControlEn, `%${search}%`),
+              like(regulationControls.mainControlAr, `%${search}%`),
+              like(regulationControls.descriptionEn, `%${search}%`),
+              like(regulationControls.descriptionAr, `%${search}%`)
+            )
+          )
+        );
+      }
+
+      // Get total count for pagination
+      const countQuery = db.select({ count: count() })
+        .from(regulationControls)
+        .innerJoin(regulations, eq(regulationControls.regulationId, regulations.id))
+        .where(eq(regulations.code, 'NCA-ECC-2024'));
+
+      if (search) {
+        countQuery.where(
+          and(
+            eq(regulations.code, 'NCA-ECC-2024'),
+            or(
+              like(regulationControls.clause, `%${search}%`),
+              like(regulationControls.mainCategoryEn, `%${search}%`),
+              like(regulationControls.mainCategoryAr, `%${search}%`),
+              like(regulationControls.subCategoryEn, `%${search}%`),
+              like(regulationControls.subCategoryAr, `%${search}%`),
+              like(regulationControls.mainControlEn, `%${search}%`),
+              like(regulationControls.mainControlAr, `%${search}%`),
+              like(regulationControls.descriptionEn, `%${search}%`),
+              like(regulationControls.descriptionAr, `%${search}%`)
+            )
+          )
+        );
+      }
+
+      // Apply ordering, limit and offset
+      baseQuery = baseQuery.orderBy(asc(regulationControls.clause));
+      
+      if (limit) {
+        baseQuery = baseQuery.limit(limit);
+      }
+      
+      if (offset) {
+        baseQuery = baseQuery.offset(offset);
+      }
+
+      // Execute queries
+      const [items, totalResult] = await Promise.all([
+        baseQuery,
+        countQuery
+      ]);
+
+      const total = totalResult[0]?.count || 0;
+
+      // Return in the expected format
+      if (limit !== undefined) {
+        res.json({ items, total });
+      } else {
+        // For backward compatibility, return just the items array when no pagination
+        res.json(items);
+      }
     } catch (error) {
       console.error("Error fetching ECC controls:", error);
       res.status(500).json({ message: "Failed to fetch ECC controls" });
