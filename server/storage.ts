@@ -2,6 +2,8 @@ import {
   users,
   projects,
   projectControls,
+  projectRegulationControls,
+  regulationControls,
   tasks,
   evidence,
   eccControls,
@@ -28,6 +30,10 @@ import type {
   InsertProject,
   ProjectControl,
   InsertProjectControl,
+  ProjectRegulationControl,
+  InsertProjectRegulationControl,
+  RegulationControl,
+  InsertRegulationControl,
   Task,
   InsertTask,
   Evidence,
@@ -435,71 +441,84 @@ export class DatabaseStorage implements IStorage {
 
   // Project Controls operations
   async getProjectControls(projectId: number) {
-    const base = await db.select().from(projectControls).where(eq(projectControls.projectId, projectId));
+    // Use the new project_regulation_controls table with joins to regulation_controls
+    const projectControlsData = await db
+      .select({
+        id: projectRegulationControls.id,
+        projectId: projectRegulationControls.projectId,
+        controlId: projectRegulationControls.controlId,
+        status: projectRegulationControls.status,
+        assignedTo: projectRegulationControls.assignedTo,
+        dueDate: projectRegulationControls.dueDate,
+        completedAt: projectRegulationControls.completedAt,
+        notes: projectRegulationControls.notes,
+        createdAt: projectRegulationControls.createdAt,
+        updatedAt: projectRegulationControls.updatedAt,
+        // Join with regulation_controls to get control details
+        control: {
+          id: regulationControls.id,
+          regulationId: regulationControls.regulationId,
+          clause: regulationControls.clause,
+          mainCategoryEn: regulationControls.mainCategoryEn,
+          mainCategoryAr: regulationControls.mainCategoryAr,
+          subCategoryEn: regulationControls.subCategoryEn,
+          subCategoryAr: regulationControls.subCategoryAr,
+          mainControlEn: regulationControls.mainControlEn,
+          mainControlAr: regulationControls.mainControlAr,
+          subControlEn: regulationControls.subControlEn,
+          subControlAr: regulationControls.subControlAr,
+          descriptionEn: regulationControls.descriptionEn,
+          descriptionAr: regulationControls.descriptionAr,
+          evidenceTypes: regulationControls.evidenceTypes,
+          weight: regulationControls.weight,
+          clauseNumber: regulationControls.clauseNumber,
+          rowNumber: regulationControls.rowNumber,
+          clauseNumberAr: regulationControls.clauseNumberAr,
+        }
+      })
+      .from(projectRegulationControls)
+      .innerJoin(regulationControls, eq(projectRegulationControls.controlId, regulationControls.id))
+      .where(eq(projectRegulationControls.projectId, projectId))
+      .orderBy(regulationControls.mainCategoryEn, regulationControls.subCategoryEn, regulationControls.clause);
 
-    // fetch related ECC and Custom in batches
-    const eccIds = base.filter(r => r.eccControlId).map(r => r.eccControlId!);
-    const customIds = base.filter(r => r.customControlId).map(r => r.customControlId!);
-
-    const eccMap = new Map<number, EccControl>();
-    const customMap = new Map<number, CustomControl>();
-
-    if (eccIds.length) {
-      const eccRows = await db.select().from(eccControls).where(inArray(eccControls.id, eccIds));
-      eccRows.forEach(r => eccMap.set(r.id, r));
-    }
-    if (customIds.length) {
-      const cRows = await db.select().from(customControls).where(inArray(customControls.id, customIds));
-      cRows.forEach(r => customMap.set(r.id, r));
-    }
-
-    // Return unified shape
-    return base.map(pc => ({
-      ...pc,
-      control:
-        pc.source === 'custom'
-          ? customMap.get(pc.customControlId!)
-          : eccMap.get(pc.eccControlId!),
-    }));
+    return projectControlsData;
   }
 
   async addControlsToProject(projectId: number, controlIds: number[]): Promise<void> {
     const insertData = controlIds.map(controlId => ({
       projectId,
-      eccControlId: controlId,
+      controlId,
       status: 'pending' as const
     }));
     
-    await db.insert(projectControls).values(insertData);
+    await db.insert(projectRegulationControls).values(insertData);
   }
 
   async addControlsToProjectBySource(projectId: number, controlIds: number[], source: 'ecc'|'custom'): Promise<void> {
     const rows = controlIds.map(id => ({
       projectId,
-      source,
-      eccControlId: source === 'ecc' ? id : null,
-      customControlId: source === 'custom' ? id : null,
+      controlId: id, // In the new structure, all controls are in regulation_controls table
       status: 'pending' as const,
     }));
-    await db.insert(projectControls).values(rows);
+    await db.insert(projectRegulationControls).values(rows);
   }
 
-  async updateProjectControl(id: number, data: Partial<InsertProjectControl>): Promise<ProjectControl> {
+  async updateProjectControl(id: number, data: Partial<InsertProjectRegulationControl>): Promise<ProjectRegulationControl> {
     const [updated] = await db
-      .update(projectControls)
+      .update(projectRegulationControls)
       .set({ ...data, updatedAt: new Date() })
-      .where(eq(projectControls.id, id))
+      .where(eq(projectRegulationControls.id, id))
       .returning();
     return updated;
   }
 
   async removeControlFromProject(projectId: number, controlId: number): Promise<void> {
     await db
-      .delete(projectControls)
+      .delete(projectRegulationControls)
       .where(
         and(
-          eq(projectControls.projectId, projectId),
-          eq(projectControls.eccControlId, controlId)
+          eq(projectRegulationControls.projectId, projectId),
+          eq(projectRegulationControls.controlId, controlId)
         )
       );
   }
