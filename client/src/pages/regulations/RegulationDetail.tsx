@@ -705,20 +705,22 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
                       return (
                         <HoverCard key={controlId}>
                           <HoverCardTrigger asChild>
-                            <Badge 
-                              variant="outline" 
-                              className="cursor-pointer bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-100 transition-colors"
-                              data-testid={`selected-control-badge-${controlId}`}
-                            >
-                              {control?.clauseNumber || controlId}
-                              <button
-                                onClick={() => toggle(controlId)}
-                                className="ml-1 hover:text-red-600 transition-colors"
-                                aria-label="Remove control"
+                            <div className="inline-block">
+                              <Badge 
+                                variant="outline" 
+                                className="cursor-pointer bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-100 transition-colors"
+                                data-testid={`selected-control-badge-${controlId}`}
                               >
-                                ×
-                              </button>
-                            </Badge>
+                                {control?.clauseNumber || controlId}
+                                <button
+                                  onClick={() => toggle(controlId)}
+                                  className="ml-1 hover:text-red-600 transition-colors"
+                                  aria-label="Remove control"
+                                >
+                                  ×
+                                </button>
+                              </Badge>
+                            </div>
                           </HoverCardTrigger>
                           <HoverCardContent 
                             className="w-80" 
