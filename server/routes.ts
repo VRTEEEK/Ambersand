@@ -1383,10 +1383,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the necessary modules
       const { regulations, regulationControls } = await import('../shared/schema');
       const { db } = await import('./db');
-      const { eq, and, or, like, desc, asc, count } = await import('drizzle-orm');
+      const { eq, and, or, like, asc, count } = await import('drizzle-orm');
       
-      // Base query to get ECC controls from the new regulations system
-      let baseQuery = db.select({
+      // Define where conditions
+      let whereConditions;
+      if (search) {
+        whereConditions = and(
+          eq(regulations.code, 'NCA-ECC-2024'),
+          or(
+            like(regulationControls.clause, `%${search}%`),
+            like(regulationControls.mainCategoryEn, `%${search}%`),
+            like(regulationControls.mainCategoryAr, `%${search}%`),
+            like(regulationControls.subCategoryEn, `%${search}%`),
+            like(regulationControls.subCategoryAr, `%${search}%`),
+            like(regulationControls.mainControlEn, `%${search}%`),
+            like(regulationControls.mainControlAr, `%${search}%`),
+            like(regulationControls.descriptionEn, `%${search}%`),
+            like(regulationControls.descriptionAr, `%${search}%`)
+          )
+        );
+      } else {
+        whereConditions = eq(regulations.code, 'NCA-ECC-2024');
+      }
+
+      // Common select fields
+      const selectFields = {
         id: regulationControls.id,
         code: regulationControls.clause,
         codeAr: regulationControls.clause, // Using same clause for both
@@ -1408,74 +1429,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         requirementAr: regulationControls.descriptionAr,
         weight: regulationControls.weight,
         createdAt: regulationControls.createdAt,
-      })
-      .from(regulationControls)
-      .innerJoin(regulations, eq(regulationControls.regulationId, regulations.id))
-      .where(eq(regulations.code, 'NCA-ECC-2024'));
+      };
 
-      // Add search conditions if provided
-      if (search) {
-        baseQuery = baseQuery.where(
-          and(
-            eq(regulations.code, 'NCA-ECC-2024'),
-            or(
-              like(regulationControls.clause, `%${search}%`),
-              like(regulationControls.mainCategoryEn, `%${search}%`),
-              like(regulationControls.mainCategoryAr, `%${search}%`),
-              like(regulationControls.subCategoryEn, `%${search}%`),
-              like(regulationControls.subCategoryAr, `%${search}%`),
-              like(regulationControls.mainControlEn, `%${search}%`),
-              like(regulationControls.mainControlAr, `%${search}%`),
-              like(regulationControls.descriptionEn, `%${search}%`),
-              like(regulationControls.descriptionAr, `%${search}%`)
-            )
-          )
-        );
+      // Build query based on pagination requirements
+      let finalQuery;
+      if (limit !== undefined) {
+        if (offset > 0) {
+          finalQuery = db.select(selectFields)
+            .from(regulationControls)
+            .innerJoin(regulations, eq(regulationControls.regulationId, regulations.id))
+            .where(whereConditions)
+            .orderBy(asc(regulationControls.clause))
+            .limit(limit)
+            .offset(offset);
+        } else {
+          finalQuery = db.select(selectFields)
+            .from(regulationControls)
+            .innerJoin(regulations, eq(regulationControls.regulationId, regulations.id))
+            .where(whereConditions)
+            .orderBy(asc(regulationControls.clause))
+            .limit(limit);
+        }
+      } else if (offset > 0) {
+        finalQuery = db.select(selectFields)
+          .from(regulationControls)
+          .innerJoin(regulations, eq(regulationControls.regulationId, regulations.id))
+          .where(whereConditions)
+          .orderBy(asc(regulationControls.clause))
+          .offset(offset);
+      } else {
+        finalQuery = db.select(selectFields)
+          .from(regulationControls)
+          .innerJoin(regulations, eq(regulationControls.regulationId, regulations.id))
+          .where(whereConditions)
+          .orderBy(asc(regulationControls.clause));
       }
 
       // Get total count for pagination
-      const countQuery = db.select({ count: count() })
+      const countResult = await db.select({ count: count() })
         .from(regulationControls)
         .innerJoin(regulations, eq(regulationControls.regulationId, regulations.id))
-        .where(eq(regulations.code, 'NCA-ECC-2024'));
+        .where(whereConditions);
 
-      if (search) {
-        countQuery.where(
-          and(
-            eq(regulations.code, 'NCA-ECC-2024'),
-            or(
-              like(regulationControls.clause, `%${search}%`),
-              like(regulationControls.mainCategoryEn, `%${search}%`),
-              like(regulationControls.mainCategoryAr, `%${search}%`),
-              like(regulationControls.subCategoryEn, `%${search}%`),
-              like(regulationControls.subCategoryAr, `%${search}%`),
-              like(regulationControls.mainControlEn, `%${search}%`),
-              like(regulationControls.mainControlAr, `%${search}%`),
-              like(regulationControls.descriptionEn, `%${search}%`),
-              like(regulationControls.descriptionAr, `%${search}%`)
-            )
-          )
-        );
-      }
-
-      // Apply ordering, limit and offset
-      baseQuery = baseQuery.orderBy(asc(regulationControls.clause));
-      
-      if (limit) {
-        baseQuery = baseQuery.limit(limit);
-      }
-      
-      if (offset) {
-        baseQuery = baseQuery.offset(offset);
-      }
-
-      // Execute queries
-      const [items, totalResult] = await Promise.all([
-        baseQuery,
-        countQuery
-      ]);
-
-      const total = totalResult[0]?.count || 0;
+      // Execute the main query
+      const items = await finalQuery;
+      const total = countResult[0]?.count || 0;
 
       // Return in the expected format
       if (limit !== undefined) {
