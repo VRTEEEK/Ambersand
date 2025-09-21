@@ -266,7 +266,12 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
                   className="bg-white hover:bg-slate-100"
                   data-testid="button-select-all"
                 >
-                  {language === 'ar' ? 'تحديد الكل' : 'Select All'} {selectedDomain.items.length}
+                  {(() => {
+                    const allSelected = selectedDomain.items.every(item => selected.has(item.id));
+                    return allSelected 
+                      ? (language === 'ar' ? 'إلغاء تحديد الكل' : 'Deselect All')
+                      : (language === 'ar' ? 'تحديد الكل' : 'Select All');
+                  })()} {selectedDomain.items.length}
                 </Button>
               </div>
             
