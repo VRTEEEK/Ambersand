@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { projects, projectControls, projectRegulationControls, eccControls, regulationControls, evidence, tasks, users } from "@shared/schema";
+import { projects, projectRegulationControls, regulationControls, regulations } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import path from "path";
 import { existsSync } from "fs";
@@ -68,7 +68,7 @@ export async function getComplianceReportData(params: {
 
     project = await db.select()
       .from(projects)
-      .where(and(...projectConditions))
+      .where(projectConditions.length === 1 ? projectConditions[0] : and(...projectConditions))
       .limit(1);
 
     if (!project[0]) {
@@ -81,93 +81,79 @@ export async function getComplianceReportData(params: {
     throw new Error(`Failed to retrieve project data: ${error instanceof Error ? error.message : 'Unknown database error'}`);
   }
 
-  // Get project controls with their status and control details
+  // Get project controls with their status and control details using modern regulation system
   let filteredControls;
-  let isUsingLegacyControls = false;
+  let normalizedRegulationCode = regulationCode;
+  let firstRegulation: any = null;
+  let controls: any[] = [];
+  
   try {
-    // First try modern regulation controls
-    let modernControlsQuery = db.select({
+    // Normalize regulation code - handle common aliases
+    if (regulationCode) {
+      const codeAliases: Record<string, string> = {
+        'ecc': 'NCA-ECC-2024',
+        'ECC': 'NCA-ECC-2024',
+        'cscc': 'CSCC-2023',
+        'CSCC': 'CSCC-2023',
+        'dcc': 'DCC-2022',
+        'DCC': 'DCC-2022',
+        'crfr': 'CRFR-2023',
+        'CRFR': 'CRFR-2023',
+        'mvc': 'MVC-2024',
+        'MVC': 'MVC-2024'
+      };
+      normalizedRegulationCode = codeAliases[regulationCode] || regulationCode;
+      console.log(`📋 Regulation code normalized: '${regulationCode}' → '${normalizedRegulationCode}'`);
+    }
+    
+    // Use modern regulation controls system only
+    const whereConditions = [eq(projectRegulationControls.projectId, projectId)];
+    
+    if (normalizedRegulationCode) {
+      whereConditions.push(eq(regulations.code, normalizedRegulationCode));
+    }
+    
+    const controlsQuery = db.select({
       id: projectRegulationControls.id,
       controlId: projectRegulationControls.controlId,
       status: projectRegulationControls.status,
       assignedTo: projectRegulationControls.assignedTo,
       updatedAt: projectRegulationControls.updatedAt,
-      control: regulationControls
+      control: regulationControls,
+      regulation: regulations
     })
       .from(projectRegulationControls)
       .innerJoin(regulationControls, eq(projectRegulationControls.controlId, regulationControls.id))
-      .where(eq(projectRegulationControls.projectId, projectId));
+      .innerJoin(regulations, eq(regulationControls.regulationId, regulations.id))
+      .where(whereConditions.length === 1 ? whereConditions[0] : and(...whereConditions));
+
+    controls = await controlsQuery;
+    console.log(`📋 Found ${controls.length} regulation controls for project`);
     
-    if (regulationCode) {
-      modernControlsQuery = modernControlsQuery.where(
-        and(
-          eq(projectRegulationControls.projectId, projectId),
-          eq(regulationControls.regulationCode, regulationCode)
-        )
-      );
+    // Store first regulation for header generation
+    if (controls.length > 0) {
+      firstRegulation = controls[0].regulation;
     }
-
-    const modernControls = await modernControlsQuery;
     
-    if (modernControls.length > 0) {
-      // Use modern controls system
-      console.log(`📋 Using modern regulation controls: Found ${modernControls.length} controls for project`);
-      isUsingLegacyControls = false;
-      filteredControls = modernControls.map(mc => ({
-        id: mc.id,
-        controlId: mc.controlId,
-        status: mc.status,
-        assignedTo: mc.assignedTo,
-        updatedAt: mc.updatedAt,
-        control: {
-          // Map regulation control fields to expected format
-          code: mc.control.clause,
-          titleEn: mc.control.mainControlEn,
-          titleAr: mc.control.mainControlAr,
-          controlEn: mc.control.descriptionEn,
-          controlAr: mc.control.descriptionAr,
-          domainEn: mc.control.mainCategoryEn,
-          domainAr: mc.control.mainCategoryAr,
-          subdomainEn: mc.control.subCategoryEn,
-          subdomainAr: mc.control.subCategoryAr
-        }
-      }));
-    } else {
-      // Fallback to legacy projectControls with eccControls
-      console.log(`📋 No modern controls found, trying legacy projectControls system...`);
-      
-      // Legacy controls are only ECC controls, so only use if regulationCode is ECC or not specified
-      if (!regulationCode || regulationCode.includes('ECC') || regulationCode === 'NCA-ECC-2024') {
-        isUsingLegacyControls = true;
-        const legacyControlsQuery = db.select({
-          id: projectControls.id,
-          controlId: projectControls.eccControlId,
-          status: projectControls.status,
-          assignedTo: projectControls.assignedTo,
-          updatedAt: projectControls.updatedAt,
-          control: eccControls
-        })
-          .from(projectControls)
-          .innerJoin(eccControls, eq(projectControls.eccControlId, eccControls.id))
-          .where(eq(projectControls.projectId, projectId));
-
-        const legacyControls = await legacyControlsQuery;
-        console.log(`📋 Using legacy ECC controls: Found ${legacyControls.length} controls for project`);
-        
-        filteredControls = legacyControls.map(lc => ({
-          id: lc.id,
-          controlId: lc.controlId,
-          status: lc.status,
-          assignedTo: lc.assignedTo,
-          updatedAt: lc.updatedAt,
-          control: lc.control // ECC controls already have the expected field names
-        }));
-      } else {
-        // Requested regulation is not ECC, and we only have legacy ECC controls - no match
-        console.log(`📋 Requested regulation '${regulationCode}' but project only has legacy ECC controls - returning empty result`);
-        filteredControls = [];
+    filteredControls = controls.map(c => ({
+      id: c.id,
+      controlId: c.controlId,
+      status: c.status,
+      assignedTo: c.assignedTo,
+      updatedAt: c.updatedAt,
+      control: {
+        // Map regulation control fields to consistent format
+        code: c.control.clause,
+        titleEn: c.control.mainControlEn,
+        titleAr: c.control.mainControlAr,
+        controlEn: c.control.descriptionEn,
+        controlAr: c.control.descriptionAr,
+        domainEn: c.control.mainCategoryEn,
+        domainAr: c.control.mainCategoryAr,
+        subdomainEn: c.control.subCategoryEn,
+        subdomainAr: c.control.subCategoryAr
       }
-    }
+    }));
 
     console.log(`📋 Total filtered controls: ${filteredControls.length}`);
   } catch (error) {
@@ -194,26 +180,10 @@ export async function getComplianceReportData(params: {
 
       let controlEvidence: any[] = [];
       try {
-        // For legacy controls, we can fetch evidence by eccControlId
-        // For modern regulation controls, evidence system needs migration so we skip for now
-        if (isUsingLegacyControls && controlId) {
-          // This is legacy ECC control - fetch evidence by eccControlId
-          controlEvidence = await db.select()
-            .from(evidence)
-            .where(eq(evidence.eccControlId, controlId!));
-          
-          console.log(`🔍 Control ${controlData?.code || 'UNKNOWN'}: Found ${controlEvidence.length} evidence files`);
-        } else {
-          // This is modern regulation control - evidence system migration pending
-          controlEvidence = [];
-          console.log(`🔍 Control ${controlData?.code || 'UNKNOWN'}: Found ${controlEvidence.length} evidence files (evidence migration pending for regulation controls)`);
-        }
-        
-        if (controlEvidence.length > 0) {
-          controlEvidence.forEach(ev => {
-            console.log(`  📄 Evidence: ${ev.title} (${ev.fileName}) at ${ev.filePath}`);
-          });
-        }
+        // Modern regulation controls - evidence system migration pending
+        // Until evidence table is updated to work with regulation controls, we skip evidence
+        controlEvidence = [];
+        console.log(`🔍 Control ${controlData?.code || 'UNKNOWN'}: Found ${controlEvidence.length} evidence files (evidence system migration pending for regulation controls)`);
       } catch (error) {
         console.error(`❌ Error fetching evidence for control ${controlData?.code || 'UNKNOWN'}:`, error);
         // Continue with empty evidence array
@@ -290,6 +260,31 @@ export async function getComplianceReportData(params: {
     blocked: statusCounts.blocked || 0
   };
 
+  // Build regulation header from actual data
+  let regulationHeader;
+  if (firstRegulation) {
+    // Use regulation data from the first control (all controls should belong to same regulation when filtered)
+    regulationHeader = {
+      code: firstRegulation.code,
+      name: firstRegulation.nameEn,
+      version: firstRegulation.version || 'N/A'
+    };
+  } else if (normalizedRegulationCode) {
+    // Fallback for when no controls found but regulation was specified
+    regulationHeader = {
+      code: normalizedRegulationCode,
+      name: 'Unknown Regulation',
+      version: 'N/A'
+    };
+  } else {
+    // Default fallback
+    regulationHeader = {
+      code: 'N/A',
+      name: 'No Regulation Specified',
+      version: 'N/A'
+    };
+  }
+
   return {
     project: {
       id: project[0].id,
@@ -297,11 +292,7 @@ export async function getComplianceReportData(params: {
       nameAr: project[0].nameAr,
       organizationId: project[0].organizationId || ''
     },
-    regulation: {
-      code: regulationCode || 'NCA-ECC-2:2024',
-      name: regulationCode === 'NCA-ECC-2:2024' ? 'Essential Cybersecurity Controls' : 'Custom Regulation',
-      version: '2024'
-    },
+    regulation: regulationHeader,
     generatedAt: new Date().toISOString(),
     totals,
     controls: controlsWithEvidence
