@@ -22,6 +22,7 @@ import analyticsRouter from "./routes/analytics";
 import workflowsRouter from "./routes/workflows";
 import regulationsRouter from "./routes/regulations";
 import projectsRouter from "./routes/projects";
+import notificationsRouter from "./routes/notifications";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -2795,6 +2796,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Projects routes
   app.use("/api/projects", projectsRouter);
+
+  // Notifications routes
+  app.use("/api/notifications", isAuthenticated, notificationsRouter);
 
   // Test PDF generation endpoint (public for testing)
   app.get("/api/test-pdf-public", async (req: any, res) => {

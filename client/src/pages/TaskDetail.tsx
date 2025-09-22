@@ -1117,7 +1117,7 @@ export default function TaskDetail() {
                   return { 
                     userId: r.userId, 
                     name: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || user.email : r.userId,
-                    email: user?.email
+                    email: user?.email || ''
                   };
                 })}
                 onConfirm={({toUserId, comment}) => {

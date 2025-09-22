@@ -862,6 +862,11 @@ export const insertEvidenceCommentSchema = createInsertSchema(evidenceComments).
   createdAt: true,
 });
 
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertEvidenceControlSchema = createInsertSchema(evidenceControls).omit({
   id: true,
   createdAt: true,
