@@ -286,7 +286,7 @@ export default function EditTaskForm({
     }).filter(Boolean)
   ));
 
-  // Get controls for selected domain that are NOT already assigned to the task
+  // Get controls for selected domain that are NOT already assigned to the task (excluding pending removed controls)
   const domainControls = selectedDomain
     ? projectControls.filter((pc: any) => {
         const control = pc.control || pc.eccControl;
@@ -294,7 +294,8 @@ export default function EditTaskForm({
         const isInDomain = (control?.mainCategoryEn || control?.domainEn) === selectedDomain;
         const isAlreadyAssigned = Array.isArray(taskControls) && taskControls.some((tc: any) => {
           const taskControlId = tc.eccControl?.id || tc.controlId;
-          return taskControlId === controlId;
+          // Don't count controls that are pending removal as "already assigned"
+          return taskControlId === controlId && !pendingRemovedControls.includes(taskControlId);
         });
         return isInDomain && !isAlreadyAssigned;
       })
@@ -768,6 +769,58 @@ export default function EditTaskForm({
             </div>
           </div>
 
+          {/* Pending Removed Controls (will be saved on Save) */}
+          {pendingRemovedControls.length > 0 && (
+            <div>
+              <h3 className="font-semibold text-red-600 dark:text-red-400 mb-3">
+                {language === 'ar' ? 'الضوابط المحذوفة مؤقتاً (سيتم حفظها عند الحفظ)' : 'Pending Removed Controls (will be saved on Save)'}
+              </h3>
+              <div className="border border-red-200 rounded-lg p-4 bg-red-50 dark:bg-red-900/20">
+                <div className="space-y-3">
+                  {pendingRemovedControls.map((controlId: number) => {
+                    // Find the control in the original taskControls
+                    const control = Array.isArray(taskControls)
+                      ? taskControls.find((tc: any) => tc.eccControl.id === controlId)
+                      : null;
+
+                    if (!control) return null;
+
+                    return (
+                      <div key={controlId} className="flex items-start gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-red-200">
+                        <Badge
+                          variant="destructive"
+                          className="mt-1"
+                        >
+                          {control.eccControl.code}
+                        </Badge>
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">
+                            {language === 'ar' && control.eccControl.subdomainAr
+                              ? control.eccControl.subdomainAr
+                              : control.eccControl.subdomainEn}
+                          </h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {language === 'ar' && control.eccControl.controlAr
+                              ? control.eccControl.controlAr
+                              : control.eccControl.controlEn}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleRestoreControl(controlId)}
+                          className="text-green-600 hover:text-green-700"
+                        >
+                          {language === 'ar' ? 'استعادة' : 'Restore'}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Add New Controls */}
           <div>
             <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
@@ -795,7 +848,8 @@ export default function EditTaskForm({
                             const isInDomain = (control?.mainCategoryEn || control?.domainEn) === domain;
                             const isAlreadyAssigned = Array.isArray(taskControls) && taskControls.some((tc: any) => {
                               const taskControlId = tc.eccControl?.id || tc.controlId;
-                              return taskControlId === controlId;
+                              // Don't count controls that are pending removal as "already assigned"
+                              return taskControlId === controlId && !pendingRemovedControls.includes(taskControlId);
                             });
                             return isInDomain && !isAlreadyAssigned;
                           }).length} available
