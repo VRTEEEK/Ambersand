@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { db } from '../db.js';
-import { risks } from '../../shared/schema.js';
+import { risks } from '../../shared/risk.js';
 
 async function deleteAllRisks() {
   console.log('🔍 Checking current risks...');
