@@ -70,6 +70,9 @@ function ControlSelector({
 }) {
   const [selectedControls, setSelectedControls] = useState<number[]>([]);
 
+  // Ensure controls is always a valid array
+  const safeControls = Array.isArray(controls) ? controls : [];
+
   const handleControlToggle = (controlId: number) => {
     setSelectedControls(prev => 
       prev.includes(controlId) 
@@ -88,10 +91,15 @@ function ControlSelector({
   return (
     <div className="space-y-4">
       <div className="max-h-60 overflow-y-auto space-y-2">
-        {controls.map((control: any) => {
+        {safeControls.filter(control => control != null).map((control: any) => {
           // Handle both legacy eccControl and modern control structure
           const controlId = control.control?.id || control.eccControl?.id || control.id;
           const controlData = control.control || control.eccControl || control;
+
+          // Skip if we can't determine a valid control ID or data
+          if (!controlId || !controlData) {
+            return null;
+          }
 
           return (
           <div key={controlId} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
@@ -771,7 +779,7 @@ export default function EditTaskForm({
 
           {/* Pending Removed Controls (will be saved on Save) */}
           {pendingRemovedControls.length > 0 && (
-            <div>
+            <div className="mb-6">
               <h3 className="font-semibold text-red-600 dark:text-red-400 mb-3">
                 {language === 'ar' ? 'الضوابط المحذوفة مؤقتاً (سيتم حفظها عند الحفظ)' : 'Pending Removed Controls (will be saved on Save)'}
               </h3>
@@ -822,7 +830,7 @@ export default function EditTaskForm({
           )}
 
           {/* Add New Controls */}
-          <div>
+          <div className="border-t pt-6 mt-6">
             <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
               {language === 'ar' ? 'إضافة ضوابط جديدة' : 'Add New Controls'}
             </h3>

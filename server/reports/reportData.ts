@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { projects, projectControls, eccControls, evidence, tasks, users } from "@shared/schema";
+import { projects, projectControls, projectRegulationControls, eccControls, regulationControls, evidence, tasks, users } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import path from "path";
 import { existsSync } from "fs";
@@ -81,22 +81,33 @@ export async function getComplianceReportData(params: {
     throw new Error(`Failed to retrieve project data: ${error instanceof Error ? error.message : 'Unknown database error'}`);
   }
 
-  // Get project controls with their status and ECC control details
+  // Get project controls with their status and control details
   let filteredControls;
   try {
-    const projectControlsQuery = db.select({
-      id: projectControls.id,
-      eccControlId: projectControls.eccControlId,
-      status: projectControls.status,
-      assignedTo: projectControls.assignedTo,
-      updatedAt: projectControls.updatedAt,
-      eccControl: eccControls
+    const modernControlsQuery = db.select({
+      id: projectRegulationControls.id,
+      controlId: projectRegulationControls.controlId,
+      status: projectRegulationControls.status,
+      assignedTo: projectRegulationControls.assignedTo,
+      updatedAt: projectRegulationControls.updatedAt,
+      control: regulationControls
     })
-      .from(projectControls)
-      .innerJoin(eccControls, eq(projectControls.eccControlId, eccControls.id))
-      .where(eq(projectControls.projectId, projectId));
+      .from(projectRegulationControls)
+      .innerJoin(regulationControls, eq(projectRegulationControls.controlId, regulationControls.id))
+      .where(eq(projectRegulationControls.projectId, projectId));
 
-    filteredControls = await projectControlsQuery;
+    const modernControls = await modernControlsQuery;
+
+    // Map modern controls to format expected by the rest of the function
+    filteredControls = modernControls.map(mc => ({
+      id: mc.id,
+      controlId: mc.controlId,
+      status: mc.status,
+      assignedTo: mc.assignedTo,
+      updatedAt: mc.updatedAt,
+      control: mc.control
+    }));
+
     console.log(`📋 Found ${filteredControls.length} controls for project`);
   } catch (error) {
     console.error(`❌ Database error while fetching project controls:`, error);
@@ -117,31 +128,34 @@ export async function getComplianceReportData(params: {
   // Get evidence for each control
   const controlsWithEvidence = await Promise.all(
     filteredControls.map(async (control) => {
+      const controlData = control.control;
+      const controlId = control.controlId;
+
       let controlEvidence: any[] = [];
       try {
         controlEvidence = await db.select()
           .from(evidence)
-          .where(eq(evidence.eccControlId, control.eccControlId!));
+          .where(eq(evidence.eccControlId, controlId!));
 
-        console.log(`🔍 Control ${control.eccControl.code}: Found ${controlEvidence.length} evidence files`);
+        console.log(`🔍 Control ${controlData?.code || 'UNKNOWN'}: Found ${controlEvidence.length} evidence files`);
         if (controlEvidence.length > 0) {
           controlEvidence.forEach(ev => {
             console.log(`  📄 Evidence: ${ev.title} (${ev.fileName}) at ${ev.filePath}`);
           });
         }
       } catch (error) {
-        console.error(`❌ Error fetching evidence for control ${control.eccControl.code}:`, error);
+        console.error(`❌ Error fetching evidence for control ${controlData?.code || 'UNKNOWN'}:`, error);
         // Continue with empty evidence array
         controlEvidence = [];
       }
 
       return {
-        id: control.eccControlId!,
-        code: control.eccControl.code,
-        title: control.eccControl.titleEn || control.eccControl.controlEn,
-        titleAr: control.eccControl.titleAr || control.eccControl.controlAr || null,
-        domain: control.eccControl.domainEn,
-        subdomain: control.eccControl.subdomainEn || null,
+        id: controlId!,
+        code: controlData.code,
+        title: controlData.titleEn || controlData.controlEn,
+        titleAr: controlData.titleAr || controlData.controlAr || null,
+        domain: controlData.domainEn,
+        subdomain: controlData.subdomainEn || null,
         status: control.status as 'pending' | 'in-progress' | 'review' | 'completed' | 'blocked',
         approver: control.assignedTo || null,
         updatedAt: control.updatedAt?.toISOString(),
