@@ -2671,6 +2671,9 @@ function ControlSelector({
 }) {
   const [selectedControls, setSelectedControls] = useState<number[]>([]);
 
+  // Ensure controls is always a valid array
+  const safeControls = Array.isArray(controls) ? controls : [];
+
   const handleControlToggle = (controlId: number) => {
     setSelectedControls(prev => 
       prev.includes(controlId) 
@@ -2680,10 +2683,12 @@ function ControlSelector({
   };
 
   const handleSelectAll = () => {
-    if (selectedControls.length === controls.length) {
+    if (safeControls.length === 0) return;
+    
+    if (selectedControls.length === safeControls.length) {
       setSelectedControls([]);
     } else {
-      setSelectedControls(controls.map(c => c.control?.id || c.eccControl?.id || c.id));
+      setSelectedControls(safeControls.map(c => c.control?.id || c.eccControl?.id || c.id));
     }
   };
 
@@ -2698,7 +2703,7 @@ function ControlSelector({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">
-          {language === 'ar' ? 'اختر الضوابط' : 'Select Controls'} ({selectedControls.length}/{controls.length})
+          {language === 'ar' ? 'اختر الضوابط' : 'Select Controls'} ({selectedControls.length}/{safeControls.length})
         </span>
         <div className="flex gap-2">
           <Button 
@@ -2706,7 +2711,7 @@ function ControlSelector({
             size="sm"
             onClick={handleSelectAll}
           >
-            {selectedControls.length === controls.length 
+            {selectedControls.length === safeControls.length
               ? (language === 'ar' ? 'إلغاء تحديد الكل' : 'Deselect All')
               : (language === 'ar' ? 'تحديد الكل' : 'Select All')
             }
@@ -2725,7 +2730,7 @@ function ControlSelector({
       </div>
 
       <div className="space-y-2 max-h-64 overflow-y-auto">
-        {controls.map((control: any) => (
+        {safeControls.map((control: any) => (
           <div key={control.id} className="flex items-start space-x-3 p-3 border rounded-lg">
             <Checkbox
               checked={selectedControls.includes(control.control?.id)}
