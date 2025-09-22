@@ -1291,21 +1291,28 @@ export class DatabaseStorage implements IStorage {
               .from(projects)
               .where(eq(projects.regulationId, regulation.id));
 
-        for (const project of regulationProjects) {
-          // Get completed tasks for this project
-          const completedTasks = await db.select()
+        if (regulationProjects.length > 0) {
+          // Get all completed control IDs for this regulation across all projects
+          // Use DISTINCT to avoid double-counting controls with multiple completed tasks
+          const projectIds = regulationProjects.map(p => p.id);
+          
+          const completedControlsWithDomains = await db.selectDistinct({
+            controlId: regulationControls.id,
+            mainCategoryEn: regulationControls.mainCategoryEn,
+            mainCategoryAr: regulationControls.mainCategoryAr
+          })
             .from(tasks)
-            .innerJoin(regulationControls, eq(tasks.controlId, regulationControls.id))
+            .innerJoin(taskRegulationControls, eq(tasks.id, taskRegulationControls.taskId))
+            .innerJoin(regulationControls, eq(taskRegulationControls.controlId, regulationControls.id))
             .where(and(
-              eq(tasks.projectId, project.id),
+              inArray(tasks.projectId, projectIds),
               eq(tasks.status, 'completed'),
               eq(regulationControls.regulationId, regulation.id)
             ));
 
-          // Count completed controls per domain
-          for (const taskWithControl of completedTasks) {
-            const control = taskWithControl.regulation_controls;
-            const domainEn = control.mainCategoryEn || 'Other';
+          // Count unique completed controls per domain
+          for (const controlInfo of completedControlsWithDomains) {
+            const domainEn = controlInfo.mainCategoryEn || 'Other';
             
             if (domainMap.has(domainEn)) {
               domainMap.get(domainEn)!.completed += 1;
