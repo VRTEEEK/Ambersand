@@ -713,7 +713,7 @@ export class DatabaseStorage implements IStorage {
             version: evidence.version,
             projectId: evidence.projectId,
             taskId: evidence.taskId,
-            controlId: evidence.controlId,
+            eccControlId: evidence.eccControlId,
             uploadedById: evidence.uploadedById,
             createdAt: evidence.createdAt,
             uploaderName: users.name,
@@ -739,7 +739,7 @@ export class DatabaseStorage implements IStorage {
             version: evidence.version,
             projectId: evidence.projectId,
             taskId: evidence.taskId,
-            controlId: evidence.controlId,
+            eccControlId: evidence.eccControlId,
             uploadedById: evidence.uploadedById,
             createdAt: evidence.createdAt,
             uploaderName: users.name,
@@ -785,7 +785,7 @@ export class DatabaseStorage implements IStorage {
           version: evidence.version,
           projectId: evidence.projectId,
           taskId: evidence.taskId,
-          controlId: evidence.controlId,
+          eccControlId: evidence.eccControlId,
           uploadedById: evidence.uploadedById,
           createdAt: evidence.createdAt,
           uploaderName: users.name,
@@ -970,7 +970,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(evidenceControls)
       .innerJoin(evidence, eq(evidenceControls.evidenceId, evidence.id))
-      .where(eq(evidenceControls.controlId, controlId))
+      .where(eq(evidenceControls.eccControlId, controlId))
       .orderBy(desc(evidence.createdAt));
 
     const evidenceList: (Evidence & { comments: (EvidenceComment & { user: User })[], versions: EvidenceVersion[] })[] = [];
