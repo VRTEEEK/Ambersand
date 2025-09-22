@@ -221,7 +221,7 @@ export async function getComplianceReportData(params: {
           console.log(`📋 Project regulation control not found for control ${controlData?.code || 'UNKNOWN'}`);
         }
 
-        // 2. Get evidence through task-based system: Control → Tasks → Evidence (filtered by specific control ID)
+        // 2. Get evidence through task-based system: Control → Tasks → Evidence (filtered by project regulation control link)
         try {
           const controlTasks = await db.select({ id: tasks.id })
             .from(tasks)
@@ -234,26 +234,37 @@ export async function getComplianceReportData(params: {
           if (controlTasks.length > 0) {
             const taskIds = controlTasks.map(t => t.id);
             
-            // Get evidence connected to these tasks AND specifically linked to this control via eccControlId
-            // This prevents evidence from appearing for all controls in a task - it only shows evidence 
-            // that was uploaded for this specific control
-            const taskEvidence = await db.select({
-              id: evidence.id,
-              title: evidence.title,
-              fileName: evidence.fileName,
-              fileType: evidence.fileType,
-              fileSize: evidence.fileSize,
-              filePath: evidence.filePath,
-              description: evidence.description
-            })
-              .from(evidence)
-              .innerJoin(evidenceTasks, eq(evidence.id, evidenceTasks.evidenceId))
+            // Get the project regulation control ID for this specific control in this project
+            const projectRegulationControl = await db.select({ id: projectRegulationControls.id })
+              .from(projectRegulationControls)
               .where(and(
-                inArray(evidenceTasks.taskId, taskIds),
-                eq(evidence.eccControlId, controlId) // KEY FIX: Only evidence uploaded for this specific control
-              ));
+                eq(projectRegulationControls.projectId, projectId),
+                eq(projectRegulationControls.controlId, controlId)
+              ))
+              .limit(1);
 
-            evidenceFromTasks.push(...taskEvidence);
+            if (projectRegulationControl.length > 0) {
+              // Get evidence connected to these tasks AND explicitly linked to this specific project regulation control
+              // This ensures evidence only appears for the control it was specifically uploaded to
+              const taskEvidence = await db.select({
+                id: evidence.id,
+                title: evidence.title,
+                fileName: evidence.fileName,
+                fileType: evidence.fileType,
+                fileSize: evidence.fileSize,
+                filePath: evidence.filePath,
+                description: evidence.description
+              })
+                .from(evidence)
+                .innerJoin(evidenceTasks, eq(evidence.id, evidenceTasks.evidenceId))
+                .innerJoin(evidenceProjectRegulationControls, eq(evidence.id, evidenceProjectRegulationControls.evidenceId))
+                .where(and(
+                  inArray(evidenceTasks.taskId, taskIds),
+                  eq(evidenceProjectRegulationControls.projectRegulationControlId, projectRegulationControl[0].id)
+                ));
+
+              evidenceFromTasks.push(...taskEvidence);
+            }
           }
         } catch (taskError) {
           console.log(`📋 No task-based evidence found for control ${controlData?.code || 'UNKNOWN'}`);
