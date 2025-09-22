@@ -21,6 +21,8 @@ import {
   evidenceComments,
   evidenceControls,
   evidenceTasks,
+  taskRegulationControls,
+  projectRegulationControls,
 } from "@shared/schema";
 import risksRouter from "./routes/risks";
 import analyticsRouter from "./routes/analytics";
@@ -1637,21 +1639,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      // If evidence is uploaded to a task, get the first control associated with that task
-      let controlId = req.body.eccControlId ? parseInt(req.body.eccControlId) : undefined;
       const taskId = req.body.taskId ? parseInt(req.body.taskId) : undefined;
-      
-      if (taskId && !controlId) {
-        try {
-          const taskControls = await storage.getTaskControls(taskId);
-          if (taskControls.length > 0) {
-            controlId = taskControls[0].eccControl.id;
-            console.log(`🔗 Auto-assigning control ${controlId} to evidence from task ${taskId}`);
-          }
-        } catch (error) {
-          console.log('⚠️ Could not retrieve task controls:', error);
-        }
-      }
+      const projectId = req.body.projectId ? parseInt(req.body.projectId) : undefined;
 
       const evidenceData = insertEvidenceSchema.parse({
         title: req.body.title,
@@ -1663,12 +1652,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileType: req.file.mimetype,
         filePath: req.file.path,
         taskId: taskId,
-        projectId: req.body.projectId ? parseInt(req.body.projectId) : undefined,
-        eccControlId: controlId,
+        projectId: projectId,
         uploadedById: req.user.claims.sub,
       });
       
       const evidence = await storage.createEvidence(evidenceData);
+
+      // If this evidence is for a task, link it to the relevant project regulation controls
+      if (taskId && projectId) {
+        try {
+          // Get task regulation controls to find which controls this evidence should be linked to
+          const taskControls = await db.select({ controlId: taskRegulationControls.controlId })
+            .from(taskRegulationControls)
+            .where(eq(taskRegulationControls.taskId, taskId));
+
+          for (const trc of taskControls) {
+            // Find the project regulation control ID
+            const projectRegulationControl = await db.select({ id: projectRegulationControls.id })
+              .from(projectRegulationControls)
+              .where(and(
+                eq(projectRegulationControls.projectId, projectId),
+                eq(projectRegulationControls.controlId, trc.controlId)
+              ))
+              .limit(1);
+
+            if (projectRegulationControl.length > 0) {
+              // Link evidence to the modern regulation controls system
+              await storage.linkEvidenceToControl(evidence.id, projectRegulationControl[0].id);
+              console.log(`🔗 Linked evidence ${evidence.id} to project regulation control ${projectRegulationControl[0].id}`);
+            }
+          }
+        } catch (linkError) {
+          console.log('⚠️ Could not link evidence to regulation controls:', linkError);
+        }
+      }
+
       res.status(201).json(evidence);
     } catch (error) {
       console.error("Error uploading evidence:", error);
