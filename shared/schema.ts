@@ -867,7 +867,6 @@ export type RegulationControl = typeof regulationControls.$inferSelect;
 export type InsertRegulationControl = z.infer<typeof insertRegulationControlSchema>;
 export type TaskControl = typeof taskControls.$inferSelect;
 export type TaskRegulationControl = typeof taskRegulationControls.$inferSelect;
-export type ProjectRegulationControl = typeof projectRegulationControls.$inferSelect;
 
 // New types for enhanced features
 export type InsertTaskControl = z.infer<typeof insertTaskControlSchema>;

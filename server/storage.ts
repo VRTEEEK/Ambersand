@@ -51,7 +51,6 @@ import type {
   InsertCustomRegulation,
   CustomControl,
   InsertCustomControl,
-  TaskControl,
   InsertTaskControl,
   EvidenceVersion,
   InsertEvidenceVersion,
