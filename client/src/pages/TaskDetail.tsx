@@ -726,14 +726,28 @@ export default function TaskDetail() {
                 </SelectTrigger>
                 <SelectContent>
                   {controls.map((control: any) => {
-                    const valueId = control.eccControlId?.toString();
+                    // Use the regulation control ID (modern approach) instead of deprecated eccControlId
+                    const valueId = control.controlId?.toString();
                     if (!valueId) return null; // Skip controls without valid IDs
+                    
+                    // Get control information from regulation control or fallback to ECC control
+                    const controlInfo = control.regulationControl || control.eccControl;
+                    if (!controlInfo) return null;
+                    
                     return (
                     <SelectItem key={control.id} value={valueId}>
                       <div className="flex items-center gap-2">
-                        <span className="font-medium">{language === 'ar' ? control.eccControl?.codeAr : control.eccControl?.code}</span>
+                        <span className="font-medium">
+                          {language === 'ar' 
+                            ? (controlInfo.codeAr || controlInfo.clause || controlInfo.code) 
+                            : (controlInfo.code || controlInfo.clause)
+                          }
+                        </span>
                         <span className="text-sm text-muted-foreground">
-                          {language === 'ar' ? control.eccControl?.subdomainAr : control.eccControl?.subdomainEn}
+                          {language === 'ar' 
+                            ? (controlInfo.titleAr || controlInfo.controlAr || controlInfo.subdomainAr)
+                            : (controlInfo.titleEn || controlInfo.controlEn || controlInfo.subdomainEn)
+                          }
                         </span>
                       </div>
                     </SelectItem>
@@ -744,63 +758,74 @@ export default function TaskDetail() {
             </div>
 
             {/* Control Information Display */}
-            {selectedControlId && controls.find((c: any) => c.eccControl.id === selectedControlId) && (
-              <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                <div className="flex items-start gap-3 mb-3">
-                  <Badge variant="secondary" className="mt-1">
-                    {controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.code}
-                  </Badge>
-                  <div className="flex-1">
-                    <h4 className={`font-semibold text-gray-900 dark:text-white text-sm mb-2 ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+            {selectedControlId && controls.find((c: any) => c.controlId === selectedControlId) && (() => {
+              const selectedControl = controls.find((c: any) => c.controlId === selectedControlId);
+              const controlInfo = selectedControl?.regulationControl || selectedControl?.eccControl;
+              
+              return (
+                <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-start gap-3 mb-3">
+                    <Badge variant="secondary" className="mt-1">
                       {language === 'ar' 
-                        ? controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.subdomainAr
-                        : controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.subdomainEn}
-                    </h4>
-                    <p className={`text-sm text-gray-700 dark:text-gray-300 mb-3 ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
-                      {language === 'ar'
-                        ? controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.controlAr
-                        : controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.controlEn}
-                    </p>
-                    
-                    {/* Required Evidence */}
-                    <div className="mb-3">
-                      <h5 className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                        {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
-                      </h5>
-                      <p className={`text-xs text-gray-600 dark:text-gray-400 ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                        ? (controlInfo?.codeAr || controlInfo?.clause || controlInfo?.code)
+                        : (controlInfo?.code || controlInfo?.clause)
+                      }
+                    </Badge>
+                    <div className="flex-1">
+                      <h4 className={`font-semibold text-gray-900 dark:text-white text-sm mb-2 ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
                         {language === 'ar' 
-                          ? (controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.evidenceAr || 'وثائق، سياسات، إجراءات، وأدلة تدقيق')
-                          : (controls.find((c: any) => c.eccControl.id === selectedControlId)?.eccControl.evidenceEn || 'Documentation, policies, procedures, and audit evidence')}
+                          ? (controlInfo?.titleAr || controlInfo?.controlAr || controlInfo?.subdomainAr || 'تفاصيل الضابط')
+                          : (controlInfo?.titleEn || controlInfo?.controlEn || controlInfo?.subdomainEn || 'Control Details')
+                        }
+                      </h4>
+                      <p className={`text-sm text-gray-700 dark:text-gray-300 mb-3 ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                        {language === 'ar'
+                          ? (controlInfo?.descriptionAr || controlInfo?.controlAr || controlInfo?.titleAr || 'وصف الضابط')
+                          : (controlInfo?.descriptionEn || controlInfo?.controlEn || controlInfo?.titleEn || 'Control Description')
+                        }
                       </p>
-                    </div>
+                      
+                      {/* Required Evidence */}
+                      <div className="mb-3">
+                        <h5 className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                          {language === 'ar' ? 'الأدلة المطلوبة:' : 'Required Evidence:'}
+                        </h5>
+                        <p className={`text-xs text-gray-600 dark:text-gray-400 ${language === 'ar' ? 'text-right' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                          {language === 'ar' 
+                            ? (controlInfo?.evidenceRequiredAr || controlInfo?.evidenceAr || 'وثائق، سياسات، إجراءات، وأدلة تدقيق')
+                            : (controlInfo?.evidenceRequiredEn || controlInfo?.evidenceEn || 'Documentation, policies, procedures, and audit evidence')
+                          }
+                        </p>
+                      </div>
 
-                    {/* Evidence Link Status */}
-                    <div className="flex items-center gap-2">
-                      {controlLinkedEvidence && controlLinkedEvidence.length > 0 ? (
-                        <div 
-                          className="flex items-center gap-1 text-green-600 dark:text-green-400 cursor-pointer hover:text-green-700 dark:hover:text-green-300 transition-colors"
-                          onClick={() => setShowEvidenceForControl(!showEvidenceForControl)}
-                        >
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span className="text-xs font-medium underline">
-                            {language === 'ar' 
-                              ? `${controlLinkedEvidence.length} أدلة مرتبطة - انقر للعرض`
-                              : `${controlLinkedEvidence.length} evidence linked - click to view`}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
-                          <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                          <span className="text-xs">
-                            {language === 'ar' ? 'لا توجد أدلة مرتبطة' : 'No evidence linked'}
-                          </span>
-                        </div>
-                      )}
+                      {/* Evidence Link Status */}
+                      <div className="flex items-center gap-2">
+                        {controlLinkedEvidence && controlLinkedEvidence.length > 0 ? (
+                          <div 
+                            className="flex items-center gap-1 text-green-600 dark:text-green-400 cursor-pointer hover:text-green-700 dark:hover:text-green-300 transition-colors"
+                            onClick={() => setShowEvidenceForControl(!showEvidenceForControl)}
+                          >
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span className="text-xs font-medium underline">
+                              {language === 'ar' 
+                                ? `${controlLinkedEvidence.length} أدلة مرتبطة - انقر للعرض`
+                                : `${controlLinkedEvidence.length} evidence linked - click to view`}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                            <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                            <span className="text-xs">
+                              {language === 'ar' ? 'لا توجد أدلة مرتبطة' : 'No evidence linked'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Evidence attachment section */}
             {selectedControlId && (
