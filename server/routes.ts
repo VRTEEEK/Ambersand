@@ -16,6 +16,11 @@ import {
   insertControlAssessmentSchema,
   users,
   userInvites,
+  evidence,
+  evidenceVersions,
+  evidenceComments,
+  evidenceControls,
+  evidenceTasks,
 } from "@shared/schema";
 import risksRouter from "./routes/risks";
 import analyticsRouter from "./routes/analytics";
@@ -1669,6 +1674,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error uploading evidence:", error);
       res.status(500).json({ message: "Failed to upload evidence" });
     }
+  });
+
+  // Delete ALL evidence from the system using query parameter approach
+  app.delete('/api/evidence', isAuthenticated, async (req, res) => {
+    // Check if this is a delete all request
+    if (req.query.deleteAll === 'true') {
+      try {
+        console.log('🗑️ Starting complete evidence deletion process...');
+
+        // First, get all evidence files directly from database to know what files to delete
+        const allEvidence = await db.select().from(evidence);
+        console.log(`📋 Found ${allEvidence.length} evidence files to delete`);
+
+        if (allEvidence.length === 0) {
+          return res.json({ message: "No evidence found to delete", deletedCount: 0 });
+        }
+
+        // Get file paths for cleanup
+        const filePaths = allEvidence.map(e => e.filePath);
+        
+        // Delete from related tables first (foreign key constraints)
+        console.log('🔗 Deleting evidence-control links...');
+        await db.delete(evidenceControls);
+        
+        console.log('🔗 Deleting evidence-task links...');
+        await db.delete(evidenceTasks);
+        
+        console.log('💬 Deleting evidence comments...');
+        await db.delete(evidenceComments);
+        
+        console.log('📝 Deleting evidence versions...');
+        await db.delete(evidenceVersions);
+        
+        // Finally, delete the main evidence records
+        console.log('📄 Deleting main evidence records...');
+        await db.delete(evidence);
+
+        // Clean up actual files from filesystem
+        let filesDeleted = 0;
+        let filesNotFound = 0;
+        
+        for (const filePath of filePaths) {
+          try {
+            const fs = await import('fs');
+            const path = await import('path');
+            
+            // Handle both relative and absolute paths
+            const fullPath = filePath.startsWith('/') 
+              ? filePath 
+              : path.join(process.cwd(), filePath);
+            
+            if (fs.existsSync(fullPath)) {
+              fs.unlinkSync(fullPath);
+              filesDeleted++;
+              console.log(`🗑️ Deleted file: ${filePath}`);
+            } else {
+              filesNotFound++;
+              console.log(`⚠️ File not found: ${filePath}`);
+            }
+          } catch (fileError) {
+            console.error(`❌ Error deleting file ${filePath}:`, fileError);
+          }
+        }
+
+        const summary = {
+          message: "All evidence successfully deleted from the system",
+          evidenceRecordsDeleted: allEvidence.length,
+          filesDeleted,
+          filesNotFound,
+          totalFilesProcessed: filePaths.length
+        };
+
+        console.log('✅ Evidence deletion completed:', summary);
+        res.json(summary);
+
+      } catch (error) {
+        console.error("❌ Error deleting all evidence:", error);
+        res.status(500).json({ message: "Failed to delete all evidence", error: error instanceof Error ? error.message : String(error) });
+      }
+      return;
+    }
+
+    // If not deleteAll, return the normal evidence list or error
+    res.status(400).json({ message: "Invalid request. Use ?deleteAll=true to delete all evidence." });
   });
 
   app.get('/api/evidence/:id', isAuthenticated, async (req, res) => {
