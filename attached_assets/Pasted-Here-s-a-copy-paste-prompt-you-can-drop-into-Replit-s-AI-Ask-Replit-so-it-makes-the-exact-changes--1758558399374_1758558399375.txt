@@ -1,0 +1,179 @@
+Here’s a copy-paste prompt you can drop into Replit’s AI (Ask Replit) so it makes the exact changes we need.
+
+⸻
+
+PROMPT FOR REPLIT AI
+
+You are working in a full-stack app that already has Tasks with 4 sub-sections/tabs:
+	1.	task details
+	2.	controls
+	3.	evidence
+	4.	workflow
+
+Goal
+	1.	Make sure the same comment thread for a given task is visible and usable in all 4 sub-sections (so the user can comment from anywhere).
+	2.	Implement @tag mentions that notify tagged users in-app (bell/notifications list) and via email.
+	3.	Keep everything multi-tenant safe (respect organizationId/similar everywhere).
+
+Important: Detect the actual stack (ORM, file paths, component names, auth) and adapt. If something named differently, use the equivalent in this repo. Do not invent dummy paths; search first.
+
+⸻
+
+High-level plan (do this in order)
+	1.	Scan the repo
+	•	Find the existing Comments component (or create a reusable one) and where the Task detail page renders the 4 sub-sections/tabs.
+	•	Find existing comment CRUD routes on the backend.
+	•	Find existing email utility/service (e.g., SendGrid, SMTP, Nodemailer) and reuse it.
+	•	Find existing user model and how to resolve users (by id, email, username/handle).
+	•	Identify ORM (Drizzle/Prisma/TypeORM/Knex/etc.) and create the right migration(s).
+	•	If there is a mock notifications hook on the client, replace with real API calls.
+	2.	Make comments visible in all 4 sub-sections
+	•	Create or reuse a single component (e.g., CommentsThread) that takes targetType="task" and targetId=<taskId>.
+	•	Render this component in each of the 4 sub-sections (details, controls, evidence, workflow).
+	•	All 4 should point to the same task thread (same targetType/targetId), not 4 separate threads.
+	3.	@mentions parsing & resolution
+	•	When a comment is created/edited, parse mentions using a regex like /(?:^|\s)@([A-Za-z0-9._-]+)/g.
+	•	Resolve each handle to a user by handle, username, or the left part of email (repo dependent).
+	•	Produce a list of mentioned user IDs (ignore the author and duplicates).
+	•	If a mention can’t be resolved, skip it safely.
+	4.	In-app notifications (database + API)
+	•	Add a notifications table/model with fields (adapt names/types to ORM):
+	•	id (pk), organizationId, userId, type (string, e.g. 'comment'),
+title (text), message (text), actionUrl (text), isRead (boolean, default false), createdAt (timestamp default now).
+	•	Index on (userId, createdAt desc).
+	•	Create a backend router /api/notifications with:
+	•	GET /api/notifications?cursor=<id>&limit=<n>&unreadOnly=<bool> → returns { items, nextCursor } ordered by id desc, filtered to current user and current org.
+	•	PATCH /api/notifications/:id/read → marks as read (ownership/org-check).
+	•	POST /api/notifications/mark-all-read → marks all user’s notifications read in this org.
+	•	Auth-protect all routes.
+	5.	Create notifications on comment create/edit
+	•	On successful create or edit of a comment:
+	•	Determine recipients = mentioned users ∪ subscribers/followers of this thread − author − duplicates − users outside the org.
+	•	Insert a notification row per recipient:
+	•	type: 'comment'
+	•	title: e.g., "New comment on task #<id>" or "Comment edited on task #<id>"
+	•	message: a short preview of the comment (truncate ~180 chars)
+	•	actionUrl: deep link to the task detail route with the correct tab or anchor (e.g., /tasks/<taskId>?tab=details#comments)
+	•	isRead: false
+	•	(Optional but recommended) Auto-subscribe mentioned users to the thread for future updates if your schema supports subscriptions/followers.
+	6.	Email notifications for @mentions
+	•	Reuse the project’s email service.
+	•	For each mentioned recipient (only; not all subscribers), send an email:
+	•	Subject: You were mentioned in a comment on Task #<id>
+	•	Body: include author, snippet, and a deep link (APP_BASE_URL + actionUrl).
+	•	Read email sender/keys from env (e.g., SENDGRID_API_KEY, SMTP_*, FROM_EMAIL, FROM_NAME, APP_BASE_URL).
+	•	Fail gracefully if email is misconfigured (still create in-app notification).
+	7.	Client: notifications provider + bell UI
+	•	Replace any mock notifications provider/hook with real API calls to /api/notifications.
+	•	Show unread count as a badge on the bell icon.
+	•	List notifications in a dropdown/panel with time, title, message, and on click navigate to actionUrl.
+	•	Add “Mark all as read”.
+	•	Implement lightweight polling (every 30s) for now. If the project already has WebSockets/SSE, optionally wire a broadcast later (not required now).
+	8.	Security & multi-tenant checks
+	•	Always constrain by organizationId in DB reads/writes of comments and notifications.
+	•	Validate the authenticated user (e.g., from session/JWT) and ensure they only access their notifications.
+	•	Never leak other org data.
+	9.	Migrations & seed
+	•	Add the notifications table migration(s).
+	•	Provide a tiny seed or unit test that inserts a sample notification for the current user to verify the UI.
+
+⸻
+
+Concrete deliverables (acceptance criteria)
+	•	The same task comment thread is visible and functional in each of the 4 tabs: task details, controls, evidence, workflow.
+	•	Typing @username in a comment shows a mention picker (if it exists) or still processes on submit; on submit, mentioned users are resolved server-side.
+	•	On creating or editing a comment, each mentioned user and each subscriber (excluding author) gets an in-app notification row inserted.
+	•	The app exposes:
+	•	GET /api/notifications (cursor pagination, unread filtering),
+	•	PATCH /api/notifications/:id/read,
+	•	POST /api/notifications/mark-all-read.
+	•	Client shows a bell icon with unread count, a list, and can mark read / mark all read, and clicking a notification navigates to the task.
+	•	Emails are sent to mentioned users (not all subscribers) with deep links.
+	•	Works across orgs/tenants; no cross-org access.
+	•	All new code covered by basic unit/integration tests where the project already has test infra.
+
+⸻
+
+Suggested code shapes (adapt to this repo)
+
+Notifications table (example for Drizzle – adjust to your ORM)
+
+// shared/schema.ts (or your model file)
+export const notifications = pgTable('notifications', {
+  id: serial('id').primaryKey(),
+  organizationId: varchar('organization_id', { length: 64 }).notNull(),
+  userId: varchar('user_id', { length: 128 }).notNull(),
+  type: varchar('type', { length: 32 }).notNull(), // 'comment'
+  title: text('title'),
+  message: text('message'),
+  actionUrl: text('action_url'),
+  isRead: boolean('is_read').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+Migration (SQL):
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id SERIAL PRIMARY KEY,
+  organization_id VARCHAR(64) NOT NULL,
+  user_id VARCHAR(128) NOT NULL,
+  type VARCHAR(32) NOT NULL,
+  title TEXT,
+  message TEXT,
+  action_url TEXT,
+  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_created
+  ON notifications (user_id, created_at DESC);
+
+Backend route (Express-style; adapt auth & db)
+	•	GET /api/notifications with cursor, limit, unreadOnly
+	•	PATCH /api/notifications/:id/read
+	•	POST /api/notifications/mark-all-read
+
+Creating notifications on comment create/edit
+	•	Compute recipients = mentioned ∪ subscribers − author.
+	•	Insert notifications + send emails to mentioned recipients.
+	•	Build actionUrl like /tasks/<taskId>?tab=details#comments (use the actual route).
+
+Client hook/provider
+	•	React Query (or your fetch layer) calling /api/notifications every 30s.
+	•	Expose notifications, unreadCount, markAsRead(id), markAllAsRead().
+	•	Replace any mock notifications with this provider.
+
+⸻
+
+ENV & config
+
+Ensure these are set (or equivalent for your email provider):
+	•	APP_BASE_URL=https://<your-domain>
+	•	FROM_EMAIL=notifications@<your-domain>
+	•	FROM_NAME=Ambersand (or your app)
+	•	One of:
+	•	SENDGRID_API_KEY=... (if SendGrid)
+	•	or SMTP: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_SECURE
+
+Email send failures must not break comment creation.
+
+⸻
+
+Tests to run (have the AI generate if test infra exists)
+	1.	Unit test for mention parsing and user resolution.
+	2.	Integration test: POST comment with @someone → expect:
+	•	notifications inserted for mentioned (and subscribers),
+	•	email function called for mentioned,
+	•	author not notified.
+	3.	API test: list notifications, mark read, mark all read.
+	4.	E2E/manual: open a task, in each of the 4 tabs add a comment, confirm the same thread appears and functions.
+
+⸻
+
+Non-goals (skip for now)
+	•	WebSockets/SSE live updates (use polling).
+	•	Digest preferences or email frequency settings.
+	•	Complex per-user notification rules.
+
+⸻
+
+Make the changes, update code and migrations, and then print a short summary of the files you created/updated and how to run the migrations + where to set env vars.
