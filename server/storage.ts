@@ -18,6 +18,7 @@ import {
   evidenceComments,
   evidenceControls,
   evidenceTasks,
+  evidenceProjectRegulationControls,
   roles,
   permissions,
   rolePermissions,
@@ -153,6 +154,11 @@ export interface IStorage {
   getEccControl(id: number): Promise<EccControl | undefined>;
   getEccControlByCode(code: string): Promise<EccControl | undefined>;
   getControlLinkedEvidence(controlId: number): Promise<(Evidence & { comments: (EvidenceComment & { user: User })[], versions: EvidenceVersion[] })[]>;
+  
+  // Evidence-Control direct relationship operations
+  linkEvidenceToControl(evidenceId: number, projectRegulationControlId: number): Promise<void>;
+  unlinkEvidenceFromControl(evidenceId: number, projectRegulationControlId: number): Promise<void>;
+  getEvidenceControlLinks(evidenceId: number): Promise<{ id: number; projectRegulationControlId: number }[]>;
   
   // Compliance Assessment operations
   getComplianceAssessments(organizationId?: string): Promise<ComplianceAssessment[]>;
@@ -1029,17 +1035,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getControlLinkedEvidence(controlId: number): Promise<(Evidence & { comments: (EvidenceComment & { user: User })[], versions: EvidenceVersion[] })[]> {
-    // Get evidence linked to this control through evidenceControls junction table
-    const evidenceControlsResult = await db
+    // Get evidence linked to this control through modern evidenceProjectRegulationControls junction table
+    // First find all project regulation controls for this controlId
+    const projectControls = await db
+      .select({ id: projectRegulationControls.id })
+      .from(projectRegulationControls)
+      .where(eq(projectRegulationControls.controlId, controlId));
+    
+    if (projectControls.length === 0) {
+      console.log(`📋 No project controls found for controlId ${controlId}`);
+      return [];
+    }
+    
+    const projectControlIds = projectControls.map(pc => pc.id);
+    
+    // Get evidence linked through the modern junction table
+    const evidenceResults = await db
       .select()
-      .from(evidenceControls)
-      .innerJoin(evidence, eq(evidenceControls.evidenceId, evidence.id))
-      .where(eq(evidenceControls.eccControlId, controlId))
+      .from(evidenceProjectRegulationControls)
+      .innerJoin(evidence, eq(evidenceProjectRegulationControls.evidenceId, evidence.id))
+      .where(inArray(evidenceProjectRegulationControls.projectRegulationControlId, projectControlIds))
       .orderBy(desc(evidence.createdAt));
 
     const evidenceList: (Evidence & { comments: (EvidenceComment & { user: User })[], versions: EvidenceVersion[] })[] = [];
 
-    for (const row of evidenceControlsResult) {
+    for (const row of evidenceResults) {
       const evidenceItem = row.evidence;
       
       // Get comments for this evidence
@@ -1056,6 +1076,34 @@ export class DatabaseStorage implements IStorage {
     }
 
     return evidenceList;
+  }
+  
+  async linkEvidenceToControl(evidenceId: number, projectRegulationControlId: number): Promise<void> {
+    try {
+      await db.insert(evidenceProjectRegulationControls)
+        .values({ evidenceId, projectRegulationControlId })
+        .onConflictDoNothing();
+    } catch (error) {
+      console.error('Error linking evidence to control:', error);
+      throw error;
+    }
+  }
+  
+  async unlinkEvidenceFromControl(evidenceId: number, projectRegulationControlId: number): Promise<void> {
+    await db.delete(evidenceProjectRegulationControls)
+      .where(and(
+        eq(evidenceProjectRegulationControls.evidenceId, evidenceId),
+        eq(evidenceProjectRegulationControls.projectRegulationControlId, projectRegulationControlId)
+      ));
+  }
+  
+  async getEvidenceControlLinks(evidenceId: number): Promise<{ id: number; projectRegulationControlId: number }[]> {
+    return await db.select({
+      id: evidenceProjectRegulationControls.id,
+      projectRegulationControlId: evidenceProjectRegulationControls.projectRegulationControlId
+    })
+    .from(evidenceProjectRegulationControls)
+    .where(eq(evidenceProjectRegulationControls.evidenceId, evidenceId));
   }
 
   // Compliance Assessment operations

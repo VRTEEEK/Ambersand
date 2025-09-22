@@ -223,9 +223,10 @@ export async function getComplianceReportData(params: {
           console.log(`📋 Project regulation control not found for control ${controlData?.code || 'UNKNOWN'}`);
         }
 
-        // 2. Get evidence directly connected to controls (via eccControlId mapping to regulation controls)
+        // 2. Get evidence directly connected to controls (legacy eccControlId approach - DEPRECATED, kept for backward compatibility only)
         try {
-          // Map regulation control back to ECC controls by code/clause and then find evidence
+          // This approach is deprecated but kept for existing evidence with eccControlId
+          // Only look for evidence where eccControlId matches the regulation control ID directly
           const directControlEvidence = await db.select({
             id: evidence.id,
             title: evidence.title,
@@ -236,15 +237,14 @@ export async function getComplianceReportData(params: {
             description: evidence.description
           })
             .from(evidence)
-            .innerJoin(eccControls, eq(evidence.eccControlId, eccControls.id))
             .where(and(
               eq(evidence.projectId, projectId),
-              eq(eccControls.code, controlData.code) // Match by control code/clause
+              eq(evidence.eccControlId, controlId) // Direct match with regulation control ID
             ));
 
           evidenceFromDirectControl.push(...directControlEvidence);
         } catch (directError) {
-          console.log(`📋 No direct evidence found for control ${controlData?.code || 'UNKNOWN'} via eccControlId mapping`);
+          console.log(`📋 No legacy evidence found for control ${controlData?.code || 'UNKNOWN'} via eccControlId`);
         }
 
         // 3. Get evidence through modern task-based system: Control → Tasks → Evidence

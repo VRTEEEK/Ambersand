@@ -1946,6 +1946,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Direct Evidence-Control Relationship routes (modern system)
+  app.post('/api/evidence/:id/link-control', isAuthenticated, requireEditEvidence, async (req, res) => {
+    try {
+      const evidenceId = parseInt(req.params.id);
+      const { projectRegulationControlId } = req.body;
+      
+      if (!projectRegulationControlId) {
+        return res.status(400).json({ message: "projectRegulationControlId is required" });
+      }
+      
+      await storage.linkEvidenceToControl(evidenceId, projectRegulationControlId);
+      res.status(201).json({ message: "Evidence linked to control successfully" });
+    } catch (error) {
+      console.error("Error linking evidence to control:", error);
+      res.status(500).json({ message: "Failed to link evidence to control" });
+    }
+  });
+
+  app.delete('/api/evidence/:id/link-control', isAuthenticated, requireEditEvidence, async (req, res) => {
+    try {
+      const evidenceId = parseInt(req.params.id);
+      const { projectRegulationControlId } = req.body;
+      
+      if (!projectRegulationControlId) {
+        return res.status(400).json({ message: "projectRegulationControlId is required" });
+      }
+      
+      await storage.unlinkEvidenceFromControl(evidenceId, projectRegulationControlId);
+      res.json({ message: "Evidence unlinked from control successfully" });
+    } catch (error) {
+      console.error("Error unlinking evidence from control:", error);
+      res.status(500).json({ message: "Failed to unlink evidence from control" });
+    }
+  });
+
+  app.get('/api/evidence/:id/control-links', isAuthenticated, requireViewEvidence, async (req, res) => {
+    try {
+      const evidenceId = parseInt(req.params.id);
+      const links = await storage.getEvidenceControlLinks(evidenceId);
+      res.json(links);
+    } catch (error) {
+      console.error("Error fetching evidence control links:", error);
+      res.status(500).json({ message: "Failed to fetch evidence control links" });
+    }
+  });
+
   // Custom Regulations routes
   app.get('/api/custom-regulations', isAuthenticated, async (req: any, res) => {
     try {
