@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { projects, projectRegulationControls, regulationControls, regulations } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { projects, projectRegulationControls, regulationControls, regulations, evidence, evidenceTasks, tasks, taskRegulationControls, evidenceControls, eccControls } from "@shared/schema";
+import { eq, and, inArray, or } from "drizzle-orm";
 import path from "path";
 import { existsSync } from "fs";
 
@@ -180,10 +180,73 @@ export async function getComplianceReportData(params: {
 
       let controlEvidence: any[] = [];
       try {
-        // Modern regulation controls - evidence system migration pending
-        // Until evidence table is updated to work with regulation controls, we skip evidence
-        controlEvidence = [];
-        console.log(`🔍 Control ${controlData?.code || 'UNKNOWN'}: Found ${controlEvidence.length} evidence files (evidence system migration pending for regulation controls)`);
+        // Get evidence through modern task-based system and legacy direct connections
+        const evidenceFromTasks: any[] = [];
+        const evidenceFromLegacy: any[] = [];
+
+        // 1. Get evidence through modern task-based system: Control → Tasks → Evidence
+        const controlTasks = await db.select({ id: tasks.id })
+          .from(tasks)
+          .innerJoin(taskRegulationControls, eq(tasks.id, taskRegulationControls.taskId))
+          .where(and(
+            eq(taskRegulationControls.controlId, controlId),
+            eq(tasks.projectId, projectId)
+          ));
+
+        if (controlTasks.length > 0) {
+          const taskIds = controlTasks.map(t => t.id);
+          
+          // Get evidence connected to these tasks
+          const taskEvidence = await db.select({
+            id: evidence.id,
+            title: evidence.title,
+            fileName: evidence.fileName,
+            fileType: evidence.fileType,
+            fileSize: evidence.fileSize,
+            filePath: evidence.filePath,
+            description: evidence.description
+          })
+            .from(evidence)
+            .innerJoin(evidenceTasks, eq(evidence.id, evidenceTasks.evidenceId))
+            .where(inArray(evidenceTasks.taskId, taskIds));
+
+          evidenceFromTasks.push(...taskEvidence);
+        }
+
+        // 2. Get legacy evidence through direct control connections (if any exist)
+        try {
+          // Check if there are legacy ECC controls that map to this regulation control
+          const legacyEvidence = await db.select({
+            id: evidence.id,
+            title: evidence.title,
+            fileName: evidence.fileName,
+            fileType: evidence.fileType,
+            fileSize: evidence.fileSize,
+            filePath: evidence.filePath,
+            description: evidence.description
+          })
+            .from(evidence)
+            .innerJoin(evidenceControls, eq(evidence.id, evidenceControls.evidenceId))
+            .innerJoin(eccControls, eq(evidenceControls.eccControlId, eccControls.id))
+            // Try to match by control code/clause if there's a relationship
+            .where(eq(eccControls.code, controlData.code))
+            .limit(50); // Reasonable limit to avoid performance issues
+
+          evidenceFromLegacy.push(...legacyEvidence);
+        } catch (legacyError) {
+          // Legacy evidence fetch failed, continue without it
+          console.log(`📋 No legacy evidence found for control ${controlData?.code || 'UNKNOWN'}`);
+        }
+
+        // 3. Combine and deduplicate evidence by ID
+        const allEvidence = [...evidenceFromTasks, ...evidenceFromLegacy];
+        const uniqueEvidenceMap = new Map();
+        allEvidence.forEach(ev => {
+          uniqueEvidenceMap.set(ev.id, ev);
+        });
+        controlEvidence = Array.from(uniqueEvidenceMap.values());
+
+        console.log(`🔍 Control ${controlData?.code || 'UNKNOWN'}: Found ${controlEvidence.length} unique evidence files (${evidenceFromTasks.length} from tasks, ${evidenceFromLegacy.length} from legacy)`);
       } catch (error) {
         console.error(`❌ Error fetching evidence for control ${controlData?.code || 'UNKNOWN'}:`, error);
         // Continue with empty evidence array
