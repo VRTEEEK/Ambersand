@@ -83,8 +83,10 @@ export async function getComplianceReportData(params: {
 
   // Get project controls with their status and control details
   let filteredControls;
+  let isUsingLegacyControls = false;
   try {
-    const modernControlsQuery = db.select({
+    // First try modern regulation controls
+    let modernControlsQuery = db.select({
       id: projectRegulationControls.id,
       controlId: projectRegulationControls.controlId,
       status: projectRegulationControls.status,
@@ -95,20 +97,79 @@ export async function getComplianceReportData(params: {
       .from(projectRegulationControls)
       .innerJoin(regulationControls, eq(projectRegulationControls.controlId, regulationControls.id))
       .where(eq(projectRegulationControls.projectId, projectId));
+    
+    if (regulationCode) {
+      modernControlsQuery = modernControlsQuery.where(
+        and(
+          eq(projectRegulationControls.projectId, projectId),
+          eq(regulationControls.regulationCode, regulationCode)
+        )
+      );
+    }
 
     const modernControls = await modernControlsQuery;
+    
+    if (modernControls.length > 0) {
+      // Use modern controls system
+      console.log(`📋 Using modern regulation controls: Found ${modernControls.length} controls for project`);
+      isUsingLegacyControls = false;
+      filteredControls = modernControls.map(mc => ({
+        id: mc.id,
+        controlId: mc.controlId,
+        status: mc.status,
+        assignedTo: mc.assignedTo,
+        updatedAt: mc.updatedAt,
+        control: {
+          // Map regulation control fields to expected format
+          code: mc.control.clause,
+          titleEn: mc.control.mainControlEn,
+          titleAr: mc.control.mainControlAr,
+          controlEn: mc.control.descriptionEn,
+          controlAr: mc.control.descriptionAr,
+          domainEn: mc.control.mainCategoryEn,
+          domainAr: mc.control.mainCategoryAr,
+          subdomainEn: mc.control.subCategoryEn,
+          subdomainAr: mc.control.subCategoryAr
+        }
+      }));
+    } else {
+      // Fallback to legacy projectControls with eccControls
+      console.log(`📋 No modern controls found, trying legacy projectControls system...`);
+      
+      // Legacy controls are only ECC controls, so only use if regulationCode is ECC or not specified
+      if (!regulationCode || regulationCode.includes('ECC') || regulationCode === 'NCA-ECC-2024') {
+        isUsingLegacyControls = true;
+        const legacyControlsQuery = db.select({
+          id: projectControls.id,
+          controlId: projectControls.eccControlId,
+          status: projectControls.status,
+          assignedTo: projectControls.assignedTo,
+          updatedAt: projectControls.updatedAt,
+          control: eccControls
+        })
+          .from(projectControls)
+          .innerJoin(eccControls, eq(projectControls.eccControlId, eccControls.id))
+          .where(eq(projectControls.projectId, projectId));
 
-    // Map modern controls to format expected by the rest of the function
-    filteredControls = modernControls.map(mc => ({
-      id: mc.id,
-      controlId: mc.controlId,
-      status: mc.status,
-      assignedTo: mc.assignedTo,
-      updatedAt: mc.updatedAt,
-      control: mc.control
-    }));
+        const legacyControls = await legacyControlsQuery;
+        console.log(`📋 Using legacy ECC controls: Found ${legacyControls.length} controls for project`);
+        
+        filteredControls = legacyControls.map(lc => ({
+          id: lc.id,
+          controlId: lc.controlId,
+          status: lc.status,
+          assignedTo: lc.assignedTo,
+          updatedAt: lc.updatedAt,
+          control: lc.control // ECC controls already have the expected field names
+        }));
+      } else {
+        // Requested regulation is not ECC, and we only have legacy ECC controls - no match
+        console.log(`📋 Requested regulation '${regulationCode}' but project only has legacy ECC controls - returning empty result`);
+        filteredControls = [];
+      }
+    }
 
-    console.log(`📋 Found ${filteredControls.length} controls for project`);
+    console.log(`📋 Total filtered controls: ${filteredControls.length}`);
   } catch (error) {
     console.error(`❌ Database error while fetching project controls:`, error);
     throw new Error(`Failed to retrieve project controls: ${error instanceof Error ? error.message : 'Unknown database error'}`);
@@ -133,11 +194,21 @@ export async function getComplianceReportData(params: {
 
       let controlEvidence: any[] = [];
       try {
-        controlEvidence = await db.select()
-          .from(evidence)
-          .where(eq(evidence.eccControlId, controlId!));
-
-        console.log(`🔍 Control ${controlData?.code || 'UNKNOWN'}: Found ${controlEvidence.length} evidence files`);
+        // For legacy controls, we can fetch evidence by eccControlId
+        // For modern regulation controls, evidence system needs migration so we skip for now
+        if (isUsingLegacyControls && controlId) {
+          // This is legacy ECC control - fetch evidence by eccControlId
+          controlEvidence = await db.select()
+            .from(evidence)
+            .where(eq(evidence.eccControlId, controlId!));
+          
+          console.log(`🔍 Control ${controlData?.code || 'UNKNOWN'}: Found ${controlEvidence.length} evidence files`);
+        } else {
+          // This is modern regulation control - evidence system migration pending
+          controlEvidence = [];
+          console.log(`🔍 Control ${controlData?.code || 'UNKNOWN'}: Found ${controlEvidence.length} evidence files (evidence migration pending for regulation controls)`);
+        }
+        
         if (controlEvidence.length > 0) {
           controlEvidence.forEach(ev => {
             console.log(`  📄 Evidence: ${ev.title} (${ev.fileName}) at ${ev.filePath}`);
