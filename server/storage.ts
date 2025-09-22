@@ -862,16 +862,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Evidence Controls operations (many-to-many)
-  async getEvidenceControls(evidenceId: number): Promise<(EvidenceControl & { control: RegulationControl })[]> {
+  async getEvidenceControls(evidenceId: number): Promise<(EvidenceControl & { eccControl: EccControl })[]> {
     const result = await db
       .select()
       .from(evidenceControls)
-      .innerJoin(regulationControls, eq(evidenceControls.controlId, regulationControls.id))
+      .innerJoin(eccControls, eq(evidenceControls.eccControlId, eccControls.id))
       .where(eq(evidenceControls.evidenceId, evidenceId));
 
     return result.map(row => ({
       ...row.evidence_controls,
-      control: row.regulation_controls,
+      eccControl: row.ecc_controls,
     }));
   }
 
@@ -880,7 +880,7 @@ export class DatabaseStorage implements IStorage {
     
     const values = controlIds.map(controlId => ({
       evidenceId,
-      controlId: controlId,
+      eccControlId: controlId,
     }));
     
     await db.insert(evidenceControls).values(values);
@@ -894,7 +894,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(evidenceControls.evidenceId, evidenceId),
-          sql`${evidenceControls.controlId} = ANY(${controlIds})`
+          sql`${evidenceControls.eccControlId} = ANY(${controlIds})`
         )
       );
   }
