@@ -453,7 +453,7 @@ export default function ProjectDetail() {
                 {language === 'ar' && project.descriptionAr ? project.descriptionAr : project.description}
               </p>
               <div className="flex items-center gap-2 mt-2">
-                <Badge variant="secondary">ECC</Badge>
+                <Badge variant="secondary">{(project as any)?.regulation?.code?.toUpperCase() || 'REGULATION'}</Badge>
                 <span className="text-sm text-gray-500">
                   {language === 'ar' ? 'تم الإنشاء:' : 'Created:'} {new Date(project.createdAt).toLocaleDateString()}
                 </span>
