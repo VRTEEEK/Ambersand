@@ -1151,7 +1151,7 @@ export default function ProjectDetail() {
           onOpenChange={setExportDialogOpen}
           projectId={parseInt(id)}
           projectName={project.name}
-          regulationCode="ecc"
+          regulationCode={(project as any)?.regulation?.code || 'ecc'}
         />
       </div>
     </AppLayout>

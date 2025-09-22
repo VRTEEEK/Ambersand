@@ -72,7 +72,7 @@ import type {
   InsertUserProjectRole,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, like, or, sql, count, inArray } from "drizzle-orm";
+import { eq, desc, and, like, or, sql, count, inArray, getTableColumns } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -438,8 +438,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProject(id: number): Promise<Project | undefined> {
-    const [project] = await db.select().from(projects).where(eq(projects.id, id));
-    return project;
+    const [result] = await db
+      .select({
+        ...getTableColumns(projects),
+        regulation: {
+          id: regulations.id,
+          code: regulations.code,
+          nameEn: regulations.nameEn,
+          nameAr: regulations.nameAr,
+        }
+      })
+      .from(projects)
+      .leftJoin(regulations, eq(projects.regulationId, regulations.id))
+      .where(eq(projects.id, id));
+    
+    return result;
   }
 
   async createProject(project: InsertProject): Promise<Project> {
