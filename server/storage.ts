@@ -653,16 +653,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Task Controls operations (many-to-many)
-  async getTaskControls(taskId: number): Promise<(TaskControl & { control: RegulationControl })[]> {
+  async getTaskControls(taskId: number): Promise<(TaskControl & { eccControl: EccControl })[]> {
     const result = await db
       .select()
       .from(taskControls)
-      .innerJoin(regulationControls, eq(taskControls.controlId, regulationControls.id))
+      .innerJoin(eccControls, eq(taskControls.eccControlId, eccControls.id))
       .where(eq(taskControls.taskId, taskId));
 
     return result.map(row => ({
       ...row.task_controls,
-      control: row.regulation_controls,
+      eccControl: row.ecc_controls,
     }));
   }
 
