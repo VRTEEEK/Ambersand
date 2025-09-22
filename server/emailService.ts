@@ -11,6 +11,7 @@ export interface EmailOptions {
   dynamicTemplateData?: Record<string, any>;
   fromEmailOverride?: string;
   fromNameOverride?: string;
+  bcc?: string | string[];
 }
 
 export interface EmailResult {
@@ -50,6 +51,14 @@ async function sendWithSendgrid(opts: EmailOptions): Promise<EmailResult> {
       from: { email: fromEmail, name: fromName },
       to: toList, // array supported by @sendgrid/mail
     };
+
+    // Add BCC if provided
+    if (opts.bcc) {
+      const bccList = normTo(opts.bcc);
+      if (bccList.length) {
+        msg.bcc = bccList;
+      }
+    }
 
     if (opts.templateId) {
       msg.templateId = opts.templateId;
