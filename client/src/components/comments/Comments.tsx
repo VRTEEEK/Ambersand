@@ -168,17 +168,29 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
       const textBeforeCursor = value.slice(0, cursorPos);
       const lastAtIndex = textBeforeCursor.lastIndexOf('@');
       
+      console.log('📝 Text change debug:', {
+        value,
+        cursorPos,
+        textBeforeCursor,
+        lastAtIndex,
+        hasTextarea: !!textarea
+      });
+      
       if (lastAtIndex !== -1) {
         const afterAt = textBeforeCursor.slice(lastAtIndex + 1);
+        console.log('🔍 After @ symbol:', afterAt, 'showMentions:', afterAt.length >= 0 && !afterAt.includes(' ') && !afterAt.includes('\n'));
+        
         if (!afterAt.includes(' ') && !afterAt.includes('\n')) {
           setMentionQuery(afterAt);
           setShowMentions(true);
           setCursorPosition(cursorPos);
+          console.log('✅ Showing mentions for query:', afterAt);
           return;
         }
       }
     }
     
+    console.log('❌ Hiding mentions');
     setShowMentions(false);
     setMentionQuery('');
   }, []);
@@ -249,6 +261,16 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
 
   const comments = commentsQuery.data?.items || [];
   const users = usersQuery.data?.users || [];
+  
+  // Debug mentions state
+  console.log('🎯 Mentions debug:', {
+    showMentions,
+    mentionQuery,
+    usersCount: users.length,
+    usersQueryEnabled: usersQuery.isEnabled,
+    usersQueryLoading: usersQuery.isLoading,
+    usersQueryError: usersQuery.error
+  });
 
   return (
     <div className="space-y-4">
