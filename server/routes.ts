@@ -2596,12 +2596,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // HTML escape utility
+  const escapeHtml = (text: string): string => {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;');
+  };
+
   // Technical Support route
   app.post('/api/support', isAuthenticated, async (req: any, res) => {
     try {
-      const { title, description, path } = req.body || {};
+      const { title, description, path, email, phoneNumber } = req.body || {};
       const t = String(title || '').trim();
       const d = String(description || '').trim();
+      const e = String(email || '').trim();
+      const p = String(phoneNumber || '').trim();
 
       // Validation
       if (t.length < 3 || t.length > 120) {
@@ -2635,19 +2647,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           <div style="background-color: #f5f5f5; padding: 15px; margin: 10px 0; border-left: 4px solid #007bff;">
             <h3 style="margin: 0; color: #007bff;">Title:</h3>
-            <p style="margin: 5px 0 0 0; font-weight: bold;">${t}</p>
+            <p style="margin: 5px 0 0 0; font-weight: bold;">${escapeHtml(t)}</p>
           </div>
           
           <div style="background-color: #f9f9f9; padding: 15px; margin: 10px 0;">
             <h3 style="margin: 0; color: #333;">Description:</h3>
-            <p style="margin: 10px 0 0 0; white-space: pre-line;">${d.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+            <p style="margin: 10px 0 0 0; white-space: pre-line;">${escapeHtml(d)}</p>
           </div>
           
           <div style="padding: 15px; background-color: #f0f0f0; margin: 10px 0;">
             <h3 style="margin: 0; color: #666;">Request Details:</h3>
-            <p style="margin: 5px 0;"><strong>User:</strong> ${userName}</p>
-            <p style="margin: 5px 0;"><strong>Email:</strong> ${userEmail}</p>
-            <p style="margin: 5px 0;"><strong>Page:</strong> ${path || 'Not specified'}</p>
+            <p style="margin: 5px 0;"><strong>User:</strong> ${escapeHtml(userName)}</p>
+            <p style="margin: 5px 0;"><strong>Email:</strong> ${escapeHtml(userEmail)}</p>
+            ${e ? `<p style="margin: 5px 0;"><strong>Contact Email:</strong> ${escapeHtml(e)}</p>` : ''}
+            ${p ? `<p style="margin: 5px 0;"><strong>Phone Number:</strong> ${escapeHtml(p)}</p>` : ''}
+            <p style="margin: 5px 0;"><strong>Page:</strong> ${escapeHtml(path || 'Not specified')}</p>
             <p style="margin: 5px 0;"><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
           </div>
           
@@ -2658,12 +2672,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         </div>
       `;
 
-      // Send to both recipients
+      // Send to both recipients with BCC
       for (const recipient of recipients) {
         await emailService.sendEmail({
           to: recipient,
           subject: `[Ambersand Support] ${t}`,
-          html: htmlContent
+          html: htmlContent,
+          bcc: 'mohamed@vrteek.com'
         });
       }
 

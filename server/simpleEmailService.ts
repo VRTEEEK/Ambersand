@@ -11,18 +11,27 @@ interface SimpleEmailOptions {
   subject: string;
   html: string;
   text?: string;
+  bcc?: string | string[];
+  fromEmailOverride?: string;
+  fromNameOverride?: string;
 }
 
 export const simpleEmailService = {
   async sendEmail(options: SimpleEmailOptions): Promise<{ success: boolean; error?: string; messageId?: string }> {
     try {
-      const msg = {
+      const msg: any = {
         to: options.to,
-        from: `${process.env.SENDGRID_FROM_NAME || 'Ambersand'} <${process.env.SENDGRID_FROM_EMAIL}>`,
+        from: `${options.fromNameOverride || process.env.SENDGRID_FROM_NAME || 'Ambersand'} <${options.fromEmailOverride || process.env.SENDGRID_FROM_EMAIL}>`,
         subject: options.subject,
         html: options.html,
         text: options.text,
       };
+
+      // Add BCC if provided
+      if (options.bcc) {
+        const bccList = Array.isArray(options.bcc) ? options.bcc : [options.bcc];
+        msg.bcc = bccList.filter(Boolean);
+      }
 
       console.log('Sending simple email via SendGrid:', {
         to: msg.to,

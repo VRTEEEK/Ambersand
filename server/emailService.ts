@@ -95,6 +95,7 @@ async function sendWithSmtp(opts: EmailOptions): Promise<EmailResult> {
     subject: opts.subject || 'No Subject',
     html: opts.html || '',
     text: opts.text,
+    bcc: opts.bcc,
     // templateId/dynamicTemplateData are ignored by SMTP; if you need templates with SMTP,
     // render them before calling or add a facade (we can do this later).
     fromEmailOverride: opts.fromEmailOverride,
