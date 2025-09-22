@@ -307,15 +307,16 @@ export async function getComplianceReportData(params: {
           console.log(`📋 No legacy evidence found for control ${controlData?.code || 'UNKNOWN'}`);
         }
 
-        // 5. Combine and deduplicate evidence by ID
-        const allEvidence = [...evidenceFromProjectControl, ...evidenceFromDirectControl, ...evidenceFromTasks, ...evidenceFromLegacy];
+        // 5. Combine and deduplicate evidence by ID - EXCLUDE task-based evidence to prevent duplication
+        // Only use direct evidence-control connections to prevent evidence appearing for all controls in a task
+        const allEvidence = [...evidenceFromProjectControl, ...evidenceFromDirectControl];
         const uniqueEvidenceMap = new Map();
         allEvidence.forEach(ev => {
           uniqueEvidenceMap.set(ev.id, ev);
         });
         controlEvidence = Array.from(uniqueEvidenceMap.values());
 
-        console.log(`🔍 Control ${controlData?.code || 'UNKNOWN'}: Found ${controlEvidence.length} unique evidence files (${evidenceFromProjectControl.length} from project controls, ${evidenceFromDirectControl.length} from direct control, ${evidenceFromTasks.length} from tasks, ${evidenceFromLegacy.length} from legacy)`);
+        console.log(`🔍 Control ${controlData?.code || 'UNKNOWN'}: Found ${controlEvidence.length} unique evidence files (${evidenceFromProjectControl.length} from project controls, ${evidenceFromDirectControl.length} from direct control, EXCLUDED ${evidenceFromTasks.length} from tasks to prevent duplication)`);
       } catch (error) {
         console.error(`❌ Error fetching evidence for control ${controlData?.code || 'UNKNOWN'}:`, error);
         // Continue with empty evidence array
