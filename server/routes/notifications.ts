@@ -41,12 +41,13 @@ router.get("/", isAuthenticated, async (req: any, res) => {
 router.get("/unread-count", isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user?.claims?.sub || req.user?.id;
+    const organizationId = req.user?.claims?.org || 'default';
 
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const count = await storage.getUnreadNotificationCount(userId);
+    const count = await storage.getUnreadNotificationCount(userId, organizationId);
     res.json({ count });
   } catch (error) {
     console.error("Error fetching unread count:", error);

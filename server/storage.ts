@@ -1548,14 +1548,20 @@ export class DatabaseStorage implements IStorage {
       .where(eq(notifications.userId, userId));
   }
 
-  async getUnreadNotificationCount(userId: string): Promise<number> {
+  async getUnreadNotificationCount(userId: string, organizationId?: string): Promise<number> {
+    const conditions = [
+      eq(notifications.userId, userId),
+      eq(notifications.isRead, false)
+    ];
+    
+    if (organizationId) {
+      conditions.push(eq(notifications.organizationId, organizationId));
+    }
+    
     const [result] = await db
       .select({ count: count() })
       .from(notifications)
-      .where(and(
-        eq(notifications.userId, userId),
-        eq(notifications.isRead, false)
-      ));
+      .where(and(...conditions));
     return result.count;
   }
 }
