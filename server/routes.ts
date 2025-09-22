@@ -2701,7 +2701,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const evidenceData = {
             taskId: taskId || undefined,
             projectId: projectId || undefined,
-            eccControlId: controlId || undefined,
+            eccControlId: controlId || undefined, // Keep for backward compatibility
             title: file.originalname,
             titleAr: file.originalname,
             fileName: file.originalname,
@@ -2716,14 +2716,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log('Creating evidence record:', evidenceData);
           const evidence = await storage.createEvidence(evidenceData);
           
-          // Associate evidence with control if provided
-          if (controlId) {
-            await storage.addControlsToEvidence(evidence.id, [controlId]);
-          }
-          
-          // Associate evidence with task if provided
-          if (taskId) {
-            await storage.addTasksToEvidence(evidence.id, [taskId]);
+          // MODERN SYSTEM: Link evidence to project regulation controls
+          if (taskId && projectId) {
+            try {
+              // Get task regulation controls to find which controls this evidence should be linked to
+              const taskControls = await db.select({ controlId: taskRegulationControls.controlId })
+                .from(taskRegulationControls)
+                .where(eq(taskRegulationControls.taskId, taskId));
+
+              for (const trc of taskControls) {
+                // Find the project regulation control ID
+                const projectRegulationControl = await db.select({ id: projectRegulationControls.id })
+                  .from(projectRegulationControls)
+                  .where(and(
+                    eq(projectRegulationControls.projectId, projectId),
+                    eq(projectRegulationControls.controlId, trc.controlId)
+                  ))
+                  .limit(1);
+
+                if (projectRegulationControl.length > 0) {
+                  // Link evidence to the modern regulation controls system
+                  await storage.linkEvidenceToControl(evidence.id, projectRegulationControl[0].id);
+                  console.log(`🔗 Linked evidence ${evidence.id} to project regulation control ${projectRegulationControl[0].id}`);
+                }
+              }
+            } catch (linkError) {
+              console.log('⚠️ Could not link evidence to modern regulation controls:', linkError);
+              // Fallback to legacy system if modern linking fails
+              if (controlId) {
+                await storage.addControlsToEvidence(evidence.id, [controlId]);
+                console.log(`🔗 Fallback: Linked evidence ${evidence.id} to legacy ECC control ${controlId}`);
+              }
+            }
+          } else if (controlId && projectId) {
+            // Direct control linking when controlId is provided
+            try {
+              const projectRegulationControl = await db.select({ id: projectRegulationControls.id })
+                .from(projectRegulationControls)
+                .where(and(
+                  eq(projectRegulationControls.projectId, projectId),
+                  eq(projectRegulationControls.controlId, controlId)
+                ))
+                .limit(1);
+
+              if (projectRegulationControl.length > 0) {
+                await storage.linkEvidenceToControl(evidence.id, projectRegulationControl[0].id);
+                console.log(`🔗 Direct linked evidence ${evidence.id} to project regulation control ${projectRegulationControl[0].id}`);
+              } else {
+                // Fallback to legacy system
+                await storage.addControlsToEvidence(evidence.id, [controlId]);
+                console.log(`🔗 Fallback: Direct linked evidence ${evidence.id} to legacy ECC control ${controlId}`);
+              }
+            } catch (linkError) {
+              console.log('⚠️ Could not link evidence directly to regulation controls:', linkError);
+              // Fallback to legacy system
+              await storage.addControlsToEvidence(evidence.id, [controlId]);
+            }
+          } else {
+            // Fallback to legacy system when modern linking is not possible
+            if (controlId) {
+              await storage.addControlsToEvidence(evidence.id, [controlId]);
+              console.log(`🔗 Legacy: Linked evidence ${evidence.id} to ECC control ${controlId}`);
+            }
+            
+            if (taskId) {
+              await storage.addTasksToEvidence(evidence.id, [taskId]);
+              console.log(`🔗 Legacy: Linked evidence ${evidence.id} to task ${taskId}`);
+            }
           }
           
           // Add comment if provided
