@@ -221,7 +221,7 @@ export async function getComplianceReportData(params: {
           console.log(`📋 Project regulation control not found for control ${controlData?.code || 'UNKNOWN'}`);
         }
 
-        // 2. Get evidence through task-based system: Control → Tasks → Evidence (filtered by project regulation control link)
+        // 2. Get evidence through task-based system: Control → Tasks → Evidence (with fallback for legacy evidence)
         try {
           const controlTasks = await db.select({ id: tasks.id })
             .from(tasks)
@@ -244,26 +244,54 @@ export async function getComplianceReportData(params: {
               .limit(1);
 
             if (projectRegulationControl.length > 0) {
-              // Get evidence connected to these tasks AND explicitly linked to this specific project regulation control
-              // This ensures evidence only appears for the control it was specifically uploaded to
-              const taskEvidence = await db.select({
-                id: evidence.id,
-                title: evidence.title,
-                fileName: evidence.fileName,
-                fileType: evidence.fileType,
-                fileSize: evidence.fileSize,
-                filePath: evidence.filePath,
-                description: evidence.description
-              })
-                .from(evidence)
-                .innerJoin(evidenceTasks, eq(evidence.id, evidenceTasks.evidenceId))
-                .innerJoin(evidenceProjectRegulationControls, eq(evidence.id, evidenceProjectRegulationControls.evidenceId))
-                .where(and(
-                  inArray(evidenceTasks.taskId, taskIds),
-                  eq(evidenceProjectRegulationControls.projectRegulationControlId, projectRegulationControl[0].id)
-                ));
+              // First try: Get evidence connected via modern junction table
+              try {
+                const modernTaskEvidence = await db.select({
+                  id: evidence.id,
+                  title: evidence.title,
+                  fileName: evidence.fileName,
+                  fileType: evidence.fileType,
+                  fileSize: evidence.fileSize,
+                  filePath: evidence.filePath,
+                  description: evidence.description
+                })
+                  .from(evidence)
+                  .innerJoin(evidenceTasks, eq(evidence.id, evidenceTasks.evidenceId))
+                  .innerJoin(evidenceProjectRegulationControls, eq(evidence.id, evidenceProjectRegulationControls.evidenceId))
+                  .where(and(
+                    inArray(evidenceTasks.taskId, taskIds),
+                    eq(evidenceProjectRegulationControls.projectRegulationControlId, projectRegulationControl[0].id)
+                  ));
 
-              evidenceFromTasks.push(...taskEvidence);
+                evidenceFromTasks.push(...modernTaskEvidence);
+              } catch (modernError) {
+                console.log(`📋 Modern task evidence junction not available for control ${controlData?.code || 'UNKNOWN'}`);
+              }
+
+              // Second try: Get legacy evidence linked via old ECC system
+              try {
+                const legacyTaskEvidence = await db.select({
+                  id: evidence.id,
+                  title: evidence.title,
+                  fileName: evidence.fileName,
+                  fileType: evidence.fileType,
+                  fileSize: evidence.fileSize,
+                  filePath: evidence.filePath,
+                  description: evidence.description
+                })
+                  .from(evidence)
+                  .innerJoin(evidenceTasks, eq(evidence.id, evidenceTasks.evidenceId))
+                  .where(and(
+                    inArray(evidenceTasks.taskId, taskIds),
+                    eq(evidence.projectId, projectId),
+                    eq(evidence.eccControlId, controlId) // Link via legacy ECC control ID
+                  ));
+
+                evidenceFromTasks.push(...legacyTaskEvidence);
+                console.log(`📋 Found ${legacyTaskEvidence.length} legacy task evidence items for control ${controlData?.code || 'UNKNOWN'}`);
+              } catch (legacyError) {
+                console.log(`📋 No legacy task evidence found for control ${controlData?.code || 'UNKNOWN'}`);
+              }
             }
           }
         } catch (taskError) {
