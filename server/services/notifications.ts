@@ -11,6 +11,15 @@ export interface CommentNotificationData {
 
 export async function notifyComment({ comment, mentions, edited = false }: CommentNotificationData) {
   try {
+    console.log('🔔 notifyComment called with:', {
+      commentId: comment.id,
+      organizationId: comment.organizationId,
+      mentions: mentions,
+      mentionUserIds: mentions.userIds,
+      mentionUsersCount: mentions.userIds?.length || 0,
+      edited
+    });
+
     // 1) WebSocket broadcast to room `${orgId}:${targetType}:${targetId}`
     await broadcastComment(comment);
 
@@ -23,15 +32,22 @@ export async function notifyComment({ comment, mentions, edited = false }: Comme
         eq(commentSubscriptions.targetId, comment.targetId)
       ));
 
+    console.log('📫 Found subscribers:', subscribers.length);
+
     const recipientIds = new Set<string>([
       ...mentions.userIds,
       ...subscribers.map(s => s.userId)
     ]);
     
+    console.log('👥 Recipients before filtering:', Array.from(recipientIds));
+    
     // Remove comment author from recipients
     recipientIds.delete(comment.authorId);
+    
+    console.log('👥 Recipients after filtering (excluding author):', Array.from(recipientIds));
 
     if (recipientIds.size > 0) {
+      console.log('✅ Processing notifications for', recipientIds.size, 'recipients');
       // Get user emails
       const recipients = await db.select({
         id: users.id,
@@ -54,6 +70,13 @@ export async function notifyComment({ comment, mentions, edited = false }: Comme
           ? `${comment.authorName || 'Someone'} edited a comment where you were mentioned`
           : `${comment.authorName || 'Someone'} ${isMention ? 'mentioned you' : 'commented'} on ${comment.targetType} #${comment.targetId}`;
         
+        console.log(`📩 Creating notification for user ${recipient.id}:`, {
+          type: notificationType,
+          title,
+          message,
+          isMention
+        });
+        
         try {
           await db.insert(notifications).values({
             organizationId: comment.organizationId,
@@ -64,8 +87,9 @@ export async function notifyComment({ comment, mentions, edited = false }: Comme
             actionUrl: buildDeepLink(comment),
             isRead: false,
           });
+          console.log(`✅ Notification created for user ${recipient.id}`);
         } catch (dbError) {
-          console.error(`Failed to create notification for user ${recipient.id}:`, dbError);
+          console.error(`❌ Failed to create notification for user ${recipient.id}:`, dbError);
         }
       }
 
@@ -95,20 +119,26 @@ export async function notifyComment({ comment, mentions, edited = false }: Comme
             </div>
           `;
 
+          console.log(`📧 Sending email notification to ${recipient.email}`);
           try {
             await emailService.sendEmailWithRetry({
               to: recipient.email,
               subject,
               html,
             });
+            console.log(`✅ Email sent to ${recipient.email}`);
           } catch (emailError) {
-            console.error(`Failed to send comment notification to ${recipient.email}:`, emailError);
+            console.error(`❌ Failed to send comment notification to ${recipient.email}:`, emailError);
           }
         }
       }
+      
+      console.log(`🔍 Found ${recipients.length} recipient users in database`);
+    } else {
+      console.log('⚠️ No recipients to notify');
     }
   } catch (error) {
-    console.error('Error in notifyComment:', error);
+    console.error('❌ Error in notifyComment:', error);
   }
 }
 
