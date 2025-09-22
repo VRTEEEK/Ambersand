@@ -112,10 +112,10 @@ router.post("/", isAuthenticated, async (req: any, res) => {
     }
 
     // Parse mentions
-    const mentions = await parseMentions(body.body, req.user.claims?.org || '');
+    const mentions = await parseMentions(body.body, req.user.claims?.org || 'default');
 
     const [row] = await db.insert(comments).values({
-      organizationId: req.user.claims?.org || '',
+      organizationId: req.user.claims?.org || 'default',
       targetType: body.targetType,
       targetId: body.targetId,
       parentId: body.parentId ?? null,
@@ -126,7 +126,7 @@ router.post("/", isAuthenticated, async (req: any, res) => {
 
     // Auto-subscribe author
     await db.insert(commentSubscriptions).values({
-      organizationId: req.user.claims?.org || '',
+      organizationId: req.user.claims?.org || 'default',
       targetType: body.targetType,
       targetId: body.targetId,
       userId: req.user.claims?.sub || req.user.id,
@@ -189,7 +189,7 @@ router.patch("/:id", isAuthenticated, async (req: any, res) => {
     const [existing] = await db.select().from(comments)
       .where(and(
         eq(comments.id, id), 
-        eq(comments.organizationId, req.user.claims?.org || ''),
+        eq(comments.organizationId, req.user.claims?.org || 'default'),
         isNull(comments.deletedAt)
       ));
       
@@ -202,7 +202,7 @@ router.patch("/:id", isAuthenticated, async (req: any, res) => {
     }
 
     // Parse mentions
-    const mentions = await parseMentions(body, req.user.claims?.org || '');
+    const mentions = await parseMentions(body, req.user.claims?.org || 'default');
 
     const [row] = await db.update(comments).set({
       body,
@@ -228,7 +228,7 @@ router.delete("/:id", isAuthenticated, async (req: any, res) => {
     const [existing] = await db.select().from(comments)
       .where(and(
         eq(comments.id, id), 
-        eq(comments.organizationId, req.user.claims?.org || ''),
+        eq(comments.organizationId, req.user.claims?.org || 'default'),
         isNull(comments.deletedAt)
       ));
       
@@ -277,7 +277,7 @@ router.get("/search-users", isAuthenticated, async (req: any, res) => {
   
   try {
     const { q, limit } = schema.parse(req.query);
-    const organizationId = req.user.claims?.org || '';
+    const organizationId = req.user.claims?.org || 'default';
     
     const users = await searchUsersForMentions(q, organizationId, limit);
     res.json(users);
