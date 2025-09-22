@@ -2798,7 +2798,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/projects", projectsRouter);
 
   // Notifications routes
-  app.use("/api/notifications", isAuthenticated, notificationsRouter);
+  app.use("/api/notifications", notificationsRouter);
 
   // Test PDF generation endpoint (public for testing)
   app.get("/api/test-pdf-public", async (req: any, res) => {
