@@ -1,132 +1,101 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, ReactNode } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 
 export interface Notification {
-  id: string;
+  id: number;
   title: string;
-  titleAr: string;
   message: string;
-  messageAr: string;
-  type: 'task' | 'project' | 'user' | 'system';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
+  type: string;
+  actionUrl?: string;
   isRead: boolean;
   createdAt: string;
-  actionUrl?: string;
 }
 
 interface NotificationContextType {
   notifications: Notification[];
   unreadCount: number;
-  markAsRead: (id: string) => void;
+  isLoading: boolean;
+  markAsRead: (id: number) => void;
   markAllAsRead: () => void;
   refreshNotifications: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-// Mock notifications data - in a real app this would come from API
-const initialNotifications: Notification[] = [
-  {
-    id: '1',
-    title: 'New Task Assigned',
-    titleAr: 'مهمة جديدة مُسندة',
-    message: 'You have been assigned a new compliance task for ECC control 1-2-3',
-    messageAr: 'تم إسناد مهمة امتثال جديدة لك للضابط ECC 1-2-3',
-    type: 'task',
-    priority: 'high',
-    isRead: false,
-    createdAt: '2025-07-12T09:45:00Z',
-    actionUrl: '/tasks'
-  },
-  {
-    id: '2',
-    title: 'Project Status Updated',
-    titleAr: 'تم تحديث حالة المشروع',
-    message: 'Project "Cybersecurity Framework" has been marked as completed',
-    messageAr: 'تم وضع علامة على مشروع "إطار الأمن السيبراني" كمكتمل',
-    type: 'project',
-    priority: 'medium',
-    isRead: false,
-    createdAt: '2025-07-12T08:30:00Z',
-    actionUrl: '/projects'
-  },
-  {
-    id: '3',
-    title: 'New User Added',
-    titleAr: 'تم إضافة مستخدم جديد',
-    message: 'A new user "Ahmed Mohammed" has been added to your organization',
-    messageAr: 'تم إضافة مستخدم جديد "أحمد محمد" إلى منظمتك',
-    type: 'user',
-    priority: 'low',
-    isRead: true,
-    createdAt: '2025-07-12T07:15:00Z',
-    actionUrl: '/users'
-  },
-  {
-    id: '4',
-    title: 'Compliance Report Ready',
-    titleAr: 'تقرير الامتثال جاهز',
-    message: 'Your monthly compliance report is now available for download',
-    messageAr: 'تقرير الامتثال الشهري متاح الآن للتحميل',
-    type: 'system',
-    priority: 'medium',
-    isRead: true,
-    createdAt: '2025-07-12T06:00:00Z',
-    actionUrl: '/analytics'
-  },
-  {
-    id: '5',
-    title: 'Urgent: Deadline Approaching',
-    titleAr: 'عاجل: اقتراب الموعد النهائي',
-    message: 'Task "Security Assessment" is due tomorrow',
-    messageAr: 'مهمة "تقييم الأمن" مستحقة غداً',
-    type: 'task',
-    priority: 'urgent',
-    isRead: false,
-    createdAt: '2025-07-11T18:00:00Z',
-    actionUrl: '/tasks'
-  }
-];
-
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const [notifications, setNotifications] = useState<Notification[]>(() => {
-    // Load from localStorage if available
-    const stored = localStorage.getItem('notifications');
-    return stored ? JSON.parse(stored) : initialNotifications;
+  const queryClient = useQueryClient();
+
+  // Fetch notifications
+  const { data: notifications = [], isLoading } = useQuery({
+    queryKey: ['/api/notifications'],
+    staleTime: 30000, // 30 seconds
+    refetchInterval: 60000, // Refetch every minute
   });
 
-  // Save to localStorage whenever notifications change
-  useEffect(() => {
-    localStorage.setItem('notifications', JSON.stringify(notifications));
-  }, [notifications]);
+  // Fetch unread count
+  const { data: unreadData } = useQuery({
+    queryKey: ['/api/notifications/unread-count'],
+    staleTime: 30000,
+    refetchInterval: 30000, // More frequent for unread count
+  });
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const unreadCount = (unreadData as { count: number } | undefined)?.count || 0;
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification.id === id 
-          ? { ...notification, isRead: true }
-          : notification
-      )
-    );
+  // Mark as read mutation
+  const markAsReadMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`/api/notifications/${id}/read`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to mark as read');
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate both queries
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications/unread-count'] });
+    },
+  });
+
+  // Mark all as read mutation
+  const markAllAsReadMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/notifications/mark-all-read', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to mark all as read');
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate both queries
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications/unread-count'] });
+    },
+  });
+
+  const markAsRead = (id: number) => {
+    markAsReadMutation.mutate(id);
   };
 
   const markAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notification => ({ ...notification, isRead: true }))
-    );
+    markAllAsReadMutation.mutate();
   };
 
   const refreshNotifications = () => {
-    // In a real app, this would fetch from API
-    // For now, we'll keep the current notifications
-    console.log('Refreshing notifications...');
+    queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/notifications/unread-count'] });
   };
 
   return (
     <NotificationContext.Provider value={{
-      notifications,
+      notifications: notifications as Notification[],
       unreadCount,
+      isLoading,
       markAsRead,
       markAllAsRead,
       refreshNotifications

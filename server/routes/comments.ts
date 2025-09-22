@@ -268,4 +268,23 @@ router.get("/users/search", isAuthenticated, async (req: any, res) => {
   }
 });
 
+// GET search users for mentions
+router.get("/search-users", isAuthenticated, async (req: any, res) => {
+  const schema = z.object({
+    q: z.string().min(1).max(100),
+    limit: z.coerce.number().min(1).max(20).default(10),
+  });
+  
+  try {
+    const { q, limit } = schema.parse(req.query);
+    const organizationId = req.user.claims?.org || '';
+    
+    const users = await searchUsersForMentions(q, organizationId, limit);
+    res.json(users);
+  } catch (error) {
+    console.error("Error searching users for mentions:", error);
+    res.status(400).json({ message: "Invalid request" });
+  }
+});
+
 export default router;

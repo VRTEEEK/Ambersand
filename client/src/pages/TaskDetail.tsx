@@ -725,8 +725,11 @@ export default function TaskDetail() {
                   <SelectValue placeholder={language === 'ar' ? 'اختر ضابط لربط الأدلة...' : 'Choose a control to attach evidence...'} />
                 </SelectTrigger>
                 <SelectContent>
-                  {controls.map((control: any) => (
-                    <SelectItem key={control.id} value={control.eccControlId.toString()}>
+                  {controls.map((control: any) => {
+                    const valueId = control.eccControlId?.toString();
+                    if (!valueId) return null; // Skip controls without valid IDs
+                    return (
+                    <SelectItem key={control.id} value={valueId}>
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{language === 'ar' ? control.eccControl?.codeAr : control.eccControl?.code}</span>
                         <span className="text-sm text-muted-foreground">
@@ -734,7 +737,8 @@ export default function TaskDetail() {
                         </span>
                       </div>
                     </SelectItem>
-                  ))}
+                    );
+                  }).filter(Boolean)}
                 </SelectContent>
               </Select>
             </div>

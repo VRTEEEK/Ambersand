@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { commentSubscriptions, users } from "@shared/schema";
+import { commentSubscriptions, users, notifications } from "@shared/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { emailService } from "../emailService";
 
@@ -14,7 +14,7 @@ export async function notifyComment({ comment, mentions, edited = false }: Comme
     // 1) WebSocket broadcast to room `${orgId}:${targetType}:${targetId}`
     await broadcastComment(comment);
 
-    // 2) Email: to mentioned users + subscribers (excluding author)
+    // 2) Create in-app notifications and send emails to mentioned users + subscribers (excluding author)
     const subscribers = await db.select()
       .from(commentSubscriptions)
       .where(and(
@@ -44,6 +44,30 @@ export async function notifyComment({ comment, mentions, edited = false }: Comme
           inArray(users.id, Array.from(recipientIds)),
           eq(users.organizationId, comment.organizationId)
         ));
+
+      // Create in-app notifications for each recipient
+      for (const recipient of recipients) {
+        const isMention = mentions.userIds.includes(recipient.id);
+        const notificationType = isMention ? 'mention' : 'comment';
+        const title = isMention ? 'You were mentioned' : 'New comment';
+        const message = edited 
+          ? `${comment.authorName || 'Someone'} edited a comment where you were mentioned`
+          : `${comment.authorName || 'Someone'} ${isMention ? 'mentioned you' : 'commented'} on ${comment.targetType} #${comment.targetId}`;
+        
+        try {
+          await db.insert(notifications).values({
+            organizationId: comment.organizationId,
+            userId: recipient.id,
+            type: notificationType,
+            title,
+            message,
+            actionUrl: buildDeepLink(comment),
+            isRead: false,
+          });
+        } catch (dbError) {
+          console.error(`Failed to create notification for user ${recipient.id}:`, dbError);
+        }
+      }
 
       // Send email notifications
       for (const recipient of recipients) {
