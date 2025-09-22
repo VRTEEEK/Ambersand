@@ -278,6 +278,18 @@ export const evidenceTasks = pgTable("evidence_tasks", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Evidence-to-Project-Regulation-Controls direct many-to-many relationship
+export const evidenceProjectRegulationControls = pgTable("evidence_project_regulation_controls", {
+  id: serial("id").primaryKey(),
+  evidenceId: integer("evidence_id").notNull().references(() => evidence.id, { onDelete: "cascade" }),
+  projectRegulationControlId: integer("project_regulation_control_id").notNull().references(() => projectRegulationControls.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => ({
+  uniqEvidencePrc: uniqueIndex("evidence_prc_unique").on(t.evidenceId, t.projectRegulationControlId),
+  idxEvidence: index("evidence_prc_evidence_idx").on(t.evidenceId),
+  idxPrc: index("evidence_prc_prc_idx").on(t.projectRegulationControlId),
+}));
+
 // Compliance assessments table
 export const complianceAssessments = pgTable("compliance_assessments", {
   id: serial("id").primaryKey(),
@@ -470,7 +482,7 @@ export const projectControlsRelations = relations(projectControls, ({ one }) => 
   }),
 }));
 
-export const projectRegulationControlsRelations = relations(projectRegulationControls, ({ one }) => ({
+export const projectRegulationControlsRelations = relations(projectRegulationControls, ({ one, many }) => ({
   project: one(projects, {
     fields: [projectRegulationControls.projectId],
     references: [projects.id],
@@ -479,6 +491,7 @@ export const projectRegulationControlsRelations = relations(projectRegulationCon
     fields: [projectRegulationControls.controlId],
     references: [regulationControls.id],
   }),
+  evidenceProjectRegulationControls: many(evidenceProjectRegulationControls),
 }));
 
 export const tasksRelations = relations(tasks, ({ one, many }) => ({
@@ -538,6 +551,7 @@ export const evidenceRelations = relations(evidence, ({ one, many }) => ({
   comments: many(evidenceComments),
   evidenceControls: many(evidenceControls),
   evidenceTasks: many(evidenceTasks),
+  evidenceProjectRegulationControls: many(evidenceProjectRegulationControls),
 }));
 
 export const evidenceVersionsRelations = relations(evidenceVersions, ({ one }) => ({
@@ -581,6 +595,17 @@ export const evidenceTasksRelations = relations(evidenceTasks, ({ one }) => ({
   task: one(tasks, {
     fields: [evidenceTasks.taskId],
     references: [tasks.id],
+  }),
+}));
+
+export const evidenceProjectRegulationControlsRelations = relations(evidenceProjectRegulationControls, ({ one }) => ({
+  evidence: one(evidence, {
+    fields: [evidenceProjectRegulationControls.evidenceId],
+    references: [evidence.id],
+  }),
+  projectRegulationControl: one(projectRegulationControls, {
+    fields: [evidenceProjectRegulationControls.projectRegulationControlId],
+    references: [projectRegulationControls.id],
   }),
 }));
 
@@ -818,6 +843,11 @@ export const insertEvidenceTaskSchema = createInsertSchema(evidenceTasks).omit({
   createdAt: true,
 });
 
+export const insertEvidenceProjectRegulationControlSchema = createInsertSchema(evidenceProjectRegulationControls).omit({
+  id: true,
+  createdAt: true,
+});
+
 // RBAC Insert Schemas
 export const insertRoleSchema = createInsertSchema(roles).omit({
   id: true,
@@ -878,6 +908,8 @@ export type EvidenceControl = typeof evidenceControls.$inferSelect;
 export type InsertEvidenceControl = z.infer<typeof insertEvidenceControlSchema>;
 export type EvidenceTask = typeof evidenceTasks.$inferSelect;
 export type InsertEvidenceTask = z.infer<typeof insertEvidenceTaskSchema>;
+export type EvidenceProjectRegulationControl = typeof evidenceProjectRegulationControls.$inferSelect;
+export type InsertEvidenceProjectRegulationControl = z.infer<typeof insertEvidenceProjectRegulationControlSchema>;
 
 // Re-export comments tables
 export { comments, commentSubscriptions } from "./comments";
