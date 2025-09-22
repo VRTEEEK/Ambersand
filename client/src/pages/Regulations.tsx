@@ -521,7 +521,7 @@ export default function Regulations() {
         setSourceType('ecc');
         setActiveRegulation(null);
         setActiveRegulationControls([]);
-        setIsProjectDialogOpen(true);
+        // Don't set dialog open state - let the Dialog component handle it
       }
     } catch (error) {
       console.error('Error opening ECC project dialog:', error);
@@ -549,7 +549,7 @@ export default function Regulations() {
       setActiveRegulationControls(ctrls);
       setSelectedControlIds(ctrls.map((c: any) => c.id)); // default select all
       console.log('Opening project dialog...');
-      setIsProjectDialogOpen(true);
+      // Don't set dialog open state - let the Dialog component handle it
     } catch (error) {
       console.error('Error opening custom project dialog:', error);
       toast({
@@ -2447,12 +2447,16 @@ export default function Regulations() {
         {/* Floating Create Project Button - Shows when controls are selected */}
         {selectedControlIds.length > 0 && (
           <div className="fixed bottom-8 right-8 z-50">
-            <Dialog open={isProjectDialogOpen} onOpenChange={setIsProjectDialogOpen}>
+            <Dialog open={isProjectDialogOpen} onOpenChange={(open) => {
+              if (open) {
+                openEccProjectDialog();
+              }
+              setIsProjectDialogOpen(open);
+            }}>
               <DialogTrigger asChild>
                 <Button
                   size="lg"
                   className="bg-teal-600 hover:bg-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
-                  onClick={() => openEccProjectDialog()}
                 >
                   <Plus className="h-5 w-5" />
                   {language === 'ar' ? 'إنشاء مشروع' : 'Create Project'}

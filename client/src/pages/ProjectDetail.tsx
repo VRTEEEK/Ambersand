@@ -1451,7 +1451,13 @@ function EditTaskForm({
 
   // Handle temporary control removal
   const handleTemporaryRemoveControl = (controlId: number) => {
-    setPendingRemovedControls(prev => [...prev, controlId]);
+    console.log('Removing control with ID:', controlId);
+    console.log('Current taskControls:', taskControls);
+    setPendingRemovedControls(prev => {
+      const updated = [...prev, controlId];
+      console.log('Updated pendingRemovedControls:', updated);
+      return updated;
+    });
   };
 
   // Handle restoring temporarily removed control
@@ -1849,7 +1855,10 @@ function EditTaskForm({
                       <Button 
                         size="sm" 
                         variant="outline" 
-                        onClick={() => handleTemporaryRemoveControl(control.control?.id)}
+                        onClick={() => {
+                          const controlId = control.control?.id || control.eccControl?.id || control.controlId;
+                          if (controlId) handleTemporaryRemoveControl(controlId);
+                        }}
                         className="text-red-600 hover:text-red-700"
                       >
                         {language === 'ar' ? 'حذف' : 'Remove'}
@@ -1874,7 +1883,13 @@ function EditTaskForm({
               <div className="border border-red-200 dark:border-red-800 rounded-lg p-4 bg-red-50 dark:bg-red-900/20">
                 <div className="space-y-3">
                   {pendingRemovedControls.map((controlId) => {
-                    const control = taskControls?.find((tc: any) => tc.control.id === controlId);
+                    console.log('Looking for control with ID:', controlId);
+                    const control = taskControls?.find((tc: any) => {
+                      const tcControlId = tc.control?.id || tc.eccControl?.id || tc.controlId;
+                      console.log('Checking control:', tc, 'extracted ID:', tcControlId);
+                      return tcControlId === controlId;
+                    });
+                    console.log('Found control for pending removal:', control);
                     if (!control) return null;
                     
                     return (
@@ -2668,7 +2683,7 @@ function ControlSelector({
     if (selectedControls.length === controls.length) {
       setSelectedControls([]);
     } else {
-      setSelectedControls(controls.map(c => c.control.id));
+      setSelectedControls(controls.map(c => c.control?.id || c.eccControl?.id || c.id));
     }
   };
 

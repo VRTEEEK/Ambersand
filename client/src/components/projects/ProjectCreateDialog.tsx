@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -36,18 +36,30 @@ export function ProjectCreateDialog({
     description: "",
   });
 
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (open) {
+      setFormData({ name: "", description: "" });
+    }
+  }, [open]);
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.name.trim()) {
-      onSave({
-        name: formData.name.trim(),
-        description: formData.description.trim() || undefined,
-      });
+    const trimmedName = formData.name.trim();
+
+    // Validate required fields
+    if (!trimmedName) {
+      return; // Form validation prevents submission anyway
     }
+
+    onSave({
+      name: trimmedName,
+      description: formData.description.trim() || undefined,
+    });
   };
 
   const handleClose = () => {
@@ -56,7 +68,10 @@ export function ProjectCreateDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    {/* Note: Dialog has two close mechanisms by design:
+         1. Built-in X button in top-right (quick close)
+         2. Cancel button in action area (explicit cancel with form reset) */}
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>
@@ -126,11 +141,13 @@ export function ProjectCreateDialog({
 
           {/* Action Buttons */}
           <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={handleClose} 
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleClose}
               disabled={isLoading}
+              className="text-muted-foreground hover:text-foreground"
             >
               {language === 'ar' ? 'إلغاء' : 'Cancel'}
             </Button>

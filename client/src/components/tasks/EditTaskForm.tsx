@@ -88,36 +88,42 @@ function ControlSelector({
   return (
     <div className="space-y-4">
       <div className="max-h-60 overflow-y-auto space-y-2">
-        {controls.map((control: any) => (
-          <div key={control.id} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
+        {controls.map((control: any) => {
+          // Handle both legacy eccControl and modern control structure
+          const controlId = control.control?.id || control.eccControl?.id || control.id;
+          const controlData = control.control || control.eccControl || control;
+
+          return (
+          <div key={controlId} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
             <input
               type="checkbox"
-              checked={selectedControls.includes(control.eccControl.id)}
-              onChange={() => handleControlToggle(control.eccControl.id)}
+              checked={selectedControls.includes(controlId)}
+              onChange={() => handleControlToggle(controlId)}
               className="mt-2"
             />
-            <div 
+            <div
               className="flex-1 cursor-pointer"
-              onClick={() => onControlClick(control.eccControl)}
+              onClick={() => onControlClick(controlData)}
             >
               <div className="flex items-center gap-2 mb-2">
                 <Badge variant="secondary">
-                  {control.eccControl.code}
+                  {controlData.clause || controlData.code}
                 </Badge>
                 <span className="text-sm font-medium">
-                  {language === 'ar' && control.eccControl.subdomainAr 
-                    ? control.eccControl.subdomainAr 
-                    : control.eccControl.subdomainEn}
+                  {language === 'ar' && (controlData.subCategoryAr || controlData.subdomainAr)
+                    ? (controlData.subCategoryAr || controlData.subdomainAr)
+                    : (controlData.subCategoryEn || controlData.subdomainEn)}
                 </span>
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                {language === 'ar' && control.eccControl.controlAr 
-                  ? control.eccControl.controlAr 
-                  : control.eccControl.controlEn}
+                {language === 'ar' && (controlData.mainControlAr || controlData.controlAr)
+                  ? (controlData.mainControlAr || controlData.controlAr)
+                  : (controlData.mainControlEn || controlData.controlEn)}
               </p>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
       
       {selectedControls.length > 0 && (
@@ -272,16 +278,24 @@ export default function EditTaskForm({
     setIsControlInfoDialogOpen(true);
   };
 
-  // Get unique domains from project controls
+  // Get unique domains from project controls (handle both legacy and modern formats)
   const domains = Array.from(new Set(
-    projectControls.map((pc: any) => pc.eccControl?.domainEn).filter(Boolean)
+    projectControls.map((pc: any) => {
+      const control = pc.control || pc.eccControl;
+      return control?.mainCategoryEn || control?.domainEn;
+    }).filter(Boolean)
   ));
 
   // Get controls for selected domain that are NOT already assigned to the task
-  const domainControls = selectedDomain 
+  const domainControls = selectedDomain
     ? projectControls.filter((pc: any) => {
-        const isInDomain = pc.eccControl?.domainEn === selectedDomain;
-        const isAlreadyAssigned = Array.isArray(taskControls) && taskControls.some((tc: any) => tc.eccControl?.id === pc.eccControl?.id);
+        const control = pc.control || pc.eccControl;
+        const controlId = control?.id;
+        const isInDomain = (control?.mainCategoryEn || control?.domainEn) === selectedDomain;
+        const isAlreadyAssigned = Array.isArray(taskControls) && taskControls.some((tc: any) => {
+          const taskControlId = tc.eccControl?.id || tc.controlId;
+          return taskControlId === controlId;
+        });
         return isInDomain && !isAlreadyAssigned;
       })
     : [];
@@ -775,7 +789,16 @@ export default function EditTaskForm({
                       <div className="flex items-center justify-between">
                         <span className="font-medium">{domain}</span>
                         <Badge variant="secondary">
-                          {projectControls.filter(pc => pc.eccControl?.domainEn === domain && !(Array.isArray(taskControls) && taskControls.some((tc: any) => tc.eccControl?.id === pc.eccControl?.id))).length} available
+                          {projectControls.filter(pc => {
+                            const control = pc.control || pc.eccControl;
+                            const controlId = control?.id;
+                            const isInDomain = (control?.mainCategoryEn || control?.domainEn) === domain;
+                            const isAlreadyAssigned = Array.isArray(taskControls) && taskControls.some((tc: any) => {
+                              const taskControlId = tc.eccControl?.id || tc.controlId;
+                              return taskControlId === controlId;
+                            });
+                            return isInDomain && !isAlreadyAssigned;
+                          }).length} available
                         </Badge>
                       </div>
                     </div>

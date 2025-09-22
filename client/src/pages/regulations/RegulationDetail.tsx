@@ -545,16 +545,8 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle className="flex items-center justify-between">
+              <DialogTitle>
                 {language === 'ar' ? 'إنشاء مشروع امتثال جديد' : 'Create New Compliance Project'}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowCreateDialog(false)}
-                  className="p-1 h-6 w-6"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
               </DialogTitle>
               <DialogDescription>
                 {language === 'ar' 

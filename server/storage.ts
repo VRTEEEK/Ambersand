@@ -13,6 +13,7 @@ import {
   customRegulations,
   customControls,
   taskControls,
+  taskRegulationControls,
   evidenceVersions,
   evidenceComments,
   evidenceControls,
@@ -37,6 +38,8 @@ import type {
   InsertRegulationControl,
   Task,
   InsertTask,
+  TaskControl,
+  TaskRegulationControl,
   Evidence,
   InsertEvidence,
   EccControl,
@@ -116,7 +119,7 @@ export interface IStorage {
   deleteTask(id: number): Promise<void>;
   
   // Task Controls operations (many-to-many)
-  getTaskControls(taskId: number): Promise<(TaskControl & { eccControl: RegulationControl })[]>;
+  getTaskControls(taskId: number): Promise<(TaskRegulationControl & { eccControl: any })[]>;
   addControlsToTask(taskId: number, controlIds: number[]): Promise<void>;
   removeControlsFromTask(taskId: number, controlIds: number[]): Promise<void>;
   
@@ -653,9 +656,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Task Controls operations (many-to-many)
-  async getTaskControls(taskId: number): Promise<(TaskControl & { eccControl: RegulationControl })[]> {
-    // Use the mapping table to get regulation controls for existing ecc_control_id references
-    const result = await db
+  async getTaskControls(taskId: number): Promise<(TaskRegulationControl & { eccControl: any })[]> {
+    // First try the modern approach
+    const modernResult = await db
+      .select({
+        taskRegulationControl: taskRegulationControls,
+        regulationControl: regulationControls
+      })
+      .from(taskRegulationControls)
+      .innerJoin(regulationControls, eq(taskRegulationControls.controlId, regulationControls.id))
+      .where(eq(taskRegulationControls.taskId, taskId));
+
+    if (modernResult.length > 0) {
+      return modernResult.map(row => ({
+        ...row.taskRegulationControl,
+        eccControl: {
+          id: row.regulationControl.id,
+          // Map regulation control fields to expected eccControl interface
+          code: row.regulationControl.clause,
+          codeAr: row.regulationControl.clause,
+          domainEn: row.regulationControl.mainCategoryEn,
+          domainAr: row.regulationControl.mainCategoryAr || row.regulationControl.mainCategoryEn,
+          subdomainEn: row.regulationControl.subCategoryEn,
+          subdomainAr: row.regulationControl.subCategoryAr || row.regulationControl.subCategoryEn,
+          controlEn: row.regulationControl.mainControlEn,
+          controlAr: row.regulationControl.mainControlAr || row.regulationControl.mainControlEn,
+          requirementEn: row.regulationControl.descriptionEn,
+          requirementAr: row.regulationControl.descriptionAr || row.regulationControl.descriptionEn,
+          evidenceEn: row.regulationControl.evidenceTypes?.join(', ') || 'Documentation, policies, procedures, and audit evidence',
+          evidenceAr: row.regulationControl.evidenceTypes?.join(', ') || 'وثائق، سياسات، إجراءات، وأدلة تدقيق'
+        },
+      }));
+    }
+
+    // Fallback to legacy approach with mapping
+    const legacyResult = await db
       .select({
         taskControl: taskControls,
         regulationControl: regulationControls
@@ -665,32 +700,49 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(regulationControls, sql`ecc_to_regulation_controls_map.regulation_control_id = regulation_controls.id`)
       .where(eq(taskControls.taskId, taskId));
 
-    return result.map(row => ({
+    return legacyResult.map(row => ({
       ...row.taskControl,
-      eccControl: row.regulationControl,
+      controlId: row.regulationControl.id, // Add controlId field for compatibility
+      eccControl: {
+        id: row.regulationControl.id,
+        code: row.regulationControl.clause,
+        codeAr: row.regulationControl.clause,
+        domainEn: row.regulationControl.mainCategoryEn,
+        domainAr: row.regulationControl.mainCategoryAr || row.regulationControl.mainCategoryEn,
+        subdomainEn: row.regulationControl.subCategoryEn,
+        subdomainAr: row.regulationControl.subCategoryAr || row.regulationControl.subCategoryEn,
+        controlEn: row.regulationControl.mainControlEn,
+        controlAr: row.regulationControl.mainControlAr || row.regulationControl.mainControlEn,
+        requirementEn: row.regulationControl.descriptionEn,
+        requirementAr: row.regulationControl.descriptionAr || row.regulationControl.descriptionEn,
+        evidenceEn: row.regulationControl.evidenceTypes?.join(', ') || 'Documentation, policies, procedures, and audit evidence',
+        evidenceAr: row.regulationControl.evidenceTypes?.join(', ') || 'وثائق، سياسات، إجراءات، وأدلة تدقيق'
+      },
     }));
   }
 
   async addControlsToTask(taskId: number, controlIds: number[]): Promise<void> {
     if (controlIds.length === 0) return;
-    
+
+    // Use the modern approach: insert directly into taskRegulationControls
     const values = controlIds.map(controlId => ({
       taskId,
-      eccControlId: controlId,
+      controlId,
     }));
-    
-    await db.insert(taskControls).values(values);
+
+    await db.insert(taskRegulationControls).values(values);
   }
 
   async removeControlsFromTask(taskId: number, controlIds: number[]): Promise<void> {
     if (controlIds.length === 0) return;
-    
+
+    // Use the modern approach: remove from taskRegulationControls
     await db
-      .delete(taskControls)
+      .delete(taskRegulationControls)
       .where(
         and(
-          eq(taskControls.taskId, taskId),
-          inArray(taskControls.eccControlId, controlIds)
+          eq(taskRegulationControls.taskId, taskId),
+          inArray(taskRegulationControls.controlId, controlIds)
         )
       );
   }

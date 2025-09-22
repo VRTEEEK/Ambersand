@@ -178,13 +178,24 @@ export const tasks = pgTable("tasks", {
   index("idx_tasks_completed_at").on(table.completedAt)
 ]);
 
-// Task-to-Controls many-to-many relationship
+// Legacy Task-to-ECC-Controls many-to-many relationship (DEPRECATED)
 export const taskControls = pgTable("task_controls", {
   id: serial("id").primaryKey(),
   taskId: integer("task_id").notNull(),
   eccControlId: integer("ecc_control_id").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// Modern Task-to-RegulationControls many-to-many relationship
+export const taskRegulationControls = pgTable("task_regulation_controls", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").references(() => tasks.id, { onDelete: "cascade" }).notNull(),
+  controlId: integer("control_id").references(() => regulationControls.id, { onDelete: "cascade" }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => ({
+  idxTask: index("task_regulation_controls_task_idx").on(t.taskId),
+  uniqTaskControl: index("task_regulation_controls_unique").on(t.taskId, t.controlId),
+}));
 
 // Project Controls Association table
 export const projectControls = pgTable("project_controls", {
@@ -487,7 +498,8 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
     fields: [tasks.controlId],
     references: [regulationControls.id],
   }),
-  taskControls: many(taskControls),
+  taskControls: many(taskControls), // DEPRECATED
+  taskRegulationControls: many(taskRegulationControls), // Modern approach
   evidenceTasks: many(evidenceTasks),
 }));
 
@@ -499,6 +511,17 @@ export const taskControlsRelations = relations(taskControls, ({ one }) => ({
   eccControl: one(eccControls, {
     fields: [taskControls.eccControlId],
     references: [eccControls.id],
+  }),
+}));
+
+export const taskRegulationControlsRelations = relations(taskRegulationControls, ({ one }) => ({
+  task: one(tasks, {
+    fields: [taskRegulationControls.taskId],
+    references: [tasks.id],
+  }),
+  control: one(regulationControls, {
+    fields: [taskRegulationControls.controlId],
+    references: [regulationControls.id],
   }),
 }));
 
@@ -842,9 +865,11 @@ export type Regulation = typeof regulations.$inferSelect;
 export type InsertRegulation = z.infer<typeof insertRegulationSchema>;
 export type RegulationControl = typeof regulationControls.$inferSelect;
 export type InsertRegulationControl = z.infer<typeof insertRegulationControlSchema>;
+export type TaskControl = typeof taskControls.$inferSelect;
+export type TaskRegulationControl = typeof taskRegulationControls.$inferSelect;
+export type ProjectRegulationControl = typeof projectRegulationControls.$inferSelect;
 
 // New types for enhanced features
-export type TaskControl = typeof taskControls.$inferSelect;
 export type InsertTaskControl = z.infer<typeof insertTaskControlSchema>;
 export type EvidenceVersion = typeof evidenceVersions.$inferSelect;
 export type InsertEvidenceVersion = z.infer<typeof insertEvidenceVersionSchema>;
