@@ -18,6 +18,7 @@ import { risks } from "./risk";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { sql } from "drizzle-orm";
 
 // Session storage table for Replit Auth
 export const sessions = pgTable(
@@ -428,6 +429,22 @@ export const userProjectRoles = pgTable("user_project_roles", {
   pk: { primaryKey: [table.userId, table.projectId, table.roleId] }
 }));
 
+// Notifications table for in-app notifications
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  organizationId: varchar("organization_id", { length: 64 }).notNull(),
+  userId: varchar("user_id", { length: 128 }).notNull(),
+  type: varchar("type", { length: 32 }).notNull(), // 'comment', 'task_assigned', 'mention', etc.
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  actionUrl: text("action_url"),
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("idx_notifications_user_created").on(table.userId, table.createdAt),
+  index("idx_notifications_organization").on(table.organizationId),
+]);
+
 // RBAC Types
 export type Role = typeof roles.$inferSelect;
 export type InsertRole = typeof roles.$inferInsert;
@@ -442,6 +459,10 @@ export type InsertUserProjectRole = typeof userProjectRoles.$inferInsert;
 export type ProjectRegulationControl = typeof projectRegulationControls.$inferSelect;
 export type InsertProjectRegulationControl = typeof projectRegulationControls.$inferInsert;
 
+// Notification types
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = typeof notifications.$inferInsert;
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   projects: many(projects),
@@ -450,6 +471,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   assessments: many(complianceAssessments),
   userRoles: many(userRoles),
   userProjectRoles: many(userProjectRoles),
+  notifications: many(notifications),
 }));
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
@@ -628,6 +650,13 @@ export const controlAssessmentsRelations = relations(controlAssessments, ({ one 
   }),
   assessor: one(users, {
     fields: [controlAssessments.assessorId],
+    references: [users.id],
+  }),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
     references: [users.id],
   }),
 }));
