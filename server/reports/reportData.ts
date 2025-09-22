@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { projects, projectRegulationControls, regulationControls, regulations, evidence, evidenceTasks, tasks, taskRegulationControls, evidenceProjectRegulationControls } from "@shared/schema";
+import { projects, projectRegulationControls, regulationControls, regulations, evidence, evidenceTasks, evidenceControls, tasks, taskRegulationControls, evidenceProjectRegulationControls } from "@shared/schema";
 import { eq, and, inArray, or } from "drizzle-orm";
 import path from "path";
 import { existsSync } from "fs";
@@ -180,105 +180,52 @@ export async function getComplianceReportData(params: {
 
       let controlEvidence: any[] = [];
       try {
-        // Get evidence through modern regulation-based pathways: direct project regulation control connections and task-based connections
-        const evidenceFromTasks: any[] = [];
-        const evidenceFromProjectControl: any[] = [];
-
-        // 1. Get evidence directly connected to project regulation controls (modern direct approach)
+        // FIXED: Get ALL evidence linked to this control (regardless of project)
+        // This enables evidence to be shared across all projects that include the same control
         try {
-          // Find the project regulation control record for this control and project
-          const projectRegulationControl = await db.select({ id: projectRegulationControls.id })
-            .from(projectRegulationControls)
-            .where(and(
-              eq(projectRegulationControls.projectId, projectId),
-              eq(projectRegulationControls.controlId, controlId)
-            ))
-            .limit(1);
+          // Get ALL evidence linked to this specific control ID across all projects
+          const allControlEvidence = await db.select({
+            id: evidence.id,
+            title: evidence.title,
+            fileName: evidence.fileName,
+            fileType: evidence.fileType,
+            fileSize: evidence.fileSize,
+            filePath: evidence.filePath,
+            description: evidence.description
+          })
+            .from(evidence)
+            .innerJoin(evidenceProjectRegulationControls, eq(evidence.id, evidenceProjectRegulationControls.evidenceId))
+            .innerJoin(projectRegulationControls, eq(evidenceProjectRegulationControls.projectRegulationControlId, projectRegulationControls.id))
+            .where(eq(projectRegulationControls.controlId, controlId));
 
-          if (projectRegulationControl.length > 0) {
-            // Try to get evidence through the new junction table (if it exists)
-            try {
-              const directEvidence = await db.select({
-                id: evidence.id,
-                title: evidence.title,
-                fileName: evidence.fileName,
-                fileType: evidence.fileType,
-                fileSize: evidence.fileSize,
-                filePath: evidence.filePath,
-                description: evidence.description
-              })
-                .from(evidence)
-                .innerJoin(evidenceProjectRegulationControls, eq(evidence.id, evidenceProjectRegulationControls.evidenceId))
-                .where(eq(evidenceProjectRegulationControls.projectRegulationControlId, projectRegulationControl[0].id));
-              
-              evidenceFromProjectControl.push(...directEvidence);
-            } catch (directError) {
-              // Junction table might not exist yet, continue without it
-              console.log(`📋 Direct project regulation control evidence not available for control ${controlData?.code || 'UNKNOWN'}`);
-            }
+          controlEvidence = allControlEvidence;
+
+        } catch (directError) {
+          console.log(`📋 No direct evidence found for control ${controlData?.code || 'UNKNOWN'}, trying legacy systems`);
+          
+          // Fallback: Try legacy ECC evidence system if modern system fails
+          try {
+            const legacyEvidence = await db.select({
+              id: evidence.id,
+              title: evidence.title,
+              fileName: evidence.fileName,
+              fileType: evidence.fileType,
+              fileSize: evidence.fileSize,
+              filePath: evidence.filePath,
+              description: evidence.description
+            })
+              .from(evidence)
+              .innerJoin(evidenceControls, eq(evidence.id, evidenceControls.evidenceId))
+              .where(eq(evidenceControls.eccControlId, controlId));
+
+            controlEvidence = legacyEvidence;
+          } catch (legacyError) {
+            console.log(`📋 No legacy evidence found for control ${controlData?.code || 'UNKNOWN'}`);
+            controlEvidence = [];
           }
-        } catch (prcError) {
-          console.log(`📋 Project regulation control not found for control ${controlData?.code || 'UNKNOWN'}`);
         }
 
-        // 2. Get evidence through task-based system: Control → Tasks → Evidence (filtered by project regulation control link)
-        try {
-          const controlTasks = await db.select({ id: tasks.id })
-            .from(tasks)
-            .innerJoin(taskRegulationControls, eq(tasks.id, taskRegulationControls.taskId))
-            .where(and(
-              eq(taskRegulationControls.controlId, controlId),
-              eq(tasks.projectId, projectId)
-            ));
-
-          if (controlTasks.length > 0) {
-            const taskIds = controlTasks.map(t => t.id);
-            
-            // Get the project regulation control ID for this specific control in this project
-            const projectRegulationControl = await db.select({ id: projectRegulationControls.id })
-              .from(projectRegulationControls)
-              .where(and(
-                eq(projectRegulationControls.projectId, projectId),
-                eq(projectRegulationControls.controlId, controlId)
-              ))
-              .limit(1);
-
-            if (projectRegulationControl.length > 0) {
-              // Get evidence connected to these tasks AND explicitly linked to this specific project regulation control
-              // This ensures evidence only appears for the control it was specifically uploaded to
-              const taskEvidence = await db.select({
-                id: evidence.id,
-                title: evidence.title,
-                fileName: evidence.fileName,
-                fileType: evidence.fileType,
-                fileSize: evidence.fileSize,
-                filePath: evidence.filePath,
-                description: evidence.description
-              })
-                .from(evidence)
-                .innerJoin(evidenceTasks, eq(evidence.id, evidenceTasks.evidenceId))
-                .innerJoin(evidenceProjectRegulationControls, eq(evidence.id, evidenceProjectRegulationControls.evidenceId))
-                .where(and(
-                  inArray(evidenceTasks.taskId, taskIds),
-                  eq(evidenceProjectRegulationControls.projectRegulationControlId, projectRegulationControl[0].id)
-                ));
-
-              evidenceFromTasks.push(...taskEvidence);
-            }
-          }
-        } catch (taskError) {
-          console.log(`📋 No task-based evidence found for control ${controlData?.code || 'UNKNOWN'}`);
-        }
-
-        // 3. Combine and deduplicate evidence by ID - Include both direct project regulation control evidence and task-based evidence
-        const allEvidence = [...evidenceFromProjectControl, ...evidenceFromTasks];
-        const uniqueEvidenceMap = new Map();
-        allEvidence.forEach(ev => {
-          uniqueEvidenceMap.set(ev.id, ev);
-        });
-        controlEvidence = Array.from(uniqueEvidenceMap.values());
-
-        console.log(`🔍 Control ${controlData?.code || 'UNKNOWN'}: Found ${controlEvidence.length} unique evidence files (${evidenceFromProjectControl.length} from project controls, ${evidenceFromTasks.length} from tasks)`);
+        console.log(`🔍 Control ${controlData?.code || 'UNKNOWN'}: Found ${controlEvidence.length} evidence files (ALL evidence linked to this control across all projects)`);
       } catch (error) {
         console.error(`❌ Error fetching evidence for control ${controlData?.code || 'UNKNOWN'}:`, error);
         // Continue with empty evidence array
