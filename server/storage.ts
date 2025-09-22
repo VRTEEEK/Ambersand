@@ -676,7 +676,7 @@ export class DatabaseStorage implements IStorage {
     
     const values = controlIds.map(controlId => ({
       taskId,
-      controlId: controlId,
+      eccControlId: controlId,
     }));
     
     await db.insert(taskControls).values(values);
@@ -690,7 +690,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(taskControls.taskId, taskId),
-          inArray(taskControls.controlId, controlIds)
+          inArray(taskControls.eccControlId, controlIds)
         )
       );
   }
