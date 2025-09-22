@@ -9,22 +9,15 @@ export interface ParsedMentions {
 
 // Parse @mentions in the body -> return { userIds: number[], users: Array<{id:number, name:string, email:string}> }
 export async function parseMentions(body: string, orgId: string): Promise<ParsedMentions> {
-  console.log('🔍 Parsing mentions in body:', body, 'orgId:', orgId);
-  
   // Regex for @mentions (alphanumeric, dots, underscores, hyphens)
   const handles = Array.from(new Set((body.match(/@[\w.\-]+/g) || []).map(s => s.slice(1))));
   
-  console.log('📝 Found mention handles:', handles);
-  
   if (handles.length === 0) {
-    console.log('⚠️ No mention handles found');
     return { userIds: [], users: [] };
   }
 
   // Lookup users by name/email within organization
   const foundUsers = await findUsersByHandles(handles, orgId);
-  
-  console.log('👥 Found users for mentions:', foundUsers);
   
   return { 
     userIds: foundUsers.map(u => u.id), 
@@ -35,8 +28,6 @@ export async function parseMentions(body: string, orgId: string): Promise<Parsed
 // Find users by handles (name patterns) within organization
 async function findUsersByHandles(handles: string[], orgId: string): Promise<Array<{ id: string; name: string; email: string }>> {
   if (handles.length === 0) return [];
-
-  console.log('🔎 Finding users by handles:', handles, 'in org:', orgId);
 
   // Build OR conditions for each handle to match against name or email
   const searchConditions = handles.map(handle => 
@@ -58,8 +49,6 @@ async function findUsersByHandles(handles: string[], orgId: string): Promise<Arr
       eq(users.organizationId, orgId),
       or(...searchConditions)
     ));
-
-  console.log('🔍 Raw DB results for handles:', foundUsers);
 
   return foundUsers.map(user => ({
     ...user,
