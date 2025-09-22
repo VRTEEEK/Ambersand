@@ -653,16 +653,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Task Controls operations (many-to-many)
-  async getTaskControls(taskId: number): Promise<(TaskControl & { eccControl: EccControl })[]> {
+  async getTaskControls(taskId: number): Promise<(TaskControl & { control: RegulationControl })[]> {
     const result = await db
       .select()
       .from(taskControls)
-      .innerJoin(eccControls, eq(taskControls.eccControlId, eccControls.id))
+      .innerJoin(regulationControls, eq(taskControls.controlId, regulationControls.id))
       .where(eq(taskControls.taskId, taskId));
-    
+
     return result.map(row => ({
       ...row.task_controls,
-      eccControl: row.ecc_controls,
+      control: row.regulation_controls,
     }));
   }
 
@@ -671,7 +671,7 @@ export class DatabaseStorage implements IStorage {
     
     const values = controlIds.map(controlId => ({
       taskId,
-      eccControlId: controlId,
+      controlId: controlId,
     }));
     
     await db.insert(taskControls).values(values);
@@ -685,7 +685,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(taskControls.taskId, taskId),
-          inArray(taskControls.eccControlId, controlIds)
+          inArray(taskControls.controlId, controlIds)
         )
       );
   }
@@ -708,7 +708,7 @@ export class DatabaseStorage implements IStorage {
             version: evidence.version,
             projectId: evidence.projectId,
             taskId: evidence.taskId,
-            eccControlId: evidence.eccControlId,
+            controlId: evidence.controlId,
             uploadedById: evidence.uploadedById,
             createdAt: evidence.createdAt,
             uploaderName: users.name,
@@ -734,7 +734,7 @@ export class DatabaseStorage implements IStorage {
             version: evidence.version,
             projectId: evidence.projectId,
             taskId: evidence.taskId,
-            eccControlId: evidence.eccControlId,
+            controlId: evidence.controlId,
             uploadedById: evidence.uploadedById,
             createdAt: evidence.createdAt,
             uploaderName: users.name,
@@ -780,7 +780,7 @@ export class DatabaseStorage implements IStorage {
           version: evidence.version,
           projectId: evidence.projectId,
           taskId: evidence.taskId,
-          eccControlId: evidence.eccControlId,
+          controlId: evidence.controlId,
           uploadedById: evidence.uploadedById,
           createdAt: evidence.createdAt,
           uploaderName: users.name,
@@ -857,16 +857,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Evidence Controls operations (many-to-many)
-  async getEvidenceControls(evidenceId: number): Promise<(EvidenceControl & { eccControl: EccControl })[]> {
+  async getEvidenceControls(evidenceId: number): Promise<(EvidenceControl & { control: RegulationControl })[]> {
     const result = await db
       .select()
       .from(evidenceControls)
-      .innerJoin(eccControls, eq(evidenceControls.eccControlId, eccControls.id))
+      .innerJoin(regulationControls, eq(evidenceControls.controlId, regulationControls.id))
       .where(eq(evidenceControls.evidenceId, evidenceId));
-    
+
     return result.map(row => ({
       ...row.evidence_controls,
-      eccControl: row.ecc_controls,
+      control: row.regulation_controls,
     }));
   }
 
@@ -875,7 +875,7 @@ export class DatabaseStorage implements IStorage {
     
     const values = controlIds.map(controlId => ({
       evidenceId,
-      eccControlId: controlId,
+      controlId: controlId,
     }));
     
     await db.insert(evidenceControls).values(values);
@@ -889,7 +889,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(evidenceControls.evidenceId, evidenceId),
-          sql`${evidenceControls.eccControlId} = ANY(${controlIds})`
+          sql`${evidenceControls.controlId} = ANY(${controlIds})`
         )
       );
   }
@@ -965,7 +965,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(evidenceControls)
       .innerJoin(evidence, eq(evidenceControls.evidenceId, evidence.id))
-      .where(eq(evidenceControls.eccControlId, controlId))
+      .where(eq(evidenceControls.controlId, controlId))
       .orderBy(desc(evidence.createdAt));
 
     const evidenceList: (Evidence & { comments: (EvidenceComment & { user: User })[], versions: EvidenceVersion[] })[] = [];

@@ -1,15 +1,13 @@
 import 'dotenv/config';
 import { db } from '../db.js';
 import { regulations, regulationControls } from '../../shared/schema.js';
-import { count, eq } from 'drizzle-orm';
+import { eq, count } from 'drizzle-orm';
 
 async function checkRegulations() {
-  console.log('🔍 Checking regulations in database...');
-  console.log('='.repeat(50));
+  console.log('🔍 Checking regulations and their controls...');
 
-  // Check regulations
   const allRegulations = await db.select().from(regulations);
-  console.log(`📊 Total regulations in database: ${allRegulations.length}`);
+  console.log(`📊 Total regulations: ${allRegulations.length}`);
 
   if (allRegulations.length > 0) {
     console.log('\n🔍 Available regulations:');
@@ -20,16 +18,25 @@ async function checkRegulations() {
         .from(regulationControls)
         .where(eq(regulationControls.regulationId, reg.id));
 
-      console.log(`  - ${reg.code}: ${reg.nameEn} (v${reg.version}) - ${controlCount} controls`);
+      console.log(`  - ID ${reg.id}: ${reg.code} - ${reg.nameEn} (${controlCount} controls)`);
       console.log(`    Publisher: ${reg.publisher || 'Unknown'}`);
       console.log(`    Org ID: ${reg.orgId}`);
     }
-  } else {
-    console.log('❌ No regulations found in database');
-    console.log('💡 You may need to run the import scripts to add regulations.');
   }
 
-  console.log('='.repeat(50));
+  // Check which regulation ID should be ECC
+  console.log('\n🔍 Looking for ECC regulation...');
+  const eccRegulation = await db
+    .select()
+    .from(regulations)
+    .where(eq(regulations.code, 'NCA-ECC-2024'));
+
+  if (eccRegulation.length > 0) {
+    console.log(`✅ Found ECC regulation with ID: ${eccRegulation[0].id}`);
+  } else {
+    console.log('❌ ECC regulation not found');
+  }
+
   process.exit(0);
 }
 
