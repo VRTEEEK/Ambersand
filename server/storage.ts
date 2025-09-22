@@ -653,16 +653,37 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Task Controls operations (many-to-many)
-  async getTaskControls(taskId: number): Promise<(TaskControl & { eccControl: EccControl })[]> {
-    const result = await db
+  async getTaskControls(taskId: number): Promise<(TaskControl & { control: any })[]> {
+    // First try to get controls via regulation_control_id (new approach)
+    const regulationControlsResult = await db
       .select()
       .from(taskControls)
-      .innerJoin(eccControls, eq(taskControls.eccControlId, eccControls.id))
-      .where(eq(taskControls.taskId, taskId));
+      .innerJoin(regulationControls, eq(taskControls.regulationControlId, regulationControls.id))
+      .where(and(
+        eq(taskControls.taskId, taskId),
+        isNotNull(taskControls.regulationControlId)
+      ));
 
-    return result.map(row => ({
+    if (regulationControlsResult.length > 0) {
+      return regulationControlsResult.map(row => ({
+        ...row.task_controls,
+        control: row.regulation_controls,
+      }));
+    }
+
+    // Fallback to legacy ecc_controls_legacy table
+    const legacyResult = await db
+      .select()
+      .from(taskControls)
+      .innerJoin(sql`ecc_controls_legacy`, sql`task_controls.ecc_control_id = ecc_controls_legacy.id`)
+      .where(and(
+        eq(taskControls.taskId, taskId),
+        isNotNull(taskControls.eccControlId)
+      ));
+
+    return legacyResult.map((row: any) => ({
       ...row.task_controls,
-      eccControl: row.ecc_controls,
+      control: row.ecc_controls_legacy,
     }));
   }
 
