@@ -116,7 +116,7 @@ export interface IStorage {
   deleteTask(id: number): Promise<void>;
   
   // Task Controls operations (many-to-many)
-  getTaskControls(taskId: number): Promise<(TaskControl & { eccControl: EccControl })[]>;
+  getTaskControls(taskId: number): Promise<(TaskControl & { eccControl: RegulationControl })[]>;
   addControlsToTask(taskId: number, controlIds: number[]): Promise<void>;
   removeControlsFromTask(taskId: number, controlIds: number[]): Promise<void>;
   
@@ -653,7 +653,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Task Controls operations (many-to-many)
-  async getTaskControls(taskId: number): Promise<(TaskControl & { control: RegulationControl })[]> {
+  async getTaskControls(taskId: number): Promise<(TaskControl & { eccControl: RegulationControl })[]> {
     // Use the mapping table to get regulation controls for existing ecc_control_id references
     const result = await db
       .select({
@@ -667,7 +667,7 @@ export class DatabaseStorage implements IStorage {
 
     return result.map(row => ({
       ...row.taskControl,
-      control: row.regulationControl,
+      eccControl: row.regulationControl,
     }));
   }
 
