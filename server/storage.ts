@@ -1074,10 +1074,10 @@ export class DatabaseStorage implements IStorage {
     
     const [{ count: pendingTasks }] = await pendingTasksQuery;
 
-    // Get total ECC controls count
+    // Get total regulation controls count
     const [{ count: totalEccControls }] = await db
       .select({ count: count() })
-      .from(eccControls);
+      .from(regulationControls);
 
     // Get completed tasks count
     const [{ count: completedTasks }] = await db
