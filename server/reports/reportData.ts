@@ -180,25 +180,86 @@ export async function getComplianceReportData(params: {
 
       let controlEvidence: any[] = [];
       try {
-        // FIXED: Get ALL evidence linked to this control (regardless of project)
-        // This enables evidence to be shared across all projects that include the same control
+        // FIXED: Get ALL evidence linked to this regulation control (works across projects)
+        // Need to use the mapping table to find corresponding ECC control IDs
         try {
-          // Get ALL evidence linked to this specific control ID across all projects
-          const allControlEvidence = await db.select({
-            id: evidence.id,
-            title: evidence.title,
-            fileName: evidence.fileName,
-            fileType: evidence.fileType,
-            fileSize: evidence.fileSize,
-            filePath: evidence.filePath,
-            description: evidence.description
-          })
-            .from(evidence)
-            .innerJoin(evidenceProjectRegulationControls, eq(evidence.id, evidenceProjectRegulationControls.evidenceId))
-            .innerJoin(projectRegulationControls, eq(evidenceProjectRegulationControls.projectRegulationControlId, projectRegulationControls.id))
-            .where(eq(projectRegulationControls.controlId, controlId));
+          console.log(`🔍 Looking for evidence for regulation control ID: ${controlId}`);
 
-          controlEvidence = allControlEvidence;
+          // Try multiple approaches to find evidence for this control
+          let allEvidence: any[] = [];
+
+          // Method 1: Try using the ECC mapping table if it exists
+          try {
+            const mappingResult = await db.execute(
+              `SELECT ecc_id FROM ecc_to_regulation_controls_map WHERE regulation_control_id = $1`,
+              [controlId]
+            );
+
+            if (mappingResult.rows.length > 0) {
+              const eccControlIds = mappingResult.rows.map((row: any) => row.ecc_id);
+              console.log(`📋 Found ECC mappings for regulation control ${controlId}: ${eccControlIds.join(', ')}`);
+
+              // Get evidence directly linked by eccControlId
+              const directEvidence = await db.select({
+                id: evidence.id,
+                title: evidence.title,
+                fileName: evidence.fileName,
+                fileType: evidence.fileType,
+                fileSize: evidence.fileSize,
+                filePath: evidence.filePath,
+                description: evidence.description
+              })
+                .from(evidence)
+                .where(inArray(evidence.eccControlId, eccControlIds));
+
+              // Get evidence linked through evidenceControls many-to-many table
+              const linkedEvidence = await db.select({
+                id: evidence.id,
+                title: evidence.title,
+                fileName: evidence.fileName,
+                fileType: evidence.fileType,
+                fileSize: evidence.fileSize,
+                filePath: evidence.filePath,
+                description: evidence.description
+              })
+                .from(evidence)
+                .innerJoin(evidenceControls, eq(evidence.id, evidenceControls.evidenceId))
+                .where(inArray(evidenceControls.eccControlId, eccControlIds));
+
+              allEvidence = [...directEvidence, ...linkedEvidence];
+            }
+          } catch (mappingError) {
+            console.log(`📋 ECC mapping table not available or error: ${mappingError.message}`);
+          }
+
+          // Method 2: Fallback - try direct controlId match if mapping didn't work
+          if (allEvidence.length === 0) {
+            console.log(`📋 Trying direct control ID match for regulation control ${controlId}`);
+
+            // Try evidence directly linked by regulation controlId (if migration updated the field)
+            const directRegulatoryEvidence = await db.select({
+              id: evidence.id,
+              title: evidence.title,
+              fileName: evidence.fileName,
+              fileType: evidence.fileType,
+              fileSize: evidence.fileSize,
+              filePath: evidence.filePath,
+              description: evidence.description
+            })
+              .from(evidence)
+              .where(eq(evidence.eccControlId, controlId)); // This might work if migration updated the field
+
+            allEvidence = [...allEvidence, ...directRegulatoryEvidence];
+          }
+
+          // Remove duplicates
+          const uniqueEvidence = allEvidence.filter((ev, index, self) =>
+            index === self.findIndex(e => e.id === ev.id)
+          );
+
+          controlEvidence = uniqueEvidence;
+          console.log(`🔍 Control ${controlData?.code || 'UNKNOWN'}: Found ${controlEvidence.length} evidence files`);
+        }
 
         } catch (directError) {
           console.log(`📋 No direct evidence found for control ${controlData?.code || 'UNKNOWN'}, trying legacy systems`);
