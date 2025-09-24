@@ -259,7 +259,6 @@ export async function getComplianceReportData(params: {
 
           controlEvidence = uniqueEvidence;
           console.log(`🔍 Control ${controlData?.code || 'UNKNOWN'}: Found ${controlEvidence.length} evidence files`);
-        }
 
         } catch (directError) {
           console.log(`📋 No direct evidence found for control ${controlData?.code || 'UNKNOWN'}, trying legacy systems`);
