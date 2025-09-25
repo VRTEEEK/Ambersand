@@ -41,7 +41,7 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   profilePicture: varchar("profile_picture"), // Alternative field name
   language: varchar("language").default("en"), // For email localization
-  role: varchar("role").notNull().default("viewer"), // admin, manager, viewer
+  role: varchar("role").notNull().default("user"), // admin, manager, viewer
   organizationId: varchar("organization_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
