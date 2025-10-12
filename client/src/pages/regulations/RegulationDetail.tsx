@@ -98,7 +98,16 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
   React.useEffect(() => {
     (async () => {
       try {
-        const r = await fetch(`/api/regulations/${regId}/controls`);
+        const token = localStorage.getItem("accessToken");
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+        
+        const r = await fetch(`/api/regulations/${regId}/controls`, {
+          credentials: 'include',
+          headers
+        });
         if (!r.ok) {
           toast({ title: 'Failed to load regulation controls', variant: 'destructive' });
           return;
