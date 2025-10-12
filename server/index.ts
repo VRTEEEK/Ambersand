@@ -4,6 +4,8 @@ import { setupVite, serveStatic, log } from "./vite";
 import crypto from "crypto";
 
 const app = express();
+// Trust proxy to fix rate limiter X-Forwarded-For warning
+app.set("trust proxy", 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
