@@ -1170,7 +1170,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log('🔥🔥🔥🔥🔥🔥🔥🔥🔥 ROUTE PROCESSING STARTING 🔥🔥🔥🔥🔥🔥🔥🔥🔥');
     try {
       // Get current user from database to ensure we have organizationId
-      const currentUserId = req.user.claims?.sub || req.user.id;
+      const currentUserId = req.userId;
+      if (!currentUserId) {
+        return res.status(401).json({ message: "User ID not found in request" });
+      }
+      
       const currentUserResult = await db.select({
         id: users.id,
         email: users.email,
@@ -1179,7 +1183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastName: users.lastName
       })
       .from(users)
-      .where(eq(users.id, currentUserId))
+      .where(eq(users.id, String(currentUserId)))
       .limit(1);
 
       if (currentUserResult.length === 0) {

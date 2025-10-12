@@ -19,11 +19,19 @@ export default function AssigneeSmartInput({ onResolve, disabled }: {
     const q = query.trim();
     if (q.length < 2) return { items: [] };
     
-    // Use raw fetch WITH CREDENTIALS so cookies are sent in dev:
+    // Get JWT token from localStorage
+    const token = localStorage.getItem("accessToken");
+    const headers: Record<string, string> = {
+      "Accept": "application/json",
+    };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    
     const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}&limit=8`, {
       method: "GET",
-      credentials: "include",   // ← IMPORTANT
-      headers: { "Accept": "application/json" },
+      credentials: "include",
+      headers,
     });
     if (!res.ok) return { items: [] };
     return res.json();
@@ -42,10 +50,19 @@ export default function AssigneeSmartInput({ onResolve, disabled }: {
   const canInvite = EMAIL_RE.test(query.trim()) && !items.some(u => u.email.toLowerCase() === query.trim().toLowerCase());
 
   async function invite(email: string) {
+    // Get JWT token from localStorage
+    const token = localStorage.getItem("accessToken");
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    
     const res = await fetch("/api/users/invite", {
       method: "POST",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ email }),
     });
     if (res.status === 409) {
