@@ -109,59 +109,29 @@ export default function ProjectDetail() {
   const [taskPriorityFilter, setTaskPriorityFilter] = useState('all');
 
   const { data: project, isLoading: projectLoading } = useQuery({
-    queryKey: ['/api/projects', id],
-    queryFn: async () => {
-      const response = await fetch(`/api/projects/${id}`);
-      if (!response.ok) throw new Error('Failed to fetch project');
-      return response.json();
-    },
+    queryKey: [`/api/projects/${id}`],
+    enabled: !!id,
   });
 
   const { data: projectControls, isLoading: controlsLoading } = useQuery({
-    queryKey: ['/api/projects', id, 'controls'],
-    queryFn: async () => {
-      const response = await fetch(`/api/projects/${id}/controls`);
-      if (!response.ok) throw new Error('Failed to fetch project controls');
-      return response.json();
-    },
+    queryKey: [`/api/projects/${id}/controls`],
     enabled: !!id,
   });
 
   const { data: tasks, isLoading: tasksLoading, refetch: refetchTasks } = useQuery({
-    queryKey: ['/api/tasks', { projectId: id }, refreshKey],
-    queryFn: async () => {
-      console.log('🔄 ProjectDetail: Fetching tasks for project:', id, 'with refreshKey:', refreshKey);
-      const response = await fetch(`/api/tasks?projectId=${id}&_t=${Date.now()}`);
-      if (!response.ok) throw new Error('Failed to fetch tasks');
-      const data = await response.json();
-      console.log('✅ ProjectDetail: Tasks fetched:', data.length, 'tasks');
-      return data;
-    },
+    queryKey: [`/api/tasks?projectId=${id}`, refreshKey],
     enabled: !!id,
     staleTime: 0, // Force fresh data
     gcTime: 0, // Don't cache
   });
 
   const { data: taskEvidence, refetch: refetchEvidence } = useQuery({
-    queryKey: ['/api/evidence', { taskId: editingTask?.id }],
-    queryFn: async () => {
-      console.log('🔍 Fetching evidence for task:', editingTask?.id);
-      const response = await fetch(`/api/evidence?taskId=${editingTask?.id}`);
-      if (!response.ok) throw new Error('Failed to fetch evidence');
-      const data = await response.json();
-      console.log('🔍 Evidence data received:', data);
-      return data;
-    },
+    queryKey: [`/api/evidence?taskId=${editingTask?.id}`],
     enabled: !!editingTask?.id,
   });
 
   const { data: users, refetch: refetchUsers } = useQuery({
     queryKey: ['/api/users', refreshKey],
-    queryFn: async () => {
-      const response = await fetch(`/api/users?_t=${Date.now()}`);
-      if (!response.ok) throw new Error('Failed to fetch users');
-      return response.json();
-    },
     staleTime: 0, // Force fresh data
     gcTime: 0, // Don't cache
   });
@@ -171,10 +141,16 @@ export default function ProjectDetail() {
     queryFn: async () => {
       if (!tasks) return [];
       
+      const token = localStorage.getItem("accessToken");
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      
       const tasksWithControlsData = await Promise.all(
         tasks.map(async (task: any) => {
           try {
-            const response = await fetch(`/api/tasks/${task.id}/controls?_t=${Date.now()}`);
+            const response = await fetch(`/api/tasks/${task.id}/controls`, { headers });
             if (!response.ok) return { ...task, controls: [] };
             const controls = await response.json();
             return { ...task, controls };
