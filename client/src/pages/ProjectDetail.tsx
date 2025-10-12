@@ -108,29 +108,29 @@ export default function ProjectDetail() {
   const [taskStatusFilter, setTaskStatusFilter] = useState('all');
   const [taskPriorityFilter, setTaskPriorityFilter] = useState('all');
 
-  const { data: project, isLoading: projectLoading } = useQuery({
+  const { data: project, isLoading: projectLoading } = useQuery<any>({
     queryKey: [`/api/projects/${id}`],
     enabled: !!id,
   });
 
-  const { data: projectControls, isLoading: controlsLoading } = useQuery({
+  const { data: projectControls = [], isLoading: controlsLoading } = useQuery<any[]>({
     queryKey: [`/api/projects/${id}/controls`],
     enabled: !!id,
   });
 
-  const { data: tasks, isLoading: tasksLoading, refetch: refetchTasks } = useQuery({
+  const { data: tasks = [], isLoading: tasksLoading, refetch: refetchTasks } = useQuery<any[]>({
     queryKey: [`/api/tasks?projectId=${id}`, refreshKey],
     enabled: !!id,
     staleTime: 0, // Force fresh data
     gcTime: 0, // Don't cache
   });
 
-  const { data: taskEvidence, refetch: refetchEvidence } = useQuery({
+  const { data: taskEvidence = [], refetch: refetchEvidence } = useQuery<any[]>({
     queryKey: [`/api/evidence?taskId=${editingTask?.id}`],
     enabled: !!editingTask?.id,
   });
 
-  const { data: users, refetch: refetchUsers } = useQuery({
+  const { data: users = [], refetch: refetchUsers } = useQuery<any[]>({
     queryKey: ['/api/users', refreshKey],
     staleTime: 0, // Force fresh data
     gcTime: 0, // Don't cache
