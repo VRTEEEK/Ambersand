@@ -28,6 +28,12 @@ import Notifications from "@/pages/Notifications";
 import EmailTest from "@/pages/EmailTest";
 import RiskRegister from "@/pages/RiskRegister";
 import RiskDetailPage from "@/pages/RiskDetailPage";
+import AcceptInvite from "@/pages/AcceptInvite";
+import Login from "@/pages/auth/Login";
+import Signup from "@/pages/auth/Signup";
+import VerifyEmail from "@/pages/auth/VerifyEmail";
+import ForgotPassword from "@/pages/auth/ForgotPassword";
+import ResetPassword from "@/pages/auth/ResetPassword";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -47,6 +53,20 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={isAuthenticated ? Dashboard : Landing} />
+
+      {/* Auth routes - public */}
+      <Route path="/auth/login" component={Login} />
+      <Route path="/auth/signup" component={Signup} />
+      <Route path="/auth/verify-email" component={VerifyEmail} />
+      <Route path="/auth/forgot-password" component={ForgotPassword} />
+      <Route path="/auth/reset-password" component={ResetPassword} />
+
+      {/* Legacy redirects */}
+      <Route path="/login">{() => { window.location.href = "/auth/login"; return null; }}</Route>
+      <Route path="/register">{() => { window.location.href = "/auth/signup"; return null; }}</Route>
+      <Route path="/signup">{() => { window.location.href = "/auth/signup"; return null; }}</Route>
+
+      <Route path="/accept-invite" component={AcceptInvite} />
       <Route path="/regulations" component={isAuthenticated ? Regulations : Landing} />
       <Route path="/regulations/import" component={isAuthenticated ? ImportRegulation : Landing} />
       <Route path="/regulations/:id" component={isAuthenticated ? RegulationDetail : Landing} />

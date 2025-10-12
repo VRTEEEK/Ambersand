@@ -193,9 +193,20 @@ export default function ImportRegulation() {
     } catch (err: any) {
       console.error('Dry run failed:', err);
       const msg = await extractMessage(err);
+
+      // Try to extract debug info from error
+      let debugInfo = '';
+      try {
+        const errorObj = JSON.parse(err.message || '{}');
+        if (errorObj.debug) {
+          debugInfo = `\n\nDebug Info:\n${JSON.stringify(errorObj.debug, null, 2)}`;
+          console.log('🔍 Debug Info:', errorObj.debug);
+        }
+      } catch {}
+
       toast({
         title: language === 'ar' ? 'فشل في تحليل الملف' : 'Failed to parse file',
-        description: msg,
+        description: msg + debugInfo,
         variant: 'destructive',
       });
       setResult(null);
@@ -264,10 +275,26 @@ export default function ImportRegulation() {
             <FileSpreadsheet className="h-5 w-5" />
             {language === 'ar' ? 'استيراد التنظيم' : 'Import Regulation'}
           </CardTitle>
-          <Button variant="outline" onClick={handleDownloadTemplate}>
-            <Download className="h-4 w-4 mr-2" />
-            {language === 'ar' ? 'تحميل قالب CSV' : 'Download CSV Template'}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleDownloadTemplate}>
+              <Download className="h-4 w-4 mr-2" />
+              {language === 'ar' ? 'تحميل قالب CSV' : 'Download CSV Template'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const link = document.createElement('a');
+                link.href = '/test-regulation-sample.csv';
+                link.download = 'test-regulation-sample.csv';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {language === 'ar' ? 'تحميل عينة اختبار' : 'Download Test Sample'}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid md:grid-cols-2 gap-3">
@@ -340,20 +367,34 @@ export default function ImportRegulation() {
             className="border-2 border-dashed rounded-xl p-6 text-center text-sm text-muted-foreground"
           >
             {file ? (
-              <div className="flex items-center justify-center gap-2 text-green-600">
-                <CheckCircle className="h-4 w-4" />
-                {language === 'ar' 
-                  ? `المحدد: ${file.name} (${(file.size/1024/1024).toFixed(1)} ميجابايت)` 
-                  : `Selected: ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)`
-                }
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex items-center gap-2 text-green-600">
+                  <CheckCircle className="h-4 w-4" />
+                  {language === 'ar'
+                    ? `المحدد: ${file.name} (${(file.size/1024/1024).toFixed(1)} ميجابايت)`
+                    : `Selected: ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)`
+                  }
+                </div>
+                <p className="text-xs text-gray-500">
+                  {language === 'ar'
+                    ? '💡 تأكد من أن الملف يحتوي على صف رأس وصف بيانات واحد على الأقل'
+                    : '💡 Make sure the file has a header row and at least one data row'
+                  }
+                </p>
               </div>
             ) : (
               <div className="space-y-2">
                 <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
-                {language === 'ar' 
+                {language === 'ar'
                   ? 'اسحب وأفلت ملف .xlsx/.csv هنا، أو اختر ملف'
                   : 'Drag & drop .xlsx/.csv here, or choose a file'
                 }
+                <p className="text-xs text-gray-500 mt-2">
+                  {language === 'ar'
+                    ? '💡 نصيحة: ابدأ بتحميل القالب أولاً'
+                    : '💡 Tip: Download the template first to get started'
+                  }
+                </p>
               </div>
             )}
             <div className="mt-3">

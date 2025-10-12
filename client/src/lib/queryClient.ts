@@ -29,11 +29,28 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    // Get access token from localStorage
+    const token = localStorage.getItem("accessToken");
+
+    // Build headers with Authorization if token exists
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    // Extract URL from queryKey - it's always the first element and should be a string
+    // Additional elements in the array are for cache invalidation/refetch tracking
+    const url = Array.isArray(queryKey) ? String(queryKey[0]) : String(queryKey);
+
+    console.log('[queryClient] Fetching:', url, 'with auth:', !!token);
+
+    const res = await fetch(url, {
       credentials: "include",
+      headers,
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+      console.log('[queryClient] 401 Unauthorized for:', url);
       return null;
     }
 

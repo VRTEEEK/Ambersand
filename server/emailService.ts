@@ -38,13 +38,22 @@ function normTo(to: string | string[]) {
 }
 
 async function sendWithSendgrid(opts: EmailOptions): Promise<EmailResult> {
-  if (!SG_KEY) return { success: false, error: "SENDGRID_API_KEY missing" };
+  if (!SG_KEY) {
+    console.error("❌ SendGrid: SENDGRID_API_KEY environment variable is not set");
+    return { success: false, error: "SENDGRID_API_KEY missing" };
+  }
   const toList = normTo(opts.to);
-  if (!toList.length) return { success: false, error: "No recipients" };
+  if (!toList.length) {
+    console.error("❌ SendGrid: No recipients provided");
+    return { success: false, error: "No recipients" };
+  }
 
   const fromEmail = (opts.fromEmailOverride || SG_FROM_EMAIL).trim();
   const fromName = (opts.fromNameOverride || SG_FROM_NAME).trim();
-  if (!fromEmail) return { success: false, error: "SENDGRID_FROM_EMAIL missing (must be verified)" };
+  if (!fromEmail) {
+    console.error("❌ SendGrid: SENDGRID_FROM_EMAIL environment variable is not set");
+    return { success: false, error: "SENDGRID_FROM_EMAIL missing (must be verified)" };
+  }
 
   try {
     const msg: any = {
@@ -75,8 +84,10 @@ async function sendWithSendgrid(opts: EmailOptions): Promise<EmailResult> {
     const statusCode = resp?.[0]?.statusCode;
     const messageId = resp?.[0]?.headers?.["x-message-id"] || resp?.[0]?.headers?.["x-message-id".toLowerCase()];
     if (statusCode && statusCode >= 200 && statusCode < 300) {
+      console.log(`✅ SendGrid: Email sent successfully to ${toList.join(', ')} | Subject: "${msg.subject}" | Status: ${statusCode}`);
       return { success: true, statusCode, messageId };
     }
+    console.error(`❌ SendGrid: Non-2xx status code: ${statusCode}`);
     return { success: false, statusCode, error: `SendGrid non-2xx: ${statusCode}` };
   } catch (err: any) {
     const sgErr = err?.response?.body || err?.message || String(err);
@@ -150,6 +161,12 @@ export const emailService = {
     const tpl = language === 'ar' ? "password-reset.ar" : "password-reset.en";
     const html = await renderTemplate(tpl, { userName, resetUrl });
     const subject = language === 'ar' ? 'إعادة تعيين كلمة المرور' : 'Password Reset Request';
+    return this.sendEmailWithRetry({ to: toEmail, subject, html });
+  },
+
+  async sendVerificationEmail(toEmail: string, userName: string, verificationUrl: string): Promise<EmailResult> {
+    const html = await renderTemplate("email-verification.en", { userName, verificationUrl });
+    const subject = 'Verify Your Email Address - Ambersand';
     return this.sendEmailWithRetry({ to: toEmail, subject, html });
   },
 

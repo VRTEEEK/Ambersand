@@ -867,7 +867,12 @@ export default function Regulations() {
   const { data: regulationsSummary } = useQuery({
     queryKey: ['/api/regulations/summary'],
     queryFn: async () => {
-      const response = await fetch('/api/regulations/summary');
+      const token = localStorage.getItem("accessToken");
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const response = await fetch('/api/regulations/summary', { headers });
       if (!response.ok) throw new Error('Failed to fetch regulations summary');
       return response.json();
     },
@@ -973,11 +978,20 @@ export default function Regulations() {
                 </DialogTrigger>
               </Dialog>
               
-              <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+              <Button
+                variant="outline"
+                className="flex items-center gap-2"
+                onClick={() => navigate('/regulations/import')}
+              >
+                <Upload className="h-4 w-4" />
+                {language === 'ar' ? 'استيراد تنظيم' : 'Import Regulation'}
+              </Button>
+
+              <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen} style={{ display: 'none' }}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2">
+                  <Button variant="outline" className="flex items-center gap-2" style={{ display: 'none' }}>
                     <FileSpreadsheet className="h-4 w-4" />
-                    {language === 'ar' ? 'استيراد XLSX' : 'Import XLSX'}
+                    {language === 'ar' ? 'استيراد XLSX (قديم)' : 'Import XLSX (Legacy)'}
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">

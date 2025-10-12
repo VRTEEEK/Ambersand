@@ -43,9 +43,23 @@ export function DynamicRegulationCards() {
     });
   };
 
-  const { data: regulations, isLoading } = useQuery<RegulationData[]>({
+  const { data: regulations, isLoading, isError } = useQuery<RegulationData[]>({
     queryKey: ['/api/dashboard/regulations'],
-    queryFn: () => fetch('/api/dashboard/regulations').then(res => res.json()),
+    queryFn: async () => {
+      const token = localStorage.getItem("accessToken");
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const res = await fetch('/api/dashboard/regulations', { headers });
+      if (!res.ok) {
+        throw new Error('Failed to fetch regulations');
+      }
+      const data = await res.json();
+      // Ensure we always return an array
+      return Array.isArray(data) ? data : [];
+    },
     staleTime: 0,
     gcTime: 0,
   });
@@ -79,11 +93,14 @@ export function DynamicRegulationCards() {
 
   const isRTL = language === 'ar';
 
+  // Ensure regulations is always an array
+  const regulationList = Array.isArray(regulations) ? regulations : [];
+
   return (
     <div className="space-y-6">
       {/* Regulation Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {regulations?.map((regulation) => {
+        {regulationList.map((regulation) => {
           const isExpanded = expandedCards.has(regulation.id);
           const totalCompleted = regulation.domains.reduce((sum, domain) => sum + domain.completed, 0);
           const totalControls = regulation.domains.reduce((sum, domain) => sum + domain.total, 0);
@@ -333,7 +350,7 @@ export function DynamicRegulationCards() {
       </Card>
 
       {/* Empty State */}
-      {regulations && regulations.length === 0 && (
+      {regulationList.length === 0 && (
         <Card className="rounded-2xl">
           <CardContent className="p-12 text-center">
             <div className="space-y-6">

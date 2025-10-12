@@ -7,7 +7,9 @@ import { buildPDF, buildDOCX, buildXLSX, streamBundle } from "./reports/reportBu
 import crypto from "crypto";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+// DEPRECATED: Old Replit OAuth authentication - replaced with email/password JWT auth
+// import { setupAuth, requireAuth } from "./replitAuth";
+import { requireAuth, type AuthRequest } from "./middleware/authMiddleware";
 import {
   insertProjectSchema,
   insertTaskSchema,
@@ -30,6 +32,7 @@ import workflowsRouter from "./routes/workflows";
 import regulationsRouter from "./routes/regulations";
 import projectsRouter from "./routes/projects";
 import notificationsRouter from "./routes/notifications";
+import authRouter from "./routes/auth";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -126,15 +129,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Auth middleware
-  await setupAuth(app);
+  // DEPRECATED: Old Replit OAuth setup - now using email/password JWT auth
+  // await setupAuth(app);
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  // Auth routes - new JWT-based authentication
+  // The /api/auth/* routes are handled by authRouter (mounted below at line 3100+)
+
+  // Legacy compatibility endpoint - maps to new auth system
+  app.get('/api/auth/user', requireAuth, async (req: AuthRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
+      // New auth system stores userId in req.userId (from JWT)
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Get user from new auth_users table
+      const { authService } = await import("./services/authService");
+      const user = await authService.getUserById(userId);
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json({
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        organizationId: user.organizationId,
+        profileImageUrl: null, // Not used in new system
+      });
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -142,13 +168,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // RBAC routes
-  app.get('/api/me/permissions', isAuthenticated, async (req: any, res) => {
+  app.get('/api/me/permissions', requireAuth, async (req: AuthRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const projectId = req.query.project_id ? parseInt(req.query.project_id) : undefined;
-      
-      const permissions = await getUserPermissions(userId, projectId);
-      
+      const userId = req.userId;
+      const projectId = req.query.project_id ? parseInt(req.query.project_id as string) : undefined;
+
+      console.log(`[Permissions API] Fetching permissions for user ID: ${userId} (type: ${typeof userId})`);
+
+      // Convert userId to string for database query (users table uses varchar IDs)
+      const userIdStr = String(userId);
+      const permissions = await getUserPermissions(userIdStr, projectId);
+
+      console.log(`[Permissions API] Found ${permissions.length} permissions:`, permissions);
+
       res.json({
         permissions,
         projectId
@@ -160,9 +192,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User Management routes  
-  app.get('/api/users', isAuthenticated, async (req: any, res) => {
+  app.get('/api/users', requireAuth, async (req: AuthRequest, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
+      const currentUser = await storage.getUser(req.userId);
       const users = await storage.getAllUsers(currentUser?.organizationId || undefined);
       
       // Format for workflow components (simplified structure)
@@ -183,9 +215,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/users', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+  app.post('/api/users', requireAuth, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
+      const currentUser = await storage.getUser(req.userId);
       const { id, email, firstName, lastName, organizationId, roleIds } = req.body;
       
       if (!id || !email) {
@@ -229,7 +261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // RBAC API endpoints
-  app.get('/api/roles', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+  app.get('/api/roles', requireAuth, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
       const roles = await storage.getRoles();
       res.json(roles);
@@ -239,7 +271,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/permissions', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+  app.get('/api/permissions', requireAuth, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
       const allPermissions = await storage.getPermissions();
       const allRoles = await storage.getRoles();
@@ -308,7 +340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/users/:userId/roles', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+  app.put('/api/users/:userId/roles', requireAuth, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
       const { userId } = req.params;
       const { roleIds } = req.body;
@@ -335,7 +367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/users/:userId/effective-permissions', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+  app.get('/api/users/:userId/effective-permissions', requireAuth, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
       const { userId } = req.params;
       const projectId = req.query.project_id ? parseInt(req.query.project_id) : undefined;
@@ -393,7 +425,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/users/:userId/roles', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+  app.get('/api/users/:userId/roles', requireAuth, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
       const { userId } = req.params;
       const roles = await storage.getUserRoles(userId);
@@ -405,7 +437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Enhanced RBAC endpoints for admin panel
-  app.post('/api/users/:userId/org-roles', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+  app.post('/api/users/:userId/org-roles', requireAuth, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
       const { userId } = req.params;
       const { add = [], remove = [] } = req.body;
@@ -433,7 +465,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/users/:userId/project-roles', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+  app.post('/api/users/:userId/project-roles', requireAuth, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
       const { userId } = req.params;
       const { project_id, add = [], remove = [] } = req.body;
@@ -467,7 +499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/users/:userId/project-roles', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+  app.get('/api/users/:userId/project-roles', requireAuth, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
       const { userId } = req.params;
       
@@ -510,7 +542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/users/:userId/effective-permissions', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+  app.get('/api/users/:userId/effective-permissions', requireAuth, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
       const { userId } = req.params;
       const projectId = req.query.project_id ? parseInt(req.query.project_id as string) : undefined;
@@ -552,7 +584,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Legacy bulk assign endpoint (keep for backward compatibility)
-  app.post('/api/admin/users/bulk-assign', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+  app.post('/api/admin/users/bulk-assign', requireAuth, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
       const { user_ids, org_roles, project_roles } = req.body;
 
@@ -612,7 +644,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // New Excel-aligned bulk permission assignment endpoint
-  app.post('/api/admin/users/bulk-assign-permissions', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+  app.post('/api/admin/users/bulk-assign-permissions', requireAuth, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
       const { user_ids, operation, categories } = req.body;
 
@@ -680,7 +712,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Enhanced admin users endpoint with filtering and pagination
-  app.get('/api/admin/users', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+  app.get('/api/admin/users', requireAuth, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
       const { 
         query = '',
@@ -774,7 +806,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/users/:userId', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+  app.patch('/api/users/:userId', requireAuth, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
       const { userId } = req.params;
       const updates = req.body;
@@ -788,9 +820,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Profile picture upload route
-  app.post('/api/users/:userId/profile-picture', isAuthenticated, upload.single('profilePicture'), async (req: any, res) => {
+  app.post('/api/users/:userId/profile-picture', requireAuth, upload.single('profilePicture'), async (req: any, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
+      const currentUser = await storage.getUser(req.userId);
       
       // Only admins can update user profile pictures
       if (currentUser?.role !== 'admin') {
@@ -828,9 +860,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/users/:userId', isAuthenticated, requirePermissions(['change_user_permissions']), async (req: any, res) => {
+  app.delete('/api/users/:userId', requireAuth, requirePermissions(['change_user_permissions']), async (req: any, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
+      const currentUser = await storage.getUser(req.userId);
       const { userId } = req.params;
       
       // Prevent self-deletion
@@ -849,10 +881,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Note: User invitation functionality has been moved to server/routes/users.ts
 
   // Test email endpoint - for debugging email service
-  app.post('/api/admin/test-email', isAuthenticated, async (req: any, res) => {
+  app.post('/api/admin/test-email', requireAuth, async (req: AuthRequest, res) => {
     try {
       const { email } = req.body;
-      const currentUser = req.user?.claims;
+      const currentUser = { sub: req.userId, email: req.userEmail };
       
       if (!email) {
         return res.status(400).json({ message: 'Email address is required' });
@@ -884,9 +916,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dashboard metrics
-  app.get('/api/dashboard/metrics', isAuthenticated, async (req: any, res) => {
+  app.get('/api/dashboard/metrics', requireAuth, async (req: AuthRequest, res) => {
     try {
-      const user = await storage.getUser(req.user?.id || (req.user as any)?.claims?.sub);
+      const user = await storage.getUser(req.userId);
       const metrics = await storage.getDashboardMetrics(user?.organizationId || undefined);
       res.json(metrics);
     } catch (error) {
@@ -896,11 +928,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dynamic dashboard regulations
-  app.get('/api/dashboard/regulations', isAuthenticated, async (req: any, res) => {
+  app.get('/api/dashboard/regulations', requireAuth, async (req: AuthRequest, res) => {
     try {
-      const user = await storage.getUser(req.user?.id || (req.user as any)?.claims?.sub);
+      const user = await storage.getUser(req.userId);
       console.log('🔍 Dashboard regulations debug:');
-      console.log('  - User ID:', req.user?.id || (req.user as any)?.claims?.sub);
+      console.log('  - User ID:', req.userId);
       console.log('  - User found:', user ? 'yes' : 'no');
       console.log('  - User organizationId:', user?.organizationId);
 
@@ -915,9 +947,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Projects routes
-  app.get('/api/projects', isAuthenticated, async (req: any, res) => {
+  app.get('/api/projects', requireAuth, async (req: AuthRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.userId);
       const projects = await storage.getProjects(user?.organizationId || undefined);
       res.json(projects);
     } catch (error) {
@@ -926,7 +958,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/projects/:id', isAuthenticated, async (req, res) => {
+  app.get('/api/projects/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const project = await storage.getProject(id);
@@ -940,9 +972,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/projects', isAuthenticated, async (req: any, res) => {
+  app.post('/api/projects', requireAuth, async (req: AuthRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       console.log("Creating project for user:", userId);
       console.log("Request body:", JSON.stringify(req.body, null, 2));
       
@@ -987,7 +1019,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/projects/:id', isAuthenticated, async (req, res) => {
+  app.put('/api/projects/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const projectData = req.body;
@@ -999,7 +1031,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/projects/:id', isAuthenticated, async (req, res) => {
+  app.delete('/api/projects/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteProject(id);
@@ -1011,7 +1043,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Project Controls routes
-  app.get('/api/projects/:id/controls', isAuthenticated, async (req: any, res) => {
+  app.get('/api/projects/:id/controls', requireAuth, async (req: AuthRequest, res) => {
     try {
       const projectId = parseInt(req.params.id);
       const controls = await storage.getProjectControls(projectId);
@@ -1022,7 +1054,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/projects/:id/controls', isAuthenticated, async (req: any, res) => {
+  app.post('/api/projects/:id/controls', requireAuth, async (req: AuthRequest, res) => {
     try {
       const projectId = parseInt(req.params.id);
       const { controlIds } = req.body;
@@ -1039,7 +1071,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/projects/:projectId/controls/:controlId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/projects/:projectId/controls/:controlId', requireAuth, async (req: AuthRequest, res) => {
     try {
       const projectId = parseInt(req.params.projectId);
       const controlId = parseInt(req.params.controlId);
@@ -1058,12 +1090,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Direct email test endpoint
-  app.post('/api/debug-send-email', isAuthenticated, async (req: any, res) => {
+  app.post('/api/debug-send-email', requireAuth, async (req: AuthRequest, res) => {
     try {
       console.log('🚀 DEBUG EMAIL ENDPOINT HIT');
       // emailService is already imported and available
       
-      const user = await storage.getUser((req.user as any)?.id || (req.user as any)?.claims?.sub);
+      const user = await storage.getUser(req.userId);
       if (!user || !user.email) {
         return res.status(400).json({ error: 'User not found or no email' });
       }
@@ -1097,7 +1129,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Tasks routes
-  app.get('/api/tasks', isAuthenticated, async (req, res) => {
+  app.get('/api/tasks', requireAuth, async (req, res) => {
     try {
       const projectId = req.query.projectId ? parseInt(req.query.projectId as string) : undefined;
       const assigneeId = req.query.assigneeId as string | undefined;
@@ -1109,7 +1141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/tasks/:id', isAuthenticated, async (req, res) => {
+  app.get('/api/tasks/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const task = await storage.getTask(id);
@@ -1123,14 +1155,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/tasks', isAuthenticated, async (req: any, res) => {
+  app.post('/api/tasks', requireAuth, async (req: AuthRequest, res) => {
     console.log('\n🔥🔥🔥🔥🔥🔥🔥🔥🔥 TASK CREATION ROUTE HIT 🔥🔥🔥🔥🔥🔥🔥🔥🔥');
     console.log('🔥🔥🔥 ROUTES: POST /api/tasks called with body:', JSON.stringify(req.body, null, 2));
-    console.log('🔥🔥🔥 ROUTES: Request user:', req.user);
+    console.log('🔥🔥🔥 ROUTES: Request user FULL:', JSON.stringify(req.user, null, 2));
+    console.log('🔥🔥🔥 ROUTES: User org debug:', {
+      hasUser: !!req.user,
+      userOrgId: req.user?.organizationId,
+      userClaimsOrg: { sub: req.userId, email: req.userEmail }?.org,
+      userKeys: Object.keys(req.user || {})
+    });
     console.log('🔥🔥🔥 ROUTES: URL requested:', req.url);
     console.log('🔥🔥🔥 ROUTES: Method:', req.method);
     console.log('🔥🔥🔥🔥🔥🔥🔥🔥🔥 ROUTE PROCESSING STARTING 🔥🔥🔥🔥🔥🔥🔥🔥🔥');
     try {
+      // Get current user from database to ensure we have organizationId
+      const currentUserId = req.user.claims?.sub || req.user.id;
+      const currentUserResult = await db.select({
+        id: users.id,
+        email: users.email,
+        organizationId: users.organizationId,
+        firstName: users.firstName,
+        lastName: users.lastName
+      })
+      .from(users)
+      .where(eq(users.id, currentUserId))
+      .limit(1);
+
+      if (currentUserResult.length === 0) {
+        return res.status(401).json({ message: "User not found in database" });
+      }
+
+      const currentUser = currentUserResult[0];
+      console.log('🔍 Current user from database:', currentUser);
+
       // Parse and validate request body per specification
       const body = z.object({
         title: z.string().min(1),
@@ -1152,7 +1210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (body.assigneeId) {
         // Validate user belongs to same org (or both have null org for admin users)
-        const orgId = req.user.claims?.org || req.user?.organizationId;
+        const orgId = currentUser.organizationId;
         const whereCondition = orgId 
           ? and(eq(users.id, body.assigneeId), eq(users.organizationId, orgId))
           : eq(users.id, body.assigneeId); // For admin users with no org, just check user exists
@@ -1165,9 +1223,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (u.length > 0) assigneeId = u[0].id;
       } else if (body.assigneeEmail) {
         const normalized = body.assigneeEmail.toLowerCase().trim();
-        
+
         // Try existing user first (handle null org for admin users)
-        const orgId = req.user.claims?.org || req.user?.organizationId;
+        const orgId = currentUser.organizationId;
         const whereCondition = orgId 
           ? and(eq(users.organizationId, orgId), eq(users.email, normalized))
           : eq(users.email, normalized); // For admin users with no org
@@ -1181,9 +1239,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           assigneeId = u[0].id;
         } else {
           // Create invite per specification
-          const orgId = req.user.claims?.org || req.user?.organizationId;
+          const orgId = currentUser.organizationId;
+
+          // Debug: Log user context to understand what's missing
+          console.log('🔍 DEBUG - Database user for invitation:', currentUser);
+          console.log('🔍 DEBUG - Organization ID found:', orgId);
+
           if (!orgId) {
-            return res.status(400).json({ message: "Organization missing" });
+            console.warn(`⚠️  Organization missing for user invite. User context:`, req.user);
+            return res.status(400).json({
+              message: "Organization missing - cannot send invitation. Please ensure you are logged in with proper organization access.",
+              debug: {
+                hasUserClaims: !!{ sub: req.userId, email: req.userEmail },
+                hasUserOrgId: !!req.user?.organizationId,
+                userEmail: req.user?.email
+              }
+            });
           }
           
           const token = crypto.randomUUID().replace(/-/g, "");
@@ -1197,17 +1268,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
           pendingAssigneeInviteId = invite.id;
 
           const acceptUrl = `${process.env.APP_BASE_URL || "http://localhost:5000"}/accept-invite?token=${token}`;
-          try {
-            await emailService.sendEmailWithRetry({
-              to: normalized,
-              subject: "You're invited to Ambersand (Task Assignment Pending)",
-              html: `<p>You've been invited to join Ambersand. You have a task waiting.</p>
-                     <p><a href="${acceptUrl}">Accept your invite</a></p>`
+
+          // Get inviter information
+          const inviterName = currentUser.firstName && currentUser.lastName
+            ? `${currentUser.firstName} ${currentUser.lastName}`
+            : (currentUser.email?.split('@')[0] || 'Team Member');
+
+          // Get organization name (fallback to 'Ambersand Compliance' if not available)
+          const organizationName = 'Ambersand Compliance'; // TODO: Get from organization table when available
+
+          // Use proper invitation email with template
+          console.log(`📧 Attempting to send invitation email to ${normalized}`);
+          const emailResult = await emailService.sendInvitationEmail(
+            normalized,
+            inviterName,
+            organizationName,
+            `You've been assigned a task titled "${body.title}". Please accept this invitation to view and complete it.`,
+            acceptUrl
+          );
+
+          if (!emailResult.success) {
+            console.error(`❌ Failed to send invitation email: ${emailResult.error}`);
+            // Delete the invite we just created since email cannot be sent
+            await db.delete(userInvites).where(eq(userInvites.id, invite.id));
+            return res.status(500).json({
+              message: "Failed to send invitation email. Email service not configured properly.",
+              error: emailResult.error,
+              details: "Please ensure SENDGRID_API_KEY, SENDGRID_FROM_EMAIL, and APP_BASE_URL are set in environment variables."
             });
-          } catch (emailError) {
-            console.error('Failed to send invite email, continuing with task creation:', emailError);
-            // Continue with task creation even if email fails
           }
+
+          console.log(`✅ Invitation email sent successfully to ${normalized} from ${inviterName} (${organizationName})`);
         }
       }
 
@@ -1221,20 +1312,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         projectId: body.projectId,
         assigneeId,
         pendingAssigneeInviteId,
-        createdById: req.user.claims?.sub || req.user.id,
+        createdById: currentUser.id,
       });
       
       console.log('🔥🔥🔥 Parsed task data:', JSON.stringify(taskData, null, 2));
       const task = await storage.createTask(taskData);
       console.log('🔥🔥🔥 Task created successfully:', JSON.stringify(task, null, 2));
-      
+
       // Create task-control relationships
       if (body.controlIds.length > 0) {
         await storage.addControlsToTask(task.id, body.controlIds);
       }
-      
-      // Email notification is handled by storage.createTask() method
-      
+
+      // Email notification is handled by storage.createTask() method for existing users
+      // For pending invites, send task assignment email here
+      console.log(`🔍 DEBUG - Checking if task assignment email should be sent:`, {
+        hasPendingAssigneeInviteId: !!task.pendingAssigneeInviteId,
+        pendingAssigneeInviteIdValue: task.pendingAssigneeInviteId,
+        hasAssigneeEmail: !!body.assigneeEmail,
+        assigneeEmailValue: body.assigneeEmail,
+        willSendEmail: !!(task.pendingAssigneeInviteId && body.assigneeEmail)
+      });
+
+      if (task.pendingAssigneeInviteId && body.assigneeEmail) {
+        const project = task.projectId ? await storage.getProject(task.projectId) : null;
+        const dueDate = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'Not set';
+        const projectName = project?.name || 'Untitled Project';
+        const userName = body.assigneeEmail.split('@')[0]; // Use email prefix as name for new users
+
+        console.log(`📧 Attempting to send task assignment email to pending invite: ${body.assigneeEmail}`);
+        const taskEmailResult = await emailService.sendTaskAssignmentEmail(
+          body.assigneeEmail,
+          userName,
+          task.title,
+          dueDate,
+          projectName,
+          'en',
+          task.id
+        );
+
+        if (taskEmailResult.success) {
+          console.log(`✅ Task assignment email sent successfully to pending invite: ${body.assigneeEmail}`);
+        } else {
+          console.error(`❌ Failed to send task assignment email: ${taskEmailResult.error}`);
+          // Note: We don't fail the request here since the invite was already sent and task created
+        }
+      } else {
+        console.log(`ℹ️  Skipping task assignment email - either no pending invite or no assignee email`);
+      }
+
       res.status(201).json(task);
     } catch (error) {
       console.error("Error creating task:", error);
@@ -1242,7 +1368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/tasks/:id', isAuthenticated, async (req, res) => {
+  app.put('/api/tasks/:id', requireAuth, async (req, res) => {
     try {
       console.log('PUT /api/tasks/:id called with:', { id: req.params.id, body: req.body });
       const id = parseInt(req.params.id);
@@ -1278,7 +1404,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('📧 Assignment check:', { 
           newAssigneeId: taskData.assigneeId, 
           oldAssigneeId: oldTask?.assigneeId,
-          currentUserId: (req.user as any)?.id || (req.user as any)?.claims?.sub,
+          currentUserId: req.userId,
           isNewAssignment: taskData.assigneeId && oldTask?.assigneeId !== taskData.assigneeId
         });
         
@@ -1316,7 +1442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/tasks/:id', isAuthenticated, async (req, res) => {
+  app.delete('/api/tasks/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteTask(id);
@@ -1328,7 +1454,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Task Controls routes
-  app.get('/api/tasks/:id/controls', isAuthenticated, async (req, res) => {
+  app.get('/api/tasks/:id/controls', requireAuth, async (req, res) => {
     try {
       const taskId = parseInt(req.params.id);
       const controls = await storage.getTaskControls(taskId);
@@ -1341,7 +1467,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all task controls for displaying badges
-  app.get('/api/tasks/controls/all', isAuthenticated, async (req, res) => {
+  app.get('/api/tasks/controls/all', requireAuth, async (req, res) => {
     try {
       const tasks = await storage.getTasks();
       const taskControlsMap: Record<number, any[]> = {};
@@ -1359,7 +1485,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get evidence for a specific task
-  app.get('/api/evidence/task/:taskId', isAuthenticated, async (req, res) => {
+  app.get('/api/evidence/task/:taskId', requireAuth, async (req, res) => {
     try {
       const taskId = parseInt(req.params.taskId);
       const evidence = await storage.getEvidenceByTaskId(taskId);
@@ -1370,7 +1496,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/tasks/:id/controls', isAuthenticated, async (req, res) => {
+  app.post('/api/tasks/:id/controls', requireAuth, async (req, res) => {
     try {
       const taskId = parseInt(req.params.id);
       const { controlIds } = req.body;
@@ -1387,15 +1513,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/tasks/:id/controls', isAuthenticated, async (req, res) => {
+  app.delete('/api/tasks/:id/controls', requireAuth, async (req, res) => {
     try {
       const taskId = parseInt(req.params.id);
       const { controlIds } = req.body;
-      
+
       if (!Array.isArray(controlIds)) {
         return res.status(400).json({ message: "controlIds must be an array" });
       }
-      
+
       await storage.removeControlsFromTask(taskId, controlIds);
       res.json({ message: "Controls removed from task successfully" });
     } catch (error) {
@@ -1404,8 +1530,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get active tasks for specific controls - for duplicate prevention
+  app.post('/api/controls/active-tasks', requireAuth, async (req, res) => {
+    try {
+      const { controlIds, projectId } = req.body;
+
+      if (!Array.isArray(controlIds)) {
+        return res.status(400).json({ message: "controlIds must be an array" });
+      }
+
+      if (typeof projectId !== 'number') {
+        return res.status(400).json({ message: "projectId must be a number" });
+      }
+
+      // Get all tasks for the project
+      const projectTasks = await storage.getTasks(projectId);
+
+      // Filter to only active tasks (not completed or blocked permanently)
+      const activeTasks = projectTasks.filter((task: any) =>
+        task.status !== 'completed' && task.status !== 'blocked'
+      );
+
+      // For each control, find tasks that reference it
+      const controlTasksMap: Record<number, any[]> = {};
+
+      for (const controlId of controlIds) {
+        const tasksForControl = [];
+
+        for (const task of activeTasks) {
+          try {
+            const taskControls = await storage.getTaskControls(task.id);
+            const hasControl = taskControls.some((tc: any) =>
+              (tc.eccControl?.id === controlId) || (tc.customControl?.id === controlId)
+            );
+
+            if (hasControl) {
+              tasksForControl.push({
+                id: task.id,
+                title: task.title,
+                titleAr: task.titleAr,
+                status: task.status,
+                priority: task.priority,
+                dueDate: task.dueDate,
+                assigneeId: task.assigneeId,
+                createdAt: task.createdAt
+              });
+            }
+          } catch (error) {
+            console.error(`Error getting controls for task ${task.id}:`, error);
+          }
+        }
+
+        controlTasksMap[controlId] = tasksForControl;
+      }
+
+      res.json(controlTasksMap);
+    } catch (error) {
+      console.error("Error fetching active tasks for controls:", error);
+      res.status(500).json({ message: "Failed to fetch active tasks for controls" });
+    }
+  });
+
   // ECC Controls routes - Updated to use new regulations system
-  app.get('/api/ecc-controls', isAuthenticated, async (req, res) => {
+  app.get('/api/ecc-controls', requireAuth, async (req, res) => {
     try {
       const search = req.query.search as string | undefined;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
@@ -1519,7 +1706,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/ecc-controls/:id', isAuthenticated, async (req, res) => {
+  app.get('/api/ecc-controls/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const control = await storage.getEccControl(id);
@@ -1534,7 +1721,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Regulations summary endpoint for Library page
-  app.get('/api/regulations/summary', isAuthenticated, async (req, res) => {
+  app.get('/api/regulations/summary', requireAuth, async (req, res) => {
     try {
       // Import the necessary modules
       const { regulations, regulationControls } = await import('../shared/schema');
@@ -1571,7 +1758,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get controls for a specific regulation
-  app.get('/api/regulations/:id/controls', isAuthenticated, async (req, res) => {
+  app.get('/api/regulations/:id/controls', requireAuth, async (req, res) => {
     try {
       const regulationId = parseInt(req.params.id);
       if (isNaN(regulationId)) {
@@ -1619,7 +1806,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Evidence routes
-  app.get('/api/evidence', isAuthenticated, async (req, res) => {
+  app.get('/api/evidence', requireAuth, async (req, res) => {
     try {
       const projectId = req.query.projectId ? parseInt(req.query.projectId as string) : undefined;
       const taskId = req.query.taskId ? parseInt(req.query.taskId as string) : undefined;
@@ -1633,7 +1820,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/evidence', isAuthenticated, upload.single('file'), async (req: any, res) => {
+  app.post('/api/evidence', requireAuth, upload.single('file'), async (req: any, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -1653,7 +1840,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         filePath: req.file.path,
         taskId: taskId,
         projectId: projectId,
-        uploadedById: req.user.claims.sub,
+        uploadedById: req.userId,
       });
       
       const evidence = await storage.createEvidence(evidenceData);
@@ -1695,7 +1882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete ALL evidence from the system using query parameter approach
-  app.delete('/api/evidence', isAuthenticated, async (req, res) => {
+  app.delete('/api/evidence', requireAuth, async (req, res) => {
     // Check if this is a delete all request
     if (req.query.deleteAll === 'true') {
       try {
@@ -1778,7 +1965,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(400).json({ message: "Invalid request. Use ?deleteAll=true to delete all evidence." });
   });
 
-  app.get('/api/evidence/:id', isAuthenticated, async (req, res) => {
+  app.get('/api/evidence/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const evidence = await storage.getEvidenceById(id);
@@ -1792,7 +1979,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/evidence/:id', isAuthenticated, async (req, res) => {
+  app.put('/api/evidence/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const updates = req.body;
@@ -1804,7 +1991,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/evidence/:id', isAuthenticated, async (req, res) => {
+  app.delete('/api/evidence/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteEvidence(id);
@@ -1816,7 +2003,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Evidence Versions routes
-  app.get('/api/evidence/:id/versions', isAuthenticated, async (req, res) => {
+  app.get('/api/evidence/:id/versions', requireAuth, async (req, res) => {
     try {
       const evidenceId = parseInt(req.params.id);
       const versions = await storage.getEvidenceVersions(evidenceId);
@@ -1827,7 +2014,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/evidence/:id/versions', isAuthenticated, upload.single('file'), async (req: any, res) => {
+  app.post('/api/evidence/:id/versions', requireAuth, upload.single('file'), async (req: any, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -1841,7 +2028,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileSize: req.file.size,
         fileType: req.file.mimetype,
         filePath: req.file.path,
-        uploadedById: req.user.claims.sub,
+        uploadedById: req.userId,
       };
 
       const version = await storage.createEvidenceVersion(versionData);
@@ -1853,7 +2040,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Evidence Comments routes
-  app.get('/api/evidence/:id/comments', isAuthenticated, async (req, res) => {
+  app.get('/api/evidence/:id/comments', requireAuth, async (req, res) => {
     try {
       const evidenceId = parseInt(req.params.id);
       const comments = await storage.getEvidenceComments(evidenceId);
@@ -1865,7 +2052,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Evidence linked to specific control
-  app.get('/api/evidence/control/:controlId', isAuthenticated, async (req, res) => {
+  app.get('/api/evidence/control/:controlId', requireAuth, async (req, res) => {
     try {
       const controlId = parseInt(req.params.controlId);
       
@@ -1899,7 +2086,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Evidence versions for a specific task
-  app.get('/api/evidence/versions/:taskId', isAuthenticated, async (req, res) => {
+  app.get('/api/evidence/versions/:taskId', requireAuth, async (req, res) => {
     try {
       const taskId = parseInt(req.params.taskId);
       // This would fetch versions for all evidence related to the task
@@ -1912,7 +2099,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Evidence comments for a specific task
-  app.get('/api/evidence/comments/:taskId', isAuthenticated, async (req, res) => {
+  app.get('/api/evidence/comments/:taskId', requireAuth, async (req, res) => {
     try {
       const taskId = parseInt(req.params.taskId);
       // This would fetch comments for all evidence related to the task
@@ -1925,7 +2112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create evidence comment
-  app.post('/api/evidence/:id/comments', isAuthenticated, async (req: any, res) => {
+  app.post('/api/evidence/:id/comments', requireAuth, async (req: AuthRequest, res) => {
     try {
       const evidenceId = parseInt(req.params.id);
       const { comment, isSystemComment, commentType } = req.body;
@@ -1936,7 +2123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const commentData = {
         evidenceId,
-        userId: req.user.claims.sub,
+        userId: req.userId,
         comment: comment.trim(),
         isSystemComment: isSystemComment || false,
         commentType: commentType || 'user',
@@ -1951,7 +2138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Evidence Controls routes
-  app.get('/api/evidence/:id/controls', isAuthenticated, async (req, res) => {
+  app.get('/api/evidence/:id/controls', requireAuth, async (req, res) => {
     try {
       const evidenceId = parseInt(req.params.id);
       const controls = await storage.getEvidenceControls(evidenceId);
@@ -1963,7 +2150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get evidence linked to a specific control
-  app.get('/api/controls/:controlId/evidence', isAuthenticated, async (req, res) => {
+  app.get('/api/controls/:controlId/evidence', requireAuth, async (req, res) => {
     try {
       const controlId = parseInt(req.params.controlId);
       const evidenceList = await storage.getControlLinkedEvidence(controlId);
@@ -1974,7 +2161,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/evidence/:id/controls', isAuthenticated, async (req, res) => {
+  app.post('/api/evidence/:id/controls', requireAuth, async (req, res) => {
     try {
       const evidenceId = parseInt(req.params.id);
       const { controlIds } = req.body;
@@ -1991,7 +2178,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/evidence/:id/controls', isAuthenticated, async (req, res) => {
+  app.delete('/api/evidence/:id/controls', requireAuth, async (req, res) => {
     try {
       const evidenceId = parseInt(req.params.id);
       const { controlIds } = req.body;
@@ -2009,7 +2196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Evidence Tasks routes
-  app.get('/api/evidence/:id/tasks', isAuthenticated, async (req, res) => {
+  app.get('/api/evidence/:id/tasks', requireAuth, async (req, res) => {
     try {
       const evidenceId = parseInt(req.params.id);
       const tasks = await storage.getEvidenceTasks(evidenceId);
@@ -2020,7 +2207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/evidence/:id/tasks', isAuthenticated, async (req, res) => {
+  app.post('/api/evidence/:id/tasks', requireAuth, async (req, res) => {
     try {
       const evidenceId = parseInt(req.params.id);
       const { taskIds } = req.body;
@@ -2037,7 +2224,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/evidence/:id/tasks', isAuthenticated, async (req, res) => {
+  app.delete('/api/evidence/:id/tasks', requireAuth, async (req, res) => {
     try {
       const evidenceId = parseInt(req.params.id);
       const { taskIds } = req.body;
@@ -2055,7 +2242,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Direct Evidence-Control Relationship routes (modern system)
-  app.post('/api/evidence/:id/link-control', isAuthenticated, requireEditEvidence, async (req, res) => {
+  app.post('/api/evidence/:id/link-control', requireAuth, requireEditEvidence, async (req, res) => {
     try {
       const evidenceId = parseInt(req.params.id);
       const { projectRegulationControlId } = req.body;
@@ -2072,7 +2259,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/evidence/:id/link-control', isAuthenticated, requireEditEvidence, async (req, res) => {
+  app.delete('/api/evidence/:id/link-control', requireAuth, requireEditEvidence, async (req, res) => {
     try {
       const evidenceId = parseInt(req.params.id);
       const { projectRegulationControlId } = req.body;
@@ -2089,7 +2276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/evidence/:id/control-links', isAuthenticated, requireViewEvidence, async (req, res) => {
+  app.get('/api/evidence/:id/control-links', requireAuth, requireViewEvidence, async (req, res) => {
     try {
       const evidenceId = parseInt(req.params.id);
       const links = await storage.getEvidenceControlLinks(evidenceId);
@@ -2101,9 +2288,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Custom Regulations routes
-  app.get('/api/custom-regulations', isAuthenticated, async (req: any, res) => {
+  app.get('/api/custom-regulations', requireAuth, async (req: AuthRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.userId);
       const regulations = await storage.getCustomRegulations(user?.organizationId || undefined);
       res.json(regulations);
     } catch (error) {
@@ -2112,7 +2299,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/custom-regulations/:id', isAuthenticated, async (req, res) => {
+  app.get('/api/custom-regulations/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const regulation = await storage.getCustomRegulation(id);
@@ -2134,9 +2321,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/custom-regulations', isAuthenticated, async (req: any, res) => {
+  app.post('/api/custom-regulations', requireAuth, async (req: AuthRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const user = await storage.getUser(userId);
       
       const { controls, ...regulationData } = req.body;
@@ -2196,7 +2383,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/custom-regulations/:id', isAuthenticated, async (req, res) => {
+  app.put('/api/custom-regulations/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const regulation = await storage.updateCustomRegulation(id, req.body);
@@ -2207,7 +2394,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/custom-regulations/:id', isAuthenticated, async (req, res) => {
+  app.delete('/api/custom-regulations/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteCustomRegulation(id);
@@ -2219,11 +2406,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // XLSX Import endpoint with dry-run support
-  app.post('/api/custom-regulations/import', isAuthenticated, upload.single('file'), async (req: any, res) => {
+  app.post('/api/custom-regulations/import', requireAuth, upload.single('file'), async (req: any, res) => {
     try {
       if (!req.file) return res.status(400).json({ message: "Missing file" });
 
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const user = await storage.getUser(userId);
       const isDryRun = req.body.dryRun === 'true';
 
@@ -2363,7 +2550,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Custom Controls routes
-  app.get('/api/custom-controls', isAuthenticated, async (req, res) => {
+  app.get('/api/custom-controls', requireAuth, async (req, res) => {
     try {
       const regulationId = req.query.regulationId ? parseInt(req.query.regulationId as string) : undefined;
       const controls = await storage.getCustomControls(regulationId);
@@ -2374,7 +2561,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/custom-controls', isAuthenticated, async (req, res) => {
+  app.post('/api/custom-controls', requireAuth, async (req, res) => {
     try {
       const control = await storage.createCustomControl(req.body);
       res.status(201).json(control);
@@ -2384,7 +2571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/custom-controls/:id', isAuthenticated, async (req, res) => {
+  app.put('/api/custom-controls/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const control = await storage.updateCustomControl(id, req.body);
@@ -2395,7 +2582,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/custom-controls/:id', isAuthenticated, async (req, res) => {
+  app.delete('/api/custom-controls/:id', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteCustomControl(id);
@@ -2407,7 +2594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get domain breakdown for a specific project and regulation
-  app.get('/api/projects/:projectId/regulations/:regulationId/domains', isAuthenticated, async (req, res) => {
+  app.get('/api/projects/:projectId/regulations/:regulationId/domains', requireAuth, async (req, res) => {
     try {
       const projectId = parseInt(req.params.projectId);
       const regulationId = req.params.regulationId;
@@ -2480,7 +2667,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Email testing endpoint for SendGrid integration
-  app.post('/api/test-email', isAuthenticated, async (req: any, res) => {
+  app.post('/api/test-email', requireAuth, async (req: AuthRequest, res) => {
     try {
       console.log('SendGrid test email request received:', req.body);
       const { to, type = 'basic' } = req.body;
@@ -2613,12 +2800,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Evidence upload endpoint
-  app.post('/api/evidence/upload', isAuthenticated, upload.array('files', 10), async (req: any, res) => {
+  app.post('/api/evidence/upload', requireAuth, upload.array('files', 10), async (req: any, res) => {
     try {
       console.log('Evidence upload request received:', {
         body: req.body,
         filesCount: req.files?.length || 0,
-        user: req.user?.claims?.sub
+        user: { sub: req.userId, email: req.userEmail }?.sub
       });
       
       const taskId = parseInt(req.body.taskId);
@@ -2671,7 +2858,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             fileSize: file.size,
             fileType: file.mimetype,
             filePath: file.path,
-            uploadedById: req.user.claims.sub,
+            uploadedById: req.userId,
           });
           
           // Update the main evidence record to show the latest version
@@ -2688,7 +2875,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const systemComment = `Uploaded version ${nextVersion}: ${comment}`;
             await storage.createEvidenceComment({
               evidenceId: parentEvidenceId,
-              userId: req.user.claims.sub,
+              userId: req.userId,
               comment: systemComment,
               isSystemComment: true,
               commentType: 'version_upload'
@@ -2710,7 +2897,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             fileType: file.mimetype,
             description: `Evidence file: ${file.originalname}`,
             descriptionAr: `ملف أدلة: ${file.originalname}`,
-            uploadedById: req.user.claims.sub,
+            uploadedById: req.userId,
           };
           
           console.log('Creating evidence record:', evidenceData);
@@ -2789,7 +2976,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (comment) {
             await storage.createEvidenceComment({
               evidenceId: evidence.id,
-              userId: req.user.claims.sub,
+              userId: req.userId,
               comment: comment,
             });
           }
@@ -2820,7 +3007,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // Technical Support route
-  app.post('/api/support', isAuthenticated, async (req: any, res) => {
+  app.post('/api/support', requireAuth, async (req: AuthRequest, res) => {
     try {
       const { title, description, path, email, phoneNumber } = req.body || {};
       const t = String(title || '').trim();
@@ -2843,7 +3030,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get user info for context
-      const user = await storage.getUser(req.user?.id || req.user?.claims?.sub);
+      const user = await storage.getUser(req.user?.id || { sub: req.userId, email: req.userEmail }?.sub);
       const userEmail = user?.email || 'Unknown user';
       const userName = user?.firstName && user?.lastName 
         ? `${user.firstName} ${user.lastName}` 
@@ -2904,7 +3091,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Serve uploaded files
-  app.get('/api/evidence/:id/download', isAuthenticated, async (req, res) => {
+  app.get('/api/evidence/:id/download', requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const evidence = await storage.getEvidence();
@@ -2940,6 +3127,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reports router
+  // Auth routes (email/password authentication with JWT)
+  app.use("/api/auth", authRouter);
+
   // Comments routes
   const commentsRouter = (await import("./routes/comments")).default;
   app.use("/api/comments", commentsRouter);
@@ -2949,13 +3139,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/users", usersRouter);
 
   // Risk management routes
-  app.use("/api/risks", isAuthenticated, risksRouter);
+  app.use("/api/risks", requireAuth, risksRouter);
 
   // Analytics routes
-  app.use("/api/analytics", isAuthenticated, analyticsRouter);
+  app.use("/api/analytics", requireAuth, analyticsRouter);
 
   // Workflow routes
-  app.use("/api/workflows", isAuthenticated, workflowsRouter);
+  app.use("/api/workflows", requireAuth, workflowsRouter);
 
   // Regulations routes
   app.use("/api/regulations", regulationsRouter);
@@ -2964,7 +3154,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/projects", projectsRouter);
 
   // Notifications routes
-  app.use("/api/notifications", isAuthenticated, notificationsRouter);
+  app.use("/api/notifications", requireAuth, notificationsRouter);
 
   // Test PDF generation endpoint (public for testing)
   app.get("/api/test-pdf-public", async (req: any, res) => {
@@ -2988,7 +3178,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             <h3>System Information</h3>
             <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
             <p><strong>Environment:</strong> ${process.env.NODE_ENV || 'development'}</p>
-            <p><strong>User ID:</strong> ${req.user?.claims?.sub || 'N/A'}</p>
+            <p><strong>User ID:</strong> ${{ sub: req.userId, email: req.userEmail }?.sub || 'N/A'}</p>
           </div>
           <p>If you can see this PDF, wkhtmltopdf is functioning properly!</p>
         </body>
@@ -3012,9 +3202,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Export route
-  app.post("/api/reports/compliance/export", isAuthenticated, async (req: any, res) => {
+  app.post("/api/reports/compliance/export", requireAuth, async (req: AuthRequest, res) => {
     console.log('📋 Compliance report export request received:', {
-      user: req.user?.claims?.sub,
+      user: { sub: req.userId, email: req.userEmail }?.sub,
       body: JSON.stringify(req.body, null, 2)
     });
 
@@ -3042,7 +3232,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         projectId,
         regulationCode,
         controlStatusFilter: controlStatus,
-        organizationId: req.user?.claims?.org,
+        organizationId: { sub: req.userId, email: req.userEmail }?.org,
       });
 
       const selected = { pdf: !!formats?.pdf, docx: !!formats?.docx, xlsx: !!formats?.xlsx };
@@ -3109,7 +3299,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Email template test route
-  app.post('/api/email/test-template', isAuthenticated, async (req: any, res) => {
+  app.post('/api/email/test-template', requireAuth, async (req: AuthRequest, res) => {
     const to = String(req.body?.to || "").trim();
     if (!to) return res.status(400).json({ message: "Missing 'to'" });
 
@@ -3165,19 +3355,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Admin regulation import endpoints
-  app.post('/api/admin/regulations/import', isAuthenticated, requirePermissions(['regulation:import']), upload.single('file'), async (req: any, res) => {
+  app.post('/api/admin/regulations/import',
+    (req, res, next) => {
+      console.log('🔵 Step 1: Request received at /api/admin/regulations/import');
+      next();
+    },
+    requireAuth,
+    (req, res, next) => {
+      console.log('🔵 Step 2: Authentication passed');
+      next();
+    },
+    requirePermissions(['regulation:import']),
+    (req, res, next) => {
+      console.log('🔵 Step 3: Permission check passed');
+      next();
+    },
+    upload.single('file'),
+    (req: any, res, next) => {
+      console.log('🔵 Step 4: File upload middleware passed, file:', !!req.file);
+      if (req.file) {
+        console.log('   File details:', {
+          name: req.file.originalname,
+          size: req.file.size,
+          mimetype: req.file.mimetype
+        });
+      }
+      next();
+    },
+    async (req: any, res) => {
     let phase = 'initial';
     let rows: any[] = [];
-    
+
+    const logFile = path.join(process.cwd(), 'import-debug.log');
+    const log = (msg: string) => {
+      const timestamp = new Date().toISOString();
+      const logMsg = `${timestamp} - ${msg}\n`;
+      console.log(msg);
+      fs.appendFileSync(logFile, logMsg);
+    };
+
+    log('\n🚀 ========== IMPORT REQUEST RECEIVED ==========');
+    log(`User: ${req.user?.email || req.user?.id}`);
+    log(`File received: ${!!req.file}`);
+    log(`Body: ${JSON.stringify(req.body)}`);
+
     try {
       const { code, nameEn, nameAr, version, publisher } = req.body;
       const dryRun = req.query.dryRun === '1' || req.query.dryRun === 'true';
-      
+
+      log(`Dry run mode: ${dryRun}`);
+
       if (!req.file) {
+        log('❌ No file uploaded');
         return res.status(400).json({ message: "No file uploaded (field name must be 'file')." });
       }
-      
+
+      log(`📎 File info: ${JSON.stringify({
+        name: req.file.originalname,
+        size: req.file.buffer.length,
+        mimetype: req.file.mimetype
+      })}`);
+
       if (!code || !nameEn || !version) {
+        console.error('❌ Missing required fields:', { code: !!code, nameEn: !!nameEn, version: !!version });
         return res.status(400).json({ message: "Code, Name (English), and Version are required" });
       }
 
@@ -3188,48 +3428,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         if (ext === '.xlsx') {
           phase = 'parse-xlsx';
+          console.log('📄 Parsing XLSX file, buffer size:', req.file.buffer.length);
+
           const wb = XLSX.read(req.file.buffer, {
             type: 'buffer',
             cellDates: true,
             raw: false
           });
-          
-          if (!wb.SheetNames.length) {
+
+          console.log('📊 Workbook loaded, sheets:', wb.SheetNames);
+
+          if (!wb.SheetNames || wb.SheetNames.length === 0) {
             throw new Error('No sheets found in Excel file');
           }
-          
-          const sheet = wb.SheetNames[0];
-          const sheetData = wb.Sheets[sheet];
+
+          const sheetName = wb.SheetNames[0];
+          const sheetData = wb.Sheets[sheetName];
+
+          console.log('📋 Reading sheet:', sheetName, 'Sheet ref:', sheetData?.['!ref']);
+
+          if (!sheetData) {
+            throw new Error(`Sheet "${sheetName}" is empty or could not be read`);
+          }
+
+          // Check if sheet has any data
+          if (!sheetData['!ref']) {
+            throw new Error(`Sheet "${sheetName}" has no cell references - completely empty`);
+          }
+
+          const range = XLSX.utils.decode_range(sheetData['!ref']);
+          console.log('📏 Sheet range:', range, `Rows: ${range.e.r + 1}, Cols: ${range.e.c + 1}`);
+
+          if (range.e.r < 1) { // Less than 2 rows (header + data)
+            throw new Error(`Sheet "${sheetName}" has no data rows (only ${range.e.r + 1} row(s) found). Need at least header row + 1 data row.`);
+          }
+
           rows = XLSX.utils.sheet_to_json(sheetData, { defval: '', blankrows: false });
+          console.log('✅ Parsed rows:', rows.length);
           
         } else if (ext === '.csv') {
           phase = 'parse-csv';
+          log(`📄 Parsing CSV file, buffer size: ${req.file.buffer.length}`);
+
           rows = parseCsv(req.file.buffer, {
             columns: true,
             skip_empty_lines: true,
             bom: true,
             trim: true
           });
-          
+
+          log(`✅ CSV parsed, rows type: ${typeof rows}, Is array: ${Array.isArray(rows)}, Length: ${rows?.length}`);
+          if (rows && rows.length > 0) {
+            log(`📋 First row keys: ${Object.keys(rows[0]).join(', ')}`);
+            log(`📋 First row sample: ${JSON.stringify(rows[0]).substring(0, 200)}`);
+          }
+
         } else {
           return res.status(400).json({ message: `Unsupported file type: ${ext}. Use .xlsx or .csv.` });
         }
         
         if (!Array.isArray(rows) || rows.length === 0) {
-          return res.status(400).json({ 
+          return res.status(400).json({
             message: 'Parsed zero rows. Check the first sheet or CSV headers.',
             phase,
-            hint: ext === '.xlsx' ? 'Is the first sheet empty?' : 'Does the CSV have proper headers?'
+            hint: ext === '.xlsx' ? 'Is the first sheet empty?' : 'Does the CSV have proper headers?',
+            debug: {
+              rowsType: typeof rows,
+              isArray: Array.isArray(rows),
+              rowsLength: rows?.length,
+              fileSize: req.file.buffer.length,
+              fileName: req.file.originalname,
+              ext: ext
+            }
           });
         }
         
       } catch (parseError: any) {
+        console.error('Parse error:', parseError);
         return res.status(400).json({
           message: 'Failed to parse file',
           detail: parseError?.message || 'Unknown parsing error',
           phase,
-          hint: phase === 'parse-xlsx' ? 'Is the first sheet empty?' : 'Check CSV encoding and format',
-          sample: rows?.[0] ? Object.keys(rows[0]).slice(0, 8) : undefined
+          hint: phase === 'parse-xlsx' ? 'Is the first sheet empty? Make sure it has data rows with headers.' : 'Check CSV encoding and format',
+          sample: Array.isArray(rows) && rows.length > 0 && rows[0] ? Object.keys(rows[0]).slice(0, 8) : undefined
         });
       }
       
@@ -3315,8 +3596,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test CSV parsing endpoint
+  app.post('/api/test-csv-parse', upload.single('file'), (req: any, res) => {
+    try {
+      if (!req.file) {
+        return res.json({ error: 'No file', hasFile: false });
+      }
+
+      const buffer = req.file.buffer;
+      const ext = path.extname(req.file.originalname).toLowerCase();
+
+      const result: any = {
+        fileName: req.file.originalname,
+        fileSize: buffer.length,
+        ext: ext,
+        mimetype: req.file.mimetype
+      };
+
+      if (ext === '.csv') {
+        const rows = parseCsv(buffer, {
+          columns: true,
+          skip_empty_lines: true,
+          bom: true,
+          trim: true
+        });
+
+        result.rowCount = rows?.length || 0;
+        result.rowsType = typeof rows;
+        result.isArray = Array.isArray(rows);
+        if (rows && rows.length > 0) {
+          result.firstRowKeys = Object.keys(rows[0]);
+          result.firstRow = rows[0];
+        }
+      }
+
+      res.json(result);
+    } catch (error: any) {
+      res.json({ error: error.message, stack: error.stack });
+    }
+  });
+
+  // Serve test sample CSV
+  app.get('/test-regulation-sample.csv', (req, res) => {
+    try {
+      const filePath = path.join(process.cwd(), 'test-regulation-sample.csv');
+      if (fs.existsSync(filePath)) {
+        res.sendFile(filePath);
+      } else {
+        res.status(404).json({ message: 'Test sample file not found' });
+      }
+    } catch (error) {
+      console.error('Error serving test sample:', error);
+      res.status(500).json({ message: 'Failed to serve test sample' });
+    }
+  });
+
   // Download CSV template
-  app.get('/api/admin/regulations/template.csv', isAuthenticated, requirePermissions(['regulation:import']), (req, res) => {
+  app.get('/api/admin/regulations/template.csv', requireAuth, requirePermissions(['regulation:import']), (req, res) => {
     try {
       const headers = [
         "#",
@@ -3382,7 +3718,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get regulation versions
-  app.get('/api/admin/regulations/:code/versions', isAuthenticated, requirePermissions(['regulation:import']), async (req: any, res) => {
+  app.get('/api/admin/regulations/:code/versions', requireAuth, requirePermissions(['regulation:import']), async (req: any, res) => {
     try {
       const { code } = req.params;
       const orgId = req.user?.organizationId || 'default';
@@ -3407,7 +3743,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Serve uploaded files (profile pictures and evidence) - require authentication
   // TODO: implement signed download route for proper security
-  app.use('/uploads', isAuthenticated, (req, res, next) => {
+  app.use('/uploads', requireAuth, (req, res, next) => {
     // Add CORS headers for uploaded files
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
@@ -3415,7 +3751,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   // Secure uploaded files - require authentication
   const uploadsDir = path.join(process.cwd(), 'uploads');
-  app.use('/uploads', isAuthenticated, express.static(uploadsDir)); // TODO: Implement signed download route for better security
+  app.use('/uploads', requireAuth, express.static(uploadsDir)); // TODO: Implement signed download route for better security
 
   // Debug endpoint to test PDF generation and compare HTML vs PDF content
   app.get("/api/debug/pdf-content/:projectId", async (req: any, res) => {

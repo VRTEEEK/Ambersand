@@ -84,7 +84,7 @@ export default function Landing() {
                 {language === 'en' ? 'العربية' : 'English'}
               </Button>
               
-              <a href="/api/login">
+              <a href="/auth/login">
                 <Button>
                   {t('actions.login')}
                 </Button>
@@ -125,7 +125,7 @@ export default function Landing() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
-            <a href="/api/login">
+            <a href="/auth/login">
               <Button size="lg" className="hover:bg-white/95 hover:text-[#2699A6] text-lg px-8 py-4 h-auto font-semibold bg-[#60bfb6] text-[#ffffff] rounded-2xl">
                 {language === 'ar' ? 'ابدأ الآن' : 'Get Started'}
                 <ArrowRight className="ml-2 h-6 w-6" />
@@ -245,7 +245,7 @@ export default function Landing() {
             }
           </p>
           <Button size="lg" className="bg-white text-teal-600 hover:bg-slate-100" asChild>
-            <a href="/api/login">
+            <a href="/auth/login">
               {language === 'ar' ? 'ابدأ الآن مجاناً' : 'Get Started Free'}
               <ArrowRight className="ml-2 h-5 w-5" />
             </a>

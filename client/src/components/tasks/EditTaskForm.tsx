@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { 
+import {
   ChevronDown,
   FileText,
   Target,
@@ -42,6 +42,7 @@ import {
   Plus,
   Trash2
 } from 'lucide-react';
+import Comments from '@/components/comments/Comments';
 
 interface EditTaskFormProps {
   task: any;
@@ -166,7 +167,7 @@ export default function EditTaskForm({
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [selectedControlId, setSelectedControlId] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<'details' | 'controls' | 'evidence' | 'workflow'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'controls' | 'evidence' | 'workflow' | 'comments'>('details');
   const [uploadComment, setUploadComment] = useState('');
   const [selectedControlForView, setSelectedControlForView] = useState<number | null>(null);
   const [showEvidenceForControl, setShowEvidenceForControl] = useState<boolean>(false);
@@ -574,9 +575,9 @@ export default function EditTaskForm({
 
   return (
     <div className="space-y-6">
-      {/* Three-Tab Interface */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'details' | 'controls' | 'evidence' | 'workflow')}>
-        <TabsList className="grid w-full grid-cols-4 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+      {/* Five-Tab Interface */}
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'details' | 'controls' | 'evidence' | 'workflow' | 'comments')}>
+        <TabsList className="grid w-full grid-cols-5 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
           <TabsTrigger 
             value="details"
             className="data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-white font-medium transition-all duration-200"
@@ -595,11 +596,17 @@ export default function EditTaskForm({
           >
             {language === 'ar' ? 'الأدلة' : 'Evidence'}
           </TabsTrigger>
-          <TabsTrigger 
+          <TabsTrigger
             value="workflow"
             className="data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-white font-medium transition-all duration-200"
           >
             {language === 'ar' ? 'سير العمل' : 'Workflow'}
+          </TabsTrigger>
+          <TabsTrigger
+            value="comments"
+            className="data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-white font-medium transition-all duration-200"
+          >
+            {language === 'ar' ? 'التعليقات' : 'Comments'}
           </TabsTrigger>
         </TabsList>
 
@@ -1270,7 +1277,7 @@ export default function EditTaskForm({
             )}
           </div>
         </TabsContent>
-        
+
         {/* Tab 4: Workflow */}
         <TabsContent value="workflow" className="space-y-4">
           <Card>
@@ -1448,6 +1455,21 @@ export default function EditTaskForm({
                   </Button>
                 )}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab 5: Comments */}
+        <TabsContent value="comments" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                {language === 'ar' ? 'التعليقات' : 'Comments'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Comments targetType="task" targetId={task.id} />
             </CardContent>
           </Card>
         </TabsContent>

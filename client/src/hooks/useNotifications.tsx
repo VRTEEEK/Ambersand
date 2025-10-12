@@ -26,18 +26,23 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
 
-  // Fetch notifications
+  // Check if user is authenticated by looking for access token
+  const hasToken = !!localStorage.getItem("accessToken");
+
+  // Fetch notifications - only if authenticated
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ['/api/notifications'],
+    enabled: hasToken, // Only fetch if user has token
     staleTime: 30000, // 30 seconds
-    refetchInterval: 60000, // Refetch every minute
+    refetchInterval: hasToken ? 60000 : false, // Only refetch if authenticated
   });
 
-  // Fetch unread count
+  // Fetch unread count - only if authenticated
   const { data: unreadData } = useQuery({
     queryKey: ['/api/notifications/unread-count'],
+    enabled: hasToken, // Only fetch if user has token
     staleTime: 30000,
-    refetchInterval: 30000, // More frequent for unread count
+    refetchInterval: hasToken ? 30000 : false, // Only refetch if authenticated
   });
 
   const unreadCount = (unreadData as { count: number } | undefined)?.count || 0;

@@ -48,7 +48,7 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const [location] = useLocation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { t, language, toggleLanguage, isRTL } = useI18n();
   const { unreadCount } = useNotifications();
   const { can } = usePermissions();
@@ -283,10 +283,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
                       </div>
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <a href="/api/logout">
-                      {t('actions.logout')}
-                    </a>
+                  <DropdownMenuItem onClick={logout} className="cursor-pointer">
+                    {t('actions.logout')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

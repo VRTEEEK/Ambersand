@@ -150,7 +150,16 @@ export default function EnhancedUsersPage() {
   // Fetch data
   const { data: usersResponse, isLoading: usersLoading } = useQuery({
     queryKey: ['/api/admin/users', queryParams],
-    queryFn: () => fetch(`/api/admin/users?${queryParams}`).then(res => res.json()),
+    queryFn: async () => {
+      const token = localStorage.getItem("accessToken");
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const res = await fetch(`/api/admin/users?${queryParams}`, { headers });
+      if (!res.ok) throw new Error('Failed to fetch users');
+      return res.json();
+    },
     enabled: canManageUsers,
   });
 

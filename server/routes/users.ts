@@ -75,13 +75,40 @@ router.get("/search", isAuthenticated, async (req: any, res) => {
 
 // POST /api/users/invite { email, role? }
 router.post("/invite", isAuthenticated, async (req: any, res) => {
+  console.log('🔥 /api/users/invite called');
+  console.log('🔥 req.user:', JSON.stringify(req.user, null, 2));
+  console.log('🔥 req.body:', JSON.stringify(req.body, null, 2));
+
   const inviteEmail = String(req.body?.email || "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail)) {
     return res.status(400).json({ message: "Invalid email" });
   }
-  // Use organization from claims.org or user.organizationId - no fallbacks
-  const orgId = req.user?.claims?.org || req.user?.organizationId;
+
+  // Get current user from database to get organizationId
+  const currentUserId = req.user.claims?.sub || req.user.id;
+  console.log('🔥 currentUserId:', currentUserId);
+
+  const currentUserResult = await db.select({
+    id: users.id,
+    email: users.email,
+    organizationId: users.organizationId
+  })
+  .from(users)
+  .where(eq(users.id, currentUserId))
+  .limit(1);
+
+  console.log('🔥 currentUserResult:', JSON.stringify(currentUserResult, null, 2));
+
+  if (currentUserResult.length === 0) {
+    console.log('❌ User not found in database');
+    return res.status(401).json({ message: "User not found in database" });
+  }
+
+  const orgId = currentUserResult[0].organizationId;
+  console.log('🔥 orgId:', orgId);
+
   if (!orgId) {
+    console.log('❌ Organization missing');
     return res.status(400).json({ message: "Organization missing" });
   }
 
@@ -128,41 +155,82 @@ router.post("/invite", isAuthenticated, async (req: any, res) => {
   res.status(201).json({ inviteId: invite.id });
 });
 
-// POST /api/users/invite/accept { token }
+// POST /api/users/invite/accept { token, email }
 // Accept invite and auto-assign pending tasks per specification
-router.post("/invite/accept", isAuthenticated, async (req: any, res) => {
+// This endpoint works for both authenticated and unauthenticated users
+router.post("/invite/accept", async (req: any, res) => {
   try {
-    const { token } = z.object({ token: z.string().min(10) }).parse(req.body);
+    const { token, email: providedEmail } = z.object({
+      token: z.string().min(10),
+      email: z.string().email().optional()
+    }).parse(req.body);
 
     const [invite] = await db.select().from(userInvites)
       .where(and(eq(userInvites.token, token), eq(userInvites.accepted, false)));
-    
+
     if (!invite) {
       return res.status(400).json({ message: "Invalid or expired invite" });
     }
 
-    // Ensure current user belongs to same org
-    if (req.user.claims.org !== invite.organizationId) {
-      return res.status(403).json({ message: "Wrong organization" });
+    // If user is authenticated, verify organization match
+    if (req.user) {
+      const currentUserId = req.user.claims?.sub || req.user.id;
+      const currentUserResult = await db.select({
+        id: users.id,
+        email: users.email,
+        organizationId: users.organizationId
+      })
+      .from(users)
+      .where(eq(users.id, currentUserId))
+      .limit(1);
+
+      if (currentUserResult.length > 0) {
+        const currentUser = currentUserResult[0];
+
+        // Check if email matches the invite
+        if (currentUser.email?.toLowerCase() !== invite.email.toLowerCase()) {
+          return res.status(403).json({
+            message: "This invite is for a different email address",
+            inviteEmail: invite.email,
+            yourEmail: currentUser.email
+          });
+        }
+
+        // Update user's organization if needed
+        if (currentUser.organizationId !== invite.organizationId) {
+          await db.update(users)
+            .set({ organizationId: invite.organizationId })
+            .where(eq(users.id, currentUser.id));
+        }
+
+        // Mark invite as accepted
+        await db.update(userInvites).set({
+          accepted: true,
+          acceptedAt: new Date()
+        }).where(eq(userInvites.id, invite.id));
+
+        // Move all tasks with pendingAssigneeInviteId → assigneeId = current user
+        const updated = await db.update(tasks)
+          .set({
+            assigneeId: currentUser.id,
+            pendingAssigneeInviteId: null,
+            updatedAt: new Date()
+          })
+          .where(eq(tasks.pendingAssigneeInviteId, invite.id))
+          .returning({ id: tasks.id, title: tasks.title });
+
+        return res.json({ success: true, assignedTasks: updated });
+      }
     }
 
-    // Mark invite as accepted
-    await db.update(userInvites).set({ 
-      accepted: true, 
-      acceptedAt: new Date() 
-    }).where(eq(userInvites.id, invite.id));
+    // If not authenticated, just return success - they need to sign up first
+    return res.json({
+      success: true,
+      requiresSignup: true,
+      message: "Please sign up or log in to accept this invitation",
+      inviteEmail: invite.email
+    });
 
-    // Move all tasks with pendingAssigneeInviteId → assigneeId = current user
-    const updated = await db.update(tasks)
-      .set({ 
-        assigneeId: req.user.id, 
-        pendingAssigneeInviteId: null, 
-        updatedAt: new Date() 
-      })
-      .where(eq(tasks.pendingAssigneeInviteId, invite.id))
-      .returning({ id: tasks.id, title: tasks.title });
-
-    res.json({ success: true, assignedTasks: updated });
   } catch (error) {
     console.error("Error accepting invite:", error);
     if (error instanceof z.ZodError) {

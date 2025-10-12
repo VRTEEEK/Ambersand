@@ -42,14 +42,17 @@ export function requirePermissions(permissionCodes: string[], requireProjectId: 
 
       // Check if user has all required permissions
       const missingPermissions = permissionCodes.filter(perm => !userPermissions.includes(perm));
-      
+
       if (missingPermissions.length > 0) {
-        return res.status(403).json({ 
+        console.log(`❌ Permission denied for user ${userId}: missing ${missingPermissions.join(', ')}`);
+        return res.status(403).json({
           message: "Insufficient permissions",
           missing: missingPermissions,
           required: permissionCodes
         });
       }
+
+      console.log(`✅ Permission granted for user ${userId}: ${permissionCodes.join(', ')}`);
 
       // Store permissions for potential use in route handlers
       req.requiredPermissions = permissionCodes;
