@@ -1,8 +1,14 @@
 export async function createProject(payload: { name: string; description?: string; regulationId: number; controlIds: number[] }) {
+  const token = localStorage.getItem("accessToken");
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  
   const r = await fetch(`/api/projects`, {
     method: "POST", 
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(payload)
   });
   if (!r.ok) throw new Error(await r.text());
@@ -10,7 +16,16 @@ export async function createProject(payload: { name: string; description?: strin
 }
 
 export async function getProjectControls(projectId: number) {
-  const r = await fetch(`/api/projects/${projectId}/controls`, { credentials: "include" });
+  const token = localStorage.getItem("accessToken");
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  
+  const r = await fetch(`/api/projects/${projectId}/controls`, { 
+    credentials: "include",
+    headers
+  });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
