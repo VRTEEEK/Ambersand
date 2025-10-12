@@ -91,8 +91,8 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
   });
 
   // Fetch project controls
-  const { data: projectControls = [] } = useQuery({
-    queryKey: ['/api/projects', selectedProjectId, 'controls'],
+  const { data: projectControls = [] } = useQuery<any[]>({
+    queryKey: [`/api/projects/${selectedProjectId}/controls`],
     enabled: isOpen && !!selectedProjectId,
   });
 
