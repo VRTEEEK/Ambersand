@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { db } from "../db";
 import { users, userInvites, tasks } from "@shared/schema";
-import { isAuthenticated } from "../replitAuth";
+import { requireAuth } from "../middleware/authMiddleware";
 import { and, eq, ilike, or } from "drizzle-orm";
 import email from "../email";
 import crypto from "crypto";
@@ -11,7 +11,7 @@ const router = Router();
 
 
 // Debug endpoint to see what the server thinks about auth
-router.get("/me", isAuthenticated, (req: any, res) => {
+router.get("/me", requireAuth, (req: any, res) => {
   res.json({
     userId: req.user?.id,
     org: req.user?.claims?.org,
@@ -22,7 +22,7 @@ router.get("/me", isAuthenticated, (req: any, res) => {
 });
 
 // Debug endpoint for search issues  
-router.get("/search/debug", isAuthenticated, async (req: any, res) => {
+router.get("/search/debug", requireAuth, async (req: any, res) => {
   const q = String(req.query.q || "").trim();
   res.json({
     gotCookie: !!req.headers.cookie,
@@ -33,7 +33,7 @@ router.get("/search/debug", isAuthenticated, async (req: any, res) => {
   });
 });
 
-router.get("/search", isAuthenticated, async (req: any, res) => {
+router.get("/search", requireAuth, async (req: any, res) => {
   const q = String(req.query.q || "").trim();
   const limit = Math.min(Number(req.query.limit || 8), 25);
   const orgId = req.user?.claims?.org || req.user?.organizationId || 'default';
@@ -74,7 +74,7 @@ router.get("/search", isAuthenticated, async (req: any, res) => {
 });
 
 // POST /api/users/invite { email, role? }
-router.post("/invite", isAuthenticated, async (req: any, res) => {
+router.post("/invite", requireAuth, async (req: any, res) => {
   console.log('🔥 /api/users/invite called');
   console.log('🔥 req.user:', JSON.stringify(req.user, null, 2));
   console.log('🔥 req.body:', JSON.stringify(req.body, null, 2));

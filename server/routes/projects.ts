@@ -2,12 +2,12 @@ import { Router } from "express";
 import { db } from "../db";
 import { projects, regulationControls, projectRegulationControls } from "../../shared/schema";
 import { eq, inArray, and } from "drizzle-orm";
-import { isAuthenticated } from "../replitAuth";
+import { requireAuth } from "../middleware/authMiddleware";
 
 const router = Router();
 
 // Create project from selected controls
-router.post("/", isAuthenticated, async (req: any, res) => {
+router.post("/", requireAuth, async (req: any, res) => {
   try {
     const orgId = req.user?.claims?.org as string;
     const userId = req.user?.id as string;
@@ -56,7 +56,7 @@ router.post("/", isAuthenticated, async (req: any, res) => {
 });
 
 // Get project controls
-router.get("/:id/controls", isAuthenticated, async (req, res) => {
+router.get("/:id/controls", requireAuth, async (req, res) => {
   try {
     const projectId = Number(req.params.id);
     

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { storage } from "../storage";
-import { isAuthenticated } from "../replitAuth";
+import { requireAuth } from "../middleware/authMiddleware";
 import { insertNotificationSchema } from "../../shared/schema";
 
 const router = Router();
@@ -8,19 +8,19 @@ const router = Router();
 // Test endpoint to debug authentication (no auth required)
 router.get("/test", (req: any, res) => {
   console.log('🔍 Notifications test route debug:');
-  console.log('  - req.isAuthenticated():', req.isAuthenticated?.());
+  console.log('  - req.requireAuth():', req.requireAuth?.());
   console.log('  - req.user:', req.user);
   console.log('  - req.user?.id:', req.user?.id);
   res.json({ 
     message: "Test endpoint reached", 
-    isAuthenticated: req.isAuthenticated?.(),
+    requireAuth: req.requireAuth?.(),
     userId: req.user?.id,
     userClaims: req.user?.claims 
   });
 });
 
 // GET /api/notifications - Get user's notifications
-router.get("/", isAuthenticated, async (req: any, res) => {
+router.get("/", requireAuth, async (req: any, res) => {
   try {
     const userId = req.user?.claims?.sub || req.user?.id;
     const organizationId = req.user?.claims?.org || 'default';
@@ -38,7 +38,7 @@ router.get("/", isAuthenticated, async (req: any, res) => {
 });
 
 // GET /api/notifications/unread-count - Get unread notification count
-router.get("/unread-count", isAuthenticated, async (req: any, res) => {
+router.get("/unread-count", requireAuth, async (req: any, res) => {
   try {
     const userId = req.user?.claims?.sub || req.user?.id;
     const organizationId = req.user?.claims?.org || 'default';
@@ -56,7 +56,7 @@ router.get("/unread-count", isAuthenticated, async (req: any, res) => {
 });
 
 // PATCH /api/notifications/:id/read - Mark notification as read
-router.patch("/:id/read", isAuthenticated, async (req: any, res) => {
+router.patch("/:id/read", requireAuth, async (req: any, res) => {
   try {
     const notificationId = Number(req.params.id);
     const userId = req.user?.claims?.sub || req.user?.id;
@@ -78,7 +78,7 @@ router.patch("/:id/read", isAuthenticated, async (req: any, res) => {
 });
 
 // PATCH /api/notifications/mark-all-read - Mark all notifications as read
-router.patch("/mark-all-read", isAuthenticated, async (req: any, res) => {
+router.patch("/mark-all-read", requireAuth, async (req: any, res) => {
   try {
     const userId = req.user?.claims?.sub || req.user?.id;
 
@@ -95,7 +95,7 @@ router.patch("/mark-all-read", isAuthenticated, async (req: any, res) => {
 });
 
 // POST /api/notifications - Create a new notification (internal use)
-router.post("/", isAuthenticated, async (req: any, res) => {
+router.post("/", requireAuth, async (req: any, res) => {
   try {
     const organizationId = req.user?.claims?.org || 'default';
     

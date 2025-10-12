@@ -2,13 +2,13 @@ import { Router } from "express";
 import { db } from "../db";
 import { regulations, regulationControls } from "../../shared/schema";
 import { and, eq, asc, sql } from "drizzle-orm";
-import { isAuthenticated } from "../replitAuth";
+import { requireAuth } from "../middleware/authMiddleware";
 import { requirePermissions } from "../rbac-middleware";
 
 const router = Router();
 
 // GET one regulation + controls (with optional filters)
-router.get("/:id", isAuthenticated, async (req, res) => {
+router.get("/:id", requireAuth, async (req, res) => {
   try {
     const id = Number(req.params.id);
     const reg = await db.query.regulations.findFirst({ where: eq(regulations.id, id) });
@@ -25,7 +25,7 @@ router.get("/:id", isAuthenticated, async (req, res) => {
 });
 
 // PATCH regulation metadata  
-router.patch("/:id", isAuthenticated, requirePermissions(['edit_regulations']), async (req, res) => {
+router.patch("/:id", requireAuth, requirePermissions(['edit_regulations']), async (req, res) => {
   try {
     const id = Number(req.params.id);
     const { code, nameEn, nameAr, version, publisher, status } = req.body;
@@ -39,7 +39,7 @@ router.patch("/:id", isAuthenticated, requirePermissions(['edit_regulations']), 
 });
 
 // PATCH a single control (with field validation)
-router.patch("/:id/controls/:controlId", isAuthenticated, requirePermissions(['edit_regulations']), async (req, res) => {
+router.patch("/:id/controls/:controlId", requireAuth, requirePermissions(['edit_regulations']), async (req, res) => {
   try {
     const id = Number(req.params.id);
     const controlId = Number(req.params.controlId);
@@ -68,7 +68,7 @@ router.patch("/:id/controls/:controlId", isAuthenticated, requirePermissions(['e
 });
 
 // GET distinct domains for one regulation
-router.get("/:id/domains", isAuthenticated, async (req, res) => {
+router.get("/:id/domains", requireAuth, async (req, res) => {
   try {
     const id = Number(req.params.id);
     const result = await db.execute(sql`
@@ -84,7 +84,7 @@ router.get("/:id/domains", isAuthenticated, async (req, res) => {
 });
 
 // GET distinct subdomains for one regulation (filtered by domain)
-router.get("/:id/subdomains", isAuthenticated, async (req, res) => {
+router.get("/:id/subdomains", requireAuth, async (req, res) => {
   try {
     const id = Number(req.params.id);
     const domainEn = req.query.domainEn as string | undefined;

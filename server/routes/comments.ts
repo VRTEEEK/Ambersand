@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "../db";
 import { comments, commentSubscriptions } from "@shared/comments";
 import { users } from "@shared/schema";
-import { isAuthenticated } from "../replitAuth";
+import { requireAuth } from "../middleware/authMiddleware";
 import { and, eq, desc, isNull, lt } from "drizzle-orm";
 import { parseMentions, searchUsersForMentions } from "../services/mentions";
 import { notifyComment } from "../services/notifications";
@@ -22,7 +22,7 @@ async function canCommentTarget(user: any, targetType: string, targetId: number)
 }
 
 // GET list (paginated)
-router.get("/", isAuthenticated, async (req: any, res) => {
+router.get("/", requireAuth, async (req: any, res) => {
   const schema = z.object({
     targetType: z.enum(["task", "project", "risk"]),
     targetId: z.coerce.number(),
@@ -95,7 +95,7 @@ router.get("/", isAuthenticated, async (req: any, res) => {
 });
 
 // POST create
-router.post("/", isAuthenticated, async (req: any, res) => {
+router.post("/", requireAuth, async (req: any, res) => {
   const schema = z.object({
     targetType: z.enum(["task", "project", "risk"]),
     targetId: z.number(),
@@ -177,7 +177,7 @@ router.post("/", isAuthenticated, async (req: any, res) => {
 });
 
 // PATCH edit (author only)
-router.patch("/:id", isAuthenticated, async (req: any, res) => {
+router.patch("/:id", requireAuth, async (req: any, res) => {
   const schema = z.object({ 
     body: z.string().min(1).max(4000) 
   });
@@ -221,7 +221,7 @@ router.patch("/:id", isAuthenticated, async (req: any, res) => {
 });
 
 // DELETE (soft delete; author or admin)
-router.delete("/:id", isAuthenticated, async (req: any, res) => {
+router.delete("/:id", requireAuth, async (req: any, res) => {
   try {
     const id = Number(req.params.id);
     
@@ -252,7 +252,7 @@ router.delete("/:id", isAuthenticated, async (req: any, res) => {
 });
 
 // GET search users for mentions autocomplete
-router.get("/users/search", isAuthenticated, async (req: any, res) => {
+router.get("/users/search", requireAuth, async (req: any, res) => {
   const schema = z.object({
     q: z.string().min(1).max(100),
     limit: z.coerce.number().min(1).max(20).default(10),
@@ -269,7 +269,7 @@ router.get("/users/search", isAuthenticated, async (req: any, res) => {
 });
 
 // GET search users for mentions
-router.get("/search-users", isAuthenticated, async (req: any, res) => {
+router.get("/search-users", requireAuth, async (req: any, res) => {
   const schema = z.object({
     q: z.string().min(1).max(100),
     limit: z.coerce.number().min(1).max(20).default(10),
