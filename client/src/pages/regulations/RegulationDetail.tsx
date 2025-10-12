@@ -212,9 +212,17 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
     };
 
     try {
+      const token = localStorage.getItem("accessToken");
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const r = await fetch('/api/projects', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(body)
       });
       

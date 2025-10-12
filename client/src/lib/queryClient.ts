@@ -14,7 +14,9 @@ export async function apiRequest(
 ): Promise<Response> {
   // Get access token from localStorage
   const token = localStorage.getItem("accessToken");
-  
+
+  console.log(`[apiRequest] ${method} ${url}`, 'with auth:', !!token);
+
   // Build headers with Authorization if token exists
   const headers: Record<string, string> = {};
   if (data) {
@@ -23,13 +25,17 @@ export async function apiRequest(
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
-  
+
   const res = await fetch(url, {
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
+
+  if (!res.ok) {
+    console.error(`[apiRequest] ${method} ${url} failed with status ${res.status}`);
+  }
 
   await throwIfResNotOk(res);
   return res;

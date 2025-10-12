@@ -990,7 +990,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const projectData = insertProjectSchema.parse({
         ...projectBody,
-        ownerId: userId,
+        ownerId: String(userId), // Convert to string to match varchar schema
         organizationId: user?.organizationId,
         regulationType: regulationType, // Legacy field
         regulationId: regulationId, // New field for regulation association

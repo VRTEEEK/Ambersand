@@ -59,15 +59,23 @@ export function SupportModal({ open, onClose }: SupportModalProps) {
 
     setLoading(true);
     try {
+      const token = localStorage.getItem("accessToken");
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json"
+      };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const response = await fetch("/api/support", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          title: t, 
-          description: d, 
+        headers,
+        body: JSON.stringify({
+          title: t,
+          description: d,
           email: e || undefined,
           phoneNumber: p || undefined,
-          path: window.location.pathname 
+          path: window.location.pathname
         }),
       });
 
