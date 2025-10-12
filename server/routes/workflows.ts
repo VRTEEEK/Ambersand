@@ -93,7 +93,7 @@ router.post("/:taskId/route", requireAuth, async (req: any, res) => {
 // Submit to next step / compliance
 router.post("/:taskId/submit", requireAuth, async (req: any, res) => {
   const orgId = req.user?.organizationId || "default";
-  const actor = req.user.claims?.sub || req.user?.id as string;
+  const actor = req.userId as string;
   const taskId = Number(req.params.taskId);
 
   try {
@@ -161,7 +161,7 @@ router.post("/:taskId/submit", requireAuth, async (req: any, res) => {
 // Return to any previous collaborator
 router.post("/:taskId/return", requireAuth, async (req: any, res) => {
   const orgId = req.user?.organizationId || "default";
-  const actor = req.user.claims?.sub || req.user?.id as string;
+  const actor = req.userId as string;
   const taskId = Number(req.params.taskId);
   const { toUserId, comment } = req.body || {};
 
@@ -203,7 +203,7 @@ router.post("/:taskId/return", requireAuth, async (req: any, res) => {
 // Compliance: approve
 router.post("/:taskId/approve", requireAuth, async (req: any, res) => {
   const orgId = req.user?.organizationId || "default";
-  const actor = req.user.claims?.sub || req.user?.id as string;
+  const actor = req.userId as string;
   const taskId = Number(req.params.taskId);
 
   try {
@@ -232,7 +232,7 @@ router.post("/:taskId/approve", requireAuth, async (req: any, res) => {
 // Compliance: reject (send back to a chosen user)
 router.post("/:taskId/reject", requireAuth, async (req: any, res) => {
   const orgId = req.user?.organizationId || "default";
-  const actor = req.user.claims?.sub || req.user?.id as string;
+  const actor = req.userId as string;
   const taskId = Number(req.params.taskId);
   const { toUserId, comment } = req.body || {};
 

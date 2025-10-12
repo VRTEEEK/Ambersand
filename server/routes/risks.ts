@@ -178,7 +178,7 @@ router.post("/toggle", async (req: any, res) => {
         organizationId,
         taskId: task.id,
         title: task.title,
-        createdById: req.user.claims.sub,
+        createdById: req.userId,
         status: "not-started" as const,
         severity: "medium" as const,
         isOpen: true,

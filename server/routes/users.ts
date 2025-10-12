@@ -85,7 +85,7 @@ router.post("/invite", requireAuth, async (req: any, res) => {
   }
 
   // Get current user from database to get organizationId
-  const currentUserId = req.user.claims?.sub || req.user.id;
+  const currentUserId = req.userId;
   console.log('🔥 currentUserId:', currentUserId);
 
   const currentUserResult = await db.select({
@@ -174,7 +174,7 @@ router.post("/invite/accept", async (req: any, res) => {
 
     // If user is authenticated, verify organization match
     if (req.user) {
-      const currentUserId = req.user.claims?.sub || req.user.id;
+      const currentUserId = req.userId;
       const currentUserResult = await db.select({
         id: users.id,
         email: users.email,

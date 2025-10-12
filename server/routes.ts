@@ -3542,7 +3542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!dryRun && errors.length === 0) {
         // Create or update the regulation
-        const userId = req.user.claims?.sub || req.user.id;
+        const userId = req.userId;
         const orgId = req.user?.organizationId || 'default';
         
         const regulationData = {

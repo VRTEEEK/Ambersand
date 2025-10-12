@@ -39,7 +39,7 @@ router.get("/", requireAuth, async (req: any, res) => {
     }
 
     const whereBase = and(
-      eq(comments.organizationId, req.user.claims?.org || ''),
+      eq(comments.organizationId, req.user?.organizationId || 'default'),
       eq(comments.targetType, q.targetType),
       eq(comments.targetId, q.targetId),
       isNull(comments.deletedAt)
@@ -112,24 +112,24 @@ router.post("/", requireAuth, async (req: any, res) => {
     }
 
     // Parse mentions
-    const mentions = await parseMentions(body.body, req.user.claims?.org || 'default');
+    const mentions = await parseMentions(body.body, req.user?.organizationId || 'default');
 
     const [row] = await db.insert(comments).values({
-      organizationId: req.user.claims?.org || 'default',
+      organizationId: req.user?.organizationId || 'default',
       targetType: body.targetType,
       targetId: body.targetId,
       parentId: body.parentId ?? null,
-      authorId: req.user.claims?.sub || req.user.id,
+      authorId: req.userId,
       body: body.body,
       mentions: JSON.stringify(mentions.userIds),
     }).returning();
 
     // Auto-subscribe author
     await db.insert(commentSubscriptions).values({
-      organizationId: req.user.claims?.org || 'default',
+      organizationId: req.user?.organizationId || 'default',
       targetType: body.targetType,
       targetId: body.targetId,
-      userId: req.user.claims?.sub || req.user.id,
+      userId: req.userId,
     }).onConflictDoNothing();
 
     // Get the created comment with author info
@@ -189,7 +189,7 @@ router.patch("/:id", requireAuth, async (req: any, res) => {
     const [existing] = await db.select().from(comments)
       .where(and(
         eq(comments.id, id), 
-        eq(comments.organizationId, req.user.claims?.org || 'default'),
+        eq(comments.organizationId, req.user?.organizationId || 'default'),
         isNull(comments.deletedAt)
       ));
       
@@ -197,12 +197,12 @@ router.patch("/:id", requireAuth, async (req: any, res) => {
       return res.status(404).json({ message: "Comment not found" });
     }
     
-    if (existing.authorId !== (req.user.claims?.sub || req.user.id) && req.user.role !== 'admin') {
+    if (existing.authorId !== req.userId && req.user.role !== 'admin') {
       return res.status(403).json({ message: "Access denied" });
     }
 
     // Parse mentions
-    const mentions = await parseMentions(body, req.user.claims?.org || 'default');
+    const mentions = await parseMentions(body, req.user?.organizationId || 'default');
 
     const [row] = await db.update(comments).set({
       body,
@@ -228,7 +228,7 @@ router.delete("/:id", requireAuth, async (req: any, res) => {
     const [existing] = await db.select().from(comments)
       .where(and(
         eq(comments.id, id), 
-        eq(comments.organizationId, req.user.claims?.org || 'default'),
+        eq(comments.organizationId, req.user?.organizationId || 'default'),
         isNull(comments.deletedAt)
       ));
       
@@ -236,7 +236,7 @@ router.delete("/:id", requireAuth, async (req: any, res) => {
       return res.status(404).json({ message: "Comment not found" });
     }
     
-    if (existing.authorId !== (req.user.claims?.sub || req.user.id) && req.user.role !== 'admin') {
+    if (existing.authorId !== req.userId && req.user.role !== 'admin') {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -277,7 +277,7 @@ router.get("/search-users", requireAuth, async (req: any, res) => {
   
   try {
     const { q, limit } = schema.parse(req.query);
-    const organizationId = req.user.claims?.org || 'default';
+    const organizationId = req.user?.organizationId || 'default';
     
     const users = await searchUsersForMentions(q, organizationId, limit);
     res.json(users);
