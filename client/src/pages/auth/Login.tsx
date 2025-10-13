@@ -59,8 +59,15 @@ export default function Login() {
       // Small delay to ensure localStorage is written
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Force a full page reload to ensure all hooks reinitialize
-      window.location.href = "/";
+      // Check for return URL from accept-invite flow
+      const returnUrl = sessionStorage.getItem("returnUrl");
+      if (returnUrl) {
+        sessionStorage.removeItem("returnUrl");
+        window.location.href = returnUrl;
+      } else {
+        // Force a full page reload to ensure all hooks reinitialize
+        window.location.href = "/";
+      }
     } catch (err) {
       console.error("Login error:", err);
       setError("An unexpected error occurred. Please try again.");

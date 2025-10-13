@@ -105,10 +105,21 @@ export function useAuth() {
     window.location.href = "/auth/login";
   };
 
+  const loginWithRedirect = (returnUrl?: string) => {
+    // Store the return URL in sessionStorage to redirect back after login
+    if (returnUrl) {
+      sessionStorage.setItem("returnUrl", returnUrl);
+    }
+    
+    // Redirect to login page
+    window.location.href = "/auth/login";
+  };
+
   return {
     user,
     isLoading: hasToken && isLoading,
     isAuthenticated: !!user && !error,
     logout,
+    loginWithRedirect,
   };
 }
