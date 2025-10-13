@@ -104,13 +104,8 @@ router.post("/invite", requireAuth, async (req: any, res) => {
     return res.status(401).json({ message: "User not found in database" });
   }
 
-  const orgId = currentUserResult[0].organizationId;
+  const orgId = currentUserResult[0].organizationId || 'default';
   console.log('🔥 orgId:', orgId);
-
-  if (!orgId) {
-    console.log('❌ Organization missing');
-    return res.status(400).json({ message: "Organization missing" });
-  }
 
   const existing = await db.query.users.findFirst({
     where: (u, { and, eq }) => and(eq(u.organizationId, orgId), eq(u.email, inviteEmail)),

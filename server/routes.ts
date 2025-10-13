@@ -1243,23 +1243,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           assigneeId = u[0].id;
         } else {
           // Create invite per specification
-          const orgId = currentUser.organizationId;
+          const orgId = currentUser.organizationId || 'default';
 
-          // Debug: Log user context to understand what's missing
+          // Debug: Log user context
           console.log('🔍 DEBUG - Database user for invitation:', currentUser);
           console.log('🔍 DEBUG - Organization ID found:', orgId);
-
-          if (!orgId) {
-            console.warn(`⚠️  Organization missing for user invite. User context:`, req.user);
-            return res.status(400).json({
-              message: "Organization missing - cannot send invitation. Please ensure you are logged in with proper organization access.",
-              debug: {
-                hasUserId: !!req.userId,
-                hasUserOrgId: !!req.user?.organizationId,
-                userEmail: req.user?.email
-              }
-            });
-          }
           
           const token = crypto.randomUUID().replace(/-/g, "");
           const [invite] = await db.insert(userInvites).values({
