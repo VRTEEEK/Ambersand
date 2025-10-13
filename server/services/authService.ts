@@ -3,9 +3,9 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { nanoid } from "nanoid";
 import { db } from "../db";
-import { authUsers, emailVerificationTokens, passwordResetTokens, refreshTokens } from "@shared/authSchema";
+import { users, emailVerificationTokens, passwordResetTokens, refreshTokens } from "@shared/schema";
 import { eq, and, gt } from "drizzle-orm";
-import type { AuthUser } from "@shared/authSchema";
+import type { User } from "@shared/schema";
 
 // JWT Configuration
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || "change-this-secret-in-production";
@@ -90,13 +90,13 @@ export const authService = {
     firstName?: string,
     lastName?: string,
     organizationId?: string
-  ): Promise<AuthUser> {
+  ): Promise<User> {
     const passwordHash = await this.hashPassword(password);
     const normalizedEmail = email.toLowerCase().trim();
     const userId = nanoid();
 
     const [user] = await db
-      .insert(authUsers)
+      .insert(users)
       .values({
         id: userId,
         email: normalizedEmail,
@@ -115,12 +115,12 @@ export const authService = {
   /**
    * Get user by email
    */
-  async getUserByEmail(email: string): Promise<AuthUser | null> {
+  async getUserByEmail(email: string): Promise<User | null> {
     const normalizedEmail = email.toLowerCase().trim();
     const users = await db
       .select()
-      .from(authUsers)
-      .where(eq(authUsers.email, normalizedEmail))
+      .from(users)
+      .where(eq(users.email, normalizedEmail))
       .limit(1);
 
     return users[0] || null;
@@ -129,8 +129,8 @@ export const authService = {
   /**
    * Get user by ID
    */
-  async getUserById(userId: string): Promise<AuthUser | null> {
-    const users = await db.select().from(authUsers).where(eq(authUsers.id, userId)).limit(1);
+  async getUserById(userId: string): Promise<User | null> {
+    const users = await db.select().from(users).where(eq(users.id, userId)).limit(1);
     return users[0] || null;
   },
 
@@ -170,13 +170,13 @@ export const authService = {
 
     // Mark email as verified
     await db
-      .update(authUsers)
+      .update(users)
       .set({
         emailVerified: true,
         emailVerifiedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(authUsers.id, verificationToken.userId));
+      .where(eq(users.id, verificationToken.userId));
 
     // Delete the token
     await db.delete(emailVerificationTokens).where(eq(emailVerificationTokens.id, verificationToken.id));
@@ -231,12 +231,12 @@ export const authService = {
 
     // Update user password
     await db
-      .update(authUsers)
+      .update(users)
       .set({
         passwordHash,
         updatedAt: new Date(),
       })
-      .where(eq(authUsers.id, resetToken.userId));
+      .where(eq(users.id, resetToken.userId));
 
     // Mark token as used
     await db.update(passwordResetTokens).set({ used: true }).where(eq(passwordResetTokens.id, resetToken.id));
@@ -355,11 +355,11 @@ export const authService = {
    */
   async updateLastLogin(userId: string): Promise<void> {
     await db
-      .update(authUsers)
+      .update(users)
       .set({
         lastLoginAt: new Date(),
       })
-      .where(eq(authUsers.id, userId));
+      .where(eq(users.id, userId));
   },
 
   /**
