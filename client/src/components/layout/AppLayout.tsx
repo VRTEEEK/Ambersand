@@ -85,7 +85,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       current: location === '/tasks',
     },
     can(PERMISSIONS.CREATE_TASKS) && {
-      title: 'Risk Register',
+      title: t('nav.risks'),
       href: '/risks',
       icon: AlertTriangle,
       current: location === '/risks' || location.startsWith('/risks/'),
@@ -97,7 +97,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       current: location === '/evidence',
     },
     {
-      title: language === 'ar' ? 'لوحة القيادة والتحليلات' : 'Dashboard & Analytics',
+      title: t('nav.analytics'),
       href: '/analytics',
       icon: BarChart3,
       current: location === '/analytics',
@@ -169,7 +169,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <Separator className="my-6" />
             
             <p className="px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-              Administration
+              {t('nav.administration')}
             </p>
 
             {adminItems.map((item) => {
@@ -216,14 +216,23 @@ export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className={cn("flex min-h-screen", isRTL && "rtl")}>
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:fixed lg:left-0 lg:top-0 lg:z-40 lg:h-screen lg:w-64 lg:block">
-        <div className="h-full bg-white shadow-lg border-r border-slate-200">
+      <aside className={cn(
+        "hidden lg:fixed lg:top-0 lg:z-40 lg:h-screen lg:w-64 lg:block",
+        isRTL ? "lg:right-0" : "lg:left-0"
+      )}>
+        <div className={cn(
+          "h-full bg-white shadow-lg",
+          isRTL ? "border-l border-slate-200" : "border-r border-slate-200"
+        )}>
           <SidebarContent />
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-64">
+      <main className={cn(
+        "flex-1",
+        isRTL ? "lg:mr-64" : "lg:ml-64"
+      )}>
         {/* Header */}
         <header className="bg-white shadow-sm border-b border-slate-200 px-6 py-4">
           <div className="flex items-center justify-between">
@@ -243,12 +252,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
               
             </div>
 
-            <div className="flex items-center space-x-4">
-              
+            <div className={cn("flex items-center", isRTL ? "space-x-reverse space-x-4" : "space-x-4")}>
+
 
               {/* Language Toggle */}
               <Button variant="ghost" onClick={toggleLanguage} className="text-sm">
-                <Globe className="h-4 w-4 mr-2" style={{ color: '#2699A6' }} />
+                <Globe className={cn("h-4 w-4", isRTL ? "ml-2" : "mr-2")} style={{ color: '#2699A6' }} />
                 {language === 'en' ? 'العربية' : 'English'}
               </Button>
 
@@ -269,7 +278,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               {/* User Menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center space-x-2 text-sm">
+                  <Button variant="ghost" className={cn("flex items-center text-sm", isRTL ? "space-x-reverse space-x-2" : "space-x-2")}>
                     <UserAvatar user={user as any} size="md" />
                     <span>{(user as any)?.firstName} {(user as any)?.lastName}</span>
                     <ChevronDown className="h-4 w-4" style={{ color: '#2699A6' }} />
@@ -279,7 +288,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   <DropdownMenuItem asChild>
                     <Link href="/profile">
                       <div className="w-full cursor-pointer">
-                        {language === 'ar' ? 'الملف الشخصي' : 'Profile'}
+                        {t('nav.profile')}
                       </div>
                     </Link>
                   </DropdownMenuItem>

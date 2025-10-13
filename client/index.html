@@ -3,6 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <script>
+      // Set language and direction immediately to prevent flash
+      (function() {
+        const savedLanguage = localStorage.getItem('language');
+        if (savedLanguage === 'ar') {
+          document.documentElement.lang = 'ar';
+          document.documentElement.dir = 'rtl';
+        } else {
+          document.documentElement.lang = 'en';
+          document.documentElement.dir = 'ltr';
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

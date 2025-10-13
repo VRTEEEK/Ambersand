@@ -3273,14 +3273,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const mapping: Record<string, string> = {};
     const canonicalKeys = [
       { canonical: 'clause', variants: ['clause', 'clause number', 'رقم البند', 'البند', 'code'] },
-      { canonical: 'mainCategoryEn', variants: ['main category', 'main domain', 'المجال الرئيسي', 'الفئة الرئيسية'] },
-      { canonical: 'subCategoryEn', variants: ['sub category', 'sub domain', 'المجال الفرعي', 'الفئة الفرعية'] },
-      { canonical: 'controlEn', variants: ['control', 'requirement', 'الضابط', 'المتطلب'] },
-      { canonical: 'descriptionEn', variants: ['description', 'details', 'الوصف', 'التفاصيل'] }
+
+      // English columns
+      { canonical: 'mainCategoryEn', variants: ['main category', 'main domain', 'domain', 'main category en', 'domain en'] },
+      { canonical: 'subCategoryEn', variants: ['sub category', 'sub domain', 'subdomain', 'sub category en', 'subdomain en'] },
+      { canonical: 'controlEn', variants: ['control', 'requirement', 'main control', 'control en', 'main control en'] },
+      { canonical: 'descriptionEn', variants: ['description', 'details', 'description en', 'details en'] },
+
+      // Arabic columns (NEW)
+      { canonical: 'mainCategoryAr', variants: ['main category ar', 'domain ar', 'المجال الرئيسي', 'الفئة الرئيسية', 'المجال الرئيسي (ع)', 'المجال الرئيسي بالعربي', 'main category arabic'] },
+      { canonical: 'subCategoryAr', variants: ['sub category ar', 'subdomain ar', 'المجال الفرعي', 'الفئة الفرعية', 'المجال الفرعي (ع)', 'المجال الفرعي بالعربي', 'sub category arabic'] },
+      { canonical: 'controlAr', variants: ['control ar', 'main control ar', 'الضابط', 'المتطلب', 'الضابط (ع)', 'الضابط بالعربي', 'control arabic', 'main control arabic'] },
+      { canonical: 'descriptionAr', variants: ['description ar', 'الوصف', 'التفاصيل', 'الوصف (ع)', 'الوصف بالعربي', 'description arabic', 'details arabic'] }
     ];
-    
+
     headers.forEach((header, index) => {
-      const normalized = header.toLowerCase().trim();
+      const normalized = header.toLowerCase().trim().replace(/\u200f|\u200e/g, ''); // Remove RTL/LTR marks
       for (const key of canonicalKeys) {
         if (key.variants.some(variant => normalized.includes(variant.toLowerCase()))) {
           mapping[key.canonical] = header;
@@ -3288,7 +3296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
     });
-    
+
     return mapping;
   }
 

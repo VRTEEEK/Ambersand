@@ -9,11 +9,14 @@ interface TranslationStrings {
   'nav.projects': string;
   'nav.my-tasks': string;
   'nav.tasks': string;
+  'nav.risks': string;
   'nav.evidence': string;
   'nav.analytics': string;
   'nav.notifications': string;
   'nav.users': string;
   'nav.settings': string;
+  'nav.administration': string;
+  'nav.profile': string;
   
   // Dashboard
   'dashboard.title': string;
@@ -86,11 +89,14 @@ const translations: Record<Language, TranslationStrings> = {
     'nav.projects': 'Projects',
     'nav.my-tasks': 'My Tasks',
     'nav.tasks': 'Task Management',
+    'nav.risks': 'Risk Register',
     'nav.evidence': 'Evidence Repository',
-    'nav.analytics': 'Analytics & Reports',
+    'nav.analytics': 'Dashboard & Analytics',
     'nav.notifications': 'Notifications',
     'nav.users': 'User Management',
     'nav.settings': 'Settings',
+    'nav.administration': 'Administration',
+    'nav.profile': 'Profile',
     
     // Dashboard
     'dashboard.title': 'Compliance Dashboard',
@@ -161,11 +167,14 @@ const translations: Record<Language, TranslationStrings> = {
     'nav.projects': 'المشاريع',
     'nav.my-tasks': 'مهامي',
     'nav.tasks': 'إدارة المهام',
+    'nav.risks': 'سجل المخاطر',
     'nav.evidence': 'مستودع الأدلة',
-    'nav.analytics': 'التحليلات والتقارير',
+    'nav.analytics': 'لوحة القيادة والتحليلات',
     'nav.notifications': 'الإشعارات',
     'nav.users': 'إدارة المستخدمين',
     'nav.settings': 'الإعدادات',
+    'nav.administration': 'الإدارة',
+    'nav.profile': 'الملف الشخصي',
     
     // Dashboard
     'dashboard.title': 'لوحة قيادة الامتثال',
@@ -232,24 +241,20 @@ const translations: Record<Language, TranslationStrings> = {
 };
 
 export function useI18n() {
-  const [language, setLanguage] = useState<Language>('en');
+  // Initialize with saved language from localStorage to prevent flash of English
+  const [language, setLanguage] = useState<Language>(() => {
+    const savedLanguage = localStorage.getItem('language') as Language;
+    return (savedLanguage && ['en', 'ar'].includes(savedLanguage)) ? savedLanguage : 'en';
+  });
 
   useEffect(() => {
     // Update document direction and lang attribute
     document.documentElement.lang = language;
     document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
-    
+
     // Store language preference
     localStorage.setItem('language', language);
   }, [language]);
-
-  useEffect(() => {
-    // Load saved language preference
-    const savedLanguage = localStorage.getItem('language') as Language;
-    if (savedLanguage && ['en', 'ar'].includes(savedLanguage)) {
-      setLanguage(savedLanguage);
-    }
-  }, []);
 
   const t = (key: keyof TranslationStrings): string => {
     return translations[language][key] || key;
