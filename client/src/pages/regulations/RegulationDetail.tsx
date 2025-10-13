@@ -158,7 +158,10 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
   const groups = React.useMemo(() => {
     const map = new Map<string, {label:string, items:Control[]}>();
     for (const c of filtered) {
-      const label = (language === 'ar' ? c.domainAr : c.domainEn) || (language === 'ar' ? 'غير مصنف' : 'Uncategorized');
+      // Priority: Arabic (if language is ar and exists) -> English -> Uncategorized
+      const label = (language === 'ar' && c.domainAr) 
+        ? c.domainAr 
+        : (c.domainEn || (language === 'ar' ? 'غير مصنف' : 'Uncategorized'));
       const key = label.trim().toLowerCase();
       if (!map.has(key)) map.set(key, { label, items: [] });
       map.get(key)!.items.push(c);
