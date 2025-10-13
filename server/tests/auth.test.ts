@@ -20,14 +20,14 @@ beforeAll(async () => {
   server = await registerRoutes(app);
 
   // Clean up test users before starting
-  await pool.query("DELETE FROM auth_users WHERE email LIKE '%@test.com'");
+  await pool.query("DELETE FROM users WHERE email LIKE '%@test.com'");
   // Clean up rate limit data
-  await pool.query("DELETE FROM refresh_tokens WHERE user_id IN (SELECT id FROM auth_users WHERE email LIKE '%@test.com')");
+  await pool.query("DELETE FROM refresh_tokens WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@test.com')");
 });
 
 afterAll(async () => {
   // Clean up test users after all tests
-  await pool.query("DELETE FROM auth_users WHERE email LIKE '%@test.com'");
+  await pool.query("DELETE FROM users WHERE email LIKE '%@test.com'");
   await pool.end();
   if (server && server.close) {
     await new Promise((resolve) => server.close(resolve));

@@ -117,21 +117,21 @@ export const authService = {
    */
   async getUserByEmail(email: string): Promise<User | null> {
     const normalizedEmail = email.toLowerCase().trim();
-    const users = await db
+    const userRows = await db
       .select()
       .from(users)
       .where(eq(users.email, normalizedEmail))
       .limit(1);
 
-    return users[0] || null;
+    return userRows[0] || null;
   },
 
   /**
    * Get user by ID
    */
   async getUserById(userId: string): Promise<User | null> {
-    const users = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    return users[0] || null;
+    const userRows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    return userRows[0] || null;
   },
 
   /**
