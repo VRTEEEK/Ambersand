@@ -471,6 +471,7 @@ router.get("/me", requireAuth, async (req: AuthRequest, res) => {
         organizationId: user.organizationId,
         emailVerified: user.emailVerified,
         createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
         lastLoginAt: user.lastLoginAt,
       },
     });
@@ -515,6 +516,7 @@ router.get("/user", requireAuth, async (req: AuthRequest, res) => {
         organizationId: user.organizationId,
         emailVerified: user.emailVerified,
         createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
         lastLoginAt: user.lastLoginAt,
       },
     });

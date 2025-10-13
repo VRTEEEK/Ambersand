@@ -52,8 +52,8 @@ export function useAuth() {
             }
 
             const userData = await retryResponse.json();
-            console.log("[useAuth] User fetched successfully after refresh:", userData.email);
-            return userData;
+            console.log("[useAuth] User fetched successfully after refresh:", userData.data?.email);
+            return userData.data || userData;
           }
         }
 
@@ -66,8 +66,8 @@ export function useAuth() {
       }
 
       const userData = await response.json();
-      console.log("[useAuth] User fetched successfully:", userData.email);
-      return userData;
+      console.log("[useAuth] User fetched successfully:", userData.data?.email);
+      return userData.data || userData;
     },
     enabled: hasToken,
     retry: false,
