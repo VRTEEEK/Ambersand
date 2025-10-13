@@ -1,3 +1,5 @@
+import { apiRequest } from "@/lib/queryClient";
+
 export type RiskStatus = "not-started" | "in-progress" | "mitigated" | "under-review" | "completed";
 export type RiskSeverity = "low" | "medium" | "high" | "critical" | "urgent";
 
@@ -20,36 +22,38 @@ export interface RiskItem {
 
 // API functions
 export async function listRisks(params: URLSearchParams) {
-  const res = await fetch(`/api/risks?${params.toString()}`, { credentials: "include" });
+  const token = localStorage.getItem("accessToken");
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  
+  const res = await fetch(`/api/risks?${params.toString()}`, { 
+    credentials: "include",
+    headers 
+  });
   if (!res.ok) throw new Error("Failed to list risks");
   return res.json();
 }
 
 export async function getRisk(id: number): Promise<RiskItem> {
-  const res = await fetch(`/api/risks/${id}`, { credentials: "include" });
+  const token = localStorage.getItem("accessToken");
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  
+  const res = await fetch(`/api/risks/${id}`, { 
+    credentials: "include",
+    headers 
+  });
   if (!res.ok) throw new Error("Failed to get risk");
   return res.json();
 }
 
 export async function toggleRisk(taskId: number, makeRisk: boolean) {
-  const res = await fetch(`/api/risks/toggle`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ taskId, makeRisk })
-  });
-  if (!res.ok) throw new Error("Failed to toggle risk");
+  const res = await apiRequest(`/api/risks/toggle`, "POST", { taskId, makeRisk });
   return res.json();
 }
 
 export async function updateRisk(id: number, patch: Partial<RiskItem>) {
-  const res = await fetch(`/api/risks/${id}`, {
-    method: "PATCH",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(patch),
-  });
-  if (!res.ok) throw new Error("Failed to update risk");
+  const res = await apiRequest(`/api/risks/${id}`, "PATCH", patch);
   return res.json();
 }
 
