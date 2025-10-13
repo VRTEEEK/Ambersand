@@ -432,18 +432,18 @@ export default function UserRolesDrawer({ user, isOpen, onClose, onSuccess }: Us
                           <div>
                             <span className="text-sm text-muted-foreground">Organization Roles:</span>
                             <div className="flex flex-wrap gap-1 mt-1">
-                              {effectivePermissions.roles.org.map((role) => (
+                              {(effectivePermissions.roles?.org || []).map((role) => (
                                 <Badge key={role} variant={getRoleBadgeVariant(role) as any}>
                                   {role}
                                 </Badge>
                               ))}
                             </div>
                           </div>
-                          {effectivePermissions.roles.project.length > 0 && (
+                          {(effectivePermissions.roles?.project || []).length > 0 && (
                             <div>
                               <span className="text-sm text-muted-foreground">Project Roles:</span>
                               <div className="flex flex-wrap gap-1 mt-1">
-                                {effectivePermissions.roles.project.map((role) => (
+                                {(effectivePermissions.roles?.project || []).map((role) => (
                                   <Badge key={role} variant={getRoleBadgeVariant(role) as any}>
                                     {role}
                                   </Badge>
@@ -460,7 +460,7 @@ export default function UserRolesDrawer({ user, isOpen, onClose, onSuccess }: Us
                         <h5 className="font-medium mb-2">Permissions</h5>
                         <ScrollArea className="h-48">
                           <div className="grid gap-1">
-                            {effectivePermissions.permissions.map((permission) => (
+                            {(effectivePermissions.permissions || []).map((permission) => (
                               <div key={permission} className="text-sm p-2 bg-muted rounded">
                                 {permission.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                               </div>
