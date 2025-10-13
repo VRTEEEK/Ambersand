@@ -122,7 +122,9 @@ export default function UserRolesDrawer({ user, isOpen, onClose, onSuccess }: Us
     
     const projectRoleMap: Record<string, string[]> = {};
     userProjectRoles.forEach(pr => {
-      projectRoleMap[pr.projectId.toString()] = pr.roles;
+      if (pr.projectId && pr.roles) {
+        projectRoleMap[pr.projectId.toString()] = pr.roles;
+      }
     });
     setProjectRoles(projectRoleMap);
   }, [userProjectRoles, isOpen]);
