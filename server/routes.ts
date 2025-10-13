@@ -5,6 +5,7 @@ import { getComplianceReportData } from "./reports/reportData";
 import { renderComplianceHTML } from "./reports/html";
 import { buildPDF, buildDOCX, buildXLSX, streamBundle } from "./reports/reportBuilders";
 import crypto from "crypto";
+import jwt from "jsonwebtoken";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 // DEPRECATED: Old Replit OAuth authentication - replaced with email/password JWT auth
@@ -3081,10 +3082,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Serve uploaded files
-  app.get('/api/evidence/:id/download', requireAuth, async (req, res) => {
+  // Serve uploaded files - accepts both JWT auth OR download token
+  app.get('/api/evidence/:id/download', async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const downloadToken = req.query.token as string;
+      
+      // Check authentication: either JWT token OR valid download token
+      let isAuthenticated = false;
+      
+      // Option 1: JWT Bearer token (from web app)
+      const authHeader = req.headers.authorization;
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        try {
+          jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret-key');
+          isAuthenticated = true;
+        } catch (err) {
+          // JWT invalid, try download token
+        }
+      }
+      
+      // Option 2: Signed download token (from PDF reports)
+      if (!isAuthenticated && downloadToken) {
+        try {
+          const decoded = jwt.verify(downloadToken, process.env.JWT_SECRET || 'fallback-secret-key') as any;
+          if (decoded.evidenceId === id && decoded.type === 'download') {
+            isAuthenticated = true;
+          }
+        } catch (err) {
+          // Download token invalid
+        }
+      }
+      
+      if (!isAuthenticated) {
+        return res.status(401).json({ success: false, message: "Authentication required" });
+      }
+      
       const evidence = await storage.getEvidence();
       const evidenceItem = evidence.find(e => e.id === id);
       

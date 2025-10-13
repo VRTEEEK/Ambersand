@@ -3,6 +3,7 @@ import { projects, projectRegulationControls, regulationControls, regulations, e
 import { eq, and, inArray, or } from "drizzle-orm";
 import path from "path";
 import { existsSync } from "fs";
+import jwt from "jsonwebtoken";
 
 export interface ComplianceReport {
   project: { 
@@ -44,6 +45,7 @@ export interface ComplianceReport {
       fileSize?: number | null;
       filePath: string;
       description?: string | null;
+      downloadToken?: string;
     }>;
   }>;
 }
@@ -331,6 +333,16 @@ export async function getComplianceReportData(params: {
             console.warn(`⚠️ Evidence file missing: ${ev.fileName} (expected at ${absPath})`);
           }
 
+          // Generate signed download token (valid for 30 days for archived reports)
+          const downloadToken = jwt.sign(
+            { 
+              evidenceId: ev.id,
+              type: 'download'
+            },
+            process.env.JWT_SECRET || 'fallback-secret-key',
+            { expiresIn: '30d' }
+          );
+
           return {
             id: ev.id,
             title: ev.title,
@@ -339,6 +351,7 @@ export async function getComplianceReportData(params: {
             fileSize: ev.fileSize || null,
             filePath: absPath,
             description: ev.description || null,
+            downloadToken: downloadToken,
             fileExists: fileExists
           };
         }).filter(ev => ev.fileExists)

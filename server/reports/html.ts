@@ -703,8 +703,10 @@ function generateControlsByDomain(controls: ComplianceReport['controls'], lang: 
                     `<ul class="evidence-list">
                       ${control.evidence.slice(0, 2).map(ev => {
                         if (evidenceLinksAvailable) {
-                          // Create clickable link to download evidence via API
-                          const downloadUrl = baseUrl ? `${baseUrl}/api/evidence/${ev.id}/download` : `#evidence-${ev.id}`;
+                          // Create clickable link to download evidence via API with signed token
+                          const downloadUrl = baseUrl 
+                            ? `${baseUrl}/api/evidence/${ev.id}/download?token=${ev.downloadToken}` 
+                            : `#evidence-${ev.id}`;
                           const fileType = ev.fileName.toLowerCase().includes('.pdf') ? '[PDF]' :
                                          ev.fileName.toLowerCase().includes('.png') || ev.fileName.toLowerCase().includes('.jpg') ? '[IMG]' :
                                          ev.fileName.toLowerCase().includes('.doc') ? '[DOC]' : '[FILE]';
