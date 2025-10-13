@@ -275,8 +275,6 @@ export default function UserRolesDrawer({ user, isOpen, onClose, onSuccess }: Us
     return roleNames[roleCode as keyof typeof roleNames] || roleCode;
   };
 
-  if (!user) return null;
-
   return (
     <Sheet open={isOpen} onOpenChange={() => onClose()}>
       <SheetContent className="w-full sm:max-w-2xl">
@@ -286,7 +284,7 @@ export default function UserRolesDrawer({ user, isOpen, onClose, onSuccess }: Us
             Edit User Roles
           </SheetTitle>
           <SheetDescription>
-            Manage roles and permissions for {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email}
+            Manage roles and permissions for {user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : user?.email || 'User'}
           </SheetDescription>
         </SheetHeader>
 
