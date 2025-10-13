@@ -201,7 +201,7 @@ export default function EditTaskForm({
 
   // Fetch task controls
   const { data: taskControls = [] } = useQuery({
-    queryKey: ['/api/tasks', task.id, 'controls'],
+    queryKey: [`/api/tasks/${task.id}/controls`],
     enabled: !!task.id,
   });
 
@@ -241,7 +241,7 @@ export default function EditTaskForm({
     },
     onSuccess: () => {
       // Invalidate all task-related queries for this specific task
-      queryClient.invalidateQueries({ queryKey: ['/api/tasks', task.id, 'controls'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tasks/${task.id}/controls`] });
       
       // Also invalidate the main task lists that might show this task
       queryClient.invalidateQueries({ 
@@ -265,7 +265,7 @@ export default function EditTaskForm({
     },
     onSuccess: () => {
       // Invalidate all task-related queries for this specific task
-      queryClient.invalidateQueries({ queryKey: ['/api/tasks', task.id, 'controls'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tasks/${task.id}/controls`] });
       
       // Also invalidate the main task lists that might show this task
       queryClient.invalidateQueries({ 
