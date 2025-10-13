@@ -103,7 +103,7 @@ interface Project {
 
 export default function EnhancedUsersPage() {
   const { user: currentUser } = useAuth();
-  const { t, isRTL } = useI18n();
+  const { language, t, isRTL } = useI18n();
   const { toast } = useToast();
   const { can } = usePermissions();
   const queryClient = useQueryClient();
@@ -302,10 +302,10 @@ export default function EnhancedUsersPage() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">
-              User Management
+              {language === 'ar' ? 'إدارة المستخدمين' : 'User Management'}
             </h1>
             <p className="text-slate-600">
-              Manage user roles, permissions and access control
+              {language === 'ar' ? 'إدارة أدوار المستخدمين والأذونات والتحكم في الوصول' : 'Manage user roles, permissions and access control'}
             </p>
           </div>
           
@@ -317,7 +317,7 @@ export default function EnhancedUsersPage() {
               className="flex items-center gap-2"
             >
               <Settings className="h-4 w-4" />
-              Bulk Assign
+              {language === 'ar' ? 'إسناد جماعي' : 'Bulk Assign'}
               {selectedUsers.length > 0 && (
                 <Badge variant="secondary" className="ml-1">
                   {selectedUsers.length}
@@ -329,7 +329,7 @@ export default function EnhancedUsersPage() {
               onClick={() => setIsInviteDialogOpen(true)}
             >
               <UserPlus className="h-4 w-4" />
-              Invite User
+              {language === 'ar' ? 'دعوة مستخدم' : 'Invite User'}
             </Button>
           </div>
         </div>
@@ -341,7 +341,7 @@ export default function EnhancedUsersPage() {
               <div className="flex items-center gap-2">
                 <UsersIcon className="h-5 w-5" />
                 <span className="font-medium">
-                  Total Users: {totalUsers}
+                  {language === 'ar' ? `إجمالي المستخدمين: ${totalUsers}` : `Total Users: ${totalUsers}`}
                 </span>
               </div>
               
@@ -350,7 +350,7 @@ export default function EnhancedUsersPage() {
                 <div className="relative min-w-[300px]">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
-                    placeholder="Search users..."
+                    placeholder={language === 'ar' ? 'بحث عن المستخدمين...' : 'Search users...'}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-9"
@@ -360,10 +360,10 @@ export default function EnhancedUsersPage() {
                 {/* Filters */}
                 <Select value={selectedRole} onValueChange={setSelectedRole}>
                   <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Filter by role" />
+                    <SelectValue placeholder={language === 'ar' ? 'تصفية حسب الدور' : 'Filter by role'} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Roles</SelectItem>
+                    <SelectItem value="all">{language === 'ar' ? 'كل الأدوار' : 'All Roles'}</SelectItem>
                     {roles.map((role) => (
                       <SelectItem key={role.id} value={role.code}>
                         {getRoleDisplayName(role.code)}
@@ -374,21 +374,21 @@ export default function EnhancedUsersPage() {
                 
                 <Select value={selectedStatus} onValueChange={setSelectedStatus}>
                   <SelectTrigger className="w-[120px]">
-                    <SelectValue placeholder="Filter by status" />
+                    <SelectValue placeholder={language === 'ar' ? 'تصفية حسب الحالة' : 'Filter by status'} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="disabled">Disabled</SelectItem>
+                    <SelectItem value="all">{language === 'ar' ? 'كل الحالات' : 'All Statuses'}</SelectItem>
+                    <SelectItem value="active">{language === 'ar' ? 'نشط' : 'Active'}</SelectItem>
+                    <SelectItem value="disabled">{language === 'ar' ? 'معطل' : 'Disabled'}</SelectItem>
                   </SelectContent>
                 </Select>
                 
                 <Select value={selectedProject} onValueChange={setSelectedProject}>
                   <SelectTrigger className="w-[160px]">
-                    <SelectValue placeholder="Filter by project" />
+                    <SelectValue placeholder={language === 'ar' ? 'تصفية حسب المشروع' : 'Filter by project'} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Projects</SelectItem>
+                    <SelectItem value="all">{language === 'ar' ? 'كل المشاريع' : 'All Projects'}</SelectItem>
                     {projects.map((project) => (
                       <SelectItem key={project.id} value={project.id.toString()}>
                         {isRTL ? project.nameAr || project.name : project.name}
@@ -411,9 +411,12 @@ export default function EnhancedUsersPage() {
             ) : users.length === 0 ? (
               <div className="text-center py-12">
                 <UsersIcon className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                <p className="text-slate-600">No users found</p>
+                <p className="text-slate-600">{language === 'ar' ? 'لم يتم العثور على مستخدمين' : 'No users found'}</p>
                 <p className="text-slate-500 text-sm mt-1">
-                  {searchQuery ? 'Try a different search term' : 'Start by inviting your first user'}
+                  {searchQuery 
+                    ? (language === 'ar' ? 'جرب كلمة بحث مختلفة' : 'Try a different search term') 
+                    : (language === 'ar' ? 'ابدأ بدعوة المستخدم الأول' : 'Start by inviting your first user')
+                  }
                 </p>
               </div>
             ) : (
@@ -441,16 +444,16 @@ export default function EnhancedUsersPage() {
                           }
                         }}
                       >
-                        User
+                        {language === 'ar' ? 'المستخدم' : 'User'}
                         {sortBy === 'name' && (
                           <ChevronDown className={cn("ml-2 h-4 w-4", sortOrder === 'desc' && "rotate-180")} />
                         )}
                       </Button>
                     </TableHead>
-                    <TableHead>Organization Roles</TableHead>
-                    <TableHead>Project Roles</TableHead>
-                    <TableHead>Permissions</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>{language === 'ar' ? 'أدوار المنظمة' : 'Organization Roles'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'أدوار المشروع' : 'Project Roles'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'الأذونات' : 'Permissions'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
                     <TableHead>
                       <Button 
                         variant="ghost" 
@@ -465,7 +468,7 @@ export default function EnhancedUsersPage() {
                           }
                         }}
                       >
-                        Last Active
+                        {language === 'ar' ? 'آخر نشاط' : 'Last Active'}
                         {sortBy === 'lastActive' && (
                           <ChevronDown className={cn("ml-2 h-4 w-4", sortOrder === 'desc' && "rotate-180")} />
                         )}
@@ -494,7 +497,7 @@ export default function EnhancedUsersPage() {
                               }
                               {user.id === (currentUser as any)?.id && (
                                 <Badge variant="outline" className="ml-2 text-xs">
-                                  You
+                                  {language === 'ar' ? 'أنت' : 'You'}
                                 </Badge>
                               )}
                             </div>
@@ -531,14 +534,17 @@ export default function EnhancedUsersPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(user.status || 'active')}>
-                          {user.status === 'disabled' ? 'Disabled' : 'Active'}
+                          {user.status === 'disabled' 
+                            ? (language === 'ar' ? 'معطل' : 'Disabled') 
+                            : (language === 'ar' ? 'نشط' : 'Active')
+                          }
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="text-sm text-slate-500">
                           {user.lastActiveAt 
                             ? new Date(user.lastActiveAt).toLocaleDateString()
-                            : 'Never'
+                            : (language === 'ar' ? 'أبداً' : 'Never')
                           }
                         </div>
                       </TableCell>
@@ -552,7 +558,7 @@ export default function EnhancedUsersPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => openRolesDrawer(user)}>
                               <Edit className="h-4 w-4 mr-2" />
-                              Edit Roles
+                              {language === 'ar' ? 'تعديل الأدوار' : 'Edit Roles'}
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               onClick={() => handleStatusToggle(user.id, user.status || 'active')}
@@ -561,28 +567,28 @@ export default function EnhancedUsersPage() {
                               {user.status === 'disabled' ? (
                                 <>
                                   <UserCheck className="h-4 w-4 mr-2" />
-                                  Reactivate
+                                  {language === 'ar' ? 'إعادة تفعيل' : 'Reactivate'}
                                 </>
                               ) : (
                                 <>
                                   <UserX className="h-4 w-4 mr-2" />
-                                  Deactivate
+                                  {language === 'ar' ? 'تعطيل' : 'Deactivate'}
                                 </>
                               )}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setAuditUser(user)}>
                               <Activity className="h-4 w-4 mr-2" />
-                              View Audit
+                              {language === 'ar' ? 'عرض السجل' : 'View Audit'}
                             </DropdownMenuItem>
                             <DropdownMenuItem>
                               <KeyRound className="h-4 w-4 mr-2" />
-                              Reset Password
+                              {language === 'ar' ? 'إعادة تعيين كلمة المرور' : 'Reset Password'}
                             </DropdownMenuItem>
                             {user.id !== (currentUser as any)?.id && !isLastAdmin && (
                               <DropdownMenuItem className="text-red-600">
                                 <Trash2 className="h-4 w-4 mr-2" />
-                                Delete User
+                                {language === 'ar' ? 'حذف المستخدم' : 'Delete User'}
                               </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
@@ -600,7 +606,10 @@ export default function EnhancedUsersPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between">
             <div className="text-sm text-slate-600">
-              Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, totalUsers)} of {totalUsers} results
+              {language === 'ar' 
+                ? `عرض ${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, totalUsers)} من ${totalUsers} نتيجة`
+                : `Showing ${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, totalUsers)} of ${totalUsers} results`
+              }
             </div>
             <div className="flex items-center space-x-2">
               <Button
@@ -609,10 +618,10 @@ export default function EnhancedUsersPage() {
                 onClick={() => setPage(Math.max(1, page - 1))}
                 disabled={page === 1}
               >
-                Previous
+                {language === 'ar' ? 'السابق' : 'Previous'}
               </Button>
               <span className="text-sm text-slate-600">
-                Page {page} of {totalPages}
+                {language === 'ar' ? `صفحة ${page} من ${totalPages}` : `Page ${page} of ${totalPages}`}
               </span>
               <Button
                 variant="outline"
@@ -620,7 +629,7 @@ export default function EnhancedUsersPage() {
                 onClick={() => setPage(Math.min(totalPages, page + 1))}
                 disabled={page === totalPages}
               >
-                Next
+                {language === 'ar' ? 'التالي' : 'Next'}
               </Button>
             </div>
           </div>
