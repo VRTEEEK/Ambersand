@@ -385,14 +385,6 @@ export default function Tasks() {
   // Fetch tasks with fresh data - remove cache to get real-time data
   const { data: tasks = [], isLoading, error, refetch } = useQuery({
     queryKey: ['/api/tasks'],
-    queryFn: async () => {
-      console.log('🔄 Fetching tasks...');
-      const response = await fetch('/api/tasks');
-      if (!response.ok) throw new Error('Failed to fetch tasks');
-      const data = await response.json();
-      console.log('✅ Tasks fetched:', data);
-      return data;
-    },
     refetchOnWindowFocus: true,
     refetchOnMount: true,
     staleTime: 0, // Always fetch fresh data
@@ -400,31 +392,16 @@ export default function Tasks() {
 
   const { data: projects = [] } = useQuery({
     queryKey: ['/api/projects'],
-    queryFn: async () => {
-      const response = await fetch('/api/projects');
-      if (!response.ok) throw new Error('Failed to fetch projects');
-      return response.json();
-    },
   });
 
   // Fetch users for name lookup
   const { data: users = [] } = useQuery({
     queryKey: ['/api/users'],
-    queryFn: async () => {
-      const response = await fetch('/api/users');
-      if (!response.ok) throw new Error('Failed to fetch users');
-      return response.json();
-    },
   });
 
   // Fetch all task controls for displaying badges
   const { data: allTaskControls = {} } = useQuery({
     queryKey: ['/api/tasks/controls/all'],
-    queryFn: async () => {
-      const response = await fetch('/api/tasks/controls/all');
-      if (!response.ok) throw new Error('Failed to fetch task controls');
-      return response.json();
-    },
     enabled: !!tasks && tasks.length > 0,
   });
 
@@ -449,15 +426,6 @@ export default function Tasks() {
   // Fetch task controls for the selected task
   const { data: taskControls = [] } = useQuery({
     queryKey: ['/api/tasks', selectedTask?.id, 'controls'],
-    queryFn: async () => {
-      if (!selectedTask?.id) return [];
-      console.log('🔍 Fetching controls for task:', selectedTask.id);
-      const response = await fetch(`/api/tasks/${selectedTask.id}/controls`);
-      if (!response.ok) throw new Error('Failed to fetch task controls');
-      const data = await response.json();
-      console.log('✅ Retrieved task controls:', data);
-      return data;
-    },
     enabled: !!selectedTask?.id && isEditDialogOpen,
   });
 
@@ -465,12 +433,6 @@ export default function Tasks() {
   const selectedTaskProject = selectedTask ? projects.find((p: any) => p.id === selectedTask.projectId) : null;
   const { data: projectControls = [] } = useQuery({
     queryKey: ['/api/projects', selectedTaskProject?.id, 'controls'],
-    queryFn: async () => {
-      if (!selectedTaskProject?.id) return [];
-      const response = await fetch(`/api/projects/${selectedTaskProject.id}/controls`);
-      if (!response.ok) throw new Error('Failed to fetch project controls');
-      return response.json();
-    },
     enabled: !!selectedTaskProject?.id && isEditDialogOpen,
   });
 
