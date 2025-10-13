@@ -3218,12 +3218,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { projectId, regulationCode, formats, evidenceMode, controlStatus, language } = parsed.data;
 
     try {
-      // Optional tenant check: ensure the project belongs to req.user.organizationId
+      // Optional tenant check: ensure the project belongs to req.organizationId
       const report = await getComplianceReportData({
         projectId,
         regulationCode,
         controlStatusFilter: controlStatus,
-        organizationId: req.user?.organizationId || 'default',
+        organizationId: req.organizationId || 'default',
       });
 
       const selected = { pdf: !!formats?.pdf, docx: !!formats?.docx, xlsx: !!formats?.xlsx };
