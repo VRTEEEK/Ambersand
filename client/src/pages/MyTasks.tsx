@@ -48,9 +48,21 @@ export default function MyTasks() {
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
 
   // Get my tasks (assigned to current user)
-  const { data: myTasks = [], isLoading } = useQuery<TaskWithDetails[]>({
+  const { data: myTasks = [], isLoading, error } = useQuery<TaskWithDetails[]>({
     queryKey: [`/api/tasks?assigneeId=${(user as any)?.id}`],
-    enabled: !!(user as any)?.id
+    enabled: !!(user as any)?.id,
+    retry: 1
+  });
+
+  // Debug logging
+  console.log('🔍 MyTasks Debug:', {
+    userId: (user as any)?.id,
+    userObject: user,
+    queryKey: `/api/tasks?assigneeId=${(user as any)?.id}`,
+    isLoading,
+    error,
+    tasksCount: myTasks?.length,
+    tasks: myTasks
   });
 
   // Fetch all task controls for displaying badges

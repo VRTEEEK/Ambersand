@@ -1047,7 +1047,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const projectId = req.query.projectId ? parseInt(req.query.projectId as string) : undefined;
       const assigneeId = req.query.assigneeId as string | undefined;
+
+      console.log('🔍 GET /api/tasks - Query params:', { projectId, assigneeId, user: (req as any).user?.id });
+
       const tasks = await storage.getTasks(projectId, assigneeId);
+
+      console.log('🔍 GET /api/tasks - Tasks found:', tasks.length);
+
       res.json(tasks);
     } catch (error) {
       console.error("Error fetching tasks:", error);
