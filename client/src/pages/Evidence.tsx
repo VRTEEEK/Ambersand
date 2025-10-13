@@ -244,9 +244,16 @@ export default function Evidence() {
         formData.append('comment', versionNotes);
       }
 
+      const token = localStorage.getItem('accessToken');
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch('/api/evidence/upload', {
         method: 'POST',
         body: formData,
+        headers,
         credentials: 'include',
       });
       
