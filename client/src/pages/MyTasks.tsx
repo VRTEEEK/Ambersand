@@ -49,23 +49,13 @@ export default function MyTasks() {
 
   // Get my tasks (assigned to current user)
   const { data: myTasks = [], isLoading } = useQuery<TaskWithDetails[]>({
-    queryKey: ["/api/tasks", { assigneeId: (user as any)?.id }],
-    queryFn: async () => {
-      const response = await fetch(`/api/tasks?assigneeId=${(user as any)?.id}`);
-      if (!response.ok) throw new Error('Failed to fetch my tasks');
-      return response.json();
-    },
+    queryKey: [`/api/tasks?assigneeId=${(user as any)?.id}`],
     enabled: !!(user as any)?.id
   });
 
   // Fetch all task controls for displaying badges
   const { data: allTaskControls = {} } = useQuery({
     queryKey: ['/api/tasks/controls/all'],
-    queryFn: async () => {
-      const response = await fetch('/api/tasks/controls/all');
-      if (!response.ok) throw new Error('Failed to fetch task controls');
-      return response.json();
-    },
     enabled: !!myTasks && myTasks.length > 0,
   });
 
