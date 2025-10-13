@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import { nanoid } from "nanoid";
 import { db } from "../db";
 import { authUsers, emailVerificationTokens, passwordResetTokens, refreshTokens } from "@shared/authSchema";
 import { eq, and, gt } from "drizzle-orm";
@@ -19,7 +20,7 @@ export interface TokenPair {
 }
 
 export interface JWTPayload {
-  userId: number;
+  userId: string;
   email: string;
   role: string;
   organizationId?: string;
@@ -92,10 +93,12 @@ export const authService = {
   ): Promise<AuthUser> {
     const passwordHash = await this.hashPassword(password);
     const normalizedEmail = email.toLowerCase().trim();
+    const userId = nanoid();
 
     const [user] = await db
       .insert(authUsers)
       .values({
+        id: userId,
         email: normalizedEmail,
         passwordHash,
         firstName,
@@ -126,7 +129,7 @@ export const authService = {
   /**
    * Get user by ID
    */
-  async getUserById(userId: number): Promise<AuthUser | null> {
+  async getUserById(userId: string): Promise<AuthUser | null> {
     const users = await db.select().from(authUsers).where(eq(authUsers.id, userId)).limit(1);
     return users[0] || null;
   },
@@ -134,7 +137,7 @@ export const authService = {
   /**
    * Generate email verification token
    */
-  async createEmailVerificationToken(userId: number): Promise<string> {
+  async createEmailVerificationToken(userId: string): Promise<string> {
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
@@ -185,7 +188,7 @@ export const authService = {
   /**
    * Create password reset token
    */
-  async createPasswordResetToken(userId: number): Promise<string> {
+  async createPasswordResetToken(userId: string): Promise<string> {
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
@@ -249,7 +252,7 @@ export const authService = {
    * Store refresh token (hashed)
    */
   async storeRefreshToken(
-    userId: number,
+    userId: string,
     token: string,
     ipAddress?: string,
     userAgent?: string
@@ -335,7 +338,7 @@ export const authService = {
   /**
    * Revoke all refresh tokens for a user
    */
-  async revokeAllUserTokens(userId: number): Promise<void> {
+  async revokeAllUserTokens(userId: string): Promise<void> {
     await db
       .update(refreshTokens)
       .set({
@@ -350,7 +353,7 @@ export const authService = {
   /**
    * Update last login timestamp
    */
-  async updateLastLogin(userId: number): Promise<void> {
+  async updateLastLogin(userId: string): Promise<void> {
     await db
       .update(authUsers)
       .set({
@@ -366,15 +369,15 @@ export const authService = {
     const now = new Date();
 
     // Delete expired email verification tokens
-    await db.delete(emailVerificationTokens).where(gt(now, emailVerificationTokens.expiresAt));
+    await db.delete(emailVerificationTokens).where(gt(emailVerificationTokens.expiresAt, now));
 
     // Delete used or expired password reset tokens
     await db
       .delete(passwordResetTokens)
-      .where(and(eq(passwordResetTokens.used, true), gt(now, passwordResetTokens.expiresAt)));
+      .where(and(eq(passwordResetTokens.used, true), gt(passwordResetTokens.expiresAt, now)));
 
     // Delete expired refresh tokens
-    await db.delete(refreshTokens).where(gt(now, refreshTokens.expiresAt));
+    await db.delete(refreshTokens).where(gt(refreshTokens.expiresAt, now));
 
     console.log(`🧹 Cleaned up expired tokens`);
   },
