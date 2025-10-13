@@ -8,9 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, Search, Filter, Calendar } from "lucide-react";
 import AppLayout from "@/components/layout/AppLayout";
+import { useI18n } from "@/hooks/use-i18n";
 import { listRisks, getSeverityColor, getStatusColor, type RiskItem, type RiskStatus, type RiskSeverity } from "@/lib/api/risk";
 
 export default function RiskRegister() {
+  const { language, isRTL } = useI18n();
   const [statusFilter, setStatusFilter] = useState<RiskStatus | "all">("all");
   const [severityFilter, setSeverityFilter] = useState<RiskSeverity | "all">("all");
   const [assigneeFilter, setAssigneeFilter] = useState("");
@@ -38,8 +40,8 @@ export default function RiskRegister() {
         <div className="flex items-center space-x-3">
           <AlertTriangle className="h-8 w-8 text-red-500" />
           <div>
-            <h1 className="text-3xl font-bold">Risk Register</h1>
-            <p className="text-muted-foreground">Monitor and manage compliance risks</p>
+            <h1 className="text-3xl font-bold">{language === 'ar' ? 'سجل المخاطر' : 'Risk Register'}</h1>
+            <p className="text-muted-foreground">{language === 'ar' ? 'مراقبة وإدارة مخاطر الامتثال' : 'Monitor and manage compliance risks'}</p>
           </div>
         </div>
       </div>
@@ -49,7 +51,7 @@ export default function RiskRegister() {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Filter className="h-5 w-5" />
-            <span>Filters</span>
+            <span>{language === 'ar' ? 'الفلاتر' : 'Filters'}</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -58,7 +60,7 @@ export default function RiskRegister() {
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search risks..."
+                placeholder={language === 'ar' ? 'بحث في المخاطر...' : 'Search risks...'}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -68,36 +70,36 @@ export default function RiskRegister() {
             {/* Status Filter */}
             <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as RiskStatus | "all")}>
               <SelectTrigger>
-                <SelectValue placeholder="All Statuses" />
+                <SelectValue placeholder={language === 'ar' ? 'كل الحالات' : 'All Statuses'} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="not-started">Not Started</SelectItem>
-                <SelectItem value="in-progress">In Progress</SelectItem>
-                <SelectItem value="mitigated">Mitigated</SelectItem>
-                <SelectItem value="under-review">Under Review</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="all">{language === 'ar' ? 'كل الحالات' : 'All Statuses'}</SelectItem>
+                <SelectItem value="not-started">{language === 'ar' ? 'لم يبدأ' : 'Not Started'}</SelectItem>
+                <SelectItem value="in-progress">{language === 'ar' ? 'قيد التنفيذ' : 'In Progress'}</SelectItem>
+                <SelectItem value="mitigated">{language === 'ar' ? 'تم التخفيف' : 'Mitigated'}</SelectItem>
+                <SelectItem value="under-review">{language === 'ar' ? 'قيد المراجعة' : 'Under Review'}</SelectItem>
+                <SelectItem value="completed">{language === 'ar' ? 'مكتمل' : 'Completed'}</SelectItem>
               </SelectContent>
             </Select>
 
             {/* Severity Filter */}
             <Select value={severityFilter} onValueChange={(value) => setSeverityFilter(value as RiskSeverity | "all")}>
               <SelectTrigger>
-                <SelectValue placeholder="All Severities" />
+                <SelectValue placeholder={language === 'ar' ? 'كل الخطورة' : 'All Severities'} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Severities</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="critical">Critical</SelectItem>
-                <SelectItem value="urgent">Urgent</SelectItem>
+                <SelectItem value="all">{language === 'ar' ? 'كل الخطورة' : 'All Severities'}</SelectItem>
+                <SelectItem value="low">{language === 'ar' ? 'منخفض' : 'Low'}</SelectItem>
+                <SelectItem value="medium">{language === 'ar' ? 'متوسط' : 'Medium'}</SelectItem>
+                <SelectItem value="high">{language === 'ar' ? 'عالي' : 'High'}</SelectItem>
+                <SelectItem value="critical">{language === 'ar' ? 'حرج' : 'Critical'}</SelectItem>
+                <SelectItem value="urgent">{language === 'ar' ? 'عاجل' : 'Urgent'}</SelectItem>
               </SelectContent>
             </Select>
 
             {/* Assignee Filter */}
             <Input
-              placeholder="Filter by assignee..."
+              placeholder={language === 'ar' ? 'تصفية حسب المكلف...' : 'Filter by assignee...'}
               value={assigneeFilter}
               onChange={(e) => setAssigneeFilter(e.target.value)}
             />
@@ -108,7 +110,7 @@ export default function RiskRegister() {
       {/* Risk List */}
       <Card>
         <CardHeader>
-          <CardTitle>Risks ({risks.length})</CardTitle>
+          <CardTitle>{language === 'ar' ? `المخاطر (${risks.length})` : `Risks (${risks.length})`}</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -117,16 +119,16 @@ export default function RiskRegister() {
             </div>
           ) : error ? (
             <div className="text-center py-8 text-red-500">
-              Failed to load risks
+              {language === 'ar' ? 'فشل تحميل المخاطر' : 'Failed to load risks'}
             </div>
           ) : risks.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No risks found matching your criteria
+              {language === 'ar' ? 'لا توجد مخاطر تطابق معاييرك' : 'No risks found matching your criteria'}
             </div>
           ) : (
             <div className="space-y-4">
               {risks.map((risk: RiskItem) => (
-                <RiskCard key={risk.id} risk={risk} />
+                <RiskCard key={risk.id} risk={risk} language={language} />
               ))}
             </div>
           )}
@@ -137,7 +139,29 @@ export default function RiskRegister() {
   );
 }
 
-function RiskCard({ risk }: { risk: RiskItem }) {
+function RiskCard({ risk, language }: { risk: RiskItem; language: 'en' | 'ar' }) {
+  const getSeverityText = (severity: string) => {
+    const translations = {
+      low: language === 'ar' ? 'منخفض' : 'Low',
+      medium: language === 'ar' ? 'متوسط' : 'Medium',
+      high: language === 'ar' ? 'عالي' : 'High',
+      critical: language === 'ar' ? 'حرج' : 'Critical',
+      urgent: language === 'ar' ? 'عاجل' : 'Urgent',
+    };
+    return translations[severity as keyof typeof translations] || severity;
+  };
+
+  const getStatusText = (status: string) => {
+    const translations = {
+      'not-started': language === 'ar' ? 'لم يبدأ' : 'Not Started',
+      'in-progress': language === 'ar' ? 'قيد التنفيذ' : 'In Progress',
+      'mitigated': language === 'ar' ? 'تم التخفيف' : 'Mitigated',
+      'under-review': language === 'ar' ? 'قيد المراجعة' : 'Under Review',
+      'completed': language === 'ar' ? 'مكتمل' : 'Completed',
+    };
+    return translations[status as keyof typeof translations] || status;
+  };
+
   return (
     <Link href={`/risks/${risk.id}`}>
       <div className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer">
@@ -146,10 +170,10 @@ function RiskCard({ risk }: { risk: RiskItem }) {
             <div className="flex items-center space-x-3 mb-2">
               <h3 className="font-semibold truncate">{risk.title}</h3>
               <Badge className={getSeverityColor(risk.severity)}>
-                {risk.severity.charAt(0).toUpperCase() + risk.severity.slice(1)}
+                {getSeverityText(risk.severity)}
               </Badge>
               <Badge className={getStatusColor(risk.status)}>
-                {risk.status.replace("-", " ").replace(/\b\w/g, l => l.toUpperCase())}
+                {getStatusText(risk.status)}
               </Badge>
             </div>
             
@@ -162,10 +186,10 @@ function RiskCard({ risk }: { risk: RiskItem }) {
             <div className="flex items-center space-x-4 text-xs text-muted-foreground">
               <span className="flex items-center space-x-1">
                 <Calendar className="h-3 w-3" />
-                <span>Updated {new Date(risk.updatedAt).toLocaleDateString()}</span>
+                <span>{language === 'ar' ? 'تم التحديث ' : 'Updated '}{new Date(risk.updatedAt).toLocaleDateString()}</span>
               </span>
               {risk.assigneeId && (
-                <span>Assigned to: {risk.assigneeId}</span>
+                <span>{language === 'ar' ? 'مُكلف إلى: ' : 'Assigned to: '}{risk.assigneeId}</span>
               )}
               <button
                 type="button"
@@ -176,7 +200,7 @@ function RiskCard({ risk }: { risk: RiskItem }) {
                   window.location.href = `/tasks/${risk.taskId}`;
                 }}
               >
-                View Task
+                {language === 'ar' ? 'عرض المهمة' : 'View Task'}
               </button>
             </div>
           </div>
