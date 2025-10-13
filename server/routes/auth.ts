@@ -40,8 +40,8 @@ router.post("/signup", authRateLimiter, async (req, res) => {
 
     // Send verification email
     const emailResult = await emailService.sendVerificationEmail(
-      user.email,
-      firstName || user.email.split("@")[0],
+      email,
+      firstName || email.split("@")[0],
       verificationUrl
     );
 
@@ -91,7 +91,7 @@ router.post("/login", authRateLimiter, async (req, res) => {
 
     // Get user
     const user = await authService.getUserByEmail(email);
-    if (!user) {
+    if (!user || !user.passwordHash) {
       // Generic error message to prevent user enumeration
       return res.status(401).json({
         success: false,
@@ -128,7 +128,7 @@ router.post("/login", authRateLimiter, async (req, res) => {
     // Generate tokens
     const accessToken = authService.generateAccessToken({
       userId: user.id,
-      email: user.email,
+      email: email,
       role: user.role,
       organizationId: user.organizationId || undefined,
     });
@@ -320,8 +320,8 @@ router.post("/resend-verification", emailVerificationRateLimiter, async (req, re
 
     // Send verification email
     const emailResult = await emailService.sendVerificationEmail(
-      user.email,
-      user.firstName || user.email.split("@")[0],
+      email,
+      user.firstName || email.split("@")[0],
       verificationUrl
     );
 
@@ -371,8 +371,8 @@ router.post("/forgot-password", passwordResetRateLimiter, async (req, res) => {
 
     // Send password reset email
     const emailResult = await emailService.sendPasswordResetEmail(
-      user.email,
-      user.firstName || user.email.split("@")[0],
+      email,
+      user.firstName || email.split("@")[0],
       resetUrl,
       user.language as "en" | "ar"
     );

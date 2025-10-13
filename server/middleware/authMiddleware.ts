@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { authService } from "../services/authService";
 
 export interface AuthRequest extends Request {
-  userId?: number;
+  userId?: string;
   userEmail?: string;
   userRole?: string;
   organizationId?: string;
