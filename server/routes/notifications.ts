@@ -22,8 +22,8 @@ router.get("/test", (req: any, res) => {
 // GET /api/notifications - Get user's notifications
 router.get("/", requireAuth, async (req: any, res) => {
   try {
-    const userId = req.user?.claims?.sub || req.user?.id;
-    const organizationId = req.user?.claims?.org || 'default';
+    const userId = req.userId;
+    const organizationId = req.user?.organizationId || 'default';
 
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -40,8 +40,8 @@ router.get("/", requireAuth, async (req: any, res) => {
 // GET /api/notifications/unread-count - Get unread notification count
 router.get("/unread-count", requireAuth, async (req: any, res) => {
   try {
-    const userId = req.user?.claims?.sub || req.user?.id;
-    const organizationId = req.user?.claims?.org || 'default';
+    const userId = req.userId;
+    const organizationId = req.user?.organizationId || 'default';
 
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -59,7 +59,7 @@ router.get("/unread-count", requireAuth, async (req: any, res) => {
 router.patch("/:id/read", requireAuth, async (req: any, res) => {
   try {
     const notificationId = Number(req.params.id);
-    const userId = req.user?.claims?.sub || req.user?.id;
+    const userId = req.userId;
 
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -80,7 +80,7 @@ router.patch("/:id/read", requireAuth, async (req: any, res) => {
 // PATCH /api/notifications/mark-all-read - Mark all notifications as read
 router.patch("/mark-all-read", requireAuth, async (req: any, res) => {
   try {
-    const userId = req.user?.claims?.sub || req.user?.id;
+    const userId = req.userId;
 
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -97,7 +97,7 @@ router.patch("/mark-all-read", requireAuth, async (req: any, res) => {
 // POST /api/notifications - Create a new notification (internal use)
 router.post("/", requireAuth, async (req: any, res) => {
   try {
-    const organizationId = req.user?.claims?.org || 'default';
+    const organizationId = req.user?.organizationId || 'default';
     
     const notificationData = insertNotificationSchema.parse({
       ...req.body,

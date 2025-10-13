@@ -11,7 +11,7 @@ const router = Router();
 
 // Helper functions for permissions
 async function canEditRisk(user: any): Promise<boolean> {
-  const userId = user?.claims?.sub || user?.id;
+  const userId = user?.id;
   if (!userId) return false;
   
   const permissions = await getUserPermissions(userId);
@@ -20,7 +20,7 @@ async function canEditRisk(user: any): Promise<boolean> {
 
 async function canViewTask(user: any, task: any): Promise<boolean> {
   // User can view if they're the assignee, creator, or have admin permissions
-  const userId = user?.claims?.sub || user?.id;
+  const userId = user?.id;
   if (!userId) return false;
   
   // Check if user is assignee or creator
@@ -36,7 +36,7 @@ async function canViewTask(user: any, task: any): Promise<boolean> {
 // GET /api/risks?status=&severity=&assigneeId=&q=&limit=&cursor=
 router.get("/", async (req: any, res) => {
   try {
-    if (!req.user?.claims?.sub) {
+    if (!req.userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
@@ -97,7 +97,7 @@ router.get("/", async (req: any, res) => {
 // GET /api/risks/:id - Get individual risk
 router.get("/:id", async (req: any, res) => {
   try {
-    if (!req.user?.claims?.sub) {
+    if (!req.userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
@@ -131,7 +131,7 @@ router.get("/:id", async (req: any, res) => {
 // POST /api/risks/toggle - Toggle risk status on task
 router.post("/toggle", async (req: any, res) => {
   try {
-    if (!req.user?.claims?.sub) {
+    if (!req.userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
@@ -231,7 +231,7 @@ router.post("/toggle", async (req: any, res) => {
 // PATCH /api/risks/:id - Edit risk fields (compliance officer/admin only)
 router.patch("/:id", async (req: any, res) => {
   try {
-    if (!req.user?.claims?.sub) {
+    if (!req.userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 

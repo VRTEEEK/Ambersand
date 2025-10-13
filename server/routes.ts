@@ -884,7 +884,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/admin/test-email', requireAuth, async (req: AuthRequest, res) => {
     try {
       const { email } = req.body;
-      const currentUser = { sub: req.userId, email: req.userEmail };
+      const currentUser = { id: req.userId, email: req.userEmail };
       
       if (!email) {
         return res.status(400).json({ message: 'Email address is required' });
@@ -1162,7 +1162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log('🔥🔥🔥 ROUTES: User org debug:', {
       hasUser: !!req.user,
       userOrgId: req.user?.organizationId,
-      userClaimsOrg: { sub: req.userId, email: req.userEmail }?.org,
+      userId: req.userId,
       userKeys: Object.keys(req.user || {})
     });
     console.log('🔥🔥🔥 ROUTES: URL requested:', req.url);
@@ -1254,7 +1254,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return res.status(400).json({
               message: "Organization missing - cannot send invitation. Please ensure you are logged in with proper organization access.",
               debug: {
-                hasUserClaims: !!{ sub: req.userId, email: req.userEmail },
+                hasUserId: !!req.userId,
                 hasUserOrgId: !!req.user?.organizationId,
                 userEmail: req.user?.email
               }
@@ -2809,7 +2809,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Evidence upload request received:', {
         body: req.body,
         filesCount: req.files?.length || 0,
-        user: { sub: req.userId, email: req.userEmail }?.sub
+        user: req.userId
       });
       
       const taskId = parseInt(req.body.taskId);
@@ -3034,7 +3034,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get user info for context
-      const user = await storage.getUser(req.user?.id || { sub: req.userId, email: req.userEmail }?.sub);
+      const user = await storage.getUser(req.userId);
       const userEmail = user?.email || 'Unknown user';
       const userName = user?.firstName && user?.lastName 
         ? `${user.firstName} ${user.lastName}` 
@@ -3182,7 +3182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             <h3>System Information</h3>
             <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
             <p><strong>Environment:</strong> ${process.env.NODE_ENV || 'development'}</p>
-            <p><strong>User ID:</strong> ${{ sub: req.userId, email: req.userEmail }?.sub || 'N/A'}</p>
+            <p><strong>User ID:</strong> ${req.userId || 'N/A'}</p>
           </div>
           <p>If you can see this PDF, wkhtmltopdf is functioning properly!</p>
         </body>
@@ -3208,7 +3208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Export route
   app.post("/api/reports/compliance/export", requireAuth, async (req: AuthRequest, res) => {
     console.log('📋 Compliance report export request received:', {
-      user: { sub: req.userId, email: req.userEmail }?.sub,
+      user: req.userId,
       body: JSON.stringify(req.body, null, 2)
     });
 
@@ -3231,12 +3231,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { projectId, regulationCode, formats, evidenceMode, controlStatus, language } = parsed.data;
 
     try {
-      // Optional tenant check: ensure the project belongs to req.user.claims.org
+      // Optional tenant check: ensure the project belongs to req.user.organizationId
       const report = await getComplianceReportData({
         projectId,
         regulationCode,
         controlStatusFilter: controlStatus,
-        organizationId: { sub: req.userId, email: req.userEmail }?.org,
+        organizationId: req.user?.organizationId || 'default',
       });
 
       const selected = { pdf: !!formats?.pdf, docx: !!formats?.docx, xlsx: !!formats?.xlsx };

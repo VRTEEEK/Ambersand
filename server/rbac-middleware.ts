@@ -32,8 +32,8 @@ export function requirePermissions(permissionCodes: string[], requireProjectId: 
         }
       }
 
-      // Get user's effective permissions - extract user ID correctly for Replit Auth
-      const userId = (req.user as any)?.claims?.sub || (req.user as any)?.id;
+      // Get user's effective permissions - extract user ID from JWT middleware
+      const userId = req.userId;
       if (!userId) {
         return res.status(401).json({ message: "Invalid user authentication" });
       }
