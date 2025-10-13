@@ -254,6 +254,24 @@ export function useI18n() {
 
     // Store language preference
     localStorage.setItem('language', language);
+    
+    // Dispatch custom event to notify other components
+    window.dispatchEvent(new CustomEvent('languageChange', { detail: language }));
+  }, [language]);
+
+  useEffect(() => {
+    // Listen for language changes from other components
+    const handleLanguageChange = (event: CustomEvent<Language>) => {
+      if (event.detail !== language) {
+        setLanguage(event.detail);
+      }
+    };
+
+    window.addEventListener('languageChange', handleLanguageChange as EventListener);
+    
+    return () => {
+      window.removeEventListener('languageChange', handleLanguageChange as EventListener);
+    };
   }, [language]);
 
   const t = (key: keyof TranslationStrings): string => {
