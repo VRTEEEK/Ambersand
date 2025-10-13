@@ -4,7 +4,17 @@
 
 Ambersand is a bilingual (Arabic/English) compliance management platform for mid-to-large Saudi organizations. Its primary purpose is to streamline adherence to key regulatory frameworks, including ECC (Essential Cybersecurity Controls), PDPL (Personal Data Protection Law), and NDMO (National Data Management Office). The project vision is to provide a comprehensive solution for managing organizational compliance efficiently and effectively.
 
-## Recent Changes (September 2025)
+## Recent Changes (October 2025)
+
+- **CRITICAL: Completed auth migration to unified password system** - Successfully migrated from dual auth system (auth_users + users) to unified password authentication using existing users table with JWT tokens
+- **Extended users table for password auth** - Added passwordHash, emailVerified, emailVerifiedAt, lastLoginAt, isActive fields to existing users table
+- **Created auth token infrastructure** - Built emailVerificationTokens, passwordResetTokens, refreshTokens tables with varchar user_id references
+- **Migrated existing auth data** - Successfully transferred 3 users from auth_users to users table (2 updated, 1 inserted) preserving password hashes
+- **Updated auth services & middleware** - Converted authService.ts to use unified users table with string IDs (nanoid generation) and varchar primary keys
+- **Fixed critical variable shadowing bug** - Resolved ReferenceError in getUserByEmail/getUserById by renaming local variables from `users` to `userRows`
+- **Cleaned up legacy auth system** - Dropped auth_users table and removed authSchema.ts after successful migration validation
+
+## Previous Changes (September 2025)
 
 - **MAJOR: Completed comprehensive compliance report export system** - Built complete export functionality with PDF, DOCX, XLSX, and ZIP bundle generation, supporting evidence file attachment and proper RBAC permissions
 - **Added advanced export dialog** - Created sophisticated ExportComplianceDialog component with format selection, evidence handling options, control status filtering, and language selection
@@ -56,7 +66,7 @@ Preferred communication style: Simple, everyday language.
 - **Relationships**: Projects can be associated with multiple ECC controls.
 
 ### Key Features
-- **Authentication**: Replit Auth integration, role-based access control (Admin, Manager, Viewer), PostgreSQL-backed session storage.
+- **Authentication**: Password-based JWT authentication with unified users table (varchar IDs), role-based access control (Admin, Manager, Viewer), email verification tokens, password reset tokens, refresh tokens (30-day expiry).
 - **Compliance Management**: Predefined regulatory frameworks (ECC, PDPL, NDMO), project management with hierarchical control selection, task assignment/monitoring, evidence management.
 - **Email Integration**: SendGrid Web API with comprehensive templates for task notifications, user invitations, deadline reminders, status updates, and password resets.
 - **Internationalization**: Bilingual support (Arabic/English) with RTL layout for Arabic content, custom i18n hook.
@@ -65,7 +75,7 @@ Preferred communication style: Simple, everyday language.
 ### Data Flow
 - **Client-Server**: React frontend uses TanStack Query to make API requests to the Express backend. Express routes handle business logic and database operations via Drizzle ORM.
 - **File Upload**: Client uploads files, Multer processes them, and metadata is stored in the database, linking files to compliance activities.
-- **Authentication**: Replit OAuth authenticates users, creates sessions in PostgreSQL, and verifies sessions for protected routes.
+- **Authentication**: JWT-based authentication with access tokens (15-minute expiry) and refresh tokens (30-day expiry). Protected routes verify JWT tokens via authMiddleware.
 
 ## External Dependencies
 
