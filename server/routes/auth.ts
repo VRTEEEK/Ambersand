@@ -483,4 +483,48 @@ router.get("/me", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+/**
+ * GET /api/auth/user
+ * Alias for /api/auth/me for backwards compatibility
+ */
+router.get("/user", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authenticated",
+      });
+    }
+
+    const user = await authService.getUserById(req.userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        organizationId: user.organizationId,
+        emailVerified: user.emailVerified,
+        createdAt: user.createdAt,
+        lastLoginAt: user.lastLoginAt,
+      },
+    });
+  } catch (error: any) {
+    console.error("Get current user error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to get user information",
+    });
+  }
+});
+
 export default router;

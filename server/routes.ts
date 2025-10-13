@@ -136,37 +136,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes - new JWT-based authentication
   // The /api/auth/* routes are handled by authRouter (mounted below at line 3100+)
 
-  // Legacy compatibility endpoint - maps to new auth system
-  app.get('/api/auth/user', requireAuth, async (req: AuthRequest, res) => {
-    try {
-      // New auth system stores userId in req.userId (from JWT)
-      const userId = req.userId;
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      // Get user from new auth_users table
-      const { authService } = await import("./services/authService");
-      const user = await authService.getUserById(userId);
-
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      res.json({
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        organizationId: user.organizationId,
-        profileImageUrl: null, // Not used in new system
-      });
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
+  // Note: /api/auth/user endpoint is now handled by authRouter (see routes/auth.ts)
+  // This legacy route has been moved to the auth router for better organization
 
   // RBAC routes
   app.get('/api/me/permissions', requireAuth, async (req: AuthRequest, res) => {
