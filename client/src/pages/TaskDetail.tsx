@@ -55,7 +55,7 @@ export default function TaskDetail() {
   });
 
   const { data: task, isLoading: taskLoading } = useQuery<TaskWithDetails>({
-    queryKey: ["/api/tasks", taskId || "0"]
+    queryKey: [`/api/tasks/${taskId}`]
   });
 
   const { data: projects = [] } = useQuery<any[]>({
@@ -67,15 +67,15 @@ export default function TaskDetail() {
   });
 
   const { data: controls = [] } = useQuery<any[]>({
-    queryKey: ["/api/tasks", taskId || "0", "controls"]
+    queryKey: [`/api/tasks/${taskId}/controls`]
   });
 
   const { data: evidence = [] } = useQuery<Evidence[]>({
-    queryKey: ["/api/evidence/task", taskId || "0"]
+    queryKey: [`/api/evidence/task/${taskId}`]
   });
 
   const { data: versions = [] } = useQuery<EvidenceVersion[]>({
-    queryKey: ["/api/evidence/versions", taskId || "0"]
+    queryKey: [`/api/evidence/versions?taskId=${taskId}`]
   });
 
   const { data: workflow, refetch: refetchWorkflow } = useQuery<{
@@ -83,12 +83,13 @@ export default function TaskDetail() {
     route: TaskReviewRoute[];
     history: TaskWorkflowEvent[];
   }>({
-    queryKey: ["/api/workflows", taskId || "0"],
+    queryKey: [`/api/workflows?taskId=${taskId}`],
     enabled: !!taskId,
   });
 
   const { data: controlLinkedEvidence = [] } = useQuery<Evidence[]>({
-    queryKey: ["/api/evidence/control", selectedControlForView || 0]
+    queryKey: [`/api/evidence/control/${selectedControlForView}`],
+    enabled: !!selectedControlForView,
   });
 
   const { data: allEvidence = [] } = useQuery<Evidence[]>({

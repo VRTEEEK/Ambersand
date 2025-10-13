@@ -55,20 +55,11 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
   const queryClient = useQueryClient();
 
   const commentsQuery = useQuery({
-    queryKey: ['/api/comments', targetType, targetId],
-    queryFn: ({ queryKey }) => {
-      const [, type, id] = queryKey;
-      return fetch(`/api/comments?targetType=${type}&targetId=${id}&limit=50`).then(r => r.json());
-    }
+    queryKey: [`/api/comments?targetType=${targetType}&targetId=${targetId}&limit=50`],
   });
 
   const usersQuery = useQuery({
-    queryKey: ['/api/comments/users/search', mentionQuery],
-    queryFn: ({ queryKey }) => {
-      const [, query] = queryKey;
-      if (!query || query.length < 1) return { users: [] };
-      return fetch(`/api/comments/users/search?q=${encodeURIComponent(query)}&limit=10`).then(r => r.json());
-    },
+    queryKey: [`/api/comments/users/search?q=${encodeURIComponent(mentionQuery)}&limit=10`],
     enabled: showMentions && mentionQuery.length >= 1,
   });
 
@@ -79,7 +70,7 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
     },
     onSuccess: (newComment) => {
       setText('');
-      queryClient.setQueryData(['/api/comments', targetType, targetId], (old: any) => ({
+      queryClient.setQueryData([`/api/comments?targetType=${targetType}&targetId=${targetId}&limit=50`], (old: any) => ({
         ...old,
         items: [newComment, ...(old?.items || [])]
       }));
@@ -98,7 +89,7 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
     onSuccess: (updatedComment) => {
       setEditingId(null);
       setEditText('');
-      queryClient.setQueryData(['/api/comments', targetType, targetId], (old: any) => ({
+      queryClient.setQueryData([`/api/comments?targetType=${targetType}&targetId=${targetId}&limit=50`], (old: any) => ({
         ...old,
         items: old?.items?.map((item: Comment) => 
           item.id === updatedComment.id ? updatedComment : item
@@ -117,7 +108,7 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
       return id; // Return the id so we can use it in onSuccess
     },
     onSuccess: (deletedId) => {
-      queryClient.setQueryData(['/api/comments', targetType, targetId], (old: any) => ({
+      queryClient.setQueryData([`/api/comments?targetType=${targetType}&targetId=${targetId}&limit=50`], (old: any) => ({
         ...old,
         items: old?.items?.filter((item: Comment) => item.id !== deletedId) || []
       }));
