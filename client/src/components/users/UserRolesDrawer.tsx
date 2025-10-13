@@ -50,6 +50,7 @@ interface Project {
 interface UserProjectRole {
   projectId: number;
   projectName: string;
+  projectNameAr?: string;
   roles: string[];
 }
 
@@ -98,9 +99,15 @@ export default function UserRolesDrawer({ user, isOpen, onClose, onSuccess }: Us
   // Fetch effective permissions preview
   const { data: effectivePermissions, isLoading: loadingPermissions } = useQuery<EffectivePermissions>({
     queryKey: ['/api/users', user?.id, 'effective-permissions', previewProjectId],
-    queryFn: () => {
+    queryFn: async () => {
+      const token = localStorage.getItem("accessToken");
       const params = previewProjectId && previewProjectId !== 'org' ? `?project_id=${previewProjectId}` : '';
-      return fetch(`/api/users/${user?.id}/effective-permissions${params}`).then(res => res.json());
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const response = await fetch(`/api/users/${user?.id}/effective-permissions${params}`, { headers });
+      return response.json();
     },
     enabled: !!user?.id && !!previewProjectId,
   });
@@ -119,15 +126,28 @@ export default function UserRolesDrawer({ user, isOpen, onClose, onSuccess }: Us
   // Initialize project roles separately to avoid infinite updates
   useEffect(() => {
     if (!isOpen || !userProjectRoles) return;
-    
+
     const projectRoleMap: Record<string, string[]> = {};
     userProjectRoles.forEach(pr => {
-      if (pr.projectId && pr.roles) {
-        projectRoleMap[pr.projectId.toString()] = pr.roles;
+      if (pr.projectId && Array.isArray(pr.roles)) {
+        projectRoleMap[pr.projectId.toString()] = [...pr.roles];
       }
     });
     setProjectRoles(projectRoleMap);
   }, [userProjectRoles, isOpen]);
+
+  // Auto-select organization level for permissions preview when drawer opens
+  useEffect(() => {
+    if (isOpen && !previewProjectId) {
+      setPreviewProjectId('org');
+    }
+
+    // Reset preview when drawer closes
+    if (!isOpen) {
+      setPreviewProjectId('');
+      setSelectedProjectId('');
+    }
+  }, [isOpen]);
 
   // Mutations
   const updateOrgRolesMutation = useMutation({
@@ -205,12 +225,31 @@ export default function UserRolesDrawer({ user, isOpen, onClose, onSuccess }: Us
   };
 
   const handleSaveProjectRoles = (projectId: string) => {
-    const currentRoles = userProjectRoles.find(pr => pr.projectId.toString() === projectId)?.roles || [];
-    const newRoles = projectRoles[projectId] || [];
-    
+    if (!projectId) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid Project',
+        description: 'Please select a valid project',
+      });
+      return;
+    }
+
+    const currentProjectRole = userProjectRoles.find(pr => pr.projectId?.toString() === projectId);
+    const currentRoles = Array.isArray(currentProjectRole?.roles) ? currentProjectRole.roles : [];
+    const newRoles = Array.isArray(projectRoles[projectId]) ? projectRoles[projectId] : [];
+
     const add = newRoles.filter(r => !currentRoles.includes(r));
     const remove = currentRoles.filter(r => !newRoles.includes(r));
-    
+
+    // Only make API call if there are changes
+    if (add.length === 0 && remove.length === 0) {
+      toast({
+        title: 'No Changes',
+        description: 'No role changes to save',
+      });
+      return;
+    }
+
     updateProjectRolesMutation.mutate({ projectId, add, remove });
   };
 
@@ -380,7 +419,11 @@ export default function UserRolesDrawer({ user, isOpen, onClose, onSuccess }: Us
                       <ScrollArea className="h-32">
                         <div className="space-y-2">
                           {userProjectRoles.map((pr) => (
-                            <div key={pr.projectId} className="flex items-center justify-between p-2 border rounded">
+                            <div
+                              key={pr.projectId}
+                              className="flex items-center justify-between p-2 border rounded cursor-pointer hover:bg-muted"
+                              onClick={() => setSelectedProjectId(pr.projectId?.toString() || '')}
+                            >
                               <span className="text-sm font-medium">{pr.projectName}</span>
                               <div className="flex gap-1">
                                 {(pr.roles || []).map((roleCode) => (
@@ -434,40 +477,54 @@ export default function UserRolesDrawer({ user, isOpen, onClose, onSuccess }: Us
                           <div>
                             <span className="text-sm text-muted-foreground">Organization Roles:</span>
                             <div className="flex flex-wrap gap-1 mt-1">
-                              {(effectivePermissions.roles?.org || []).map((role) => (
-                                <Badge key={role} variant={getRoleBadgeVariant(role) as any}>
-                                  {role}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                          {(effectivePermissions.roles?.project || []).length > 0 && (
-                            <div>
-                              <span className="text-sm text-muted-foreground">Project Roles:</span>
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {(effectivePermissions.roles?.project || []).map((role) => (
+                              {(effectivePermissions.roles?.org || []).length > 0 ? (
+                                (effectivePermissions.roles?.org || []).map((role) => (
                                   <Badge key={role} variant={getRoleBadgeVariant(role) as any}>
                                     {role}
                                   </Badge>
-                                ))}
+                                ))
+                              ) : (
+                                <span className="text-xs text-muted-foreground italic">No organization roles assigned</span>
+                              )}
+                            </div>
+                          </div>
+                          {previewProjectId && previewProjectId !== 'org' && (
+                            <div>
+                              <span className="text-sm text-muted-foreground">Project Roles:</span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {(effectivePermissions.roles?.project || []).length > 0 ? (
+                                  (effectivePermissions.roles?.project || []).map((role) => (
+                                    <Badge key={role} variant={getRoleBadgeVariant(role) as any}>
+                                      {role}
+                                    </Badge>
+                                  ))
+                                ) : (
+                                  <span className="text-xs text-muted-foreground italic">No project roles assigned</span>
+                                )}
                               </div>
                             </div>
                           )}
                         </div>
                       </div>
-                      
+
                       <Separator />
-                      
+
                       <div>
                         <h5 className="font-medium mb-2">Permissions</h5>
                         <ScrollArea className="h-48">
-                          <div className="grid gap-1">
-                            {(effectivePermissions.permissions || []).map((permission) => (
-                              <div key={permission} className="text-sm p-2 bg-muted rounded">
-                                {permission.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                              </div>
-                            ))}
-                          </div>
+                          {(effectivePermissions.permissions || []).length > 0 ? (
+                            <div className="grid gap-1">
+                              {(effectivePermissions.permissions || []).map((permission) => (
+                                <div key={permission} className="text-sm p-2 bg-muted rounded">
+                                  {permission.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-8 text-muted-foreground">
+                              No permissions granted through assigned roles
+                            </div>
+                          )}
                         </ScrollArea>
                       </div>
                     </div>
