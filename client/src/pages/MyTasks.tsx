@@ -142,9 +142,12 @@ export default function MyTasks() {
           <div className="flex items-center gap-2">
             <CheckSquare className="h-8 w-8 text-teal-600" />
             <div>
-              <h1 className="text-3xl font-bold">My Tasks</h1>
+              <h1 className="text-3xl font-bold">{language === 'ar' ? 'مهامي' : 'My Tasks'}</h1>
               <p className="text-muted-foreground">
-                Tasks assigned to you ({filteredTasks.length} of {myTasks.length})
+                {language === 'ar' 
+                  ? `المهام المسندة إليك (${filteredTasks.length} من ${myTasks.length})`
+                  : `Tasks assigned to you (${filteredTasks.length} of ${myTasks.length})`
+                }
               </p>
             </div>
           </div>
@@ -172,25 +175,25 @@ export default function MyTasks() {
         {myTasks.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <MetricsCard
-              title="Pending Tasks"
+              title={language === 'ar' ? 'المهام المعلقة' : 'Pending Tasks'}
               value={myTasks.filter(t => t.status === "pending").length}
               icon={Clock}
               iconColor="#f59e0b"
             />
             <MetricsCard
-              title="In Progress"
+              title={language === 'ar' ? 'قيد التنفيذ' : 'In Progress'}
               value={myTasks.filter(t => t.status === "in-progress").length}
               icon={Play}
               iconColor="#3b82f6"
             />
             <MetricsCard
-              title="Completed"
+              title={language === 'ar' ? 'مكتمل' : 'Completed'}
               value={myTasks.filter(t => t.status === "completed").length}
               icon={CheckCircle}
               iconColor="#10b981"
             />
             <MetricsCard
-              title="Urgent Priority"
+              title={language === 'ar' ? 'أولوية عاجلة' : 'Urgent Priority'}
               value={myTasks.filter(t => t.priority === "urgent").length}
               icon={Zap}
               iconColor="#ef4444"
@@ -212,39 +215,39 @@ export default function MyTasks() {
               
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-full md:w-48">
-                  <SelectValue placeholder="Status" />
+                  <SelectValue placeholder={language === 'ar' ? 'الحالة' : 'Status'} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="in-progress">In Progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="all">{language === 'ar' ? 'كل الحالات' : 'All Status'}</SelectItem>
+                  <SelectItem value="pending">{language === 'ar' ? 'معلق' : 'Pending'}</SelectItem>
+                  <SelectItem value="in-progress">{language === 'ar' ? 'قيد التنفيذ' : 'In Progress'}</SelectItem>
+                  <SelectItem value="completed">{language === 'ar' ? 'مكتمل' : 'Completed'}</SelectItem>
+                  <SelectItem value="cancelled">{language === 'ar' ? 'ملغي' : 'Cancelled'}</SelectItem>
                 </SelectContent>
               </Select>
               
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
                 <SelectTrigger className="w-full md:w-48">
-                  <SelectValue placeholder="Priority" />
+                  <SelectValue placeholder={language === 'ar' ? 'الأولوية' : 'Priority'} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Priority</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="all">{language === 'ar' ? 'كل الأولويات' : 'All Priority'}</SelectItem>
+                  <SelectItem value="urgent">{language === 'ar' ? 'عاجل' : 'Urgent'}</SelectItem>
+                  <SelectItem value="high">{language === 'ar' ? 'عالي' : 'High'}</SelectItem>
+                  <SelectItem value="medium">{language === 'ar' ? 'متوسط' : 'Medium'}</SelectItem>
+                  <SelectItem value="low">{language === 'ar' ? 'منخفض' : 'Low'}</SelectItem>
                 </SelectContent>
               </Select>
               
               <Select value={regulationFilter} onValueChange={setRegulationFilter}>
                 <SelectTrigger className="w-full md:w-48">
-                  <SelectValue placeholder="Regulation" />
+                  <SelectValue placeholder={language === 'ar' ? 'اللائحة' : 'Regulation'} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Regulations</SelectItem>
-                  <SelectItem value="ecc">ECC</SelectItem>
-                  <SelectItem value="pdpl">PDPL</SelectItem>
-                  <SelectItem value="ndmo">NDMO</SelectItem>
+                  <SelectItem value="all">{language === 'ar' ? 'كل اللوائح' : 'All Regulations'}</SelectItem>
+                  <SelectItem value="ecc">{language === 'ar' ? 'الضوابط الأساسية للأمن السيبراني' : 'ECC'}</SelectItem>
+                  <SelectItem value="pdpl">{language === 'ar' ? 'نظام حماية البيانات الشخصية' : 'PDPL'}</SelectItem>
+                  <SelectItem value="ndmo">{language === 'ar' ? 'المكتب الوطني لإدارة البيانات' : 'NDMO'}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -257,11 +260,13 @@ export default function MyTasks() {
             <CardContent className="pt-8 pb-8">
               <div className="text-center">
                 <CheckSquare className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">No tasks found</h3>
+                <h3 className="text-lg font-medium mb-2">
+                  {language === 'ar' ? 'لا توجد مهام' : 'No tasks found'}
+                </h3>
                 <p className="text-muted-foreground">
                   {myTasks.length === 0 
-                    ? "You don't have any tasks assigned to you yet."
-                    : "No tasks match your current filters."
+                    ? (language === 'ar' ? 'لا توجد مهام مسندة إليك بعد.' : "You don't have any tasks assigned to you yet.")
+                    : (language === 'ar' ? 'لا توجد مهام تطابق الفلاتر الحالية.' : "No tasks match your current filters.")
                   }
                 </p>
               </div>
@@ -347,9 +352,9 @@ export default function MyTasks() {
                                         </div>
                                         {(control.eccControl?.evidenceAr || control.eccControl?.evidenceEn) && (
                                           <div className="text-xs text-teal-600 mt-2">
-                                            <strong>Required Evidence: </strong>
+                                            <strong>{language === 'ar' ? 'الدليل المطلوب: ' : 'Required Evidence: '}</strong>
                                             {language === 'ar' ? 
-                                              (control.eccControl?.evidenceAr || 'No Arabic evidence description available') : 
+                                              (control.eccControl?.evidenceAr || 'لا يوجد وصف للدليل بالعربية') : 
                                               (control.eccControl?.evidenceEn || 'No English evidence description available')
                                             }
                                           </div>
@@ -381,14 +386,14 @@ export default function MyTasks() {
                         <div className="space-y-3 text-sm">
                           <div className="flex items-center gap-2 text-slate-600">
                             <Calendar className="h-4 w-4 text-teal-500" />
-                            <span className="font-medium">Due:</span>
-                            <span>{task.dueDate ? format(new Date(task.dueDate), "MMM d, yyyy") : "Not set"}</span>
+                            <span className="font-medium">{language === 'ar' ? 'الموعد النهائي:' : 'Due:'}</span>
+                            <span>{task.dueDate ? format(new Date(task.dueDate), "MMM d, yyyy") : (language === 'ar' ? 'غير محدد' : 'Not set')}</span>
                           </div>
                           
                           {task.project && (
                             <div className="flex items-center gap-2 text-slate-600">
                               <div className="h-4 w-4 bg-gradient-to-br from-teal-500 to-teal-600 rounded-sm flex-shrink-0" />
-                              <span className="font-medium">Project:</span>
+                              <span className="font-medium">{language === 'ar' ? 'المشروع:' : 'Project:'}</span>
                               <span className="truncate">{task.project.name}</span>
                             </div>
                           )}
@@ -398,7 +403,7 @@ export default function MyTasks() {
                         
                         <div className="flex items-center justify-between">
                           <div className="text-xs text-slate-400">
-                            Created {task.createdAt ? format(new Date(task.createdAt), "MMM d") : "Unknown"}
+                            {language === 'ar' ? 'أُنشئت ' : 'Created '}{task.createdAt ? format(new Date(task.createdAt), "MMM d") : (language === 'ar' ? 'غير معروف' : 'Unknown')}
                           </div>
                           
                           <Link href={`/tasks/${task.id}`}>
@@ -407,7 +412,7 @@ export default function MyTasks() {
                               className="bg-teal-600 hover:bg-teal-700 text-white border-0 shadow-md hover:shadow-lg transition-all duration-200"
                             >
                               <Eye className="h-4 w-4 mr-2" />
-                              View Details
+                              {language === 'ar' ? 'عرض التفاصيل' : 'View Details'}
                             </Button>
                           </Link>
                         </div>
@@ -447,7 +452,7 @@ export default function MyTasks() {
                               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                                 <div className="flex items-center gap-1">
                                   <Calendar className="h-3 w-3" />
-                                  <span>Due: {task.dueDate ? format(new Date(task.dueDate), "MMM d") : "Not set"}</span>
+                                  <span>{language === 'ar' ? 'الموعد: ' : 'Due: '}{task.dueDate ? format(new Date(task.dueDate), "MMM d") : (language === 'ar' ? 'غير محدد' : 'Not set')}</span>
                                 </div>
                                 
                                 {task.project && (
@@ -457,7 +462,7 @@ export default function MyTasks() {
                                   </div>
                                 )}
                                 
-                                <span>Created {task.createdAt ? format(new Date(task.createdAt), "MMM d") : "Unknown"}</span>
+                                <span>{language === 'ar' ? 'أُنشئت ' : 'Created '}{task.createdAt ? format(new Date(task.createdAt), "MMM d") : (language === 'ar' ? 'غير معروف' : 'Unknown')}</span>
                               </div>
                             </div>
                             
@@ -500,9 +505,9 @@ export default function MyTasks() {
                                                 </div>
                                                 {(control.eccControl?.evidenceAr || control.eccControl?.evidenceEn) && (
                                                   <div className="text-xs text-teal-600 mt-2">
-                                                    <strong>Required Evidence: </strong>
+                                                    <strong>{language === 'ar' ? 'الدليل المطلوب: ' : 'Required Evidence: '}</strong>
                                                     {language === 'ar' ? 
-                                                      (control.eccControl?.evidenceAr || 'No Arabic evidence description available') : 
+                                                      (control.eccControl?.evidenceAr || 'لا يوجد وصف للدليل بالعربية') : 
                                                       (control.eccControl?.evidenceEn || 'No English evidence description available')
                                                     }
                                                   </div>
