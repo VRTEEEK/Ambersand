@@ -1,0 +1,61 @@
+2UserRolesDrawer.tsx:384 Uncaught TypeError: Cannot read properties of undefined (reading 'map')
+    at UserRolesDrawer.tsx:384:43
+    at Array.map (<anonymous>)
+    at UserRolesDrawer (UserRolesDrawer.tsx:380:45)
+    at renderWithHooks (chunk-RPCDYKBN.js?v=5ddbb8ed:11548:26)
+    at updateFunctionComponent (chunk-RPCDYKBN.js?v=5ddbb8ed:14582:28)
+    at beginWork (chunk-RPCDYKBN.js?v=5ddbb8ed:15924:22)
+    at HTMLUnknownElement.callCallback2 (chunk-RPCDYKBN.js?v=5ddbb8ed:3674:22)
+    at Object.invokeGuardedCallbackDev (chunk-RPCDYKBN.js?v=5ddbb8ed:3699:24)
+    at invokeGuardedCallback (chunk-RPCDYKBN.js?v=5ddbb8ed:3733:39)
+    at beginWork$1 (chunk-RPCDYKBN.js?v=5ddbb8ed:19765:15)Understand this error
+injected.js:27 The above error occurred in the <UserRolesDrawer> component:
+
+    at UserRolesDrawer (https://bceb1590-6988-463e-9414-276f8f75d888-00-1kg9sw48qcjye.spock.replit.dev/src/components/users/UserRolesDrawer.tsx:44:43)
+    at div
+    at main
+    at div
+    at AppLayout (https://bceb1590-6988-463e-9414-276f8f75d888-00-1kg9sw48qcjye.spock.replit.dev/src/components/layout/AppLayout.tsx:56:37)
+    at EnhancedUsersPage (https://bceb1590-6988-463e-9414-276f8f75d888-00-1kg9sw48qcjye.spock.replit.dev/src/components/users/EnhancedUsersPage.tsx:80:33)
+    at Users
+    at Route (https://bceb1590-6988-463e-9414-276f8f75d888-00-1kg9sw48qcjye.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5ddbb8ed:323:16)
+    at Switch (https://bceb1590-6988-463e-9414-276f8f75d888-00-1kg9sw48qcjye.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5ddbb8ed:379:17)
+    at Router (https://bceb1590-6988-463e-9414-276f8f75d888-00-1kg9sw48qcjye.spock.replit.dev/src/App.tsx?v=hAC7Y1xauGMtAUkKKMXNH:56:42)
+    at AppContent (https://bceb1590-6988-463e-9414-276f8f75d888-00-1kg9sw48qcjye.spock.replit.dev/src/App.tsx?v=hAC7Y1xauGMtAUkKKMXNH:246:31)
+    at Provider (https://bceb1590-6988-463e-9414-276f8f75d888-00-1kg9sw48qcjye.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=5ddbb8ed:38:15)
+    at TooltipProvider (https://bceb1590-6988-463e-9414-276f8f75d888-00-1kg9sw48qcjye.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=5ddbb8ed:71:5)
+    at PermissionsProvider (https://bceb1590-6988-463e-9414-276f8f75d888-00-1kg9sw48qcjye.spock.replit.dev/src/hooks/use-permissions.tsx:22:39)
+    at NotificationProvider (https://bceb1590-6988-463e-9414-276f8f75d888-00-1kg9sw48qcjye.spock.replit.dev/src/hooks/useNotifications.tsx:21:40)
+    at QueryClientProvider (https://bceb1590-6988-463e-9414-276f8f75d888-00-1kg9sw48qcjye.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5ddbb8ed:2805:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+(anonymous) @ injected.js:27Understand this error
+chunk-RPCDYKBN.js?v=5ddbb8ed:19413 Uncaught TypeError: Cannot read properties of undefined (reading 'map')
+    at UserRolesDrawer.tsx:384:43
+    at Array.map (<anonymous>)
+    at UserRolesDrawer (UserRolesDrawer.tsx:380:45)
+    at renderWithHooks (chunk-RPCDYKBN.js?v=5ddbb8ed:11548:26)
+    at updateFunctionComponent (chunk-RPCDYKBN.js?v=5ddbb8ed:14582:28)
+    at beginWork (chunk-RPCDYKBN.js?v=5ddbb8ed:15924:22)
+    at beginWork$1 (chunk-RPCDYKBN.js?v=5ddbb8ed:19753:22)
+    at performUnitOfWork (chunk-RPCDYKBN.js?v=5ddbb8ed:19198:20)
+    at workLoopSync (chunk-RPCDYKBN.js?v=5ddbb8ed:19137:13)
+    at renderRootSync (chunk-RPCDYKBN.js?v=5ddbb8ed:19116:15)Understand this error
+lockdown-install.js:1 SES_UNCAUGHT_EXCEPTION: null
+(anonymous) @ lockdown-install.js:1Understand this error
+lockdown-install.js:1 SES_UNCAUGHT_EXCEPTION: null
+(anonymous) @ lockdown-install.js:1Understand this error
+lockdown-install.js:1 SES_UNCAUGHT_EXCEPTION: null
+(anonymous) @ lockdown-install.js:1Understand this error
+lockdown-install.js:1 SES_UNCAUGHT_EXCEPTION: null
+(anonymous) @ lockdown-install.js:1Understand this error
+lockdown-install.js:1 SES_UNCAUGHT_EXCEPTION: null
+(anonymous) @ lockdown-install.js:1Understand this error
+lockdown-install.js:1 SES_UNCAUGHT_EXCEPTION: null
+(anonymous) @ lockdown-install.js:1Understand this error
+lockdown-install.js:1 SES_UNCAUGHT_EXCEPTION: null
+(anonymous) @ lockdown-install.js:1Understand this error
+lockdown-install.js:1 SES_UNCAUGHT_EXCEPTION: null
+(anonymous) @ lockdown-install.js:1Understand this error

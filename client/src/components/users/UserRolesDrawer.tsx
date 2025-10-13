@@ -381,7 +381,7 @@ export default function UserRolesDrawer({ user, isOpen, onClose, onSuccess }: Us
                             <div key={pr.projectId} className="flex items-center justify-between p-2 border rounded">
                               <span className="text-sm font-medium">{pr.projectName}</span>
                               <div className="flex gap-1">
-                                {pr.roles.map((roleCode) => (
+                                {(pr.roles || []).map((roleCode) => (
                                   <Badge key={roleCode} variant={getRoleBadgeVariant(roleCode) as any} className="text-xs">
                                     {roleCode}
                                   </Badge>
