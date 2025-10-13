@@ -2008,12 +2008,12 @@ export default function Regulations() {
                       ? 'text-slate-900 dark:text-white' 
                       : 'text-slate-800 dark:text-slate-100 group-hover:text-slate-900 dark:group-hover:text-white'
                   }`}>
-                    {language === 'ar' ? framework.nameAr : framework.name}
+                    {(language === 'ar' && framework.nameAr) ? framework.nameAr : framework.name}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="relative">
                   <p className="text-slate-600 dark:text-slate-400 text-sm mb-6 line-clamp-3 leading-relaxed">
-                    {language === 'ar' ? framework.descriptionAr : framework.description}
+                    {(language === 'ar' && framework.descriptionAr) ? framework.descriptionAr : framework.description}
                   </p>
                   {framework.totalControls && (
                     <div className={`relative overflow-hidden rounded-xl p-4 transition-all duration-300 ${
