@@ -140,14 +140,12 @@ export default function UserRolesDrawer({ user, isOpen, onClose, onSuccess }: Us
   useEffect(() => {
     if (isOpen && !previewProjectId) {
       setPreviewProjectId('org');
-    }
-
-    // Reset preview when drawer closes
-    if (!isOpen) {
+    } else if (!isOpen) {
+      // Reset preview when drawer closes
       setPreviewProjectId('');
       setSelectedProjectId('');
     }
-  }, [isOpen]);
+  }, [isOpen, previewProjectId]);
 
   // Mutations
   const updateOrgRolesMutation = useMutation({
@@ -176,15 +174,17 @@ export default function UserRolesDrawer({ user, isOpen, onClose, onSuccess }: Us
     mutationFn: ({ projectId, add, remove }: { projectId: string; add: string[]; remove: string[] }) =>
       apiRequest(`/api/users/${user?.id}/project-roles`, 'POST', { project_id: projectId, add, remove }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/users', user?.id, 'project-roles'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/me/permissions'] });
-      onSuccess?.();
       setHasChanges(false);
       toast({ 
         title: 'Roles Updated', 
         description: 'Project roles have been updated successfully' 
       });
+      // Invalidate queries after state update
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users', user?.id, 'project-roles'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/me/permissions'] });
+      onSuccess?.();
     },
     onError: (error: any) => {
       toast({
