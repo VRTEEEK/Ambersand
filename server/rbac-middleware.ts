@@ -18,8 +18,9 @@ export interface PermissionRequest extends Request {
 export function requirePermissions(permissionCodes: string[], requireProjectId: boolean = false) {
   return async (req: PermissionRequest, res: Response, next: NextFunction) => {
     try {
-      // Check if user is authenticated
-      if (!req.user) {
+      // Check if user is authenticated - JWT middleware sets req.userId
+      const userId = req.userId;
+      if (!userId) {
         return res.status(401).json({ message: "Authentication required" });
       }
 
@@ -30,12 +31,6 @@ export function requirePermissions(permissionCodes: string[], requireProjectId: 
         if (!projectId || isNaN(projectId)) {
           return res.status(400).json({ message: "Project ID is required for this operation" });
         }
-      }
-
-      // Get user's effective permissions - extract user ID from JWT middleware
-      const userId = req.userId;
-      if (!userId) {
-        return res.status(401).json({ message: "Invalid user authentication" });
       }
       
       const userPermissions = await getUserPermissions(userId, projectId);

@@ -23,7 +23,7 @@ router.get("/test", (req: any, res) => {
 router.get("/", requireAuth, async (req: any, res) => {
   try {
     const userId = req.userId;
-    const organizationId = req.user?.organizationId || 'default';
+    const organizationId = req.organizationId || 'default';
 
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -41,7 +41,7 @@ router.get("/", requireAuth, async (req: any, res) => {
 router.get("/unread-count", requireAuth, async (req: any, res) => {
   try {
     const userId = req.userId;
-    const organizationId = req.user?.organizationId || 'default';
+    const organizationId = req.organizationId || 'default';
 
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -97,7 +97,7 @@ router.patch("/mark-all-read", requireAuth, async (req: any, res) => {
 // POST /api/notifications - Create a new notification (internal use)
 router.post("/", requireAuth, async (req: any, res) => {
   try {
-    const organizationId = req.user?.organizationId || 'default';
+    const organizationId = req.organizationId || 'default';
     
     const notificationData = insertNotificationSchema.parse({
       ...req.body,

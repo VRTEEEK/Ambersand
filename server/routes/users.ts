@@ -13,30 +13,29 @@ const router = Router();
 // Debug endpoint to see what the server thinks about auth
 router.get("/me", requireAuth, (req: any, res) => {
   res.json({
-    userId: req.user?.id,
-    org: req.user?.claims?.org,
-    organizationId: req.user?.organizationId,
-    roles: req.user?.roles || [],
-    claims: req.user?.claims || null,
+    userId: req.userId,
+    organizationId: req.organizationId,
+    userEmail: req.userEmail,
+    userRole: req.userRole,
   });
 });
 
-// Debug endpoint for search issues  
+// Debug endpoint for search issues
 router.get("/search/debug", requireAuth, async (req: any, res) => {
   const q = String(req.query.q || "").trim();
   res.json({
     gotCookie: !!req.headers.cookie,
-    org: req.user?.claims?.org || null,
-    organizationId: req.user?.organizationId || null,
+    organizationId: req.organizationId || null,
+    userId: req.userId,
+    userEmail: req.userEmail,
     q,
-    userObject: req.user,
   });
 });
 
 router.get("/search", requireAuth, async (req: any, res) => {
   const q = String(req.query.q || "").trim();
   const limit = Math.min(Number(req.query.limit || 8), 25);
-  const orgId = req.user?.claims?.org || req.user?.organizationId || 'default';
+  const orgId = req.organizationId || 'default';
 
   if (!q || q.length < 2) return res.json({ items: [] });
 
@@ -136,7 +135,7 @@ router.post("/invite", requireAuth, async (req: any, res) => {
       data: {
         acceptUrl,
         organizationName: "Ambersand",
-        inviterName: req.user?.firstName || req.user?.email?.split('@')[0] || 'Someone'
+        inviterName: currentUserResult[0].firstName || req.userEmail?.split('@')[0] || 'Someone'
       }
     });
     if (!result?.success) {

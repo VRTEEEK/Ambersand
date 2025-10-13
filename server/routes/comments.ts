@@ -11,14 +11,14 @@ import { notifyComment } from "../services/notifications";
 const router = Router();
 
 // Permission helpers
-async function canViewTarget(user: any, targetType: string, targetId: number): Promise<boolean> {
+async function canViewTarget(userId: number, targetType: string, targetId: number): Promise<boolean> {
   // For now, allow if user is authenticated - TODO: implement proper target-specific permissions
-  return !!user;
+  return !!userId;
 }
 
-async function canCommentTarget(user: any, targetType: string, targetId: number): Promise<boolean> {
-  // For now, allow if user is authenticated - TODO: implement proper target-specific permissions  
-  return !!user;
+async function canCommentTarget(userId: number, targetType: string, targetId: number): Promise<boolean> {
+  // For now, allow if user is authenticated - TODO: implement proper target-specific permissions
+  return !!userId;
 }
 
 // GET list (paginated)
@@ -32,14 +32,14 @@ router.get("/", requireAuth, async (req: any, res) => {
   
   try {
     const q = schema.parse(req.query);
-    
+
     // Check permissions
-    if (!(await canViewTarget(req.user, q.targetType, q.targetId))) {
+    if (!(await canViewTarget(req.userId!, q.targetType, q.targetId))) {
       return res.status(403).json({ message: "Access denied" });
     }
 
     const whereBase = and(
-      eq(comments.organizationId, req.user?.organizationId || 'default'),
+      eq(comments.organizationId, req.organizationId || 'default'),
       eq(comments.targetType, q.targetType),
       eq(comments.targetId, q.targetId),
       isNull(comments.deletedAt)
@@ -105,17 +105,17 @@ router.post("/", requireAuth, async (req: any, res) => {
   
   try {
     const body = schema.parse(req.body);
-    
+
     // Check permissions
-    if (!(await canCommentTarget(req.user, body.targetType, body.targetId))) {
+    if (!(await canCommentTarget(req.userId!, body.targetType, body.targetId))) {
       return res.status(403).json({ message: "Access denied" });
     }
 
     // Parse mentions
-    const mentions = await parseMentions(body.body, req.user?.organizationId || 'default');
+    const mentions = await parseMentions(body.body, req.organizationId || 'default');
 
     const [row] = await db.insert(comments).values({
-      organizationId: req.user?.organizationId || 'default',
+      organizationId: req.organizationId || 'default',
       targetType: body.targetType,
       targetId: body.targetId,
       parentId: body.parentId ?? null,
@@ -126,7 +126,7 @@ router.post("/", requireAuth, async (req: any, res) => {
 
     // Auto-subscribe author
     await db.insert(commentSubscriptions).values({
-      organizationId: req.user?.organizationId || 'default',
+      organizationId: req.organizationId || 'default',
       targetType: body.targetType,
       targetId: body.targetId,
       userId: req.userId,
@@ -188,21 +188,21 @@ router.patch("/:id", requireAuth, async (req: any, res) => {
     
     const [existing] = await db.select().from(comments)
       .where(and(
-        eq(comments.id, id), 
-        eq(comments.organizationId, req.user?.organizationId || 'default'),
+        eq(comments.id, id),
+        eq(comments.organizationId, req.organizationId || 'default'),
         isNull(comments.deletedAt)
       ));
-      
+
     if (!existing) {
       return res.status(404).json({ message: "Comment not found" });
     }
-    
-    if (existing.authorId !== req.userId && req.user.role !== 'admin') {
+
+    if (existing.authorId !== req.userId && req.userRole !== 'admin') {
       return res.status(403).json({ message: "Access denied" });
     }
 
     // Parse mentions
-    const mentions = await parseMentions(body, req.user?.organizationId || 'default');
+    const mentions = await parseMentions(body, req.organizationId || 'default');
 
     const [row] = await db.update(comments).set({
       body,
@@ -227,16 +227,16 @@ router.delete("/:id", requireAuth, async (req: any, res) => {
     
     const [existing] = await db.select().from(comments)
       .where(and(
-        eq(comments.id, id), 
-        eq(comments.organizationId, req.user?.organizationId || 'default'),
+        eq(comments.id, id),
+        eq(comments.organizationId, req.organizationId || 'default'),
         isNull(comments.deletedAt)
       ));
-      
+
     if (!existing) {
       return res.status(404).json({ message: "Comment not found" });
     }
-    
-    if (existing.authorId !== req.userId && req.user.role !== 'admin') {
+
+    if (existing.authorId !== req.userId && req.userRole !== 'admin') {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -260,7 +260,7 @@ router.get("/users/search", requireAuth, async (req: any, res) => {
   
   try {
     const { q, limit } = schema.parse(req.query);
-    const users = await searchUsersForMentions(q, req.user.organizationId || 'default', limit);
+    const users = await searchUsersForMentions(q, req.organizationId || 'default', limit);
     res.json({ users });
   } catch (error) {
     console.error("Error searching users:", error);
@@ -277,7 +277,7 @@ router.get("/search-users", requireAuth, async (req: any, res) => {
   
   try {
     const { q, limit } = schema.parse(req.query);
-    const organizationId = req.user?.organizationId || 'default';
+    const organizationId = req.organizationId || 'default';
     
     const users = await searchUsersForMentions(q, organizationId, limit);
     res.json(users);

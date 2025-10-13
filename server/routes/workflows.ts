@@ -20,7 +20,7 @@ async function getComplianceOfficer(orgId: string) {
 }
 
 router.get("/:taskId", requireAuth, async (req: any, res) => {
-  const orgId = req.user?.organizationId || "default";
+  const orgId = req.organizationId || "default";
   const taskId = Number(req.params.taskId);
 
   try {
@@ -45,7 +45,7 @@ router.get("/:taskId", requireAuth, async (req: any, res) => {
 
 // Define/replace the review route
 router.post("/:taskId/route", requireAuth, async (req: any, res) => {
-  const orgId = req.user?.organizationId || "default";
+  const orgId = req.organizationId || "default";
   const taskId = Number(req.params.taskId);
   const steps: Array<{ userId: string; role: string }> = req.body?.steps || [];
 
@@ -92,7 +92,7 @@ router.post("/:taskId/route", requireAuth, async (req: any, res) => {
 
 // Submit to next step / compliance
 router.post("/:taskId/submit", requireAuth, async (req: any, res) => {
-  const orgId = req.user?.organizationId || "default";
+  const orgId = req.organizationId || "default";
   const actor = req.userId as string;
   const taskId = Number(req.params.taskId);
 
@@ -160,7 +160,7 @@ router.post("/:taskId/submit", requireAuth, async (req: any, res) => {
 
 // Return to any previous collaborator
 router.post("/:taskId/return", requireAuth, async (req: any, res) => {
-  const orgId = req.user?.organizationId || "default";
+  const orgId = req.organizationId || "default";
   const actor = req.userId as string;
   const taskId = Number(req.params.taskId);
   const { toUserId, comment } = req.body || {};
@@ -202,7 +202,7 @@ router.post("/:taskId/return", requireAuth, async (req: any, res) => {
 
 // Compliance: approve
 router.post("/:taskId/approve", requireAuth, async (req: any, res) => {
-  const orgId = req.user?.organizationId || "default";
+  const orgId = req.organizationId || "default";
   const actor = req.userId as string;
   const taskId = Number(req.params.taskId);
 
@@ -231,7 +231,7 @@ router.post("/:taskId/approve", requireAuth, async (req: any, res) => {
 
 // Compliance: reject (send back to a chosen user)
 router.post("/:taskId/reject", requireAuth, async (req: any, res) => {
-  const orgId = req.user?.organizationId || "default";
+  const orgId = req.organizationId || "default";
   const actor = req.userId as string;
   const taskId = Number(req.params.taskId);
   const { toUserId, comment } = req.body || {};

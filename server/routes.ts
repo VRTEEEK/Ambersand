@@ -1158,12 +1158,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/tasks', requireAuth, async (req: AuthRequest, res) => {
     console.log('\n🔥🔥🔥🔥🔥🔥🔥🔥🔥 TASK CREATION ROUTE HIT 🔥🔥🔥🔥🔥🔥🔥🔥🔥');
     console.log('🔥🔥🔥 ROUTES: POST /api/tasks called with body:', JSON.stringify(req.body, null, 2));
-    console.log('🔥🔥🔥 ROUTES: Request user FULL:', JSON.stringify(req.user, null, 2));
-    console.log('🔥🔥🔥 ROUTES: User org debug:', {
-      hasUser: !!req.user,
-      userOrgId: req.user?.organizationId,
+    console.log('🔥🔥🔥 ROUTES: User auth debug:', {
       userId: req.userId,
-      userKeys: Object.keys(req.user || {})
+      userEmail: req.userEmail,
+      userRole: req.userRole,
+      organizationId: req.organizationId
     });
     console.log('🔥🔥🔥 ROUTES: URL requested:', req.url);
     console.log('🔥🔥🔥 ROUTES: Method:', req.method);
@@ -3531,7 +3530,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!dryRun && errors.length === 0) {
         // Create or update the regulation
         const userId = req.userId;
-        const orgId = req.user?.organizationId || 'default';
+        const orgId = req.organizationId || 'default';
         
         const regulationData = {
           name: nameEn,

@@ -225,7 +225,7 @@ export default function EditTaskForm({
 
   // Get filtered task controls (excluding pending removed)
   const filteredTaskControls = Array.isArray(taskControls) ? taskControls.filter(
-    (control: any) => !pendingRemovedControls.includes(control.eccControl.id)
+    (control: any) => control?.eccControl && !pendingRemovedControls.includes(control.eccControl.id)
   ) : [];
 
   // Fetch evidence linked to specific control

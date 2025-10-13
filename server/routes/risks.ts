@@ -10,24 +10,22 @@ import { getUserPermissions } from "../rbac-seed";
 const router = Router();
 
 // Helper functions for permissions
-async function canEditRisk(user: any): Promise<boolean> {
-  const userId = user?.id;
+async function canEditRisk(userId: number): Promise<boolean> {
   if (!userId) return false;
-  
+
   const permissions = await getUserPermissions(userId);
   return permissions.includes("edit_risks");
 }
 
-async function canViewTask(user: any, task: any): Promise<boolean> {
+async function canViewTask(userId: number, task: any): Promise<boolean> {
   // User can view if they're the assignee, creator, or have admin permissions
-  const userId = user?.id;
   if (!userId) return false;
-  
+
   // Check if user is assignee or creator
   if (userId === task?.assigneeId || userId === task?.createdById) {
     return true;
   }
-  
+
   // Check if user has admin permissions
   const permissions = await getUserPermissions(userId);
   return permissions.includes("edit_risks") || permissions.includes("view_tasks");
@@ -51,8 +49,8 @@ router.get("/", async (req: any, res) => {
 
     const queryParams = schema.parse(req.query);
 
-    // Get organization from user - assuming organizationId is in user object or null for global admin
-    const organizationId = req.user.organizationId || 'default';
+    // Get organization from authenticated user
+    const organizationId = req.organizationId || 'default';
 
     // Build where conditions
     let conditions: any[] = [eq(risks.organizationId, organizationId)];
@@ -102,7 +100,7 @@ router.get("/:id", async (req: any, res) => {
     }
 
     const id = Number(req.params.id);
-    const organizationId = req.user.organizationId || 'default';
+    const organizationId = req.organizationId || 'default';
 
     const [risk] = await db.select()
       .from(risks)
@@ -117,7 +115,7 @@ router.get("/:id", async (req: any, res) => {
       .from(tasks)
       .where(eq(tasks.id, risk.taskId));
 
-    if (!task || !(await canViewTask(req.user, task))) {
+    if (!task || !(await canViewTask(req.userId!, task))) {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -140,7 +138,7 @@ router.post("/toggle", async (req: any, res) => {
       makeRisk: z.boolean(),
     }).parse(req.body);
 
-    const organizationId = req.user.organizationId || 'default';
+    const organizationId = req.organizationId || 'default';
 
     // Fetch task and verify access
     const [task] = await db.select()
@@ -151,7 +149,7 @@ router.post("/toggle", async (req: any, res) => {
       return res.status(404).json({ message: "Task not found" });
     }
 
-    if (!(await canViewTask(req.user, task))) {
+    if (!(await canViewTask(req.userId!, task))) {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -235,12 +233,12 @@ router.patch("/:id", async (req: any, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    if (!(await canEditRisk(req.user))) {
+    if (!(await canEditRisk(req.userId!))) {
       return res.status(403).json({ message: "Only compliance officers and admins can edit risks" });
     }
 
     const id = Number(req.params.id);
-    const organizationId = req.user.organizationId || 'default';
+    const organizationId = req.organizationId || 'default';
     
     const body = updateRiskSchema.parse(req.body);
 
