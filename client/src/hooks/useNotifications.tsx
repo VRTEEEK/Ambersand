@@ -5,8 +5,11 @@ import { apiRequest } from '@/lib/queryClient';
 export interface Notification {
   id: number;
   title: string;
+  titleAr?: string;
   message: string;
+  messageAr?: string;
   type: string;
+  priority: string;
   actionUrl?: string;
   isRead: boolean;
   createdAt: string;
