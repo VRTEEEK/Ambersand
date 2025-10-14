@@ -998,11 +998,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/projects/:id', requireAuth, async (req, res) => {
+  app.put('/api/projects/:id', requireAuth, async (req: AuthRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       const projectData = req.body;
+      
+      // Get old project data for comparison
+      const oldProject = await storage.getProject(id);
       const project = await storage.updateProject(id, projectData);
+      
+      // Create notifications for project members about the update
+      try {
+        // Get project members (users with project roles)
+        const projectMembers = await db.select({
+          userId: userProjectRoles.userId,
+          organizationId: users.organizationId,
+        })
+          .from(userProjectRoles)
+          .leftJoin(users, eq(userProjectRoles.userId, users.id))
+          .where(eq(userProjectRoles.projectId, id));
+        
+        // Also include project owner
+        if (project.ownerId) {
+          const owner = await storage.getUser(project.ownerId);
+          if (owner && !projectMembers.find(m => m.userId === project.ownerId)) {
+            projectMembers.push({
+              userId: project.ownerId,
+              organizationId: owner.organizationId || 'default'
+            });
+          }
+        }
+        
+        // Notify all project members except the person who made the update
+        for (const member of projectMembers) {
+          if (member.userId !== req.userId) {
+            await createNotification({
+              userId: member.userId,
+              organizationId: member.organizationId || 'default',
+              type: 'project_update',
+              priority: 'medium',
+              title: 'Project Updated',
+              titleAr: 'تحديث المشروع',
+              message: `Project "${project.name}" has been updated`,
+              messageAr: `تم تحديث المشروع "${project.nameAr || project.name}"`,
+              actionUrl: `/projects/${project.id}`,
+            });
+          }
+        }
+      } catch (notifError) {
+        console.error('Failed to send project update notifications:', notifError);
+      }
+      
       res.json(project);
     } catch (error) {
       console.error("Error updating project:", error);
