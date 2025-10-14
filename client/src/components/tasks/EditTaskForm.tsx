@@ -1476,7 +1476,13 @@ export default function EditTaskForm({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Comments targetType="task" targetId={task.id} />
+              {task.id && typeof task.id === 'number' ? (
+                <Comments targetType="task" targetId={task.id} />
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  {language === 'ar' ? 'خطأ في تحميل التعليقات' : 'Error loading comments'}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

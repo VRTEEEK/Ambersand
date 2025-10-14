@@ -615,56 +615,73 @@ export class DatabaseStorage implements IStorage {
     process.stdout.write('');
     console.error('🚀🚀🚀 STORAGE: ERROR LOG - Task created with ID:', newTask.id);
     
-    // Send email notification if task is assigned to someone
-    if (newTask.assigneeId && process.env.SENDGRID_API_KEY) {
-      console.log('🚀🚀🚀 STORAGE: Attempting to send email for assigned task...');
+    // Send email notification and create in-app notification if task is assigned to someone
+    if (newTask.assigneeId) {
+      console.log('🚀🚀🚀 STORAGE: Attempting to send email and create notification for assigned task...');
       try {
-        // Use the updated emailService
-        const { emailService } = await import('./emailService');
-        
         const assignedUser = await this.getUser(newTask.assigneeId);
         const project = newTask.projectId ? await this.getProject(newTask.projectId) : null;
-        
-        console.log('🚀🚀🚀 STORAGE: Retrieved user and project:', { 
-          userFound: !!assignedUser, 
+
+        console.log('🚀🚀🚀 STORAGE: Retrieved user and project:', {
+          userFound: !!assignedUser,
           userEmail: assignedUser?.email,
           projectFound: !!project,
-          projectName: project?.name 
+          projectName: project?.name
         });
-        
-        if (assignedUser && assignedUser.email) {
+
+        if (assignedUser) {
           const dueDate = newTask.dueDate ? new Date(newTask.dueDate).toLocaleDateString() : 'Not set';
           const projectName = project?.name || 'Untitled Project';
-          
-          console.log('🚀🚀🚀 STORAGE: Sending task assignment email using updated emailService...');
           const userName = assignedUser.firstName || assignedUser.name || 'User';
-          const taskUrl = `${process.env.APP_BASE_URL || "http://localhost:5000"}/tasks/${newTask.id}`;
-          
-          const emailResult = await emailService.sendTaskAssignmentEmail(
-            assignedUser.email,
-            userName,
-            newTask.title,
-            dueDate,
-            projectName,
-            'en', // TODO: get user's preferred language
-            newTask.id
-          );
-          
-          console.log('🚀🚀🚀 STORAGE: Email send result:', emailResult);
-          
-          if (emailResult.success) {
-            console.log(`✅ STORAGE: Task assignment email sent successfully to ${assignedUser.email}`);
+
+          // Create in-app notification
+          await db.insert(notifications).values({
+            userId: newTask.assigneeId,
+            organizationId: assignedUser.organizationId || 'default',
+            type: 'task_assigned',
+            priority: newTask.priority || 'medium',
+            title: 'Task Assigned to You',
+            titleAr: 'مهمة مُسندة إليك',
+            message: `Task "${newTask.title}" has been assigned to you in project ${projectName}`,
+            messageAr: `تم إسناد المهمة "${newTask.titleAr || newTask.title}" إليك في مشروع ${project?.nameAr || projectName}`,
+            actionUrl: `/tasks/${newTask.id}`,
+            isRead: false,
+          });
+          console.log(`✅ STORAGE: In-app notification created for user ${newTask.assigneeId}`);
+
+          // Send email notification if SendGrid is configured
+          if (assignedUser.email && process.env.SENDGRID_API_KEY) {
+            console.log('🚀🚀🚀 STORAGE: Sending task assignment email using updated emailService...');
+            const { emailService } = await import('./emailService');
+
+            const emailResult = await emailService.sendTaskAssignmentEmail(
+              assignedUser.email,
+              userName,
+              newTask.title,
+              dueDate,
+              projectName,
+              (assignedUser.language as 'en' | 'ar') || 'en',
+              newTask.id
+            );
+
+            console.log('🚀🚀🚀 STORAGE: Email send result:', emailResult);
+
+            if (emailResult.success) {
+              console.log(`✅ STORAGE: Task assignment email sent successfully to ${assignedUser.email}`);
+            } else {
+              console.error(`❌ STORAGE: Failed to send task assignment email: ${emailResult.error}`);
+            }
           } else {
-            console.error(`❌ STORAGE: Failed to send task assignment email: ${emailResult.error}`);
+            console.log('ℹ️ STORAGE: Email not sent - missing email address or SendGrid not configured');
           }
         } else {
-          console.log('❌ STORAGE: No email sent - missing user or email address');
+          console.log('❌ STORAGE: No notification sent - assigned user not found');
         }
-      } catch (emailError) {
-        console.error('❌ STORAGE: Error sending task assignment email:', emailError);
+      } catch (notificationError) {
+        console.error('❌ STORAGE: Error sending task assignment notifications:', notificationError);
       }
     } else {
-      console.log('🚀🚀🚀 STORAGE: No email sent - task not assigned or SendGrid not configured');
+      console.log('🚀🚀🚀 STORAGE: No notification sent - task not assigned');
     }
     
     return newTask;

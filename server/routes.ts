@@ -1551,10 +1551,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         projectId: tasks.projectId,
       })
         .from(tasks)
-        .where(and(
-          eq(tasks.status, 'pending'),
-          // dueDate is between now and futureDate
-        ));
+        .where(
+          or(
+            eq(tasks.status, 'pending'),
+            eq(tasks.status, 'in-progress'),
+            eq(tasks.status, 'review'),
+            eq(tasks.status, 'blocked')
+          )
+        );
       
       const remindersCreated = [];
       
@@ -1570,6 +1574,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const projectName = project?.name || 'Untitled Project';
           const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
           
+          // Create in-app notification
           await createNotification({
             userId: task.assigneeId,
             organizationId: assignedUser.organizationId || 'default',
@@ -1581,7 +1586,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             messageAr: `المهمة "${task.titleAr || task.title}" مستحقة خلال ${daysUntilDue} ${daysUntilDue > 1 ? 'أيام' : 'يوم'} في مشروع ${project?.nameAr || projectName}`,
             actionUrl: `/tasks/${task.id}`,
           });
-          
+
+          // Send email notification if available
+          if (assignedUser.email && process.env.SENDGRID_API_KEY) {
+            try {
+              await emailService.sendDeadlineReminderEmail(
+                assignedUser.email,
+                assignedUser.firstName || assignedUser.name || 'User',
+                task.title,
+                dueDate.toLocaleDateString(),
+                projectName,
+                (assignedUser.language as 'en' | 'ar') || 'en',
+                task.id
+              );
+            } catch (emailError) {
+              console.error(`Failed to send deadline reminder email to ${assignedUser.email}:`, emailError);
+            }
+          }
+
           remindersCreated.push({ taskId: task.id, taskTitle: task.title });
         }
       }

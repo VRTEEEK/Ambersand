@@ -29,7 +29,7 @@ interface Comment {
 }
 
 interface User {
-  id: number;
+  id: string;
   name: string;
   email: string;
   handle: string;
@@ -59,7 +59,7 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
   });
 
   const usersQuery = useQuery({
-    queryKey: [`/api/comments/users/search?q=${encodeURIComponent(mentionQuery)}&limit=10`],
+    queryKey: [`/api/comments/search-users?q=${encodeURIComponent(mentionQuery)}&limit=10`],
     enabled: showMentions && mentionQuery.length >= 1,
   });
 
@@ -132,11 +132,16 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
   }, [editText, updateMutation]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !showMentions) {
       e.preventDefault();
       handleSend();
     }
-  }, [handleSend]);
+    if (e.key === 'Escape' && showMentions) {
+      e.preventDefault();
+      setShowMentions(false);
+      setMentionQuery('');
+    }
+  }, [handleSend, showMentions]);
 
   const handleEditKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>, id: number) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -151,18 +156,22 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
 
   const handleTextChange = useCallback((value: string) => {
     setText(value);
-    
+
     // Check for @ mentions
     const textarea = textareaRef.current;
     if (textarea) {
       const cursorPos = textarea.selectionStart;
       const textBeforeCursor = value.slice(0, cursorPos);
       const lastAtIndex = textBeforeCursor.lastIndexOf('@');
-      
+
       if (lastAtIndex !== -1) {
         const afterAt = textBeforeCursor.slice(lastAtIndex + 1);
-        
-        if (!afterAt.includes(' ') && !afterAt.includes('\n')) {
+
+        // Only show mentions if @ is at start or preceded by whitespace
+        const beforeAt = textBeforeCursor.slice(0, lastAtIndex);
+        const isValidMention = lastAtIndex === 0 || /\s$/.test(beforeAt);
+
+        if (isValidMention && !afterAt.includes(' ') && !afterAt.includes('\n')) {
           setMentionQuery(afterAt);
           setShowMentions(true);
           setCursorPosition(cursorPos);
@@ -170,7 +179,7 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
         }
       }
     }
-    
+
     setShowMentions(false);
     setMentionQuery('');
   }, []);
@@ -240,7 +249,7 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
   }, []);
 
   const comments = commentsQuery.data?.items || [];
-  const users = usersQuery.data?.users || [];
+  const users = Array.isArray(usersQuery.data) ? usersQuery.data : [];
 
   return (
     <div className="space-y-4">
@@ -269,36 +278,43 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
                   <Card className="w-full max-w-md shadow-lg">
                     <CardContent className="p-0">
                       <Command>
-                        <CommandInput 
-                          placeholder="Search users..." 
+                        <CommandInput
+                          placeholder="Search users..."
                           value={mentionQuery}
                           onValueChange={setMentionQuery}
                           className="border-none"
                         />
-                        <CommandEmpty className="p-4 text-center text-sm text-muted-foreground">
-                          No users found.
-                        </CommandEmpty>
-                        <CommandGroup className="max-h-48 overflow-y-auto">
-                          {users.map((user: any) => (
-                            <CommandItem
-                              key={user.id}
-                              onSelect={() => insertMention(user)}
-                              className="cursor-pointer p-3 hover:bg-muted"
-                            >
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarFallback className="text-xs">
-                                    {getInitials(user.name, user.email)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <div className="text-sm font-medium">{user.name || user.email}</div>
-                                  <div className="text-xs text-muted-foreground">@{user.handle || user.email.split('@')[0]}</div>
+                        {usersQuery.isLoading ? (
+                          <div className="p-4 text-center text-sm text-muted-foreground">
+                            Searching...
+                          </div>
+                        ) : users.length === 0 ? (
+                          <CommandEmpty className="p-4 text-center text-sm text-muted-foreground">
+                            No users found. Try searching by name or email.
+                          </CommandEmpty>
+                        ) : (
+                          <CommandGroup className="max-h-48 overflow-y-auto">
+                            {users.map((user: any) => (
+                              <CommandItem
+                                key={user.id}
+                                onSelect={() => insertMention(user)}
+                                className="cursor-pointer p-3 hover:bg-muted"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Avatar className="h-8 w-8">
+                                    <AvatarFallback className="text-xs">
+                                      {getInitials(user.name, user.email)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <div className="text-sm font-medium">{user.name || user.email}</div>
+                                    <div className="text-xs text-muted-foreground">@{user.handle || (user.email ? user.email.split('@')[0] : 'user')}</div>
+                                  </div>
                                 </div>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        )}
                       </Command>
                     </CardContent>
                   </Card>

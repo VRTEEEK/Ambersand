@@ -11,12 +11,12 @@ import { notifyComment } from "../services/notifications";
 const router = Router();
 
 // Permission helpers
-async function canViewTarget(userId: number, targetType: string, targetId: number): Promise<boolean> {
+async function canViewTarget(userId: string, targetType: string, targetId: number): Promise<boolean> {
   // For now, allow if user is authenticated - TODO: implement proper target-specific permissions
   return !!userId;
 }
 
-async function canCommentTarget(userId: number, targetType: string, targetId: number): Promise<boolean> {
+async function canCommentTarget(userId: string, targetType: string, targetId: number): Promise<boolean> {
   // For now, allow if user is authenticated - TODO: implement proper target-specific permissions
   return !!userId;
 }
