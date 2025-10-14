@@ -3772,26 +3772,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   function normalizeHeaders(headers: string[]): Record<string, string> {
     const mapping: Record<string, string> = {};
     const canonicalKeys = [
+      { canonical: 'rowNumber', variants: ['#', 'row', 'row number', 'number'] },
       { canonical: 'clause', variants: ['clause', 'clause number', 'رقم البند', 'البند', 'code'] },
+      { canonical: 'clauseNumber', variants: ['clause number', 'رقم البند'] },
+      { canonical: 'clauseNumberAr', variants: ['رقم البند', 'clause number ar'] },
 
       // English columns
-      { canonical: 'mainCategoryEn', variants: ['main category', 'main domain', 'domain', 'main category en', 'domain en'] },
-      { canonical: 'subCategoryEn', variants: ['sub category', 'sub domain', 'subdomain', 'sub category en', 'subdomain en'] },
-      { canonical: 'controlEn', variants: ['control', 'requirement', 'main control', 'control en', 'main control en'] },
-      { canonical: 'descriptionEn', variants: ['description', 'details', 'description en', 'details en'] },
+      { canonical: 'mainCategoryEn', variants: ['main category', 'main domain', 'domain', 'main category en', 'domain en', 'المكون الأساسي'] },
+      { canonical: 'subCategoryEn', variants: ['sub category', 'sub domain', 'subdomain', 'sub category en', 'subdomain en', 'المكون الفرعي'] },
+      { canonical: 'mainControlEn', variants: ['control', 'requirement', 'main control', 'control en', 'main control en', 'الضابط الأساسي'] },
+      { canonical: 'subControlEn', variants: ['sub control', 'sub control en', 'الضابط الفرعي'] },
+      { canonical: 'descriptionEn', variants: ['description', 'details', 'description en', 'details en', 'clear description', 'وصف واضح للمتطلبات'] },
+      { canonical: 'evidenceType', variants: ['evidence type', 'evidence types', 'نوع الدليل', 'evidence'] },
+      { canonical: 'weight', variants: ['weight', 'control weight', 'وزن الضابط', 'scoring'] },
 
-      // Arabic columns (NEW)
-      { canonical: 'mainCategoryAr', variants: ['main category ar', 'domain ar', 'المجال الرئيسي', 'الفئة الرئيسية', 'المجال الرئيسي (ع)', 'المجال الرئيسي بالعربي', 'main category arabic'] },
-      { canonical: 'subCategoryAr', variants: ['sub category ar', 'subdomain ar', 'المجال الفرعي', 'الفئة الفرعية', 'المجال الفرعي (ع)', 'المجال الفرعي بالعربي', 'sub category arabic'] },
-      { canonical: 'controlAr', variants: ['control ar', 'main control ar', 'الضابط', 'المتطلب', 'الضابط (ع)', 'الضابط بالعربي', 'control arabic', 'main control arabic'] },
-      { canonical: 'descriptionAr', variants: ['description ar', 'الوصف', 'التفاصيل', 'الوصف (ع)', 'الوصف بالعربي', 'description arabic', 'details arabic'] }
+      // Arabic columns
+      { canonical: 'mainCategoryAr', variants: ['main category ar', 'domain ar', 'المكون الأساسي', 'الفئة الرئيسية', 'المجال الرئيسي'] },
+      { canonical: 'subCategoryAr', variants: ['sub category ar', 'subdomain ar', 'المكون الفرعي', 'الفئة الفرعية', 'المجال الفرعي'] },
+      { canonical: 'mainControlAr', variants: ['control ar', 'main control ar', 'الضابط الأساسي', 'الضابط', 'المتطلب'] },
+      { canonical: 'subControlAr', variants: ['sub control ar', 'الضابط الفرعي'] },
+      { canonical: 'descriptionAr', variants: ['description ar', 'وصف واضح للمتطلبات', 'الوصف', 'التفاصيل', 'description arabic'] },
+      { canonical: 'evidenceTypeAr', variants: ['evidence type ar', 'نوع الدليل المفترض تسليمه', 'نوع الدليل'] },
+      { canonical: 'weightAr', variants: ['weight ar', 'وزن الضابط أو الضابط الفرعي في التقييم', 'وزن الضابط'] }
     ];
 
     headers.forEach((header, index) => {
       const normalized = header.toLowerCase().trim().replace(/\u200f|\u200e/g, ''); // Remove RTL/LTR marks
       for (const key of canonicalKeys) {
         if (key.variants.some(variant => normalized.includes(variant.toLowerCase()))) {
-          mapping[key.canonical] = header;
+          if (!mapping[key.canonical]) { // Only set if not already mapped
+            mapping[key.canonical] = header;
+          }
           break;
         }
       }
@@ -3986,37 +3997,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Create or update the regulation
         const userId = req.userId;
         const orgId = req.organizationId || 'default';
-        
-        const regulationData = {
-          name: nameEn,
-          nameAr: nameAr || null,
-          description: `Imported from ${filename}`,
-          descriptionAr: null,
-          category: 'external' as const,
-          framework: code,
-          version: version,
-          status: 'active' as const,
-          organizationId: orgId,
-          createdById: userId,
-          approvedById: userId,
-          approvedAt: new Date(),
-        };
-        
+
         // Check if regulation already exists
-        const existingRegulation = await storage.getCustomRegulations(orgId);
-        const existing = existingRegulation?.find(r => r.framework === code);
-        
-        if (existing) {
-          await storage.updateCustomRegulation(existing.id, regulationData);
-          updated = 1;
+        const existingRegulations = await db.select()
+          .from(regulations)
+          .where(and(eq(regulations.code, code), eq(regulations.version, version)));
+
+        let regulationId: number;
+
+        if (existingRegulations.length > 0) {
+          // Update existing regulation
+          const existing = existingRegulations[0];
+          await db.update(regulations)
+            .set({
+              nameEn,
+              nameAr: nameAr || null,
+              publisher: publisher || null,
+              status: 'active' as const,
+            })
+            .where(eq(regulations.id, existing.id));
+
+          regulationId = existing.id;
+
+          // Delete existing controls for this regulation
+          await db.delete(regulationControls)
+            .where(eq(regulationControls.regulationId, regulationId));
+
+          log(`✅ Updated regulation ID ${regulationId}, deleted old controls`);
         } else {
-          await storage.createCustomRegulation(regulationData);
+          // Create new regulation
+          const [newReg] = await db.insert(regulations)
+            .values({
+              code,
+              nameEn,
+              nameAr: nameAr || null,
+              version,
+              publisher: publisher || null,
+              status: 'active' as const,
+            })
+            .returning();
+
+          regulationId = newReg.id;
           inserted = 1;
+          log(`✅ Created new regulation ID ${regulationId}`);
         }
+
+        // Now insert all the control rows
+        const controlsToInsert = validRows.map((row, index) => {
+          const clauseValue = row[headerMapping.clause];
+
+          // Parse evidence types (split by $ delimiter)
+          let evidenceTypesArray: string[] = [];
+          const evidenceFieldEn = headerMapping.evidenceType ? row[headerMapping.evidenceType] : null;
+          if (evidenceFieldEn && typeof evidenceFieldEn === 'string') {
+            evidenceTypesArray = evidenceFieldEn.split('$').map(e => e.trim()).filter(Boolean);
+          }
+
+          return {
+            regulationId,
+            clause: clauseValue?.toString().trim() || '',
+            clauseNumber: headerMapping.clauseNumber ? row[headerMapping.clauseNumber]?.toString().trim() : clauseValue?.toString().trim(),
+            clauseNumberAr: headerMapping.clauseNumberAr ? row[headerMapping.clauseNumberAr]?.toString().trim() : null,
+            mainCategoryEn: headerMapping.mainCategoryEn ? row[headerMapping.mainCategoryEn]?.toString().trim() || '' : '',
+            mainCategoryAr: headerMapping.mainCategoryAr ? row[headerMapping.mainCategoryAr]?.toString().trim() : null,
+            subCategoryEn: headerMapping.subCategoryEn ? row[headerMapping.subCategoryEn]?.toString().trim() || '' : '',
+            subCategoryAr: headerMapping.subCategoryAr ? row[headerMapping.subCategoryAr]?.toString().trim() : null,
+            mainControlEn: headerMapping.mainControlEn ? row[headerMapping.mainControlEn]?.toString().trim() || '' : '',
+            mainControlAr: headerMapping.mainControlAr ? row[headerMapping.mainControlAr]?.toString().trim() : null,
+            subControlEn: headerMapping.subControlEn ? row[headerMapping.subControlEn]?.toString().trim() : null,
+            subControlAr: headerMapping.subControlAr ? row[headerMapping.subControlAr]?.toString().trim() : null,
+            descriptionEn: headerMapping.descriptionEn ? row[headerMapping.descriptionEn]?.toString().trim() || '' : '',
+            descriptionAr: headerMapping.descriptionAr ? row[headerMapping.descriptionAr]?.toString().trim() : null,
+            evidenceTypes: evidenceTypesArray.length > 0 ? evidenceTypesArray : null,
+            weight: headerMapping.weight ? row[headerMapping.weight]?.toString().trim() || '1.0' : '1.0',
+            rowNumber: index + 1,
+          };
+        });
+
+        if (controlsToInsert.length > 0) {
+          await db.insert(regulationControls).values(controlsToInsert);
+          log(`✅ Inserted ${controlsToInsert.length} controls`);
+        }
+
+        updated = existingRegulations.length > 0 ? controlsToInsert.length : 0;
+        inserted = existingRegulations.length === 0 ? controlsToInsert.length : 0;
+
       } else {
         // Dry run or has errors - just validate and count
         inserted = validRows.length;
-        
+
         if (validRows.length !== rows.length) {
           warnings.push(`${rows.length - validRows.length} rows will be skipped due to missing clause numbers`);
         }
