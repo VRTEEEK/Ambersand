@@ -3867,10 +3867,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No file uploaded (field name must be 'file')." });
       }
 
+      // Read file from disk since we're using diskStorage
+      const fileBuffer = fs.readFileSync(req.file.path);
+
       log(`📎 File info: ${JSON.stringify({
         name: req.file.originalname,
-        size: req.file.buffer.length,
-        mimetype: req.file.mimetype
+        size: fileBuffer.length,
+        mimetype: req.file.mimetype,
+        path: req.file.path
       })}`);
 
       if (!code || !nameEn || !version) {
@@ -3881,13 +3885,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Detect format and parse
       const filename = req.file.originalname || 'upload';
       const ext = path.extname(filename).toLowerCase();
-      
+
       try {
         if (ext === '.xlsx') {
           phase = 'parse-xlsx';
-          console.log('📄 Parsing XLSX file, buffer size:', req.file.buffer.length);
+          console.log('📄 Parsing XLSX file, buffer size:', fileBuffer.length);
 
-          const wb = XLSX.read(req.file.buffer, {
+          const wb = XLSX.read(fileBuffer, {
             type: 'buffer',
             cellDates: true,
             raw: false
@@ -3925,9 +3929,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
         } else if (ext === '.csv') {
           phase = 'parse-csv';
-          log(`📄 Parsing CSV file, buffer size: ${req.file.buffer.length}`);
+          log(`📄 Parsing CSV file, buffer size: ${fileBuffer.length}`);
 
-          rows = parseCsv(req.file.buffer, {
+          rows = parseCsv(fileBuffer, {
             columns: true,
             skip_empty_lines: true,
             bom: true,
@@ -4091,6 +4095,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Clean up uploaded file
+      if (req.file?.path) {
+        try {
+          fs.unlinkSync(req.file.path);
+          log(`🗑️ Cleaned up uploaded file: ${req.file.path}`);
+        } catch (cleanupError) {
+          log(`⚠️ Failed to clean up file: ${cleanupError}`);
+        }
+      }
+
       res.json({
         inserted,
         updated,
@@ -4099,9 +4113,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         errors,
         sample: validRows.slice(0, 5)
       });
-      
+
     } catch (error: any) {
       console.error('Regulation import error:', error);
+
+      // Clean up uploaded file on error
+      if (req.file?.path) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (cleanupError) {
+          console.error('Failed to clean up file:', cleanupError);
+        }
+      }
+
       return res.status(500).json({
         message: 'Import failed',
         detail: error?.message || 'Unknown server error',
