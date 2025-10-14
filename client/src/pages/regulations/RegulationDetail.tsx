@@ -438,12 +438,8 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
                         </h4>
                       </div>
                       <p className="text-sm text-slate-600 mb-2" data-testid={`text-control-description-${control.id}`}>
-                        {(language === 'ar' && control.descriptionAr
-                          ? control.descriptionAr
-                          : control.descriptionEn)
-                         || (language === 'ar' && control.subdomainAr
-                          ? control.subdomainAr
-                          : control.subdomainEn)
+                        {((language === 'ar' && control.descriptionAr) ? control.descriptionAr : control.descriptionEn)
+                         || ((language === 'ar' && control.subdomainAr) ? control.subdomainAr : control.subdomainEn)
                          || (language === 'ar' ? 'لا يوجد وصف' : 'No description available')}
                       </p>
                       <p className="text-xs text-slate-500" data-testid={`text-evidence-required-${control.id}`}>
@@ -479,12 +475,8 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
                               : control.controlEn || control.domainEn || `Control ${control.clauseNumber}`}
                           </h5>
                           <p className="text-sm text-slate-600 mb-2">
-                            {(language === 'ar' && control.descriptionAr
-                              ? control.descriptionAr
-                              : control.descriptionEn)
-                             || (language === 'ar' && control.subdomainAr
-                              ? control.subdomainAr
-                              : control.subdomainEn)
+                            {((language === 'ar' && control.descriptionAr) ? control.descriptionAr : control.descriptionEn)
+                             || ((language === 'ar' && control.subdomainAr) ? control.subdomainAr : control.subdomainEn)
                              || (language === 'ar' ? 'لا يوجد وصف' : 'No description available')}
                           </p>
                           <p className="text-xs text-slate-500">
@@ -768,12 +760,8 @@ export function RegulationDetail({ id: propId, inline = false, onBack }: Regulat
                                     : control?.controlEn || control?.domainEn || `Control ${control?.clauseNumber}`}
                                 </h5>
                                 <p className="text-sm text-slate-600 mb-2">
-                                  {(language === 'ar' && control?.descriptionAr
-                                    ? control.descriptionAr
-                                    : control?.descriptionEn)
-                                   || (language === 'ar' && control?.subdomainAr
-                                    ? control.subdomainAr
-                                    : control?.subdomainEn)
+                                  {((language === 'ar' && control?.descriptionAr) ? control.descriptionAr : control?.descriptionEn)
+                                   || ((language === 'ar' && control?.subdomainAr) ? control.subdomainAr : control?.subdomainEn)
                                    || (language === 'ar' ? 'لا يوجد وصف' : 'No description available')}
                                 </p>
                                 <p className="text-xs text-slate-500">
