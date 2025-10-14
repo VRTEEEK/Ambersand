@@ -312,28 +312,33 @@ export default function TaskDetail() {
     uploadMutation.mutate(formData);
   };
 
-  // Handle linking existing evidence to the selected control
+  // Handle linking existing evidence to the selected control or task
   const handleLinkExistingEvidence = async (evidenceId: number) => {
-    if (!selectedControlId) {
-      toast({
-        title: language === 'ar' ? 'خطأ' : 'Error',
-        description: language === 'ar' ? 'يجب اختيار ضابط أولاً' : 'Please select a control first',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     try {
-      await apiRequest(`/api/evidence/${evidenceId}/controls`, 'POST', { 
-        controlIds: [selectedControlId] 
-      });
+      // Link to control if one is selected, otherwise link to task
+      if (selectedControlId) {
+        await apiRequest(`/api/evidence/${evidenceId}/controls`, 'POST', { 
+          controlIds: [selectedControlId] 
+        });
+        
+        // Refresh the control linked evidence
+        queryClient.invalidateQueries({ queryKey: ['/api/evidence/control', selectedControlId] });
+      } else {
+        // Link evidence to task by updating its taskId
+        await apiRequest(`/api/evidence/${evidenceId}`, 'PATCH', {
+          taskId: parseInt(taskId || '0')
+        });
+      }
 
-      // Refresh the control linked evidence
-      queryClient.invalidateQueries({ queryKey: ['/api/evidence/control', selectedControlId] });
+      // Refresh all evidence queries
+      queryClient.invalidateQueries({ queryKey: ['/api/evidence'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/evidence/task/${taskId}`] });
       
       toast({
         title: language === 'ar' ? 'تم الربط بنجاح' : 'Linked Successfully',
-        description: language === 'ar' ? 'تم ربط الدليل بالضابط بنجاح' : 'Evidence linked to control successfully',
+        description: selectedControlId 
+          ? (language === 'ar' ? 'تم ربط الدليل بالضابط بنجاح' : 'Evidence linked to control successfully')
+          : (language === 'ar' ? 'تم ربط الدليل بالمهمة بنجاح' : 'Evidence linked to task successfully'),
       });
 
       // Close the dialog
@@ -849,7 +854,6 @@ export default function TaskDetail() {
                   <Button
                     variant="outline"
                     onClick={() => setLinkExistingDialogOpen(true)}
-                    disabled={!selectedControlId}
                     size="sm"
                     className="flex-1"
                   >
@@ -952,6 +956,13 @@ export default function TaskDetail() {
                 <DialogTitle>
                   {language === 'ar' ? 'ربط دليل موجود' : 'Link Existing Evidence'}
                 </DialogTitle>
+                {!selectedControlId && (
+                  <p className="text-sm text-muted-foreground">
+                    {language === 'ar' 
+                      ? 'سيتم ربط الدليل بالمهمة مباشرة (لا توجد ضوابط محددة)' 
+                      : 'Evidence will be linked directly to the task (no control selected)'}
+                  </p>
+                )}
               </DialogHeader>
               <div className="space-y-4">
                 {allEvidence.length === 0 ? (
