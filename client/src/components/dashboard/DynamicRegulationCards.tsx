@@ -123,7 +123,7 @@ export function DynamicRegulationCards() {
                     toggleCardExpansion(regulation.id);
                   }}
                   aria-expanded={isExpanded}
-                  aria-label={`${language === 'ar' ? 'تبديل تفاصيل' : 'Toggle details for'} ${language === 'ar' ? regulation.nameAr : regulation.nameEn}`}
+                  aria-label={`${language === 'ar' ? 'تبديل تفاصيل' : 'Toggle details for'} ${(language === 'ar' && regulation.nameAr) ? regulation.nameAr : regulation.nameEn}`}
                   data-testid={`regulation-card-${regulation.id}`}
                 >
                   <div className="space-y-6">
@@ -150,7 +150,7 @@ export function DynamicRegulationCards() {
                         <div className="space-y-3">
                           <div>
                             <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 group-hover:text-primary transition-colors duration-300 leading-tight">
-                              {language === 'ar' ? regulation.nameAr : regulation.nameEn}
+                              {(language === 'ar' && regulation.nameAr) ? regulation.nameAr : regulation.nameEn}
                             </h3>
                             <div className={`flex items-center gap-3 mt-2 ${isRTL ? 'flex-row-reverse justify-end' : 'justify-start'}`}>
                               <Badge 
@@ -288,7 +288,7 @@ export function DynamicRegulationCards() {
                               <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
                                 <div className={`flex-1 min-w-0 ${isRTL ? 'text-right' : 'text-left'}`}>
                                   <p className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                                    {language === 'ar' ? domain.nameAr : domain.nameEn}
+                                    {(language === 'ar' && domain.nameAr) ? domain.nameAr : domain.nameEn}
                                   </p>
                                   <p className="text-sm text-gray-600 dark:text-gray-400">
                                     {domain.completed} {language === 'ar' ? 'من' : 'of'} {domain.total} {language === 'ar' ? 'عنصر مكتمل' : 'controls completed'}
