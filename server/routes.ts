@@ -27,6 +27,7 @@ import {
   taskRegulationControls,
   projectRegulationControls,
   notifications,
+  tasks,
 } from "@shared/schema";
 import risksRouter from "./routes/risks";
 import analyticsRouter from "./routes/analytics";
@@ -1525,6 +1526,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting task:", error);
       res.status(500).json({ message: "Failed to delete task" });
+    }
+  });
+
+  // Deadline reminder endpoint - check and send notifications for upcoming task deadlines
+  app.post('/api/tasks/deadline-reminders', requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const { daysAhead = 1 } = req.body; // Default to 1 day ahead
+      
+      // Calculate the date range
+      const now = new Date();
+      const futureDate = new Date();
+      futureDate.setDate(now.getDate() + daysAhead);
+      
+      // Get all non-completed tasks with deadlines in the next X days
+      const upcomingTasks = await db.select({
+        id: tasks.id,
+        title: tasks.title,
+        titleAr: tasks.titleAr,
+        dueDate: tasks.dueDate,
+        priority: tasks.priority,
+        status: tasks.status,
+        assigneeId: tasks.assigneeId,
+        projectId: tasks.projectId,
+      })
+        .from(tasks)
+        .where(and(
+          eq(tasks.status, 'pending'),
+          // dueDate is between now and futureDate
+        ));
+      
+      const remindersCreated = [];
+      
+      for (const task of upcomingTasks) {
+        if (!task.assigneeId || !task.dueDate) continue;
+        
+        const dueDate = new Date(task.dueDate);
+        if (dueDate > now && dueDate <= futureDate) {
+          const assignedUser = await storage.getUser(task.assigneeId);
+          if (!assignedUser) continue;
+          
+          const project = task.projectId ? await storage.getProject(task.projectId) : null;
+          const projectName = project?.name || 'Untitled Project';
+          const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          
+          await createNotification({
+            userId: task.assigneeId,
+            organizationId: assignedUser.organizationId || 'default',
+            type: 'deadline_reminder',
+            priority: task.priority || 'high',
+            title: 'Task Deadline Approaching',
+            titleAr: 'اقتراب موعد المهمة',
+            message: `Task "${task.title}" is due in ${daysUntilDue} day${daysUntilDue > 1 ? 's' : ''} in project ${projectName}`,
+            messageAr: `المهمة "${task.titleAr || task.title}" مستحقة خلال ${daysUntilDue} ${daysUntilDue > 1 ? 'أيام' : 'يوم'} في مشروع ${project?.nameAr || projectName}`,
+            actionUrl: `/tasks/${task.id}`,
+          });
+          
+          remindersCreated.push({ taskId: task.id, taskTitle: task.title });
+        }
+      }
+      
+      res.json({ 
+        success: true, 
+        remindersCreated: remindersCreated.length,
+        details: remindersCreated 
+      });
+    } catch (error) {
+      console.error("Error sending deadline reminders:", error);
+      res.status(500).json({ message: "Failed to send deadline reminders" });
     }
   });
 
