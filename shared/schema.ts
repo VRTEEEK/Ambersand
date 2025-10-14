@@ -474,8 +474,11 @@ export const notifications = pgTable("notifications", {
   organizationId: varchar("organization_id", { length: 64 }).notNull(),
   userId: varchar("user_id", { length: 128 }).notNull(),
   type: varchar("type", { length: 32 }).notNull(), // 'comment', 'task_assigned', 'mention', etc.
+  priority: varchar("priority", { length: 16 }).notNull().default('medium'), // 'low', 'medium', 'high', 'urgent'
   title: text("title").notNull(),
+  titleAr: text("title_ar"),
   message: text("message").notNull(),
+  messageAr: text("message_ar"),
   actionUrl: text("action_url"),
   isRead: boolean("is_read").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

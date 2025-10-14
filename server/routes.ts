@@ -26,6 +26,7 @@ import {
   evidenceTasks,
   taskRegulationControls,
   projectRegulationControls,
+  notifications,
 } from "@shared/schema";
 import risksRouter from "./routes/risks";
 import analyticsRouter from "./routes/analytics";
@@ -80,6 +81,37 @@ const upload = multer({
     fileSize: 50 * 1024 * 1024 // 50MB limit
   }
 });
+
+// Helper function to create notifications
+async function createNotification(data: {
+  userId: string;
+  organizationId: string;
+  type: string;
+  priority: string;
+  title: string;
+  titleAr?: string;
+  message: string;
+  messageAr?: string;
+  actionUrl?: string;
+}) {
+  try {
+    await db.insert(notifications).values({
+      userId: data.userId,
+      organizationId: data.organizationId,
+      type: data.type,
+      priority: data.priority,
+      title: data.title,
+      titleAr: data.titleAr || null,
+      message: data.message,
+      messageAr: data.messageAr || null,
+      actionUrl: data.actionUrl || null,
+      isRead: false,
+    });
+    console.log(`✅ Notification created for user ${data.userId}: ${data.title}`);
+  } catch (error) {
+    console.error(`❌ Failed to create notification:`, error);
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoints
@@ -1268,6 +1300,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.addControlsToTask(task.id, body.controlIds);
       }
 
+      // Create in-app notification for task assignment (for existing users only)
+      if (assigneeId && !pendingAssigneeInviteId) {
+        const assignedUser = await storage.getUser(assigneeId);
+        const orgId = currentUser.organizationId || 'default';
+        const project = task.projectId ? await storage.getProject(task.projectId) : null;
+        const projectName = project?.name || 'Untitled Project';
+        
+        await createNotification({
+          userId: assigneeId,
+          organizationId: orgId,
+          type: 'task_assigned',
+          priority: body.priority,
+          title: 'New Task Assigned',
+          titleAr: 'مهمة جديدة مُسندة إليك',
+          message: `You have been assigned a new task: "${task.title}" in project ${projectName}`,
+          messageAr: `تم إسناد مهمة جديدة إليك: "${task.titleAr || task.title}" في مشروع ${project?.nameAr || projectName}`,
+          actionUrl: `/tasks/${task.id}`,
+        });
+      }
+
       // Email notification is handled by storage.createTask() method for existing users
       // For pending invites, send task assignment email here
       console.log(`🔍 DEBUG - Checking if task assignment email should be sent:`, {
@@ -1341,6 +1393,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             );
             
             console.log(`Task status update email sent to ${assignedUser.email}`);
+            
+            // Create in-app notification for status change
+            const statusText = taskData.status === 'completed' ? 'completed' : 
+                              taskData.status === 'in-progress' ? 'in progress' :
+                              taskData.status === 'cancelled' ? 'cancelled' : taskData.status;
+            const statusTextAr = taskData.status === 'completed' ? 'مكتملة' : 
+                                taskData.status === 'in-progress' ? 'قيد التنفيذ' :
+                                taskData.status === 'cancelled' ? 'ملغية' : taskData.status;
+            
+            await createNotification({
+              userId: task.assigneeId,
+              organizationId: assignedUser.organizationId || 'default',
+              type: 'status_change',
+              priority: task.priority || 'medium',
+              title: 'Task Status Updated',
+              titleAr: 'تحديث حالة المهمة',
+              message: `Task "${task.title}" status changed to ${statusText}`,
+              messageAr: `تم تغيير حالة المهمة "${task.titleAr || task.title}" إلى ${statusTextAr}`,
+              actionUrl: `/tasks/${task.id}`,
+            });
           }
         }
         
@@ -1371,6 +1443,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             );
             
             console.log(`✅ Task reassignment email sent successfully to ${assignedUser.email}`);
+            
+            // Create in-app notification for task reassignment
+            await createNotification({
+              userId: taskData.assigneeId,
+              organizationId: assignedUser.organizationId || 'default',
+              type: 'task_assigned',
+              priority: task.priority || 'medium',
+              title: 'Task Assigned to You',
+              titleAr: 'مهمة مُسندة إليك',
+              message: `Task "${task.title}" has been assigned to you in project ${projectName}`,
+              messageAr: `تم إسناد المهمة "${task.titleAr || task.title}" إليك في مشروع ${project?.nameAr || projectName}`,
+              actionUrl: `/tasks/${task.id}`,
+            });
           } else {
             console.log('❌ No reassignment email sent: Missing assigned user or email address');
           }
