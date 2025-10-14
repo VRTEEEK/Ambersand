@@ -28,6 +28,7 @@ import {
   projectRegulationControls,
   notifications,
   tasks,
+  comments,
 } from "@shared/schema";
 import risksRouter from "./routes/risks";
 import analyticsRouter from "./routes/analytics";
@@ -53,7 +54,7 @@ import {
 } from "./rbac-middleware";
 import { getUserPermissions } from "./rbac-seed";
 import { db } from "./storage";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, desc, isNull, sql } from "drizzle-orm";
 import { 
   roles, 
   userRoles, 

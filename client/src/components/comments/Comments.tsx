@@ -59,7 +59,7 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
   });
 
   const usersQuery = useQuery({
-    queryKey: [`/api/comments/search-users?q=${encodeURIComponent(mentionQuery)}&limit=10`],
+    queryKey: [`/api/comments/users/search?q=${encodeURIComponent(mentionQuery)}&limit=10`],
     enabled: showMentions && mentionQuery.length >= 1,
   });
 
