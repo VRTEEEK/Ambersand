@@ -249,7 +249,7 @@ export default function Comments({ targetType, targetId }: CommentsProps) {
   }, []);
 
   const comments = commentsQuery.data?.items || [];
-  const users = Array.isArray(usersQuery.data) ? usersQuery.data : [];
+  const users = usersQuery.data?.users || [];
 
   return (
     <div className="space-y-4">
