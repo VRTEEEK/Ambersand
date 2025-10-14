@@ -646,13 +646,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all users with their roles
       const allUsers = await storage.getAllUsers();
       
-      // Add user roles to each user
+      // Add user roles and project roles to each user
       const usersWithRoles = await Promise.all(
         allUsers.map(async (user) => {
           const userRoles = await storage.getUserRoles(user.id);
+          
+          // Fetch project roles for this user
+          const projectRoles = await db
+            .select({
+              projectId: userProjectRoles.projectId,
+              projectName: projects.name,
+              roleId: userProjectRoles.roleId,
+              roleCode: roles.code,
+              roleName: roles.name,
+            })
+            .from(userProjectRoles)
+            .leftJoin(projects, eq(userProjectRoles.projectId, projects.id))
+            .leftJoin(roles, eq(userProjectRoles.roleId, roles.id))
+            .where(eq(userProjectRoles.userId, user.id));
+
+          // Group by project
+          const groupedProjectRoles = projectRoles.reduce((acc, pr) => {
+            if (!pr.projectId || !pr.roleCode) return acc;
+            
+            const existing = acc.find(p => p.projectId === pr.projectId);
+            if (existing) {
+              existing.roles.push({ code: pr.roleCode, name: pr.roleName || undefined });
+            } else {
+              acc.push({
+                projectId: pr.projectId.toString(),
+                projectName: pr.projectName || 'Unknown Project',
+                roles: [{ code: pr.roleCode, name: pr.roleName || undefined }]
+              });
+            }
+            return acc;
+          }, [] as Array<{ projectId: string; projectName: string; roles: { code: string; name?: string }[] }>);
+          
           return {
             ...user,
             userRoles,
+            projectRoles: groupedProjectRoles,
             status: user.role === 'disabled' ? 'disabled' : 'active', // Mock status from role field
             lastActiveAt: user.updatedAt, // Mock last active from updatedAt
           };
