@@ -260,11 +260,11 @@ export default function EnhancedUsersPage() {
 
   const getRoleDisplayName = (roleCode: string) => {
     const roleNames = {
-      'admin': 'Admin',
-      'user': 'User',
-      'officer': 'Officer', 
-      'collaborator': 'Collaborator',
-      'viewer': 'Viewer'
+      'admin': language === 'ar' ? 'مدير' : 'Admin',
+      'user': language === 'ar' ? 'مستخدم' : 'User',
+      'officer': language === 'ar' ? 'مسؤول امتثال' : 'Officer', 
+      'collaborator': language === 'ar' ? 'متعاون' : 'Collaborator',
+      'viewer': language === 'ar' ? 'مشاهد' : 'Viewer'
     };
     return roleNames[roleCode as keyof typeof roleNames] || roleCode;
   };
