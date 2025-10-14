@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { usePermissions } from '@/hooks/use-permissions';
 import { useToast } from '@/hooks/use-toast';
 import { useI18n } from '@/hooks/use-i18n';
-import { Download, Upload, FileSpreadsheet, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { Download, Upload, FileSpreadsheet, AlertTriangle, CheckCircle, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { downloadTemplate, importRegulation, getVersions } from '@/lib/api/regulations';
 import AppLayout from '@/components/layout/AppLayout';
 
@@ -41,6 +41,8 @@ export default function ImportRegulation() {
   const [result, setResult] = useState<ImportResult | null>(null);
   const [lastDryRunOk, setLastDryRunOk] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   // Fetch versions for the current code - must be called before any conditional returns
   const { data: versions, refetch: refetchVersions } = useQuery({
@@ -50,10 +52,32 @@ export default function ImportRegulation() {
   });
 
   // Reset validation state when file, code, or version changes
-  useEffect(() => { 
-    setLastDryRunOk(false); 
-    setResult(null); 
+  useEffect(() => {
+    setLastDryRunOk(false);
+    setResult(null);
+    setCurrentPage(1);
   }, [file, code, version]);
+
+  // Pagination logic using useMemo - must be before any conditional returns
+  const paginationData = useMemo(() => {
+    if (!result?.sample || result.sample.length === 0) {
+      return null;
+    }
+
+    const totalRows = result.sample.length;
+    const totalPages = Math.ceil(totalRows / rowsPerPage);
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = Math.min(startIndex + rowsPerPage, totalRows);
+    const paginatedData = result.sample.slice(startIndex, endIndex);
+
+    return {
+      totalRows,
+      totalPages,
+      startIndex,
+      endIndex,
+      paginatedData,
+    };
+  }, [result, currentPage, rowsPerPage]);
 
   // Permission check - after all hooks
   if (!can('regulation:import')) {
@@ -220,7 +244,7 @@ export default function ImportRegulation() {
     if (!file || !code || !nameEn || !version) {
       toast({
         title: language === 'ar' ? 'بيانات مطلوبة' : 'Required Fields',
-        description: language === 'ar' 
+        description: language === 'ar'
           ? 'يرجى ملء جميع الحقول المطلوبة وتحديد ملف'
           : 'Please fill all required fields and select a file',
         variant: 'destructive',
@@ -240,7 +264,7 @@ export default function ImportRegulation() {
 
       const response = await importRegulation(formData, { dryRun: false });
       setResult(response);
-      
+
       toast({
         title: language === 'ar' ? 'نجح الاستيراد' : 'Import Successful',
         description: `${response.inserted} inserted, ${response.updated} updated`,
@@ -251,7 +275,7 @@ export default function ImportRegulation() {
         refetchVersions();
       }
       setLastDryRunOk(false);
-      
+
     } catch (err: any) {
       console.error('Import failed:', err);
       const msg = await extractMessage(err);
@@ -520,29 +544,89 @@ export default function ImportRegulation() {
               </Alert>
             )}
 
-            {result.sample && result.sample.length > 0 && (
-              <div className="border rounded-md overflow-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      {Object.keys(result.sample[0]).map(header => (
-                        <TableHead key={header}>{header}</TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {result.sample.map((row, index) => (
-                      <TableRow key={index}>
-                        {Object.values(row).map((cell: any, cellIndex) => (
-                          <TableCell key={cellIndex} className="text-xs">
-                            {String(cell).substring(0, 50)}
-                            {String(cell).length > 50 ? '...' : ''}
-                          </TableCell>
+            {paginationData && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    {language === 'ar'
+                      ? `عرض ${paginationData.startIndex + 1}-${paginationData.endIndex} من ${paginationData.totalRows} صف`
+                      : `Showing ${paginationData.startIndex + 1}-${paginationData.endIndex} of ${paginationData.totalRows} rows`
+                    }
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm">
+                      {language === 'ar' ? 'صفوف لكل صفحة:' : 'Rows per page:'}
+                    </Label>
+                    <select
+                      value={rowsPerPage}
+                      onChange={(e) => {
+                        setRowsPerPage(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="border rounded px-2 py-1 text-sm"
+                    >
+                      <option value={10}>10</option>
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="border rounded-md overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {result.sample && Object.keys(result.sample[0]).map(header => (
+                          <TableHead key={header}>{header}</TableHead>
                         ))}
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {paginationData.paginatedData.map((row, index) => (
+                        <TableRow key={paginationData.startIndex + index}>
+                          {Object.values(row).map((cell: any, cellIndex) => (
+                            <TableCell key={cellIndex} className="text-xs">
+                              {String(cell).substring(0, 50)}
+                              {String(cell).length > 50 ? '...' : ''}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    {language === 'ar'
+                      ? `الصفحة ${currentPage} من ${paginationData.totalPages}`
+                      : `Page ${currentPage} of ${paginationData.totalPages}`
+                    }
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                      className="flex items-center gap-1"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      {language === 'ar' ? 'السابق' : 'Previous'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(Math.min(paginationData.totalPages, currentPage + 1))}
+                      disabled={currentPage >= paginationData.totalPages}
+                      className="flex items-center gap-1"
+                    >
+                      {language === 'ar' ? 'التالي' : 'Next'}
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
           </CardContent>

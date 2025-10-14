@@ -4111,7 +4111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         total: rows.length,
         warnings,
         errors,
-        sample: validRows.slice(0, 5)
+        sample: validRows // Return all valid rows for pagination on client side
       });
 
     } catch (error: any) {
