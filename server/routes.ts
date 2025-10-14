@@ -2183,6 +2183,244 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== GENERAL COMMENTS API =====
+  // Get comments for a target (task, project, or risk)
+  app.get('/api/comments', requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const { targetType, targetId, limit = 50 } = req.query;
+      
+      if (!targetType || !targetId) {
+        return res.status(400).json({ message: "targetType and targetId are required" });
+      }
+
+      const commentsList = await db.select({
+        id: comments.id,
+        organizationId: comments.organizationId,
+        targetType: comments.targetType,
+        targetId: comments.targetId,
+        parentId: comments.parentId,
+        authorId: comments.authorId,
+        body: comments.body,
+        mentions: comments.mentions,
+        hasAttachments: comments.hasAttachments,
+        createdAt: comments.createdAt,
+        updatedAt: comments.updatedAt,
+        authorName: users.name,
+        authorEmail: users.email,
+      })
+      .from(comments)
+      .leftJoin(users, eq(comments.authorId, users.id))
+      .where(and(
+        eq(comments.targetType, targetType as string),
+        eq(comments.targetId, parseInt(targetId as string)),
+        isNull(comments.deletedAt)
+      ))
+      .orderBy(desc(comments.createdAt))
+      .limit(parseInt(limit as string));
+
+      res.json({ items: commentsList });
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+      res.status(500).json({ message: "Failed to fetch comments" });
+    }
+  });
+
+  // Create a new comment
+  app.post('/api/comments', requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const { targetType, targetId, body, parentId } = req.body;
+      
+      if (!targetType || !targetId || !body) {
+        return res.status(400).json({ message: "targetType, targetId, and body are required" });
+      }
+
+      // Extract mentions from body (@username format)
+      const mentionMatches = body.match(/@([\w.\-]+)/g) || [];
+      const mentionHandles = mentionMatches.map((m: string) => m.slice(1)); // Remove @ symbol
+      
+      // Find user IDs for mentioned handles
+      const mentionedUsers = await db.select()
+        .from(users)
+        .where(or(
+          ...mentionHandles.map((handle: string) => 
+            sql`LOWER(${users.email}) LIKE LOWER(${handle + '%'})`
+          )
+        ));
+
+      const mentionedUserIds = mentionedUsers.map(u => u.id);
+
+      const [newComment] = await db.insert(comments)
+        .values({
+          organizationId: req.user?.organizationId || 'default',
+          targetType: targetType as 'task' | 'project' | 'risk',
+          targetId: parseInt(targetId),
+          parentId: parentId ? parseInt(parentId) : null,
+          authorId: req.userId!,
+          body,
+          mentions: JSON.stringify(mentionedUserIds),
+          hasAttachments: false,
+        })
+        .returning();
+
+      // Fetch the comment with author info
+      const [commentWithAuthor] = await db.select({
+        id: comments.id,
+        organizationId: comments.organizationId,
+        targetType: comments.targetType,
+        targetId: comments.targetId,
+        parentId: comments.parentId,
+        authorId: comments.authorId,
+        body: comments.body,
+        mentions: comments.mentions,
+        hasAttachments: comments.hasAttachments,
+        createdAt: comments.createdAt,
+        updatedAt: comments.updatedAt,
+        authorName: users.name,
+        authorEmail: users.email,
+      })
+      .from(comments)
+      .leftJoin(users, eq(comments.authorId, users.id))
+      .where(eq(comments.id, newComment.id));
+
+      res.status(201).json(commentWithAuthor);
+    } catch (error) {
+      console.error("Error creating comment:", error);
+      res.status(500).json({ message: "Failed to create comment" });
+    }
+  });
+
+  // Update a comment
+  app.patch('/api/comments/:id', requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const commentId = parseInt(req.params.id);
+      const { body } = req.body;
+      
+      if (!body) {
+        return res.status(400).json({ message: "body is required" });
+      }
+
+      // Check if comment exists and user is the author
+      const [existingComment] = await db.select()
+        .from(comments)
+        .where(and(
+          eq(comments.id, commentId),
+          eq(comments.authorId, req.userId!),
+          isNull(comments.deletedAt)
+        ));
+
+      if (!existingComment) {
+        return res.status(404).json({ message: "Comment not found or you don't have permission to edit" });
+      }
+
+      // Extract mentions from body
+      const mentionMatches = body.match(/@([\w.\-]+)/g) || [];
+      const mentionHandles = mentionMatches.map((m: string) => m.slice(1));
+      
+      const mentionedUsers = await db.select()
+        .from(users)
+        .where(or(
+          ...mentionHandles.map((handle: string) => 
+            sql`LOWER(${users.email}) LIKE LOWER(${handle + '%'})`
+          )
+        ));
+
+      const mentionedUserIds = mentionedUsers.map(u => u.id);
+
+      const [updatedComment] = await db.update(comments)
+        .set({
+          body,
+          mentions: JSON.stringify(mentionedUserIds),
+          updatedAt: new Date(),
+        })
+        .where(eq(comments.id, commentId))
+        .returning();
+
+      // Fetch with author info
+      const [commentWithAuthor] = await db.select({
+        id: comments.id,
+        organizationId: comments.organizationId,
+        targetType: comments.targetType,
+        targetId: comments.targetId,
+        parentId: comments.parentId,
+        authorId: comments.authorId,
+        body: comments.body,
+        mentions: comments.mentions,
+        hasAttachments: comments.hasAttachments,
+        createdAt: comments.createdAt,
+        updatedAt: comments.updatedAt,
+        authorName: users.name,
+        authorEmail: users.email,
+      })
+      .from(comments)
+      .leftJoin(users, eq(comments.authorId, users.id))
+      .where(eq(comments.id, updatedComment.id));
+
+      res.json(commentWithAuthor);
+    } catch (error) {
+      console.error("Error updating comment:", error);
+      res.status(500).json({ message: "Failed to update comment" });
+    }
+  });
+
+  // Delete a comment
+  app.delete('/api/comments/:id', requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const commentId = parseInt(req.params.id);
+
+      // Check if comment exists and user is the author
+      const [existingComment] = await db.select()
+        .from(comments)
+        .where(and(
+          eq(comments.id, commentId),
+          eq(comments.authorId, req.userId!),
+          isNull(comments.deletedAt)
+        ));
+
+      if (!existingComment) {
+        return res.status(404).json({ message: "Comment not found or you don't have permission to delete" });
+      }
+
+      // Soft delete
+      await db.update(comments)
+        .set({ deletedAt: new Date() })
+        .where(eq(comments.id, commentId));
+
+      res.json({ message: "Comment deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      res.status(500).json({ message: "Failed to delete comment" });
+    }
+  });
+
+  // Search users for @mentions
+  app.get('/api/comments/users/search', requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const { q = '', limit = 10 } = req.query;
+      const searchTerm = q as string;
+
+      const usersList = await db.select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        handle: users.email, // Use email as handle for now
+      })
+      .from(users)
+      .where(and(
+        eq(users.organizationId, req.user?.organizationId || 'default'),
+        or(
+          sql`LOWER(${users.name}) LIKE LOWER(${`%${searchTerm}%`})`,
+          sql`LOWER(${users.email}) LIKE LOWER(${`%${searchTerm}%`})`
+        )
+      ))
+      .limit(parseInt(limit as string));
+
+      res.json({ users: usersList });
+    } catch (error) {
+      console.error("Error searching users:", error);
+      res.status(500).json({ message: "Failed to search users" });
+    }
+  });
+
   // Evidence Comments routes
   app.get('/api/evidence/:id/comments', requireAuth, async (req, res) => {
     try {
