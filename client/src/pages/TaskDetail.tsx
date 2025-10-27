@@ -177,28 +177,50 @@ export default function TaskDetail() {
   // All useMutation hooks
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
+      const token = localStorage.getItem("accessToken");
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      
       const response = await fetch(`/api/evidence`, {
         method: "POST",
-        body: formData
+        headers,
+        body: formData,
+        credentials: "include"
       });
       if (!response.ok) {
-        throw new Error('Failed to upload evidence');
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to upload evidence');
       }
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
+      // If there's a selected control, link the evidence to it
+      if (selectedControlId && data.id) {
+        try {
+          await apiRequest(`/api/evidence/${data.id}/controls`, 'POST', { 
+            controlIds: [selectedControlId] 
+          });
+          queryClient.invalidateQueries({ queryKey: ['/api/evidence/control', selectedControlId] });
+        } catch (error) {
+          console.error('Error linking evidence to control:', error);
+        }
+      }
+      
       toast({
-        title: "Success",
-        description: "Evidence uploaded successfully"
+        title: language === 'ar' ? 'تم الرفع بنجاح' : 'Success',
+        description: language === 'ar' ? 'تم رفع الدليل بنجاح' : 'Evidence uploaded successfully'
       });
       setUploadDialogOpen(false);
       setUploadForm({ title: "", description: "", file: null });
       queryClient.invalidateQueries({ queryKey: ["/api/evidence/task", taskId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/evidence"] });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to upload evidence",
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message || (language === 'ar' ? 'فشل في رفع الدليل' : 'Failed to upload evidence'),
         variant: "destructive"
       });
     }
@@ -1157,7 +1179,7 @@ export default function TaskDetail() {
                   const user = Array.isArray(users) ? users.find((u: any) => u.id === r.userId) : undefined;
                   return { 
                     userId: r.userId, 
-                    name: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || user.email : r.userId,
+                    name: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || user.email || '' : r.userId,
                     email: user?.email || ''
                   };
                 })}
