@@ -446,11 +446,33 @@ export class DatabaseStorage implements IStorage {
   async getProjects(organizationId?: string): Promise<Project[]> {
     const query = db.select().from(projects).orderBy(desc(projects.updatedAt));
     
+    let projectList: Project[];
     if (organizationId) {
-      return await query.where(eq(projects.organizationId, organizationId));
+      projectList = await query.where(eq(projects.organizationId, organizationId));
+    } else {
+      projectList = await query;
     }
     
-    return await query;
+    // Calculate real-time progress based on tasks for each project
+    const projectsWithProgress = await Promise.all(
+      projectList.map(async (project) => {
+        const projectTasks = await db
+          .select()
+          .from(tasks)
+          .where(eq(tasks.projectId, project.id));
+        
+        const totalTasks = projectTasks.length;
+        const completedTasks = projectTasks.filter(task => task.status === 'completed').length;
+        const realProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        
+        return {
+          ...project,
+          progress: realProgress // Override with calculated progress
+        };
+      })
+    );
+    
+    return projectsWithProgress;
   }
 
   async getProject(id: number): Promise<Project | undefined> {
