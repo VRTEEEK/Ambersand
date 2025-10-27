@@ -293,22 +293,31 @@ export default function Evidence() {
 
   const handleDownload = async (item: any) => {
     try {
+      console.log('🔽 Starting download for:', item.fileName, 'ID:', item.id);
+      
       // Get JWT token from localStorage (using correct key)
       const token = localStorage.getItem('accessToken');
+      console.log('🔑 Token exists:', !!token, 'Token length:', token?.length);
       
       // Fetch file with authentication
+      console.log('📡 Fetching from:', `/api/evidence/${item.id}/download`);
       const response = await fetch(`/api/evidence/${item.id}/download`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
       
+      console.log('📥 Response status:', response.status, response.statusText);
+      
       if (!response.ok) {
-        throw new Error('Download failed');
+        const errorText = await response.text();
+        console.error('❌ Download failed:', response.status, errorText);
+        throw new Error(`Download failed: ${response.status}`);
       }
       
       // Create blob from response
       const blob = await response.blob();
+      console.log('✅ Blob created, size:', blob.size, 'type:', blob.type);
       
       // Create download link
       const url = window.URL.createObjectURL(blob);
@@ -321,7 +330,9 @@ export default function Evidence() {
       
       // Clean up blob URL
       window.URL.revokeObjectURL(url);
+      console.log('✅ Download complete!');
     } catch (error) {
+      console.error('❌ Download error:', error);
       toast({
         title: language === 'ar' ? 'خطأ في التحميل' : 'Download Error',
         description: language === 'ar' ? 'فشل في تحميل الملف' : 'Failed to download file',
