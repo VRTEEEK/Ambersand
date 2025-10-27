@@ -423,9 +423,10 @@ export default function EditTaskForm({
     setPendingRemovedControls(prev => prev.filter(id => id !== controlId));
   };
 
-  // Fetch all evidence for linking
+  // Fetch all evidence from the same project for linking (excluding current task's evidence)
   const { data: allEvidence = [] } = useQuery({
-    queryKey: ['/api/evidence'],
+    queryKey: [`/api/evidence?projectId=${task.projectId}`],
+    enabled: !!task.projectId,
   });
 
   // Auto-select first control when Evidence tab is accessed
