@@ -230,7 +230,7 @@ export default function EditTaskForm({
 
   // Fetch evidence linked to specific control
   const { data: controlLinkedEvidence = [] } = useQuery({
-    queryKey: ['/api/evidence', 'control', selectedControlForView],
+    queryKey: [`/api/controls/${selectedControlForView}/evidence`],
     enabled: !!selectedControlForView,
   });
 
@@ -527,7 +527,7 @@ export default function EditTaskForm({
       queryClient.invalidateQueries({ queryKey: ['/api/evidence'] });
       queryClient.invalidateQueries({ queryKey: ['/api/evidence', 'versions', task.id] });
       queryClient.invalidateQueries({ queryKey: ['/api/evidence', 'comments', task.id] });
-      queryClient.invalidateQueries({ queryKey: ['/api/evidence/control', selectedControlId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/controls/${selectedControlId}/evidence`] });
       // Show success toast
       toast({
         title: language === 'ar' ? 'تم رفع وربط الملفات بنجاح' : 'Files Uploaded & Linked Successfully',
@@ -562,7 +562,7 @@ export default function EditTaskForm({
       });
 
       // Refresh the control linked evidence
-      queryClient.invalidateQueries({ queryKey: ['/api/evidence/control', selectedControlId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/controls/${selectedControlId}/evidence`] });
       
       toast({
         title: language === 'ar' ? 'تم الربط بنجاح' : 'Linked Successfully',
