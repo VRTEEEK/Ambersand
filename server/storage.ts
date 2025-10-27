@@ -1330,40 +1330,55 @@ export class DatabaseStorage implements IStorage {
       { month: "Dec", score: overallCompliance },
     ];
 
-    // Calculate regulation status based on actual project controls
-    const regulationStatus = [
-      {
-        name: "ECC (Essential Cybersecurity Controls)",
-        nameAr: "الضوابط الأساسية للأمن السيبراني",
-        progress: completedTasks,
-        total: totalProjectControls > 0 ? totalProjectControls : totalTasks,
-        percentage: totalProjectControls > 0 
-          ? Math.round((completedTasks / totalProjectControls) * 100)
-          : totalTasks > 0 
-            ? Math.round((completedTasks / totalTasks) * 100)
-            : 0,
-      },
-      {
-        name: "PDPL (Personal Data Protection Law)",
-        nameAr: "نظام حماية البيانات الشخصية",
-        progress: Math.round(completedTasks * 0.8),
-        total: 18,
-        percentage: Math.min(100, Math.round((completedTasks * 0.8 / 18) * 100)),
-      },
-      {
-        name: "NDMO (National Data Management Office)",
-        nameAr: "مكتب إدارة البيانات الوطنية",
-        progress: Math.round(completedTasks * 0.2),
-        total: 25,
-        percentage: Math.min(100, Math.round((completedTasks * 0.2 / 25) * 100)),
-      },
-    ];
+    // Calculate REAL regulation status based on actual regulations and their controls
+    const allRegulations = organizationId
+      ? await db.select().from(regulations).where(
+          or(eq(regulations.orgId, organizationId), eq(regulations.orgId, 'system'))
+        )
+      : await db.select().from(regulations);
+
+    const regulationStatus = await Promise.all(
+      allRegulations.map(async (regulation) => {
+        // Get total controls for this regulation
+        const [{ count: totalControls }] = await db
+          .select({ count: count() })
+          .from(regulationControls)
+          .where(eq(regulationControls.regulationId, regulation.id));
+
+        // Get completed controls for this regulation (from project controls)
+        const [{ count: completedControls }] = await db
+          .select({ count: count() })
+          .from(projectRegulationControls)
+          .innerJoin(
+            regulationControls,
+            eq(projectRegulationControls.controlId, regulationControls.id)
+          )
+          .where(
+            and(
+              eq(regulationControls.regulationId, regulation.id),
+              eq(projectRegulationControls.status, 'completed')
+            )
+          );
+
+        const percentage = totalControls > 0 
+          ? Math.round((completedControls / totalControls) * 100) 
+          : 0;
+
+        return {
+          name: `${regulation.code} - ${regulation.nameEn}`,
+          nameAr: `${regulation.code} - ${regulation.nameAr}`,
+          progress: completedControls,
+          total: totalControls,
+          percentage,
+        };
+      })
+    );
 
     return {
       overallCompliance,
       activeProjects,
       pendingTasks,
-      regulationsCovered: 3,
+      regulationsCovered: allRegulations.length,
       complianceTrend,
       regulationStatus,
     };
