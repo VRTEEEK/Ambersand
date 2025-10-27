@@ -252,9 +252,19 @@ export default function TaskDetail() {
   // Sync selectedControlForView with selectedControlId whenever it changes
   useEffect(() => {
     if (selectedControlId) {
+      console.log('🎯 Setting selectedControlForView to:', selectedControlId);
       setSelectedControlForView(selectedControlId);
     }
   }, [selectedControlId]);
+
+  // Debug: Log when controlLinkedEvidence changes
+  useEffect(() => {
+    console.log('📋 controlLinkedEvidence updated:', {
+      selectedControlForView,
+      evidenceCount: controlLinkedEvidence?.length || 0,
+      evidence: controlLinkedEvidence
+    });
+  }, [controlLinkedEvidence, selectedControlForView]);
 
   // Early returns AFTER all hooks
   if (!taskId) {
