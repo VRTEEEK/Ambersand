@@ -1424,6 +1424,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const task = await storage.updateTask(id, taskData);
       console.log('Task updated successfully:', task);
       
+      // Auto-sync control status when task status changes
+      if (taskData.status && oldTask && oldTask.status !== taskData.status) {
+        try {
+          // Update project_regulation_controls status to match task status
+          await db.execute(sql`
+            UPDATE project_regulation_controls prc
+            SET status = ${taskData.status}, updated_at = NOW()
+            FROM task_regulation_controls trc
+            WHERE prc.control_id = trc.control_id
+              AND prc.project_id = ${task.projectId}
+              AND trc.task_id = ${task.id}
+          `);
+          console.log(`✅ Control status synced to "${taskData.status}" for task ${task.id}`);
+        } catch (syncError) {
+          console.error('⚠️ Failed to sync control status:', syncError);
+          // Don't fail the task update if control sync fails
+        }
+      }
+      
       // Send email notifications for status changes and new assignments
       try {
         // Check for status update
