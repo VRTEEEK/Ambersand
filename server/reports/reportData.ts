@@ -5,6 +5,9 @@ import path from "path";
 import { existsSync } from "fs";
 import jwt from "jsonwebtoken";
 
+// JWT secret must match what authService uses
+const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || "change-this-secret-in-production";
+
 export interface ComplianceReport {
   project: { 
     id: number; 
@@ -339,7 +342,7 @@ export async function getComplianceReportData(params: {
               evidenceId: ev.id,
               type: 'download'
             },
-            process.env.JWT_SECRET || 'fallback-secret-key',
+            JWT_ACCESS_SECRET,
             { expiresIn: '30d' }
           );
 

@@ -3501,48 +3501,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const downloadToken = req.query.token as string;
       
-      console.log('📥 Download request for evidence ID:', id);
+      // JWT secret must match what authService uses for signing
+      const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || "change-this-secret-in-production";
       
       // Check authentication: either JWT token OR valid download token
       let isAuthenticated = false;
       
       // Option 1: JWT Bearer token (from web app)
       const authHeader = req.headers.authorization;
-      console.log('🔑 Auth header present:', !!authHeader, 'starts with Bearer:', authHeader?.startsWith('Bearer '));
       
       if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.substring(7);
-        console.log('🔐 Attempting JWT verification, token length:', token.length);
         try {
-          const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret-key');
-          console.log('✅ JWT verification successful:', decoded);
+          jwt.verify(token, JWT_ACCESS_SECRET);
           isAuthenticated = true;
         } catch (err) {
-          console.error('❌ JWT verification failed:', err instanceof Error ? err.message : err);
           // JWT invalid, try download token
         }
       }
       
       // Option 2: Signed download token (from PDF reports)
       if (!isAuthenticated && downloadToken) {
-        console.log('🎫 Trying download token');
         try {
-          const decoded = jwt.verify(downloadToken, process.env.JWT_SECRET || 'fallback-secret-key') as any;
+          const decoded = jwt.verify(downloadToken, JWT_ACCESS_SECRET) as any;
           if (decoded.evidenceId === id && decoded.type === 'download') {
-            console.log('✅ Download token valid');
             isAuthenticated = true;
           }
         } catch (err) {
-          console.error('❌ Download token verification failed:', err instanceof Error ? err.message : err);
+          // Download token invalid
         }
       }
       
       if (!isAuthenticated) {
-        console.log('❌ Authentication failed for evidence download');
         return res.status(401).json({ success: false, message: "Authentication required" });
       }
-      
-      console.log('✅ Authentication successful, proceeding with download');
       
       const evidence = await storage.getEvidence();
       const evidenceItem = evidence.find(e => e.id === id);
