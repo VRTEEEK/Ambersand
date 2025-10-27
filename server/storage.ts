@@ -1069,46 +1069,83 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getControlLinkedEvidence(controlId: number): Promise<(Evidence & { comments: (EvidenceComment & { user: User })[], versions: EvidenceVersion[] })[]> {
-    // Get evidence linked to this control through modern evidenceProjectRegulationControls junction table
-    // First find all project regulation controls for this controlId
-    const projectControls = await db
-      .select({ id: projectRegulationControls.id })
-      .from(projectRegulationControls)
-      .where(eq(projectRegulationControls.controlId, controlId));
-    
-    if (projectControls.length === 0) {
-      console.log(`📋 No project controls found for controlId ${controlId}`);
-      return [];
-    }
-    
-    const projectControlIds = projectControls.map(pc => pc.id);
-    
-    // Get evidence linked through the modern junction table
-    const evidenceResults = await db
-      .select()
-      .from(evidenceProjectRegulationControls)
-      .innerJoin(evidence, eq(evidenceProjectRegulationControls.evidenceId, evidence.id))
-      .where(inArray(evidenceProjectRegulationControls.projectRegulationControlId, projectControlIds))
-      .orderBy(desc(evidence.createdAt));
-
     const evidenceList: (Evidence & { comments: (EvidenceComment & { user: User })[], versions: EvidenceVersion[] })[] = [];
+    
+    // FIRST: Try to get evidence from the OLD ECC system (evidenceControls junction table)
+    try {
+      const eccEvidenceResults = await db
+        .select()
+        .from(evidenceControls)
+        .innerJoin(evidence, eq(evidenceControls.evidenceId, evidence.id))
+        .where(eq(evidenceControls.eccControlId, controlId))
+        .orderBy(desc(evidence.createdAt));
 
-    for (const row of evidenceResults) {
-      const evidenceItem = row.evidence;
+      console.log(`📋 Found ${eccEvidenceResults.length} evidence items from OLD ECC system for controlId ${controlId}`);
+
+      for (const row of eccEvidenceResults) {
+        const evidenceItem = row.evidence;
+        
+        // Get comments for this evidence
+        const comments = await this.getEvidenceComments(evidenceItem.id);
+        
+        // Get versions for this evidence  
+        const versions = await this.getEvidenceVersions(evidenceItem.id);
+        
+        evidenceList.push({
+          ...evidenceItem,
+          comments,
+          versions,
+        });
+      }
+    } catch (error) {
+      console.log(`Error querying OLD ECC evidence system:`, (error as Error).message);
+    }
+    
+    // SECOND: Also try the NEW regulation system (evidenceProjectRegulationControls)
+    try {
+      const projectControls = await db
+        .select({ id: projectRegulationControls.id })
+        .from(projectRegulationControls)
+        .where(eq(projectRegulationControls.controlId, controlId));
       
-      // Get comments for this evidence
-      const comments = await this.getEvidenceComments(evidenceItem.id);
-      
-      // Get versions for this evidence  
-      const versions = await this.getEvidenceVersions(evidenceItem.id);
-      
-      evidenceList.push({
-        ...evidenceItem,
-        comments,
-        versions,
-      });
+      if (projectControls.length > 0) {
+        const projectControlIds = projectControls.map(pc => pc.id);
+        
+        const newEvidenceResults = await db
+          .select()
+          .from(evidenceProjectRegulationControls)
+          .innerJoin(evidence, eq(evidenceProjectRegulationControls.evidenceId, evidence.id))
+          .where(inArray(evidenceProjectRegulationControls.projectRegulationControlId, projectControlIds))
+          .orderBy(desc(evidence.createdAt));
+
+        console.log(`📋 Found ${newEvidenceResults.length} evidence items from NEW regulation system for controlId ${controlId}`);
+
+        for (const row of newEvidenceResults) {
+          const evidenceItem = row.evidence;
+          
+          // Skip if already added from OLD system
+          if (evidenceList.some(e => e.id === evidenceItem.id)) {
+            continue;
+          }
+          
+          // Get comments for this evidence
+          const comments = await this.getEvidenceComments(evidenceItem.id);
+          
+          // Get versions for this evidence  
+          const versions = await this.getEvidenceVersions(evidenceItem.id);
+          
+          evidenceList.push({
+            ...evidenceItem,
+            comments,
+            versions,
+          });
+        }
+      }
+    } catch (error) {
+      console.log(`Error querying NEW regulation evidence system:`, (error as Error).message);
     }
 
+    console.log(`📋 Total evidence items for controlId ${controlId}: ${evidenceList.length}`);
     return evidenceList;
   }
   

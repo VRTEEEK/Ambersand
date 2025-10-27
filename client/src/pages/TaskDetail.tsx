@@ -88,7 +88,7 @@ export default function TaskDetail() {
   });
 
   const { data: controlLinkedEvidence = [] } = useQuery<Evidence[]>({
-    queryKey: [`/api/evidence/control/${selectedControlForView}`],
+    queryKey: [`/api/controls/${selectedControlForView}/evidence`],
     enabled: !!selectedControlForView,
   });
 
@@ -182,8 +182,8 @@ export default function TaskDetail() {
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
-      
-      const response = await fetch(`/api/evidence`, {
+
+      const response = await fetch(`/api/evidence/upload`, {
         method: "POST",
         headers,
         body: formData,
@@ -195,19 +195,7 @@ export default function TaskDetail() {
       }
       return response.json();
     },
-    onSuccess: async (data) => {
-      // If there's a selected control, link the evidence to it
-      if (selectedControlId && data.id) {
-        try {
-          await apiRequest(`/api/evidence/${data.id}/controls`, 'POST', { 
-            controlIds: [selectedControlId] 
-          });
-          queryClient.invalidateQueries({ queryKey: ['/api/evidence/control', selectedControlId] });
-        } catch (error) {
-          console.error('Error linking evidence to control:', error);
-        }
-      }
-      
+    onSuccess: async () => {
       toast({
         title: language === 'ar' ? 'تم الرفع بنجاح' : 'Success',
         description: language === 'ar' ? 'تم رفع الدليل بنجاح' : 'Evidence uploaded successfully'
@@ -216,6 +204,9 @@ export default function TaskDetail() {
       setUploadForm({ title: "", description: "", file: null });
       queryClient.invalidateQueries({ queryKey: ["/api/evidence/task", taskId] });
       queryClient.invalidateQueries({ queryKey: ["/api/evidence"] });
+      if (selectedControlId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/evidence/control', selectedControlId] });
+      }
     },
     onError: (error: any) => {
       toast({
@@ -257,6 +248,13 @@ export default function TaskDetail() {
       }
     }
   }, [controls, selectedControlId]);
+
+  // Sync selectedControlForView with selectedControlId whenever it changes
+  useEffect(() => {
+    if (selectedControlId) {
+      setSelectedControlForView(selectedControlId);
+    }
+  }, [selectedControlId]);
 
   // Early returns AFTER all hooks
   if (!taskId) {
@@ -315,21 +313,35 @@ export default function TaskDetail() {
   );
 
   const handleFileUpload = async () => {
-    if (!uploadForm.file || !uploadForm.title.trim()) {
+    if (!uploadForm.file) {
       toast({
         title: "Error",
-        description: "Please provide a title and select a file",
+        description: "Please select a file",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!selectedControlId) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'يرجى اختيار ضابط أولاً' : 'Please select a control first',
         variant: "destructive"
       });
       return;
     }
 
     const formData = new FormData();
-    formData.append("title", uploadForm.title);
-    formData.append("description", uploadForm.description);
-    formData.append("file", uploadForm.file);
+    formData.append("files", uploadForm.file);
     formData.append("taskId", taskId);
     formData.append("projectId", task.projectId?.toString() || "");
+    formData.append("controlId", selectedControlId.toString());
+    if (uploadForm.title.trim()) {
+      formData.append("title", uploadForm.title);
+    }
+    if (uploadForm.description.trim()) {
+      formData.append("description", uploadForm.description);
+    }
 
     uploadMutation.mutate(formData);
   };
@@ -741,7 +753,7 @@ export default function TaskDetail() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 {language === 'ar' ? 'اختر الضابط' : 'Select Control'}
               </label>
-              <Select 
+              <Select
                 value={selectedControlId?.toString() || ''}
                 onValueChange={(value) => {
                   const controlId = parseInt(value);
@@ -754,27 +766,27 @@ export default function TaskDetail() {
                 </SelectTrigger>
                 <SelectContent>
                   {controls.map((control: any) => {
-                    // Use the regulation control ID (modern approach) instead of deprecated eccControlId
-                    const valueId = control.controlId?.toString();
+                    // Use the eccControl ID (this is the regulation control ID from the modern system)
+                    const valueId = control.eccControl?.id?.toString();
                     if (!valueId) return null; // Skip controls without valid IDs
-                    
-                    // Get control information from regulation control or fallback to ECC control
-                    const controlInfo = control.regulationControl || control.eccControl;
+
+                    // Get control information from eccControl (which is actually the mapped regulation control)
+                    const controlInfo = control.eccControl;
                     if (!controlInfo) return null;
-                    
+
                     return (
                     <SelectItem key={control.id} value={valueId}>
                       <div className="flex items-center gap-2">
                         <span className="font-medium">
-                          {language === 'ar' 
-                            ? (controlInfo.codeAr || controlInfo.clause || controlInfo.code) 
-                            : (controlInfo.code || controlInfo.clause)
+                          {language === 'ar'
+                            ? (controlInfo.codeAr || controlInfo.code)
+                            : (controlInfo.code)
                           }
                         </span>
                         <span className="text-sm text-muted-foreground">
-                          {language === 'ar' 
-                            ? (controlInfo.titleAr || controlInfo.controlAr || controlInfo.subdomainAr)
-                            : (controlInfo.titleEn || controlInfo.controlEn || controlInfo.subdomainEn)
+                          {language === 'ar'
+                            ? (controlInfo.subdomainAr || controlInfo.subdomainEn)
+                            : (controlInfo.subdomainEn)
                           }
                         </span>
                       </div>
@@ -786,9 +798,9 @@ export default function TaskDetail() {
             </div>
 
             {/* Control Information Display */}
-            {selectedControlId && controls.find((c: any) => c.controlId === selectedControlId) && (() => {
-              const selectedControl = controls.find((c: any) => c.controlId === selectedControlId);
-              const controlInfo = selectedControl?.regulationControl || selectedControl?.eccControl;
+            {selectedControlId && controls.find((c: any) => c.eccControl?.id === selectedControlId) && (() => {
+              const selectedControl = controls.find((c: any) => c.eccControl?.id === selectedControlId);
+              const controlInfo = selectedControl?.eccControl;
               
               return (
                 <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
@@ -924,7 +936,7 @@ export default function TaskDetail() {
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="title">Title *</Label>
+                  <Label htmlFor="title">Title (Optional)</Label>
                   <Input
                     id="title"
                     value={uploadForm.title}
