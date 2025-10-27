@@ -793,9 +793,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Evidence operations
-  async getEvidence(projectId?: number): Promise<Evidence[]> {
+  async getEvidence(projectId?: number, taskId?: number): Promise<Evidence[]> {
     try {
-      if (projectId) {
+      // Build where conditions
+      const conditions = [];
+      if (projectId) conditions.push(eq(evidence.projectId, projectId));
+      if (taskId) conditions.push(eq(evidence.taskId, taskId));
+
+      if (conditions.length > 0) {
         return await db
           .select({
             id: evidence.id,
@@ -819,7 +824,7 @@ export class DatabaseStorage implements IStorage {
           })
           .from(evidence)
           .leftJoin(users, eq(evidence.uploadedById, users.id))
-          .where(eq(evidence.projectId, projectId))
+          .where(and(...conditions))
           .orderBy(desc(evidence.createdAt));
       } else {
         return await db
@@ -850,9 +855,13 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error in getEvidence:', error);
       // Fallback to simple query without user join if there's an issue
-      if (projectId) {
+      const conditions = [];
+      if (projectId) conditions.push(eq(evidence.projectId, projectId));
+      if (taskId) conditions.push(eq(evidence.taskId, taskId));
+
+      if (conditions.length > 0) {
         return await db.select().from(evidence)
-          .where(eq(evidence.projectId, projectId))
+          .where(and(...conditions))
           .orderBy(desc(evidence.createdAt));
       } else {
         return await db.select().from(evidence)
