@@ -293,8 +293,8 @@ export default function Evidence() {
 
   const handleDownload = async (item: any) => {
     try {
-      // Get JWT token from localStorage
-      const token = localStorage.getItem('auth_token');
+      // Get JWT token from localStorage (using correct key)
+      const token = localStorage.getItem('accessToken');
       
       // Fetch file with authentication
       const response = await fetch(`/api/evidence/${item.id}/download`, {
