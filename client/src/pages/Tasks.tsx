@@ -436,6 +436,12 @@ export default function Tasks() {
     enabled: !!selectedTaskProject?.id && isEditDialogOpen,
   });
 
+  // Fetch evidence filtered by task ID
+  const { data: taskEvidence = [] } = useQuery({
+    queryKey: [`/api/evidence?taskId=${selectedTask?.id}`],
+    enabled: !!selectedTask?.id && isEditDialogOpen,
+  });
+
   // Simple drag and drop sensors without constraints
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -907,7 +913,7 @@ export default function Tasks() {
               <EditTaskForm 
                 task={selectedTask}
                 projectControls={projectControls}
-                taskEvidence={[]} // Task evidence not needed for basic editing
+                taskEvidence={taskEvidence}
                 onSubmit={async (data) => {
                   console.log('Edit form onSubmit called with:', data);
                   const updateData = {
