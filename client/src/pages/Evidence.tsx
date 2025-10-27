@@ -291,14 +291,43 @@ export default function Evidence() {
     }
   };
 
-  const handleDownload = (item: any) => {
-    // Create download link
-    const link = document.createElement('a');
-    link.href = `/api/evidence/${item.id}/download`;
-    link.download = item.fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownload = async (item: any) => {
+    try {
+      // Get JWT token from localStorage
+      const token = localStorage.getItem('auth_token');
+      
+      // Fetch file with authentication
+      const response = await fetch(`/api/evidence/${item.id}/download`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Download failed');
+      }
+      
+      // Create blob from response
+      const blob = await response.blob();
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = item.fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up blob URL
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      toast({
+        title: language === 'ar' ? 'خطأ في التحميل' : 'Download Error',
+        description: language === 'ar' ? 'فشل في تحميل الملف' : 'Failed to download file',
+        variant: 'destructive',
+      });
+    }
   };
 
   const getControlInfo = (controlId: number) => {
