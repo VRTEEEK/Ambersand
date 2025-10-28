@@ -35,6 +35,7 @@ export default function UserProfile() {
   // Form refs
   const firstNameRef = useRef<HTMLInputElement>(null);
   const lastNameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
   const phoneRef = useRef<HTMLInputElement>(null);
   const jobTitleRef = useRef<HTMLInputElement>(null);
 
@@ -93,21 +94,62 @@ export default function UserProfile() {
   });
 
   const handleSave = () => {
+    // Get values and trim whitespace
+    const firstName = firstNameRef.current?.value?.trim() || '';
+    const lastName = lastNameRef.current?.value?.trim() || '';
+    const email = emailRef.current?.value?.trim() || '';
+    const phone = phoneRef.current?.value?.trim() || '';
+    const jobTitle = jobTitleRef.current?.value?.trim() || '';
+
+    // Validate mandatory fields
+    if (!firstName) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'الاسم الأول مطلوب' : 'First name is required',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!lastName) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'الاسم الأخير مطلوب' : 'Last name is required',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!email) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'البريد الإلكتروني مطلوب' : 'Email is required',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'يرجى إدخال بريد إلكتروني صالح' : 'Please enter a valid email',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const updateData = {
-      firstName: firstNameRef.current?.value || '',
-      lastName: lastNameRef.current?.value || '',
-      phone: phoneRef.current?.value || '',
-      jobTitle: jobTitleRef.current?.value || '',
+      firstName,
+      lastName,
+      email,
+      phone,
+      jobTitle,
     };
 
     console.log('[Profile Update Frontend] User ID:', user?.id);
     console.log('[Profile Update Frontend] Update data:', updateData);
-    console.log('[Profile Update Frontend] Refs:', {
-      firstName: firstNameRef.current?.value,
-      lastName: lastNameRef.current?.value,
-      phone: phoneRef.current?.value,
-      jobTitle: jobTitleRef.current?.value,
-    });
 
     updateProfileMutation.mutate(updateData);
   };
@@ -242,8 +284,9 @@ export default function UserProfile() {
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">
+                  <Label htmlFor="firstName" className="flex items-center gap-1">
                     {language === 'ar' ? 'الاسم الأول' : 'First Name'}
+                    <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     ref={firstNameRef}
@@ -252,12 +295,14 @@ export default function UserProfile() {
                     defaultValue={user?.firstName || ''}
                     disabled={!isEditing}
                     placeholder={language === 'ar' ? 'أدخل الاسم الأول' : 'Enter first name'}
+                    required
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">
+                  <Label htmlFor="lastName" className="flex items-center gap-1">
                     {language === 'ar' ? 'الاسم الأخير' : 'Last Name'}
+                    <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     ref={lastNameRef}
@@ -266,23 +311,28 @@ export default function UserProfile() {
                     defaultValue={user?.lastName || ''}
                     disabled={!isEditing}
                     placeholder={language === 'ar' ? 'أدخل الاسم الأخير' : 'Enter last name'}
+                    required
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">
+                <Label htmlFor="email" className="flex items-center gap-1">
                   {language === 'ar' ? 'البريد الإلكتروني' : 'Email Address'}
+                  <span className="text-red-500">*</span>
                 </Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
+                    ref={emailRef}
                     id="email"
                     type="email"
+                    data-testid="input-email"
                     defaultValue={user?.email || ''}
                     disabled={!isEditing}
                     className="pl-10"
                     placeholder={language === 'ar' ? 'أدخل البريد الإلكتروني' : 'Enter email address'}
+                    required
                   />
                 </div>
               </div>

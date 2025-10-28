@@ -277,8 +277,9 @@ router.put("/:userId", requireAuth, async (req: any, res) => {
     }
 
     const updateData = z.object({
-      firstName: z.string().optional(),
-      lastName: z.string().optional(),
+      firstName: z.string().min(1, "First name is required"),
+      lastName: z.string().min(1, "Last name is required"),
+      email: z.string().email("Invalid email address"),
       phone: z.string().optional(),
       jobTitle: z.string().optional(),
       language: z.enum(['en', 'ar']).optional(),
@@ -288,10 +289,26 @@ router.put("/:userId", requireAuth, async (req: any, res) => {
     console.log('[Profile Update] Request body:', req.body);
     console.log('[Profile Update] Parsed data:', updateData);
 
+    // Check if email is already in use by another user
+    if (updateData.email) {
+      const existingUser = await db.query.users.findFirst({
+        where: (u, { and, eq, ne }) => and(
+          eq(u.email, updateData.email),
+          ne(u.id, userId)
+        ),
+        columns: { id: true }
+      });
+
+      if (existingUser) {
+        return res.status(409).json({ message: "Email is already in use" });
+      }
+    }
+
     // Map camelCase to schema field names
     const dbUpdateData: any = {};
     if (updateData.firstName !== undefined) dbUpdateData.firstName = updateData.firstName;
     if (updateData.lastName !== undefined) dbUpdateData.lastName = updateData.lastName;
+    if (updateData.email !== undefined) dbUpdateData.email = updateData.email;
     if (updateData.phone !== undefined) dbUpdateData.phone = updateData.phone;
     if (updateData.jobTitle !== undefined) dbUpdateData.jobTitle = updateData.jobTitle;
     if (updateData.language !== undefined) dbUpdateData.language = updateData.language;
