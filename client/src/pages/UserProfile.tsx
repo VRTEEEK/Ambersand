@@ -42,6 +42,15 @@ export default function UserProfile() {
   // Fetch user statistics
   const { data: stats, isLoading: statsLoading } = useQuery<{projectCount: number, taskCount: number}>({
     queryKey: ['/api/users', user?.id, 'stats'],
+    queryFn: async () => {
+      const response = await fetch(`/api/users/${user?.id}/stats`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+        },
+      });
+      if (!response.ok) throw new Error('Failed to fetch stats');
+      return response.json();
+    },
     enabled: !!user?.id,
   });
 
