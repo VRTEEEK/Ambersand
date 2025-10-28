@@ -749,6 +749,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         filteredUsers = filteredUsers.filter(user => user.status === status);
       }
 
+      if (project_id && project_id !== 'all') {
+        filteredUsers = filteredUsers.filter(user => 
+          user.projectRoles?.some(pr => pr.projectId === project_id)
+        );
+      }
+
       // Apply sorting
       filteredUsers.sort((a, b) => {
         let aVal: any, bVal: any;
