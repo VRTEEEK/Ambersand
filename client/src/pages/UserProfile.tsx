@@ -48,6 +48,9 @@ export default function UserProfile() {
   const updateProfileMutation = useMutation({
     mutationFn: async (data: any) => {
       const token = localStorage.getItem('accessToken');
+      console.log('[Profile Update Frontend] Making API call to:', `/api/users/${user?.id}`);
+      console.log('[Profile Update Frontend] Request body:', JSON.stringify(data));
+
       const response = await fetch(`/api/users/${user?.id}`, {
         method: 'PUT',
         headers: {
@@ -57,17 +60,23 @@ export default function UserProfile() {
         body: JSON.stringify(data),
         credentials: 'include',
       });
-      
+
+      console.log('[Profile Update Frontend] Response status:', response.status);
+
       if (!response.ok) {
         const error = await response.json();
+        console.log('[Profile Update Frontend] Error response:', error);
         throw new Error(error.message || 'Failed to update profile');
       }
-      
-      return response.json();
+
+      const result = await response.json();
+      console.log('[Profile Update Frontend] Success response:', result);
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users', user?.id] });
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users', user?.id, 'stats'] });
       toast({
         title: language === 'ar' ? 'تم حفظ الملف الشخصي' : 'Profile Saved',
         description: language === 'ar' ? 'تم تحديث معلومات الملف الشخصي بنجاح' : 'Profile information updated successfully',
@@ -90,7 +99,16 @@ export default function UserProfile() {
       phone: phoneRef.current?.value || '',
       jobTitle: jobTitleRef.current?.value || '',
     };
-    
+
+    console.log('[Profile Update Frontend] User ID:', user?.id);
+    console.log('[Profile Update Frontend] Update data:', updateData);
+    console.log('[Profile Update Frontend] Refs:', {
+      firstName: firstNameRef.current?.value,
+      lastName: lastNameRef.current?.value,
+      phone: phoneRef.current?.value,
+      jobTitle: jobTitleRef.current?.value,
+    });
+
     updateProfileMutation.mutate(updateData);
   };
 

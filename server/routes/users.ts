@@ -284,14 +284,28 @@ router.put("/:userId", requireAuth, async (req: any, res) => {
       language: z.enum(['en', 'ar']).optional(),
     }).parse(req.body);
 
+    console.log('[Profile Update] User ID:', userId);
+    console.log('[Profile Update] Request body:', req.body);
+    console.log('[Profile Update] Parsed data:', updateData);
+
+    // Map camelCase to schema field names
+    const dbUpdateData: any = {};
+    if (updateData.firstName !== undefined) dbUpdateData.firstName = updateData.firstName;
+    if (updateData.lastName !== undefined) dbUpdateData.lastName = updateData.lastName;
+    if (updateData.phone !== undefined) dbUpdateData.phone = updateData.phone;
+    if (updateData.jobTitle !== undefined) dbUpdateData.jobTitle = updateData.jobTitle;
+    if (updateData.language !== undefined) dbUpdateData.language = updateData.language;
+    dbUpdateData.updatedAt = new Date();
+
+    console.log('[Profile Update] DB update data:', dbUpdateData);
+
     const [updatedUser] = await db
       .update(users)
-      .set({
-        ...updateData,
-        updatedAt: new Date(),
-      })
+      .set(dbUpdateData)
       .where(eq(users.id, userId))
       .returning();
+
+    console.log('[Profile Update] Updated user:', updatedUser);
 
     if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });
