@@ -847,10 +847,13 @@ export default function Regulations() {
   // Featured regulation codes in order
   const FEATURED_CODES = [
     'NCA-ECC-2024',
-    'DCC-2022', 
+    'DCC-2022',
     'CSCC-2023',
     'CRFR-2023',
     'MVC-2024',
+    'OSMACC-2024',
+    'TCC-2024',
+    'CSF-2024',
   ];
 
   // Function to get short code display
@@ -860,6 +863,9 @@ export default function Regulations() {
     if (code.startsWith('CSCC')) return 'CSCC';
     if (code.startsWith('CRFR')) return 'CRFR';
     if (code.startsWith('MVC')) return 'MVC';
+    if (code.startsWith('OSMACC')) return 'OSMACC';
+    if (code.startsWith('TCC')) return 'TCC';
+    if (code.startsWith('CSF')) return 'CSF';
     return code;
   }
 
@@ -1938,7 +1944,7 @@ export default function Regulations() {
         </div>
 
         {/* Regulation Frameworks Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {regulationFrameworks.map((framework, index) => {
             const Icon = framework.icon;
             const isSelected = selectedFramework === framework.id;
