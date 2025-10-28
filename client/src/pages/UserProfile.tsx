@@ -22,20 +22,74 @@ import {
   Edit3,
   Save
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { queryClient, apiRequest } from '@/lib/queryClient';
 
 export default function UserProfile() {
   const { language } = useI18n();
   const { user } = useAuth();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
+  
+  // Form refs
+  const firstNameRef = useRef<HTMLInputElement>(null);
+  const lastNameRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const jobTitleRef = useRef<HTMLInputElement>(null);
+
+  // Fetch user statistics
+  const { data: stats, isLoading: statsLoading } = useQuery<{projectCount: number, taskCount: number}>({
+    queryKey: ['/api/users', user?.id, 'stats'],
+    enabled: !!user?.id,
+  });
+
+  // Update profile mutation
+  const updateProfileMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await fetch(`/api/users/${user?.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update profile');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      toast({
+        title: language === 'ar' ? 'تم حفظ الملف الشخصي' : 'Profile Saved',
+        description: language === 'ar' ? 'تم تحديث معلومات الملف الشخصي بنجاح' : 'Profile information updated successfully',
+      });
+      setIsEditing(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message || (language === 'ar' ? 'فشل في تحديث الملف الشخصي' : 'Failed to update profile'),
+        variant: 'destructive',
+      });
+    },
+  });
 
   const handleSave = () => {
-    toast({
-      title: language === 'ar' ? 'تم حفظ الملف الشخصي' : 'Profile Saved',
-      description: language === 'ar' ? 'تم تحديث معلومات الملف الشخصي بنجاح' : 'Profile information updated successfully',
-    });
-    setIsEditing(false);
+    const updateData = {
+      firstName: firstNameRef.current?.value || '',
+      lastName: lastNameRef.current?.value || '',
+      phone: phoneRef.current?.value || '',
+      jobTitle: jobTitleRef.current?.value || '',
+    };
+    
+    updateProfileMutation.mutate(updateData);
   };
 
   return (
@@ -76,7 +130,7 @@ export default function UserProfile() {
           <Card className="lg:col-span-1">
             <CardHeader className="text-center">
               <div className="flex justify-center mb-4">
-                <UserAvatar user={user} size="2xl" className="h-24 w-24" />
+                <UserAvatar user={user} size="lg" className="h-24 w-24" />
               </div>
               <CardTitle className="text-xl">
                 {user?.firstName || user?.lastName 
@@ -133,14 +187,18 @@ export default function UserProfile() {
                   {language === 'ar' ? 'الإحصائيات' : 'Statistics'}
                 </h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="text-center">
-                    <div className="font-bold text-blue-600">12</div>
+                  <div className="text-center" data-testid="profile-project-count">
+                    <div className="font-bold text-blue-600">
+                      {statsLoading ? '...' : stats?.projectCount ?? 0}
+                    </div>
                     <div className="text-gray-500">
                       {language === 'ar' ? 'مشاريع' : 'Projects'}
                     </div>
                   </div>
-                  <div className="text-center">
-                    <div className="font-bold text-green-600">45</div>
+                  <div className="text-center" data-testid="profile-task-count">
+                    <div className="font-bold text-green-600">
+                      {statsLoading ? '...' : stats?.taskCount ?? 0}
+                    </div>
                     <div className="text-gray-500">
                       {language === 'ar' ? 'مهام' : 'Tasks'}
                     </div>
@@ -168,7 +226,9 @@ export default function UserProfile() {
                     {language === 'ar' ? 'الاسم الأول' : 'First Name'}
                   </Label>
                   <Input
+                    ref={firstNameRef}
                     id="firstName"
+                    data-testid="input-first-name"
                     defaultValue={user?.firstName || ''}
                     disabled={!isEditing}
                     placeholder={language === 'ar' ? 'أدخل الاسم الأول' : 'Enter first name'}
@@ -180,7 +240,9 @@ export default function UserProfile() {
                     {language === 'ar' ? 'الاسم الأخير' : 'Last Name'}
                   </Label>
                   <Input
+                    ref={lastNameRef}
                     id="lastName"
+                    data-testid="input-last-name"
                     defaultValue={user?.lastName || ''}
                     disabled={!isEditing}
                     placeholder={language === 'ar' ? 'أدخل الاسم الأخير' : 'Enter last name'}
@@ -212,8 +274,11 @@ export default function UserProfile() {
                 <div className="relative">
                   <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
+                    ref={phoneRef}
                     id="phone"
+                    data-testid="input-phone"
                     type="tel"
+                    defaultValue={user?.phone || ''}
                     disabled={!isEditing}
                     className="pl-10"
                     placeholder={language === 'ar' ? 'أدخل رقم الهاتف' : 'Enter phone number'}
@@ -243,7 +308,10 @@ export default function UserProfile() {
                 <div className="relative">
                   <Briefcase className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
+                    ref={jobTitleRef}
                     id="jobTitle"
+                    data-testid="input-job-title"
+                    defaultValue={user?.jobTitle || ''}
                     disabled={!isEditing}
                     className="pl-10"
                     placeholder={language === 'ar' ? 'أدخل المسمى الوظيفي' : 'Enter job title'}
@@ -262,11 +330,19 @@ export default function UserProfile() {
             <Button
               variant="outline"
               onClick={() => setIsEditing(false)}
+              data-testid="button-cancel"
             >
               {language === 'ar' ? 'إلغاء' : 'Cancel'}
             </Button>
-            <Button onClick={handleSave}>
-              {language === 'ar' ? 'حفظ التغييرات' : 'Save Changes'}
+            <Button 
+              onClick={handleSave}
+              disabled={updateProfileMutation.isPending}
+              data-testid="button-save-changes"
+            >
+              {updateProfileMutation.isPending 
+                ? (language === 'ar' ? 'جاري الحفظ...' : 'Saving...') 
+                : (language === 'ar' ? 'حفظ التغييرات' : 'Save Changes')
+              }
             </Button>
           </div>
         )}

@@ -90,6 +90,7 @@ router.post("/invite", requireAuth, async (req: any, res) => {
   const currentUserResult = await db.select({
     id: users.id,
     email: users.email,
+    firstName: users.firstName,
     organizationId: users.organizationId
   })
   .from(users)
@@ -261,6 +262,85 @@ router.get("/invite/:token", async (req: any, res) => {
   } catch (error) {
     console.error("Error fetching invite:", error);
     res.status(500).json({ message: "Failed to fetch invite" });
+  }
+});
+
+// PUT /api/users/:userId - Update user profile
+router.put("/:userId", requireAuth, async (req: any, res) => {
+  try {
+    const { userId } = req.params;
+    const currentUserId = req.userId;
+
+    // Users can only update their own profile
+    if (userId !== currentUserId) {
+      return res.status(403).json({ message: "You can only update your own profile" });
+    }
+
+    const updateData = z.object({
+      firstName: z.string().optional(),
+      lastName: z.string().optional(),
+      phone: z.string().optional(),
+      jobTitle: z.string().optional(),
+      language: z.enum(['en', 'ar']).optional(),
+    }).parse(req.body);
+
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        ...updateData,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(updatedUser);
+  } catch (error) {
+    console.error("Error updating user profile:", error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+    }
+    res.status(500).json({ message: "Failed to update profile" });
+  }
+});
+
+// GET /api/users/:userId/stats - Get user statistics
+router.get("/:userId/stats", requireAuth, async (req: any, res) => {
+  try {
+    const { userId } = req.params;
+    const currentUserId = req.userId;
+
+    // Users can only view their own stats
+    if (userId !== currentUserId) {
+      return res.status(403).json({ message: "You can only view your own statistics" });
+    }
+
+    // Import projects and sql from schema
+    const { projects } = await import('@shared/schema');
+    const { sql, count } = await import('drizzle-orm');
+
+    // Count projects owned by the user
+    const projectCountResult = await db
+      .select({ count: count() })
+      .from(projects)
+      .where(eq(projects.ownerId, userId));
+
+    // Count tasks assigned to the user
+    const taskCountResult = await db
+      .select({ count: count() })
+      .from(tasks)
+      .where(eq(tasks.assigneeId, userId));
+
+    res.json({
+      projectCount: Number(projectCountResult[0]?.count || 0),
+      taskCount: Number(taskCountResult[0]?.count || 0),
+    });
+  } catch (error) {
+    console.error("Error fetching user stats:", error);
+    res.status(500).json({ message: "Failed to fetch statistics" });
   }
 });
 
