@@ -47,10 +47,12 @@ export default function UserProfile() {
   // Update profile mutation
   const updateProfileMutation = useMutation({
     mutationFn: async (data: any) => {
+      const token = localStorage.getItem('accessToken');
       const response = await fetch(`/api/users/${user?.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(data),
         credentials: 'include',
