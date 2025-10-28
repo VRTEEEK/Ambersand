@@ -53,13 +53,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   // Mark as read mutation
   const markAsReadMutation = useMutation({
     mutationFn: async (id: number) => {
-      const response = await fetch(`/api/notifications/${id}/read`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error('Failed to mark as read');
-      return response.json();
+      const response = await apiRequest(`/api/notifications/${id}/read`, 'PATCH');
+      return await response.json();
     },
     onSuccess: () => {
       // Invalidate both queries
@@ -71,13 +66,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   // Mark all as read mutation
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/notifications/mark-all-read', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error('Failed to mark all as read');
-      return response.json();
+      const response = await apiRequest('/api/notifications/mark-all-read', 'PATCH');
+      return await response.json();
     },
     onSuccess: () => {
       // Invalidate both queries
