@@ -140,6 +140,19 @@ export default function UserProfile() {
       return;
     }
 
+    // Phone number validation (if provided)
+    if (phone) {
+      const phoneRegex = /^[0-9+\-\s()]*$/;
+      if (!phoneRegex.test(phone)) {
+        toast({
+          title: language === 'ar' ? 'خطأ' : 'Error',
+          description: language === 'ar' ? 'رقم الهاتف يجب أن يحتوي على أرقام فقط' : 'Phone number can only contain numbers, +, -, spaces, and parentheses',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     const updateData = {
       firstName,
       lastName,
@@ -351,7 +364,15 @@ export default function UserProfile() {
                     defaultValue={user?.phone || ''}
                     disabled={!isEditing}
                     className="pl-10"
-                    placeholder={language === 'ar' ? 'أدخل رقم الهاتف' : 'Enter phone number'}
+                    placeholder={language === 'ar' ? '+966 XX XXX XXXX' : '+1 (555) 123-4567'}
+                    onInput={(e) => {
+                      const input = e.target as HTMLInputElement;
+                      const value = input.value;
+                      const filtered = value.replace(/[^0-9+\-\s()]/g, '');
+                      if (value !== filtered) {
+                        input.value = filtered;
+                      }
+                    }}
                   />
                 </div>
               </div>

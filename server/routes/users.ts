@@ -280,7 +280,7 @@ router.put("/:userId", requireAuth, async (req: any, res) => {
       firstName: z.string().min(1, "First name is required"),
       lastName: z.string().min(1, "Last name is required"),
       email: z.string().email("Invalid email address"),
-      phone: z.string().optional(),
+      phone: z.string().regex(/^[0-9+\-\s()]*$/, "Phone number can only contain numbers, +, -, spaces, and parentheses").optional().or(z.literal('')),
       jobTitle: z.string().optional(),
       language: z.enum(['en', 'ar']).optional(),
     }).parse(req.body);
