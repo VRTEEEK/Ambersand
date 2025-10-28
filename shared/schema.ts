@@ -38,6 +38,8 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   name: varchar("name"), // Full name for display
+  phone: varchar("phone"),
+  jobTitle: varchar("job_title"),
   profileImageUrl: varchar("profile_image_url"),
   profilePicture: varchar("profile_picture"), // Alternative field name
   language: varchar("language").default("en"), // For email localization
