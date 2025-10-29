@@ -49,27 +49,22 @@ export default function Signup() {
     }
     if (!formData.password) {
       errors.password = "Field is required!";
+    } else if (formData.password.length < 8) {
+      errors.password = "Password must be at least 8 characters long";
     }
     if (!formData.confirmPassword) {
       errors.confirmPassword = "Field is required!";
     }
 
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      setIsLoading(false);
-      return;
-    }
-
     // Validate passwords match
-    if (formData.password !== formData.confirmPassword) {
+    if (formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword) {
       setError("Passwords do not match");
       setIsLoading(false);
       return;
     }
 
-    // Validate password strength
-    if (formData.password.length < 8) {
-      setError("Password must be at least 8 characters long");
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       setIsLoading(false);
       return;
     }
