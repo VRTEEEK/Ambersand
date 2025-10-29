@@ -162,7 +162,9 @@ export default function Signup() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
+                <Label htmlFor="firstName">
+                  First Name <span className="text-red-600">*</span>
+                </Label>
                 <Input
                   id="firstName"
                   name="firstName"
@@ -180,7 +182,9 @@ export default function Signup() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
+                <Label htmlFor="lastName">
+                  Last Name <span className="text-red-600">*</span>
+                </Label>
                 <Input
                   id="lastName"
                   name="lastName"
@@ -200,7 +204,9 @@ export default function Signup() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">
+                Email <span className="text-red-600">*</span>
+              </Label>
               <Input
                 id="email"
                 name="email"
@@ -220,7 +226,9 @@ export default function Signup() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">
+                Password <span className="text-red-600">*</span>
+              </Label>
               <Input
                 id="password"
                 name="password"
@@ -242,7 +250,9 @@ export default function Signup() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Label htmlFor="confirmPassword">
+                Confirm Password <span className="text-red-600">*</span>
+              </Label>
               <Input
                 id="confirmPassword"
                 name="confirmPassword"
