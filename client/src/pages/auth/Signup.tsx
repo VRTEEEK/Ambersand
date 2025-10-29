@@ -22,16 +22,43 @@ export default function Signup() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     setError("");
+    setFieldErrors((prev) => ({ ...prev, [e.target.name]: "" }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setFieldErrors({});
     setIsLoading(true);
+
+    // Validate required fields
+    const errors: Record<string, string> = {};
+    if (!formData.firstName.trim()) {
+      errors.firstName = "Field is required!";
+    }
+    if (!formData.lastName.trim()) {
+      errors.lastName = "Field is required!";
+    }
+    if (!formData.email.trim()) {
+      errors.email = "Field is required!";
+    }
+    if (!formData.password) {
+      errors.password = "Field is required!";
+    }
+    if (!formData.confirmPassword) {
+      errors.confirmPassword = "Field is required!";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setIsLoading(false);
+      return;
+    }
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
@@ -145,7 +172,12 @@ export default function Signup() {
                   onChange={handleChange}
                   disabled={isLoading}
                   autoComplete="given-name"
+                  className={fieldErrors.firstName ? "border-red-500" : ""}
+                  data-testid="input-firstname"
                 />
+                {fieldErrors.firstName && (
+                  <p className="text-sm text-red-600 dark:text-red-400">{fieldErrors.firstName}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lastName">Last Name</Label>
@@ -158,7 +190,12 @@ export default function Signup() {
                   onChange={handleChange}
                   disabled={isLoading}
                   autoComplete="family-name"
+                  className={fieldErrors.lastName ? "border-red-500" : ""}
+                  data-testid="input-lastname"
                 />
+                {fieldErrors.lastName && (
+                  <p className="text-sm text-red-600 dark:text-red-400">{fieldErrors.lastName}</p>
+                )}
               </div>
             </div>
 
@@ -174,7 +211,12 @@ export default function Signup() {
                 required
                 disabled={isLoading}
                 autoComplete="email"
+                className={fieldErrors.email ? "border-red-500" : ""}
+                data-testid="input-email"
               />
+              {fieldErrors.email && (
+                <p className="text-sm text-red-600 dark:text-red-400">{fieldErrors.email}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -189,8 +231,14 @@ export default function Signup() {
                 required
                 disabled={isLoading}
                 autoComplete="new-password"
+                className={fieldErrors.password ? "border-red-500" : ""}
+                data-testid="input-password"
               />
-              <p className="text-xs text-gray-500">At least 8 characters</p>
+              {fieldErrors.password ? (
+                <p className="text-sm text-red-600 dark:text-red-400">{fieldErrors.password}</p>
+              ) : (
+                <p className="text-xs text-gray-500">At least 8 characters</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -205,7 +253,12 @@ export default function Signup() {
                 required
                 disabled={isLoading}
                 autoComplete="new-password"
+                className={fieldErrors.confirmPassword ? "border-red-500" : ""}
+                data-testid="input-confirmpassword"
               />
+              {fieldErrors.confirmPassword && (
+                <p className="text-sm text-red-600 dark:text-red-400">{fieldErrors.confirmPassword}</p>
+              )}
             </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
