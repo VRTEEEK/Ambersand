@@ -57,12 +57,10 @@ import {
   CheckSquare,
   Square,
   Loader2,
-  Activity,
   KeyRound
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ProjectRoleSummary from './ProjectRoleSummary';
-import AuditModal from './AuditModal';
 import InviteUserDialog from './InviteUserDialogNew';
 import PermissionsPreviewModal from './PermissionsPreviewModal';
 
@@ -123,7 +121,6 @@ export default function EnhancedUsersPage() {
   const [isRolesDrawerOpen, setIsRolesDrawerOpen] = useState(false);
   const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [auditUser, setAuditUser] = useState<User | null>(null);
   const [permissionsUser, setPermissionsUser] = useState<User | null>(null);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   
@@ -577,10 +574,6 @@ export default function EnhancedUsersPage() {
                               )}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setAuditUser(user)}>
-                              <Activity className="h-4 w-4 mr-2" />
-                              {language === 'ar' ? 'عرض السجل' : 'View Audit'}
-                            </DropdownMenuItem>
                             <DropdownMenuItem>
                               <KeyRound className="h-4 w-4 mr-2" />
                               {language === 'ar' ? 'إعادة تعيين كلمة المرور' : 'Reset Password'}
@@ -657,16 +650,6 @@ export default function EnhancedUsersPage() {
         }}
         onSuccess={invalidateUsersLists}
       />
-
-      {/* Audit Modal */}
-      {auditUser && (
-        <AuditModal 
-          userId={auditUser.id}
-          userName={auditUser.name || auditUser.email || ''}
-          open={!!auditUser}
-          onClose={() => setAuditUser(null)}
-        />
-      )}
 
       {/* Permissions Preview Modal */}
       <PermissionsPreviewModal
