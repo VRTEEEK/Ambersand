@@ -720,8 +720,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ...user,
             userRoles,
             projectRoles: groupedProjectRoles,
-            status: user.role === 'disabled' ? 'disabled' : 'active', // Mock status from role field
-            lastActiveAt: user.updatedAt, // Mock last active from updatedAt
+            status: user.isActive === false ? 'disabled' : 'active',
+            lastActiveAt: user.updatedAt,
           };
         })
       );

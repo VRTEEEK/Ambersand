@@ -375,4 +375,50 @@ router.get("/:userId/stats", requireAuth, async (req: any, res) => {
   }
 });
 
+// POST /api/users/:userId/status - Update user status (activate/deactivate)
+router.post("/:userId/status", requireAuth, async (req: any, res) => {
+  try {
+    const { userId } = req.params;
+    const currentUserId = req.userId;
+
+    // Validate status value
+    const { status } = z.object({
+      status: z.enum(['active', 'disabled'])
+    }).parse(req.body);
+
+    // Prevent users from deactivating themselves
+    if (userId === currentUserId && status === 'disabled') {
+      return res.status(400).json({ message: "You cannot deactivate your own account" });
+    }
+
+    // Convert status to isActive boolean
+    const isActive = status === 'active';
+
+    // Update user status
+    const [updatedUser] = await db
+      .update(users)
+      .set({ 
+        isActive,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({ 
+      success: true,
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error("Error updating user status:", error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid status value" });
+    }
+    res.status(500).json({ message: "Failed to update user status" });
+  }
+});
+
 export default router;
