@@ -37,7 +37,7 @@ router.get("/search", requireAuth, async (req: any, res) => {
   const limit = Math.min(Number(req.query.limit || 8), 25);
   const orgId = req.organizationId || 'default';
 
-  if (!q || q.length < 2) return res.json({ items: [] });
+  if (!q || q.length < 1) return res.json({ items: [] });
 
   try {
     // Search users by email, firstName, lastName within organization only
