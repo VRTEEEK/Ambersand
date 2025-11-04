@@ -185,12 +185,20 @@ router.post("/toggle", async (req: any, res) => {
       // Optional: notify task assignee
       try {
         if (task.assigneeId && process.env.SENDGRID_API_KEY) {
-          await emailService.sendEmailWithRetry({
-            to: task.assigneeId, // This should be email, need to fetch user details
-            subject: `[Ambersand] Task marked as Risk: ${task.title}`,
-            html: `<p>The task <strong>${task.title}</strong> has been marked as a risk and requires attention.</p>
-                   <p><a href="${process.env.APP_BASE_URL || "http://localhost:5000"}/risks/${newRisk.id}">View Risk Details</a></p>`,
-          });
+          // Fetch assignee user details to get email
+          const { users } = await import("../../shared/schema");
+          const [assignee] = await db.select()
+            .from(users)
+            .where(eq(users.id, task.assigneeId));
+
+          if (assignee && assignee.email) {
+            await emailService.sendEmailWithRetry({
+              to: assignee.email,
+              subject: `[Ambersand] Task marked as Risk: ${task.title}`,
+              html: `<p>The task <strong>${task.title}</strong> has been marked as a risk and requires attention.</p>
+                     <p><a href="${process.env.APP_BASE_URL || "http://localhost:5000"}/risks/${newRisk.id}">View Risk Details</a></p>`,
+            });
+          }
         }
       } catch (emailError) {
         console.error("Failed to send risk notification email:", emailError);
@@ -242,6 +250,15 @@ router.patch("/:id", async (req: any, res) => {
     
     const body = updateRiskSchema.parse(req.body);
 
+    // Get the old risk record before updating to check for assignee changes
+    const [oldRisk] = await db.select()
+      .from(risks)
+      .where(and(eq(risks.id, id), eq(risks.organizationId, organizationId)));
+
+    if (!oldRisk) {
+      return res.status(404).json({ message: "Risk not found" });
+    }
+
     const [updated] = await db.update(risks)
       .set({
         ...(body as any), // Type assertion to handle Drizzle ORM typing issues
@@ -255,12 +272,32 @@ router.patch("/:id", async (req: any, res) => {
     }
 
     // Send email notification if assignee changed
-    if (body.assigneeId && body.assigneeId !== updated.assigneeId) {
+    if (body.assigneeId && body.assigneeId !== oldRisk.assigneeId) {
       try {
-        // TODO: Fetch assignee user details and send email
-        console.log("Risk assigned to:", body.assigneeId);
+        // Fetch assignee user details to get email
+        const { users } = await import("../../shared/schema");
+        const [assignee] = await db.select()
+          .from(users)
+          .where(eq(users.id, body.assigneeId));
+
+        if (assignee && assignee.email && process.env.SENDGRID_API_KEY) {
+          const { getUserById } = await import("../storage");
+          const storage = (await import("../storage")).default;
+          const creatorUser = await storage.getUserById(oldRisk.createdById);
+
+          await emailService.sendEmailWithRetry({
+            to: assignee.email,
+            subject: `[Ambersand] Risk Assigned: ${updated.title}`,
+            html: `<p>You have been assigned to a risk: <strong>${updated.title}</strong></p>
+                   <p><strong>Severity:</strong> ${updated.severity}</p>
+                   <p><strong>Status:</strong> ${updated.status}</p>
+                   <p><strong>Created by:</strong> ${creatorUser?.firstName || 'Unknown'} ${creatorUser?.lastName || ''}</p>
+                   <p><a href="${process.env.APP_BASE_URL || "http://localhost:5000"}/risks/${updated.id}">View Risk Details</a></p>`,
+          });
+        }
       } catch (emailError) {
         console.error("Failed to send assignment email:", emailError);
+        // Continue without failing the operation
       }
     }
 
