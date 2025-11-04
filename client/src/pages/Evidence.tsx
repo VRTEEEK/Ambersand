@@ -119,6 +119,19 @@ export default function Evidence() {
   // Evidence comments query
   const { data: evidenceComments, refetch: refetchComments } = useQuery({
     queryKey: ['/api/evidence/comments', selectedEvidence?.id],
+    queryFn: async () => {
+      const token = localStorage.getItem("accessToken");
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const res = await fetch(`/api/evidence/${selectedEvidence?.id}/comments`, {
+        credentials: 'include',
+        headers,
+      });
+      if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+      return res.json();
+    },
     enabled: !!selectedEvidence?.id,
     retry: false,
   });
