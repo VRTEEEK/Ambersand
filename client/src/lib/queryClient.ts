@@ -13,7 +13,7 @@ export async function apiRequest(
   data?: unknown | undefined,
 ): Promise<Response> {
   // Get access token from localStorage
-  const token = localStorage.getItem("accessToken");
+  let token = localStorage.getItem("accessToken");
 
   console.log(`[apiRequest] ${method} ${url}`, 'with auth:', !!token);
 
@@ -26,12 +26,71 @@ export async function apiRequest(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(url, {
+  let res = await fetch(url, {
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
+
+  // If we get a 401, try to refresh the token and retry
+  if (res.status === 401) {
+    console.log(`[apiRequest] Got 401, attempting token refresh`);
+    const refreshToken = localStorage.getItem("refreshToken");
+    
+    if (refreshToken) {
+      try {
+        const refreshResponse = await fetch("/api/auth/refresh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken }),
+        });
+
+        if (refreshResponse.ok) {
+          console.log("[apiRequest] Token refreshed successfully");
+          const refreshData = await refreshResponse.json();
+          const newAccessToken = refreshData.data.accessToken;
+          const newRefreshToken = refreshData.data.refreshToken;
+          
+          localStorage.setItem("accessToken", newAccessToken);
+          localStorage.setItem("refreshToken", newRefreshToken);
+
+          // Retry original request with new token
+          const newHeaders: Record<string, string> = {};
+          if (data) {
+            newHeaders["Content-Type"] = "application/json";
+          }
+          newHeaders["Authorization"] = `Bearer ${newAccessToken}`;
+
+          res = await fetch(url, {
+            method,
+            headers: newHeaders,
+            body: data ? JSON.stringify(data) : undefined,
+            credentials: "include",
+          });
+        } else {
+          console.log("[apiRequest] Token refresh failed");
+          // Clear tokens and redirect to login
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("refreshToken");
+          window.location.href = "/login";
+          throw new Error("401: Session expired, please login again");
+        }
+      } catch (error) {
+        console.error("[apiRequest] Error during token refresh:", error);
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        window.location.href = "/login";
+        throw error;
+      }
+    } else {
+      // No refresh token available, redirect to login
+      console.log("[apiRequest] No refresh token available");
+      localStorage.removeItem("accessToken");
+      window.location.href = "/login";
+      throw new Error("401: No refresh token available");
+    }
+  }
 
   if (!res.ok) {
     console.error(`[apiRequest] ${method} ${url} failed with status ${res.status}`);
