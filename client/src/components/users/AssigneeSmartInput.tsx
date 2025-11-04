@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -15,31 +16,16 @@ export default function AssigneeSmartInput({ onResolve, disabled }: {
 
   const enabled = open && query.trim().length >= 1;
 
-  const fetchUsers = async () => {
-    const q = query.trim();
-    if (q.length < 1) return { items: [] };
-    
-    // Get JWT token from localStorage
-    const token = localStorage.getItem("accessToken");
-    const headers: Record<string, string> = {
-      "Accept": "application/json",
-    };
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-    
-    const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}&limit=8`, {
-      method: "GET",
-      credentials: "include",
-      headers,
-    });
-    if (!res.ok) return { items: [] };
-    return res.json();
-  };
-
   const { data, isFetching } = useQuery({
-    queryKey: ["users-search", query], // stable key that changes only with query
-    queryFn: fetchUsers,
+    queryKey: ["/api/users/search", query],
+    queryFn: async () => {
+      const q = query.trim();
+      if (q.length < 1) return { items: [] };
+      
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}&limit=8`);
+      if (!res.ok) return { items: [] };
+      return res.json();
+    },
     enabled,
     staleTime: 30_000,
   });
@@ -50,37 +36,30 @@ export default function AssigneeSmartInput({ onResolve, disabled }: {
   const canInvite = EMAIL_RE.test(query.trim()) && !items.some(u => u.email.toLowerCase() === query.trim().toLowerCase());
 
   async function invite(email: string) {
-    // Get JWT token from localStorage
-    const token = localStorage.getItem("accessToken");
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-    
-    const res = await fetch("/api/users/invite", {
-      method: "POST",
-      credentials: "include",
-      headers,
-      body: JSON.stringify({ email }),
-    });
-    if (res.status === 409) {
-      const { userId } = await res.json();
-      onResolve({ type: "existing", userId, email });
+    try {
+      const res = await apiRequest("/api/users/invite", "POST", { email });
+      
+      if (res.status === 409) {
+        const { userId } = await res.json();
+        onResolve({ type: "existing", userId, email });
+        setOpen(false);
+        setQuery(email);
+        return;
+      }
+      
+      if (!res.ok) {
+        const err = await res.text();
+        alert(`Failed to send invite: ${err || res.status}`);
+        return;
+      }
+      
+      const { inviteId } = await res.json();
+      onResolve({ type: "invite", inviteId, email });
       setOpen(false);
-      setQuery(email);
-      return;
+      setQuery(`Invited: ${email}`);
+    } catch (error: any) {
+      alert(`Failed to send invite: ${error.message || 'Unknown error'}`);
     }
-    if (!res.ok) {
-      const err = await res.text();
-      alert(`Failed to send invite: ${err || res.status}`);
-      return;
-    }
-    const { inviteId } = await res.json();
-    onResolve({ type: "invite", inviteId, email });
-    setOpen(false);
-    setQuery(`Invited: ${email}`);
   }
 
   return (
