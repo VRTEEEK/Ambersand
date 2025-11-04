@@ -13,11 +13,11 @@ export default function AssigneeSmartInput({ onResolve, disabled }: {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
-  const enabled = open && query.trim().length >= 2;
+  const enabled = open && query.trim().length >= 1;
 
   const fetchUsers = async () => {
     const q = query.trim();
-    if (q.length < 2) return { items: [] };
+    if (q.length < 1) return { items: [] };
     
     // Get JWT token from localStorage
     const token = localStorage.getItem("accessToken");
