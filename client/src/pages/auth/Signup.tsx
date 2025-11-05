@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
+import { AlertCircle, Loader2, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import logoPath from "@assets/Logo_1752310054852.png";
 
@@ -23,6 +23,8 @@ export default function Signup() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -232,19 +234,30 @@ export default function Signup() {
               <Label htmlFor="password">
                 Password <span className="text-red-600">*</span>
               </Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="••••••••"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                disabled={isLoading}
-                autoComplete="new-password"
-                className={fieldErrors.password ? "border-red-500" : ""}
-                data-testid="input-password"
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  disabled={isLoading}
+                  autoComplete="new-password"
+                  className={fieldErrors.password ? "border-red-500 pr-10" : "pr-10"}
+                  data-testid="input-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  disabled={isLoading}
+                  data-testid="toggle-password-visibility"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
               {fieldErrors.password ? (
                 <p className="text-sm text-red-600 dark:text-red-400">{fieldErrors.password}</p>
               ) : (
@@ -265,19 +278,30 @@ export default function Signup() {
               <Label htmlFor="confirmPassword">
                 Confirm Password <span className="text-red-600">*</span>
               </Label>
-              <Input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                placeholder="••••••••"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                required
-                disabled={isLoading}
-                autoComplete="new-password"
-                className={fieldErrors.confirmPassword ? "border-red-500" : ""}
-                data-testid="input-confirmpassword"
-              />
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  required
+                  disabled={isLoading}
+                  autoComplete="new-password"
+                  className={fieldErrors.confirmPassword ? "border-red-500 pr-10" : "pr-10"}
+                  data-testid="input-confirmpassword"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  disabled={isLoading}
+                  data-testid="toggle-confirmpassword-visibility"
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
               {fieldErrors.confirmPassword && (
                 <p className="text-sm text-red-600 dark:text-red-400">{fieldErrors.confirmPassword}</p>
               )}
