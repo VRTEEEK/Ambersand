@@ -10,19 +10,22 @@ import { getUserPermissions } from "../rbac-seed";
 const router = Router();
 
 // Helper functions for permissions
-async function canEditRisk(userId: number): Promise<boolean> {
+async function canEditRisk(userId: string | number): Promise<boolean> {
   if (!userId) return false;
 
   const permissions = await getUserPermissions(userId);
   return permissions.includes("edit_risks");
 }
 
-async function canViewTask(userId: number, task: any): Promise<boolean> {
+async function canViewTask(userId: string | number, task: any): Promise<boolean> {
   // User can view if they're the assignee, creator, or have admin permissions
   if (!userId) return false;
 
+  // Convert both to strings for comparison (since userId is now string after JWT migration)
+  const userIdStr = String(userId);
+  
   // Check if user is assignee or creator
-  if (userId === task?.assigneeId || userId === task?.createdById) {
+  if (userIdStr === String(task?.assigneeId) || userIdStr === String(task?.createdById)) {
     return true;
   }
 
