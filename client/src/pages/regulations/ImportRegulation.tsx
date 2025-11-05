@@ -43,6 +43,7 @@ export default function ImportRegulation() {
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Fetch versions for the current code - must be called before any conditional returns
   const { data: versions, refetch: refetchVersions } = useQuery({
@@ -140,6 +141,56 @@ export default function ImportRegulation() {
     setLastDryRunOk(false);
   };
 
+  // Field validation handlers
+  const validateField = (fieldName: string, value: string, displayName: string) => {
+    if (value.length > 255) {
+      setFieldErrors(prev => ({
+        ...prev,
+        [fieldName]: language === 'ar' 
+          ? `الحد الأقصى ${displayName} هو 255 حرفًا`
+          : `Maximum ${displayName} is 255 characters`
+      }));
+      return false;
+    } else {
+      setFieldErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[fieldName];
+        return newErrors;
+      });
+      return true;
+    }
+  };
+
+  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setCode(value);
+    validateField('code', value, language === 'ar' ? 'الكود' : 'code');
+  };
+
+  const handleVersionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setVersion(value);
+    validateField('version', value, language === 'ar' ? 'الإصدار' : 'version');
+  };
+
+  const handleNameEnChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setNameEn(value);
+    validateField('nameEn', value, language === 'ar' ? 'الاسم (إنجليزي)' : 'name (English)');
+  };
+
+  const handleNameArChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setNameAr(value);
+    validateField('nameAr', value, language === 'ar' ? 'الاسم (عربي)' : 'name (Arabic)');
+  };
+
+  const handlePublisherChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setPublisher(value);
+    validateField('publisher', value, language === 'ar' ? 'الناشر' : 'publisher');
+  };
+
   // Helper to extract detailed error messages
   async function extractMessage(err: any) {
     if (err?.message) {
@@ -196,6 +247,17 @@ export default function ImportRegulation() {
       return;
     }
 
+    if (Object.keys(fieldErrors).length > 0) {
+      toast({
+        title: language === 'ar' ? 'أخطاء في التحقق' : 'Validation Errors',
+        description: language === 'ar' 
+          ? 'يرجى تصحيح الأخطاء قبل المتابعة'
+          : 'Please correct the errors before proceeding',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const formData = new FormData();
@@ -247,6 +309,17 @@ export default function ImportRegulation() {
         description: language === 'ar'
           ? 'يرجى ملء جميع الحقول المطلوبة وتحديد ملف'
           : 'Please fill all required fields and select a file',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
+      toast({
+        title: language === 'ar' ? 'أخطاء في التحقق' : 'Validation Errors',
+        description: language === 'ar' 
+          ? 'يرجى تصحيح الأخطاء قبل المتابعة'
+          : 'Please correct the errors before proceeding',
         variant: 'destructive',
       });
       return;
@@ -327,56 +400,83 @@ export default function ImportRegulation() {
               <Input 
                 id="code"
                 value={code} 
-                onChange={e => setCode(e.target.value)} 
-                placeholder="ECC / DCC / CUSTOM" 
+                onChange={handleCodeChange} 
+                placeholder="ECC / DCC / CUSTOM"
+                className={fieldErrors.code ? "border-red-500" : ""}
+                data-testid="input-code"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                {language === 'ar' 
-                  ? 'استخدم كود قصير (مثال: ECC، DCC، HRPOLICY)'
-                  : 'Use a short code (e.g. ECC, DCC, HRPOLICY).'
-                }
-              </p>
+              {fieldErrors.code ? (
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">{fieldErrors.code}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {language === 'ar' 
+                    ? 'استخدم كود قصير (مثال: ECC، DCC، HRPOLICY)'
+                    : 'Use a short code (e.g. ECC, DCC, HRPOLICY).'
+                  }
+                </p>
+              )}
             </div>
             <div>
               <Label htmlFor="version">{language === 'ar' ? 'الإصدار' : 'Version'}</Label>
               <Input 
                 id="version"
                 value={version} 
-                onChange={e => setVersion(e.target.value)} 
-                placeholder="2024-v0.4" 
+                onChange={handleVersionChange} 
+                placeholder="2024-v0.4"
+                className={fieldErrors.version ? "border-red-500" : ""}
+                data-testid="input-version"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                {language === 'ar' 
-                  ? 'اتبع النمط الدلالي (مثال: 2024-v0.4)'
-                  : 'Follow semantic style (e.g. 2024-v0.4).'
-                }
-              </p>
+              {fieldErrors.version ? (
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">{fieldErrors.version}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {language === 'ar' 
+                    ? 'اتبع النمط الدلالي (مثال: 2024-v0.4)'
+                    : 'Follow semantic style (e.g. 2024-v0.4).'
+                  }
+                </p>
+              )}
             </div>
             <div>
               <Label htmlFor="nameEn">{language === 'ar' ? 'الاسم (إنجليزي)' : 'Name (English)'}</Label>
               <Input 
                 id="nameEn"
                 value={nameEn} 
-                onChange={e => setNameEn(e.target.value)} 
+                onChange={handleNameEnChange}
+                className={fieldErrors.nameEn ? "border-red-500" : ""}
+                data-testid="input-name-en"
               />
+              {fieldErrors.nameEn && (
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">{fieldErrors.nameEn}</p>
+              )}
             </div>
             <div>
               <Label htmlFor="nameAr">{language === 'ar' ? 'الاسم (عربي) — اختياري' : 'Name (Arabic) — optional'}</Label>
               <Input 
                 id="nameAr"
                 value={nameAr} 
-                onChange={e => setNameAr(e.target.value)} 
-                dir="rtl" 
+                onChange={handleNameArChange} 
+                dir="rtl"
+                className={fieldErrors.nameAr ? "border-red-500" : ""}
+                data-testid="input-name-ar"
               />
+              {fieldErrors.nameAr && (
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">{fieldErrors.nameAr}</p>
+              )}
             </div>
             <div className="md:col-span-2">
               <Label htmlFor="publisher">{language === 'ar' ? 'الناشر — اختياري' : 'Publisher — optional'}</Label>
               <Input 
                 id="publisher"
                 value={publisher} 
-                onChange={e => setPublisher(e.target.value)} 
-                placeholder="NCA / Custom" 
+                onChange={handlePublisherChange} 
+                placeholder="NCA / Custom"
+                className={fieldErrors.publisher ? "border-red-500" : ""}
+                data-testid="input-publisher"
               />
+              {fieldErrors.publisher && (
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">{fieldErrors.publisher}</p>
+              )}
             </div>
           </div>
 
