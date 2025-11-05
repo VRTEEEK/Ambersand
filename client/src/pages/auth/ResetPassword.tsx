@@ -47,6 +47,22 @@ export default function ResetPassword() {
       setError("Password must be at least 8 characters long");
       return;
     }
+    if (!/(?=.*[a-z])/.test(password)) {
+      setError("Password must contain at least one lowercase letter");
+      return;
+    }
+    if (!/(?=.*[A-Z])/.test(password)) {
+      setError("Password must contain at least one uppercase letter");
+      return;
+    }
+    if (!/(?=.*\d)/.test(password)) {
+      setError("Password must contain at least one number");
+      return;
+    }
+    if (!/(?=.*[@$!%*?&#])/.test(password)) {
+      setError("Password must contain at least one special character (@$!%*?&#)");
+      return;
+    }
 
     if (!token) {
       setError("Reset token is missing. Please use the link from your email.");
@@ -149,7 +165,16 @@ export default function ResetPassword() {
                 disabled={isLoading || !token}
                 autoComplete="new-password"
               />
-              <p className="text-xs text-gray-500">At least 8 characters</p>
+              <div className="text-xs text-gray-500 space-y-1">
+                <p className="font-medium">Password must contain:</p>
+                <ul className="list-disc list-inside space-y-0.5 ml-2">
+                  <li>At least 8 characters</li>
+                  <li>One uppercase letter (A-Z)</li>
+                  <li>One lowercase letter (a-z)</li>
+                  <li>One number (0-9)</li>
+                  <li>One special character (@$!%*?&#)</li>
+                </ul>
+              </div>
             </div>
 
             <div className="space-y-2">

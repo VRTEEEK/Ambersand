@@ -51,6 +51,14 @@ export default function Signup() {
       errors.password = "Field is required!";
     } else if (formData.password.length < 8) {
       errors.password = "Password must be at least 8 characters long";
+    } else if (!/(?=.*[a-z])/.test(formData.password)) {
+      errors.password = "Password must contain at least one lowercase letter";
+    } else if (!/(?=.*[A-Z])/.test(formData.password)) {
+      errors.password = "Password must contain at least one uppercase letter";
+    } else if (!/(?=.*\d)/.test(formData.password)) {
+      errors.password = "Password must contain at least one number";
+    } else if (!/(?=.*[@$!%*?&#])/.test(formData.password)) {
+      errors.password = "Password must contain at least one special character (@$!%*?&#)";
     }
     if (!formData.confirmPassword) {
       errors.confirmPassword = "Field is required!";
@@ -240,7 +248,16 @@ export default function Signup() {
               {fieldErrors.password ? (
                 <p className="text-sm text-red-600 dark:text-red-400">{fieldErrors.password}</p>
               ) : (
-                <p className="text-xs text-gray-500">At least 8 characters</p>
+                <div className="text-xs text-gray-500 space-y-1">
+                  <p className="font-medium">Password must contain:</p>
+                  <ul className="list-disc list-inside space-y-0.5 ml-2">
+                    <li>At least 8 characters</li>
+                    <li>One uppercase letter (A-Z)</li>
+                    <li>One lowercase letter (a-z)</li>
+                    <li>One number (0-9)</li>
+                    <li>One special character (@$!%*?&#)</li>
+                  </ul>
+                </div>
               )}
             </div>
 

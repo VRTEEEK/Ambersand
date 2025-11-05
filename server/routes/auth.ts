@@ -15,7 +15,13 @@ router.post("/signup", authRateLimiter, async (req, res) => {
   try {
     const schema = z.object({
       email: z.string().email("Invalid email address"),
-      password: z.string().min(8, "Password must be at least 8 characters").max(128),
+      password: z.string()
+        .min(8, "Password must be at least 8 characters")
+        .max(128)
+        .regex(/(?=.*[a-z])/, "Password must contain at least one lowercase letter")
+        .regex(/(?=.*[A-Z])/, "Password must contain at least one uppercase letter")
+        .regex(/(?=.*\d)/, "Password must contain at least one number")
+        .regex(/(?=.*[@$!%*?&#])/, "Password must contain at least one special character (@$!%*?&#)"),
       firstName: z.string().optional(),
       lastName: z.string().optional(),
     });
@@ -404,7 +410,13 @@ router.post("/reset-password", authRateLimiter, async (req, res) => {
   try {
     const schema = z.object({
       token: z.string(),
-      newPassword: z.string().min(8, "Password must be at least 8 characters").max(128),
+      newPassword: z.string()
+        .min(8, "Password must be at least 8 characters")
+        .max(128)
+        .regex(/(?=.*[a-z])/, "Password must contain at least one lowercase letter")
+        .regex(/(?=.*[A-Z])/, "Password must contain at least one uppercase letter")
+        .regex(/(?=.*\d)/, "Password must contain at least one number")
+        .regex(/(?=.*[@$!%*?&#])/, "Password must contain at least one special character (@$!%*?&#)"),
     });
 
     const { token, newPassword } = schema.parse(req.body);
