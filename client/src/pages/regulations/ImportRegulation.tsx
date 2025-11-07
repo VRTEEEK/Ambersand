@@ -142,7 +142,19 @@ export default function ImportRegulation() {
   };
 
   // Field validation handlers
-  const validateField = (fieldName: string, value: string, displayName: string) => {
+  const validateField = (fieldName: string, value: string, displayName: string, isRequired: boolean = false) => {
+    const trimmedValue = value.trim();
+    
+    if (trimmedValue.length === 0 && value.length > 0) {
+      setFieldErrors(prev => ({
+        ...prev,
+        [fieldName]: language === 'ar' 
+          ? `${displayName} لا يمكن أن يحتوي على مسافات فقط`
+          : `${displayName} cannot contain only spaces`
+      }));
+      return false;
+    }
+    
     if (value.length > 255) {
       setFieldErrors(prev => ({
         ...prev,
@@ -151,44 +163,44 @@ export default function ImportRegulation() {
           : `Maximum ${displayName} is 255 characters`
       }));
       return false;
-    } else {
-      setFieldErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[fieldName];
-        return newErrors;
-      });
-      return true;
     }
+    
+    setFieldErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[fieldName];
+      return newErrors;
+    });
+    return true;
   };
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setCode(value);
-    validateField('code', value, language === 'ar' ? 'الكود' : 'code');
+    validateField('code', value, language === 'ar' ? 'الكود' : 'Code', true);
   };
 
   const handleVersionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setVersion(value);
-    validateField('version', value, language === 'ar' ? 'الإصدار' : 'version');
+    validateField('version', value, language === 'ar' ? 'الإصدار' : 'Version', true);
   };
 
   const handleNameEnChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setNameEn(value);
-    validateField('nameEn', value, language === 'ar' ? 'الاسم (إنجليزي)' : 'name (English)');
+    validateField('nameEn', value, language === 'ar' ? 'الاسم (إنجليزي)' : 'Name (English)', true);
   };
 
   const handleNameArChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setNameAr(value);
-    validateField('nameAr', value, language === 'ar' ? 'الاسم (عربي)' : 'name (Arabic)');
+    validateField('nameAr', value, language === 'ar' ? 'الاسم (عربي)' : 'Name (Arabic)', false);
   };
 
   const handlePublisherChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setPublisher(value);
-    validateField('publisher', value, language === 'ar' ? 'الناشر' : 'publisher');
+    validateField('publisher', value, language === 'ar' ? 'الناشر' : 'Publisher', false);
   };
 
   // Helper to extract detailed error messages
