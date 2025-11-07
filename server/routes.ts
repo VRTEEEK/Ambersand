@@ -3904,7 +3904,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
 
     log('\n🚀 ========== IMPORT REQUEST RECEIVED ==========');
-    log(`User: ${req.user?.email || req.user?.id}`);
+    log(`User ID: ${req.userId}`);
+    log(`Organization ID: ${req.organizationId}`);
     log(`File received: ${!!req.file}`);
     log(`Body: ${JSON.stringify(req.body)}`);
 
@@ -4054,6 +4055,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const userId = req.userId;
         const orgId = req.organizationId || 'default';
 
+        console.log('🔍 DEBUG VALUES:', {
+          reqUserId: req.userId,
+          reqOrganizationId: req.organizationId,
+          computedUserId: userId,
+          computedOrgId: orgId,
+          typeOfUserId: typeof userId,
+          typeOfOrgId: typeof orgId
+        });
+
+        if (!userId) {
+          log('❌ User ID is missing from request');
+          return res.status(401).json({ message: 'User authentication required' });
+        }
+
+        if (!orgId) {
+          log('❌ Organization ID is missing');
+          return res.status(400).json({ message: 'Organization ID is required' });
+        }
+
+        log(`✅ User ID: ${userId}, Org ID: ${orgId}`);
+
         // Check if regulation already exists
         const existingRegulations = await db.select()
           .from(regulations)
@@ -4090,6 +4112,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               version,
               publisher: publisher || null,
               status: 'active' as const,
+              orgId,
+              createdBy: userId,
             })
             .returning();
 
