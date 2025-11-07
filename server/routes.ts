@@ -29,6 +29,8 @@ import {
   notifications,
   tasks,
   comments,
+  regulations,
+  regulationControls,
 } from "@shared/schema";
 import risksRouter from "./routes/risks";
 import analyticsRouter from "./routes/analytics";
@@ -822,7 +824,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      // For memory storage, save to temp location if needed
+      // For disk storage, move file to permanent location
       const fileExtension = path.extname(req.file.originalname);
       const fileName = `profile_${userId}_${Date.now()}${fileExtension}`;
       const uploadsDir = path.join(process.cwd(), 'uploads');
@@ -830,9 +832,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fs.mkdirSync(uploadsDir, { recursive: true });
       }
       const filePath = path.join(uploadsDir, fileName);
-      
-      // Write buffer to file
-      fs.writeFileSync(filePath, req.file.buffer);
+
+      // Move file from temp upload location
+      fs.renameSync(req.file.path, filePath);
       
       // Create URL for the uploaded file
       const profileImageUrl = `/uploads/${fileName}`;
@@ -2844,7 +2846,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(userId);
       const isDryRun = req.body.dryRun === 'true';
 
-      const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+      // Read file from disk since we're using diskStorage
+      const fileBuffer = fs.readFileSync(req.file.path);
+      const wb = XLSX.read(fileBuffer, { type: 'buffer' });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json<any>(ws, { defval: "" });
 
@@ -2965,8 +2969,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      res.status(201).json({ 
-        regulationId: reg.id, 
+      // Clean up uploaded file
+      if (req.file?.path) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (cleanupError) {
+          console.error('Failed to clean up file:', cleanupError);
+        }
+      }
+
+      res.status(201).json({
+        regulationId: reg.id,
         inserted: insertedCount,
         updated: 0,
         total: parsedControls.length,
@@ -2975,6 +2988,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (e:any) {
       console.error("Import failed:", e);
+
+      // Clean up uploaded file on error
+      if (req.file?.path) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (cleanupError) {
+          console.error('Failed to clean up file:', cleanupError);
+        }
+      }
+
       res.status(500).json({ message: "Failed to import regulation", error: e.message });
     }
   });
@@ -3986,7 +4009,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               rowsType: typeof rows,
               isArray: Array.isArray(rows),
               rowsLength: rows?.length,
-              fileSize: req.file.buffer.length,
+              fileSize: fileBuffer.length,
               fileName: req.file.originalname,
               ext: ext
             }
@@ -4171,7 +4194,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ error: 'No file', hasFile: false });
       }
 
-      const buffer = req.file.buffer;
+      // Read file from disk since we're using diskStorage
+      const buffer = fs.readFileSync(req.file.path);
       const ext = path.extname(req.file.originalname).toLowerCase();
 
       const result: any = {
@@ -4198,8 +4222,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Clean up uploaded file
+      if (req.file?.path) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (cleanupError) {
+          console.error('Failed to clean up file:', cleanupError);
+        }
+      }
+
       res.json(result);
     } catch (error: any) {
+      // Clean up uploaded file on error
+      if (req.file?.path) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (cleanupError) {
+          console.error('Failed to clean up file:', cleanupError);
+        }
+      }
+
       res.json({ error: error.message, stack: error.stack });
     }
   });
