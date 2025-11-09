@@ -1380,9 +1380,9 @@ export default function Regulations() {
                 </DialogDescription>
               </DialogHeader>
               
+              <Form {...form}>
               <div className="space-y-8">
                 {/* Regulation Basic Info */}
-                <Form {...form}>
                   <div className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
                     <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                       <Settings className="h-5 w-5 text-teal-600" />
@@ -1495,7 +1495,6 @@ export default function Regulations() {
                       />
                     </div>
                   </div>
-                </Form>
 
                 {/* Controls Section */}
                 <div className="bg-gradient-to-r from-teal-50 to-white dark:from-teal-900/20 dark:to-gray-900 rounded-lg p-6 border border-teal-200 dark:border-teal-700">
@@ -1938,6 +1937,7 @@ export default function Regulations() {
                   </Button>
                 </div>
               </div>
+              </Form>
             </DialogContent>
           </Dialog>
           </div>
