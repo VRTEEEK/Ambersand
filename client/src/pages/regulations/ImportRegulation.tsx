@@ -389,20 +389,6 @@ export default function ImportRegulation() {
               <Download className="h-4 w-4 mr-2" />
               {language === 'ar' ? 'تحميل قالب CSV' : 'Download CSV Template'}
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                const link = document.createElement('a');
-                link.href = '/test-regulation-sample.csv';
-                link.download = 'test-regulation-sample.csv';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-              }}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              {language === 'ar' ? 'تحميل عينة اختبار' : 'Download Test Sample'}
-            </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
