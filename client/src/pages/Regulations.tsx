@@ -952,6 +952,21 @@ export default function Regulations() {
     };
   });
 
+  // Get imported regulations (not in featured list)
+  const importedRegulations = (regulationsSummary || []).filter((r: any) => 
+    !FEATURED_CODES.includes(r.code)
+  ).map((regulation: any) => ({
+    id: regulation.code.toLowerCase().replace(/[^a-z0-9]/g, ''),
+    regulationId: regulation.id,
+    code: regulation.code,
+    name: regulation.nameEn || regulation.code,
+    nameAr: regulation.nameAr || '',
+    version: regulation.version || '',
+    publisher: regulation.publisher || '',
+    totalControls: regulation.totalControls || 0,
+    status: regulation.status || 'active',
+  }));
+
   // Get unique main categories from ECC controls
   const getMainCategories = () => {
     if (!controls) return [];
@@ -2094,6 +2109,126 @@ export default function Regulations() {
             );
           })}
         </div>
+
+        {/* Imported Regulations Section */}
+        {importedRegulations.length > 0 && (
+          <div className="mt-8">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <FileText className="h-6 w-6 text-[#2699A6]" />
+                  {language === 'ar' ? 'التنظيمات المستوردة' : 'Imported Regulations'}
+                </h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                  {language === 'ar' 
+                    ? `${importedRegulations.length} تنظيم مستورد`
+                    : `${importedRegulations.length} imported regulation${importedRegulations.length !== 1 ? 's' : ''}`
+                  }
+                </p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {importedRegulations.map((regulation: any) => {
+                const isSelected = selectedFramework === regulation.id;
+                return (
+                  <Card 
+                    key={regulation.id}
+                    className={`group relative overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:scale-[1.02] ${
+                      isSelected 
+                        ? 'ring-2 ring-purple-500 shadow-2xl bg-gradient-to-br from-white via-purple-50 to-purple-100 dark:from-slate-800 dark:via-slate-800 dark:to-slate-700' 
+                        : 'bg-gradient-to-br from-white via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900 hover:from-slate-50 hover:via-white hover:to-slate-50'
+                    }`}
+                    onClick={() => {
+                      if (regulation.totalControls > 0) {
+                        setInlineRegulationId(regulation.regulationId);
+                        setSelectedFramework(regulation.id);
+                        setSelectedCategory(null);
+                      }
+                    }}
+                    data-testid={`card-imported-regulation-${regulation.code}`}
+                  >
+                    {/* Animated background overlay */}
+                    <div className={`absolute inset-0 bg-gradient-to-r transition-opacity duration-300 ${
+                      isSelected 
+                        ? 'from-purple-500/5 via-transparent to-purple-500/5 opacity-100' 
+                        : 'from-purple-500/0 via-transparent to-purple-500/0 opacity-0 group-hover:opacity-100'
+                    }`}></div>
+                    
+                    <CardHeader className="relative pb-4 pt-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-md transition-all duration-300 ${
+                          isSelected 
+                            ? 'bg-gradient-to-br from-purple-500 to-purple-600 shadow-purple-500/25' 
+                            : 'bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 group-hover:from-purple-500/10 group-hover:to-purple-500/20'
+                        }`}>
+                          <FileSpreadsheet className={`h-7 w-7 transition-colors duration-300 ${
+                            isSelected 
+                              ? 'text-white' 
+                              : 'text-slate-600 dark:text-slate-400 group-hover:text-purple-500'
+                          }`} />
+                        </div>
+                        <Badge 
+                          variant="outline"
+                          className="border-0 font-medium px-3 py-1.5 text-xs bg-gradient-to-r from-purple-50 to-violet-50 text-purple-700 shadow-sm"
+                        >
+                          {language === 'ar' ? 'مستورد' : 'Imported'}
+                        </Badge>
+                      </div>
+                      <CardTitle className={`text-lg font-bold leading-tight transition-colors duration-300 line-clamp-2 ${
+                        isSelected 
+                          ? 'text-slate-900 dark:text-white' 
+                          : 'text-slate-800 dark:text-slate-100 group-hover:text-slate-900 dark:group-hover:text-white'
+                      }`}>
+                        {(language === 'ar' && regulation.nameAr) ? regulation.nameAr : regulation.name}
+                      </CardTitle>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant="secondary" className="text-xs font-mono">
+                          {regulation.code}
+                        </Badge>
+                        {regulation.version && (
+                          <Badge variant="secondary" className="text-xs">
+                            v{regulation.version}
+                          </Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="relative">
+                      {regulation.publisher && (
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
+                          {language === 'ar' ? 'الناشر: ' : 'Publisher: '}
+                          <span className="font-medium">{regulation.publisher}</span>
+                        </p>
+                      )}
+                      <div className={`relative overflow-hidden rounded-xl p-4 transition-all duration-300 ${
+                        isSelected 
+                          ? 'bg-gradient-to-r from-purple-500/10 via-purple-500/5 to-transparent border border-purple-500/20' 
+                          : 'bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-slate-700/50 dark:via-slate-800/50 dark:to-slate-700/50 border border-slate-200/50 dark:border-slate-600/50'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                              {language === 'ar' ? 'إجمالي الضوابط' : 'Total Controls'}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-3xl font-bold transition-colors duration-300 ${
+                                isSelected 
+                                  ? 'text-purple-600' 
+                                  : 'text-slate-900 dark:text-white group-hover:text-purple-600'
+                              }`}>
+                                {regulation.totalControls}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Inline Regulation Details Section */}
         {inlineRegulationId && (
