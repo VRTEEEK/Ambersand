@@ -68,6 +68,26 @@ const projectSchema = z.object({
 
 type ProjectFormData = z.infer<typeof projectSchema>;
 
+// Control entry schema
+const controlEntrySchema = z.object({
+  mainDomain: z.string().min(1, 'Main domain is required'),
+  mainDomainAr: z.string().optional(),
+  subDomain: z.string().min(1, 'Sub domain is required'),
+  subDomainAr: z.string().optional(),
+  control: z.string().min(1, 'Control description is required'),
+  controlAr: z.string().optional(),
+  subControl: z.string().optional(),
+  subControlAr: z.string().optional(),
+  description: z.string().min(1, 'Detailed description is required'),
+  descriptionAr: z.string().optional(),
+  evidenceRequired: z.boolean().default(false),
+  evidenceNote: z.string().optional(),
+  evidenceNoteAr: z.string().optional(),
+  tags: z.string().optional(),
+});
+
+type ControlEntryFormData = z.infer<typeof controlEntrySchema>;
+
 export default function Regulations() {
   const { t, language } = useI18n();
   const { can } = usePermissions();
@@ -207,7 +227,8 @@ export default function Regulations() {
   });
 
   // Control entry form
-  const controlForm = useForm({
+  const controlForm = useForm<ControlEntryFormData>({
+    resolver: zodResolver(controlEntrySchema),
     defaultValues: {
       mainDomain: '',
       mainDomainAr: '',
@@ -222,7 +243,7 @@ export default function Regulations() {
       evidenceRequired: false,
       evidenceNote: '',
       evidenceNoteAr: '',
-      tags: [] as string[],
+      tags: '',
     },
   });
 
