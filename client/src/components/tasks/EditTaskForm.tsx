@@ -40,7 +40,9 @@ import {
   MessageSquare,
   History,
   Plus,
-  Trash2
+  Trash2,
+  AlertTriangle,
+  CheckCircle
 } from 'lucide-react';
 import Comments from '@/components/comments/Comments';
 
@@ -1362,7 +1364,8 @@ export default function EditTaskForm({
                             const v = e.target.value;
                             setRouteDraft(prev=>prev.map((x,i)=>i===idx?{...x,role:v}:x));
                           }}
-                          placeholder="role (analyst, lead, manager...)"
+                          placeholder="Role* (analyst, lead, manager...)"
+                          className={!s.role ? 'border-amber-500' : ''}
                         />
                         <div className="flex gap-2">
                           <Button type="button" variant="outline" onClick={()=>{
@@ -1384,10 +1387,57 @@ export default function EditTaskForm({
                     )}
                   </div>
 
-                  <div className="flex justify-end">
-                    <Button type="button" onClick={()=>mSetRoute.mutate(routeDraft.filter(s=>s.userId && s.role))} disabled={mSetRoute.isPending}>
-                      Save route
-                    </Button>
+                  <div className="flex flex-col gap-2">
+                    {routeDraft.length > 0 && (
+                      <div className="text-sm text-muted-foreground">
+                        {(() => {
+                          const validCount = routeDraft.filter(s=>s.userId && s.role).length;
+                          const totalCount = routeDraft.length;
+                          if (validCount === 0) {
+                            return (
+                              <p className="text-amber-600 flex items-center gap-1">
+                                <AlertTriangle className="h-4 w-4" />
+                                No complete steps - please fill in both user and role (marked with *)
+                              </p>
+                            );
+                          }
+                          if (validCount < totalCount) {
+                            return (
+                              <p className="text-amber-600 flex items-center gap-1">
+                                <AlertTriangle className="h-4 w-4" />
+                                {validCount} of {totalCount} steps are complete. Incomplete steps will be skipped.
+                              </p>
+                            );
+                          }
+                          return (
+                            <p className="text-green-600 flex items-center gap-1">
+                              <CheckCircle className="h-4 w-4" />
+                              {validCount} step{validCount > 1 ? 's' : ''} ready to save
+                            </p>
+                          );
+                        })()}
+                      </div>
+                    )}
+                    <div className="flex justify-end">
+                      <Button 
+                        type="button" 
+                        onClick={()=>{
+                          const validSteps = routeDraft.filter(s=>s.userId && s.role);
+                          if (validSteps.length === 0) {
+                            toast({ 
+                              title: "No valid steps", 
+                              description: "Please add at least one step with both user and role filled in",
+                              variant: "destructive" 
+                            });
+                            return;
+                          }
+                          mSetRoute.mutate(validSteps);
+                        }} 
+                        disabled={mSetRoute.isPending || routeDraft.filter(s=>s.userId && s.role).length === 0}
+                      >
+                        {mSetRoute.isPending ? 'Saving...' : 'Save route'}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
