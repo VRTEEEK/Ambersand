@@ -41,15 +41,22 @@ interface TaskWizardProps {
   onClose: () => void;
   projectId?: number;
   preselectedProjectId?: number; // For when opened from project details
+  preselectedControlId?: number; // For when opened from control card "Add Task" button
   onTaskCreated?: () => void; // Callback when task is successfully created
 }
 
-export default function TaskWizard({ isOpen, onClose, projectId, preselectedProjectId, onTaskCreated }: TaskWizardProps) {
+export default function TaskWizard({ isOpen, onClose, projectId, preselectedProjectId, preselectedControlId, onTaskCreated }: TaskWizardProps) {
   const { language } = useI18n();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [step, setStep] = useState(preselectedProjectId ? 2 : 1); // Skip project selection if preselected
-  const [selectedControls, setSelectedControls] = useState<number[]>([]);
+  const [step, setStep] = useState(() => {
+    // Skip to step 3 if both project and control are preselected
+    if (preselectedProjectId && preselectedControlId) return 3;
+    // Skip to step 2 if only project is preselected
+    if (preselectedProjectId) return 2;
+    return 1;
+  });
+  const [selectedControls, setSelectedControls] = useState<number[]>(preselectedControlId ? [preselectedControlId] : []);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(preselectedProjectId || projectId || null);
   const [selectedDomain, setSelectedDomain] = useState<string>('');
   const [domainSearch, setDomainSearch] = useState('');
@@ -75,14 +82,14 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
     },
   });
 
-  // Clear selected controls when project changes
+  // Clear selected controls when project changes (but preserve preselected control)
   useEffect(() => {
-    if (selectedProjectId) {
+    if (selectedProjectId && !preselectedControlId) {
       setSelectedControls([]);
       setSelectedDomain('');
       setDomainControlCounts({});
     }
-  }, [selectedProjectId]);
+  }, [selectedProjectId, preselectedControlId]);
 
   // Fetch projects for selection (only if not preselected)
   const { data: projects = [] } = useQuery({
@@ -95,6 +102,41 @@ export default function TaskWizard({ isOpen, onClose, projectId, preselectedProj
     queryKey: [`/api/projects/${selectedProjectId}/controls`],
     enabled: isOpen && !!selectedProjectId,
   });
+
+  // Reinitialize wizard state when opening with preselected control
+  useEffect(() => {
+    if (isOpen && preselectedControlId) {
+      setSelectedControls([preselectedControlId]);
+      setStep(() => {
+        if (preselectedProjectId && preselectedControlId) return 3;
+        if (preselectedProjectId) return 2;
+        return 1;
+      });
+    }
+  }, [isOpen, preselectedControlId, preselectedProjectId]);
+
+  // Auto-detect domain from preselected control
+  useEffect(() => {
+    if (preselectedControlId && projectControls.length > 0) {
+      const control = projectControls.find((pc: any) => {
+        const ctrl = pc.control || pc.eccControl || pc.customControl;
+        return ctrl?.id === preselectedControlId;
+      });
+      
+      if (control) {
+        const ctrl = control.control || control.eccControl || control.customControl;
+        // Handle all control types: regulation controls, ECC controls, and custom controls
+        const domain = ctrl?.mainCategoryEn || ctrl?.domainEn || ctrl?.mainDomain || ctrl?.domain || '';
+        if (domain && domain !== selectedDomain) {
+          setSelectedDomain(domain);
+        }
+      } else if (preselectedControlId) {
+        // Preselected control not found - clear it and show error
+        console.warn('Preselected control not found in project controls:', preselectedControlId);
+        setSelectedControls([]);
+      }
+    }
+  }, [preselectedControlId, projectControls, selectedDomain]);
 
   // Fetch users for assignee dropdown
   const { data: users = [] } = useQuery({

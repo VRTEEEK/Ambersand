@@ -1058,13 +1058,18 @@ export default function ProjectDetail() {
         {/* Task Creation Wizard */}
         <TaskWizard
           isOpen={isTaskWizardOpen}
-          onClose={() => setIsTaskWizardOpen(false)}
+          onClose={() => {
+            setIsTaskWizardOpen(false);
+            setSelectedControlId(null); // Clear selected control when closing
+          }}
           preselectedProjectId={parseInt(id!)}
+          preselectedControlId={selectedControlId || undefined}
           onTaskCreated={() => {
             console.log('🔄 ProjectDetail: Direct task created callback triggered');
             setRefreshKey(prev => prev + 1);
             refetchTasks();
             refetchTasksWithControls();
+            setSelectedControlId(null); // Clear after task creation
           }}
         />
 

@@ -4,7 +4,13 @@
 
 Ambersand is a bilingual (Arabic/English) compliance management platform for mid-to-large Saudi organizations. Its primary purpose is to streamline adherence to key regulatory frameworks, including ECC (Essential Cybersecurity Controls), PDPL (Personal Data Protection Law), and NDMO (National Data Management Office). The project vision is to provide a comprehensive solution for managing organizational compliance efficiently and effectively.
 
-## Recent Changes (October 2025)
+## Recent Changes (November 2025)
+
+- **MAJOR: Enhanced task workflow route management** - Improved route saving UX in EditTaskForm with real-time validation feedback, visual indicators for incomplete steps (orange borders, warning messages), disabled save button when no valid steps, and clear success/error messages to prevent user confusion when route steps are incomplete
+- **FEATURE: Pre-select control in task creation** - Implemented preselectedControlId prop in TaskWizard to auto-select and skip to task details when creating tasks from control cards, supporting both ECC and regulation controls with automatic domain detection and proper state reinitialization on dialog reopen
+- **Fixed workflow route saving UX issue** - Resolved issue where users couldn't tell if route was saving because incomplete steps (missing user or role) were silently filtered out; added comprehensive validation, step counting, and visual feedback
+
+## Previous Changes (October 2025)
 
 - **CRITICAL: Completed auth migration to unified password system** - Successfully migrated from dual auth system (auth_users + users) to unified password authentication using existing users table with JWT tokens
 - **Extended users table for password auth** - Added passwordHash, emailVerified, emailVerifiedAt, lastLoginAt, isActive fields to existing users table
