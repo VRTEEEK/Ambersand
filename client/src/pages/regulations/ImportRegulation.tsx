@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { usePermissions } from '@/hooks/use-permissions';
 import { useToast } from '@/hooks/use-toast';
 import { useI18n } from '@/hooks/use-i18n';
-import { Download, Upload, FileSpreadsheet, AlertTriangle, CheckCircle, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Download, Upload, FileSpreadsheet, AlertTriangle, CheckCircle, XCircle, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { downloadTemplate, importRegulation, getVersions } from '@/lib/api/regulations';
 import AppLayout from '@/components/layout/AppLayout';
 
@@ -510,6 +510,16 @@ export default function ImportRegulation() {
                     ? `المحدد: ${file.name} (${(file.size/1024/1024).toFixed(1)} ميجابايت)`
                     : `Selected: ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)`
                   }
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFile(null)}
+                    className="h-6 w-6 p-0 ml-2 hover:bg-red-100 hover:text-red-600"
+                    data-testid="button-remove-file"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
                 <p className="text-xs text-gray-500">
                   {language === 'ar'

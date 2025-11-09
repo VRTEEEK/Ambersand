@@ -8,6 +8,7 @@ Ambersand is a bilingual (Arabic/English) compliance management platform for mid
 
 - **MAJOR: Enhanced task workflow route management** - Improved route saving UX in EditTaskForm with real-time validation feedback, visual indicators for incomplete steps (orange borders, warning messages), disabled save button when no valid steps, and clear success/error messages to prevent user confusion when route steps are incomplete
 - **FEATURE: Pre-select control in task creation** - Implemented preselectedControlId prop in TaskWizard to auto-select and skip to task details when creating tasks from control cards, supporting both ECC and regulation controls with automatic domain detection and proper state reinitialization on dialog reopen
+- **Added delete icon for file upload** - Added X button in ImportRegulation to allow users to remove selected file with hover feedback (red highlight), preventing need to refresh page to change file selection
 - **Fixed workflow route saving UX issue** - Resolved issue where users couldn't tell if route was saving because incomplete steps (missing user or role) were silently filtered out; added comprehensive validation, step counting, and visual feedback
 
 ## Previous Changes (October 2025)
