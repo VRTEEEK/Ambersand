@@ -53,3 +53,23 @@ export const updateRiskSchema = insertRiskSchema.partial().omit({
 export type Risk = typeof risks.$inferSelect;
 export type InsertRisk = z.infer<typeof insertRiskSchema>;
 export type UpdateRisk = z.infer<typeof updateRiskSchema>;
+
+// Risk Attachments table
+export const riskAttachments = pgTable("risk_attachments", {
+  id: serial("id").primaryKey(),
+  riskId: integer("risk_id").notNull(),
+  fileName: varchar("file_name", { length: 512 }).notNull(),
+  filePath: varchar("file_path", { length: 1024 }).notNull(),
+  fileType: varchar("file_type", { length: 128 }).notNull(),
+  fileSize: integer("file_size").notNull(),
+  uploadedById: varchar("uploaded_by_id", { length: 128 }).notNull(),
+  uploadedAt: timestamp("uploaded_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const insertRiskAttachmentSchema = createInsertSchema(riskAttachments).omit({
+  id: true,
+  uploadedAt: true,
+});
+
+export type RiskAttachment = typeof riskAttachments.$inferSelect;
+export type InsertRiskAttachment = z.infer<typeof insertRiskAttachmentSchema>;
