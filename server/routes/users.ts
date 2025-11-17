@@ -31,11 +31,14 @@ const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit for profile images
   fileFilter: (req, file, cb) => {
+    console.log('[Multer] Processing file:', file.originalname, 'MIME type:', file.mimetype);
     // Only allow image files
     if (file.mimetype.startsWith('image/')) {
+      console.log('[Multer] File accepted');
       cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed') as any);
+      console.log('[Multer] File rejected - not an image');
+      cb(new Error('Only image files are allowed'));
     }
   }
 });
@@ -452,15 +455,35 @@ router.post("/:userId/status", requireAuth, async (req: any, res) => {
   }
 });
 
+// Multer error handler middleware
+function handleMulterError(err: any, req: any, res: any, next: any) {
+  console.error('[Multer Error Handler] Error caught:', err);
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ success: false, message: 'File size too large. Maximum size is 5MB.' });
+    }
+    return res.status(400).json({ success: false, message: `Upload error: ${err.message}` });
+  }
+  if (err) {
+    return res.status(500).json({ success: false, message: err.message || 'File upload failed' });
+  }
+  next();
+}
+
 // POST /api/users/:userId/profile-image - Upload profile image
-router.post("/:userId/profile-image", requireAuth, upload.single('image'), async (req: any, res) => {
+router.post("/:userId/profile-image", requireAuth, upload.single('image'), handleMulterError, async (req: any, res) => {
+  console.log('[Profile Image Upload] Route handler started');
   try {
     const { userId } = req.params;
     const currentUserId = req.userId;
 
+    console.log('[Profile Image Upload] URL userId:', userId, 'Auth userId:', currentUserId);
+    console.log('[Profile Image Upload] File received:', req.file ? req.file.filename : 'NO FILE');
+
     // Users can only upload their own profile image
     if (userId !== currentUserId) {
       // Clean up uploaded file if not authorized
+      console.log('[Profile Image Upload] Authorization failed - user ID mismatch');
       if (req.file) {
         fs.unlinkSync(req.file.path);
       }
@@ -473,32 +496,40 @@ router.post("/:userId/profile-image", requireAuth, upload.single('image'), async
 
     // Generate the URL for the uploaded image
     const imageUrl = `/uploads/profile-images/${req.file.filename}`;
+    console.log('[Profile Image Upload] Generated image URL:', imageUrl);
 
     // Update user's profileImageUrl in database
+    console.log('[Profile Image Upload] Updating database for userId:', userId);
     const [updatedUser] = await db
       .update(users)
-      .set({ 
+      .set({
         profileImageUrl: imageUrl,
         updatedAt: new Date()
       })
       .where(eq(users.id, userId))
       .returning();
 
+    console.log('[Profile Image Upload] Database update completed:', updatedUser ? 'SUCCESS' : 'NO USER FOUND');
+
     if (!updatedUser) {
       // Clean up uploaded file if user not found
+      console.log('[Profile Image Upload] User not found, cleaning up file');
       fs.unlinkSync(req.file.path);
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.json({ 
+    console.log('[Profile Image Upload] Sending success response');
+    return res.status(200).json({
       success: true,
       profileImageUrl: imageUrl,
       message: "Profile image uploaded successfully"
     });
   } catch (error) {
-    console.error("Error uploading profile image:", error);
+    console.error("[Profile Image Upload] ERROR:", error);
+    console.error("[Profile Image Upload] Error stack:", error instanceof Error ? error.stack : 'No stack trace');
     // Clean up uploaded file on error
     if (req.file) {
+      console.log('[Profile Image Upload] Cleaning up file after error');
       fs.unlinkSync(req.file.path);
     }
     res.status(500).json({ message: "Failed to upload profile image" });

@@ -1,5 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { useMemo } from 'react';
 
 interface User {
   id?: string;
@@ -17,6 +18,8 @@ interface UserAvatarProps {
 }
 
 export function UserAvatar({ user, size = 'md', className }: UserAvatarProps) {
+  console.log('[UserAvatar] Rendering with profileImageUrl:', user.profileImageUrl);
+
   const sizeClasses = {
     sm: 'h-8 w-8',
     md: 'h-10 w-10',
@@ -40,9 +43,19 @@ export function UserAvatar({ user, size = 'md', className }: UserAvatarProps) {
     return '?';
   };
 
+  // Add cache-busting parameter only when profileImageUrl changes
+  const imageUrlWithCacheBust = useMemo(() => {
+    if (!user.profileImageUrl) return undefined;
+    return `${user.profileImageUrl}?v=${Date.now()}`;
+  }, [user.profileImageUrl]);
+
   return (
-    <Avatar className={cn(sizeClasses[size], className)} key={user.profileImageUrl}>
-      <AvatarImage src={user.profileImageUrl} alt={user.name || user.email || 'User'} />
+    <Avatar className={cn(sizeClasses[size], className)} key={imageUrlWithCacheBust}>
+      <AvatarImage
+        src={imageUrlWithCacheBust}
+        alt={user.name || user.email || 'User'}
+        key={imageUrlWithCacheBust}
+      />
       <AvatarFallback>{getInitials(user)}</AvatarFallback>
     </Avatar>
   );

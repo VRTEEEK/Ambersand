@@ -105,20 +105,72 @@ export default function UserProfile() {
     },
   });
 
-  // Upload profile image mutation
+  // Upload profile image mutation with token refresh support
   const uploadImageMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('image', file);
-      
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/users/${user?.id}/profile-image`, {
+
+      let token = localStorage.getItem('accessToken');
+      let response = await fetch(`/api/users/${user?.id}/profile-image`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
         body: formData,
       });
+
+      // If we get a 401, try to refresh the token and retry
+      if (response.status === 401) {
+        console.log('[Profile Image Upload] Got 401, attempting token refresh');
+        const refreshToken = localStorage.getItem('refreshToken');
+
+        if (refreshToken) {
+          try {
+            const refreshResponse = await fetch('/api/auth/refresh', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ refreshToken }),
+            });
+
+            if (refreshResponse.ok) {
+              console.log('[Profile Image Upload] Token refreshed successfully');
+              const refreshData = await refreshResponse.json();
+              const newAccessToken = refreshData.data.accessToken;
+              const newRefreshToken = refreshData.data.refreshToken;
+
+              localStorage.setItem('accessToken', newAccessToken);
+              localStorage.setItem('refreshToken', newRefreshToken);
+
+              // Retry the upload with new token
+              response = await fetch(`/api/users/${user?.id}/profile-image`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${newAccessToken}`,
+                },
+                body: formData,
+              });
+            } else {
+              console.log('[Profile Image Upload] Token refresh failed, redirecting to login');
+              localStorage.removeItem('accessToken');
+              localStorage.removeItem('refreshToken');
+              window.location.href = '/auth/login';
+              throw new Error('Session expired, please login again');
+            }
+          } catch (error) {
+            console.error('[Profile Image Upload] Error during token refresh:', error);
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            window.location.href = '/auth/login';
+            throw error;
+          }
+        } else {
+          console.log('[Profile Image Upload] No refresh token available');
+          localStorage.removeItem('accessToken');
+          window.location.href = '/auth/login';
+          throw new Error('Session expired, please login again');
+        }
+      }
 
       if (!response.ok) {
         const error = await response.json();
@@ -127,8 +179,16 @@ export default function UserProfile() {
 
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('[Profile Image Upload] Upload successful, response:', data);
+      console.log('[Profile Image Upload] Invalidating cache for user:', user?.id);
+
+      queryClient.invalidateQueries({ queryKey: ['/api/users', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users', user?.id, 'stats'] });
+
+      console.log('[Profile Image Upload] Cache invalidated, user should refetch');
+
       toast({
         title: language === 'ar' ? 'تم تحميل الصورة' : 'Image Uploaded',
         description: language === 'ar' ? 'تم تحديث صورة الملف الشخصي بنجاح' : 'Profile image updated successfully',
