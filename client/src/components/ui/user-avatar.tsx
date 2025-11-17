@@ -41,7 +41,7 @@ export function UserAvatar({ user, size = 'md', className }: UserAvatarProps) {
   };
 
   return (
-    <Avatar className={cn(sizeClasses[size], className)}>
+    <Avatar className={cn(sizeClasses[size], className)} key={user.profileImageUrl}>
       <AvatarImage src={user.profileImageUrl} alt={user.name || user.email || 'User'} />
       <AvatarFallback>{getInitials(user)}</AvatarFallback>
     </Avatar>
