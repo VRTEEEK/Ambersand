@@ -51,10 +51,6 @@ export function RiskAttachments({ riskId }: RiskAttachmentsProps) {
 
   const { data: attachments = [], isLoading } = useQuery<Attachment[]>({
     queryKey: ['/api/risks', riskId, 'attachments'],
-    queryFn: async () => {
-      const response = await apiRequest(`/api/risks/${riskId}/attachments`, 'GET');
-      return response;
-    },
   });
 
   const uploadMutation = useMutation({
