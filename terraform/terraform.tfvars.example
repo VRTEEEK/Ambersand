@@ -1,0 +1,46 @@
+# Example Terraform variables file
+# Copy this file to terraform.tfvars and update with your values
+
+# AWS Configuration
+aws_region  = "us-east-1"
+environment = "prod"
+
+# VPC Configuration
+vpc_cidr             = "10.0.0.0/16"
+availability_zones   = ["us-east-1a", "us-east-1b"]
+public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+private_subnet_cidrs = ["10.0.11.0/24", "10.0.12.0/24"]
+
+# Database Configuration
+db_instance_class    = "db.t3.medium"
+db_allocated_storage = 100
+db_name              = "ambersand"
+db_username          = "ambersand_admin"
+db_password          = "CHANGE-THIS-STRONG-PASSWORD"
+db_multi_az          = true
+
+# Storage Configuration
+s3_bucket_name = "ambersand-uploads-prod"
+
+# Compute Configuration
+instance_type        = "t3.medium"
+key_name             = "ambersand-key"
+asg_min_size         = 1
+asg_max_size         = 4
+asg_desired_capacity = 2
+
+# Application Configuration
+domain_name             = "yourdomain.com"
+certificate_arn         = "arn:aws:acm:us-east-1:123456789012:certificate/xxx"
+create_route53_record   = true
+
+# Application Secrets (generate with: openssl rand -hex 64)
+jwt_access_secret   = "GENERATE-WITH-openssl-rand-hex-64"
+jwt_refresh_secret  = "GENERATE-WITH-openssl-rand-hex-64"
+session_secret      = "GENERATE-WITH-openssl-rand-hex-32"
+sendgrid_api_key    = "SG.xxxxxxxxxxxxxxxxxxxxx"
+sendgrid_from_email = "no-reply@yourdomain.com"
+
+# GitHub Configuration (for CI/CD)
+github_repo   = "https://github.com/your-org/ambersand.git"
+github_branch = "main"

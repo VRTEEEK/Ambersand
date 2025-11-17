@@ -1,0 +1,85 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Build outputs
+dist
+.vite
+.cache
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.example
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+coverage
+.nyc_output
+*.test.ts
+*.spec.ts
+
+# Documentation
+*.md
+docs/
+AWS_DEPLOYMENT_GUIDE.md
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Replit
+.replit
+replit.nix
+.replit_modules
+
+# Misc
+uploads/*.png
+uploads/*.jpg
+uploads/*.pdf
+uploads/*.docx
+uploads/*.xlsx
+!uploads/.gitkeep
+
+# Logs
+logs
+*.log
+
+# Python
+__pycache__
+*.py[cod]
+venv/
+.python-version
+
+# Lock files (keep package-lock.json)
+yarn.lock
+pnpm-lock.yaml
+
+# Temp files
+*.tmp
+*.bak
+*.swp
+.cache/

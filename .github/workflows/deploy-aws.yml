@@ -1,0 +1,276 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  NODE_VERSION: '20'
+  AWS_REGION: us-east-1
+
+jobs:
+  # Build and test
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run TypeScript check
+        run: npm run check
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Build application
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            dist/
+            package.json
+            package-lock.json
+          retention-days: 7
+
+  # Deploy to EC2
+  deploy-ec2:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    environment:
+      name: ${{ github.event.inputs.environment || 'prod' }}
+      url: ${{ vars.APP_URL }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Create deployment package
+        run: |
+          tar -czf deployment.tar.gz \
+            dist/ \
+            package.json \
+            package-lock.json \
+            drizzle/ \
+            shared/ \
+            attached_assets/
+
+      - name: Upload to S3
+        run: |
+          aws s3 cp deployment.tar.gz \
+            s3://${{ secrets.DEPLOYMENT_BUCKET }}/ambersand-${{ github.sha }}.tar.gz
+
+      - name: Deploy to EC2 instances
+        run: |
+          # Get Auto Scaling Group name
+          ASG_NAME=$(aws autoscaling describe-auto-scaling-groups \
+            --query "AutoScalingGroups[?contains(Tags[?Key=='Name'].Value, 'ambersand-${{ github.event.inputs.environment || 'prod' }}')].AutoScalingGroupName" \
+            --output text)
+
+          # Get instance IDs
+          INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
+            --auto-scaling-group-names $ASG_NAME \
+            --query "AutoScalingGroups[0].Instances[?HealthStatus=='Healthy'].InstanceId" \
+            --output text)
+
+          # Deploy to each instance
+          for INSTANCE_ID in $INSTANCE_IDS; do
+            echo "Deploying to instance: $INSTANCE_ID"
+
+            # Send command via SSM
+            aws ssm send-command \
+              --instance-ids $INSTANCE_ID \
+              --document-name "AWS-RunShellScript" \
+              --parameters 'commands=[
+                "set -e",
+                "cd /opt/ambersand",
+                "aws s3 cp s3://${{ secrets.DEPLOYMENT_BUCKET }}/ambersand-${{ github.sha }}.tar.gz .",
+                "tar -xzf ambersand-${{ github.sha }}.tar.gz",
+                "npm ci --omit=dev",
+                "npm run db:push",
+                "pm2 reload ambersand --update-env",
+                "pm2 save",
+                "sleep 5",
+                "pm2 status ambersand"
+              ]' \
+              --timeout-seconds 600 \
+              --region ${{ env.AWS_REGION }}
+
+            echo "Deployment initiated for $INSTANCE_ID"
+          done
+
+      - name: Wait for deployment health check
+        run: |
+          echo "Waiting 30 seconds for instances to stabilize..."
+          sleep 30
+
+          # Check ALB target health
+          TARGET_GROUP_ARN=$(aws elbv2 describe-target-groups \
+            --query "TargetGroups[?contains(TargetGroupName, 'ambersand')].TargetGroupArn" \
+            --output text | head -1)
+
+          HEALTHY_COUNT=$(aws elbv2 describe-target-health \
+            --target-group-arn $TARGET_GROUP_ARN \
+            --query "length(TargetHealthDescriptions[?TargetHealth.State=='healthy'])" \
+            --output text)
+
+          echo "Healthy targets: $HEALTHY_COUNT"
+
+          if [ "$HEALTHY_COUNT" -eq "0" ]; then
+            echo "ERROR: No healthy targets after deployment!"
+            exit 1
+          fi
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "✅ Deployment successful to ${{ github.event.inputs.environment || 'prod' }}"
+          echo "Deployed commit: ${{ github.sha }}"
+          echo "Application URL: ${{ vars.APP_URL }}"
+
+      - name: Notify deployment failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed for ${{ github.event.inputs.environment || 'prod' }}"
+          echo "Check the logs above for details"
+
+  # Deploy using Docker to ECS (alternative)
+  deploy-ecs:
+    name: Deploy to ECS
+    runs-on: ubuntu-latest
+    needs: build
+    if: false  # Disabled by default, enable if using ECS
+    environment:
+      name: ${{ github.event.inputs.environment || 'prod' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ambersand
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      - name: Deploy to ECS
+        run: |
+          aws ecs update-service \
+            --cluster ambersand-cluster \
+            --service ambersand-service \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for ECS service to stabilize
+        run: |
+          aws ecs wait services-stable \
+            --cluster ambersand-cluster \
+            --services ambersand-service \
+            --region ${{ env.AWS_REGION }}
+
+  # Rollback on failure
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    needs: deploy-ec2
+    if: failure()
+    environment:
+      name: ${{ github.event.inputs.environment || 'prod' }}
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Trigger rollback
+        run: |
+          echo "⚠️ Deployment failed, triggering rollback..."
+
+          # Get Auto Scaling Group name
+          ASG_NAME=$(aws autoscaling describe-auto-scaling-groups \
+            --query "AutoScalingGroups[?contains(Tags[?Key=='Name'].Value, 'ambersand-${{ github.event.inputs.environment || 'prod' }}')].AutoScalingGroupName" \
+            --output text)
+
+          # Get instance IDs
+          INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
+            --auto-scaling-group-names $ASG_NAME \
+            --query "AutoScalingGroups[0].Instances[?HealthStatus=='Healthy'].InstanceId" \
+            --output text)
+
+          # Rollback on each instance
+          for INSTANCE_ID in $INSTANCE_IDS; do
+            echo "Rolling back instance: $INSTANCE_ID"
+
+            aws ssm send-command \
+              --instance-ids $INSTANCE_ID \
+              --document-name "AWS-RunShellScript" \
+              --parameters 'commands=[
+                "cd /opt/ambersand",
+                "git checkout main",
+                "git pull",
+                "npm ci --omit=dev",
+                "npm run build",
+                "pm2 reload ambersand"
+              ]' \
+              --region ${{ env.AWS_REGION }}
+          done
+
+          echo "✅ Rollback completed"
