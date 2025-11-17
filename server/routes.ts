@@ -4414,9 +4414,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Serve uploaded files (profile pictures and evidence) - require authentication
+  // Serve profile images publicly (no authentication required for browser img tags)
+  const profileImagesDir = path.join(process.cwd(), 'uploads', 'profile-images');
+  app.use('/uploads/profile-images', express.static(profileImagesDir));
+
+  // Serve other uploaded files (evidence, risk attachments) - require authentication
   // TODO: implement signed download route for proper security
   app.use('/uploads', requireAuth, (req, res, next) => {
+    // Skip auth for profile-images (already handled above)
+    if (req.path.startsWith('/profile-images')) {
+      return next();
+    }
     // Add CORS headers for uploaded files
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
