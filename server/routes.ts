@@ -4414,14 +4414,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Serve profile images publicly (no authentication required for browser img tags)
-  const profileImagesDir = path.join(process.cwd(), 'uploads', 'profile-images');
-  app.use('/uploads/profile-images', express.static(profileImagesDir));
+  // Note: Profile images static serving moved to server/index.ts to prevent
+  // Vite's catch-all route from intercepting the requests
 
-  // Secure uploaded files - require authentication for all uploads EXCEPT profile-images
+  // Secure uploaded files - require authentication for all non-profile uploads
   const uploadsDir = path.join(process.cwd(), 'uploads');
   app.use('/uploads', (req, res, next) => {
-    // Skip auth for profile-images (already served above)
+    // Skip auth for profile-images (served in server/index.ts before Vite)
     if (req.path.startsWith('/profile-images/') || req.path === '/profile-images') {
       return next();
     }

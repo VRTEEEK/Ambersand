@@ -142,6 +142,13 @@ process.on('unhandledRejection', async (reason, promise) => {
   const server = await registerRoutes(app);
   serverInstance = server; // Store server instance for graceful shutdown
 
+  // IMPORTANT: Serve static files for uploads BEFORE setupVite
+  // This prevents Vite's catch-all route from intercepting upload requests
+  const path = await import("path");
+  const uploadsDir = path.join(process.cwd(), 'uploads', 'profile-images');
+  app.use('/uploads/profile-images', express.static(uploadsDir));
+  log('Static file serving configured for /uploads/profile-images');
+
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     
