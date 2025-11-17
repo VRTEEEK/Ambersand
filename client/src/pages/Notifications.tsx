@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
 import { useI18n } from '@/hooks/use-i18n';
 import { useNotifications, type Notification } from '@/hooks/useNotifications';
@@ -26,6 +27,7 @@ export default function Notifications() {
   const { language } = useI18n();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
+  const [, setLocation] = useLocation();
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -209,7 +211,14 @@ export default function Notifications() {
                     markAsRead(notification.id);
                   }
                   if (notification.actionUrl) {
-                    window.location.href = notification.actionUrl;
+                    // Extract path from full URL (e.g., "http://localhost:5000/tasks/123" -> "/tasks/123")
+                    try {
+                      const url = new URL(notification.actionUrl);
+                      setLocation(url.pathname);
+                    } catch {
+                      // If it's already a path, use it directly
+                      setLocation(notification.actionUrl);
+                    }
                   }
                 }}
               >
