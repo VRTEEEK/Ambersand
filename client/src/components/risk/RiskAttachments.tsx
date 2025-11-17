@@ -58,10 +58,19 @@ export function RiskAttachments({ riskId }: RiskAttachmentsProps) {
       const formData = new FormData();
       formData.append('file', file);
       
+      // Get JWT token from localStorage
+      const accessToken = localStorage.getItem('access_token');
+      
+      const headers: HeadersInit = {};
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+      
       const response = await fetch(`/api/risks/${riskId}/attachments`, {
         method: 'POST',
         body: formData,
         credentials: 'include',
+        headers,
       });
 
       if (!response.ok) {
@@ -122,8 +131,17 @@ export function RiskAttachments({ riskId }: RiskAttachmentsProps) {
 
   const handleDownload = async (attachment: Attachment) => {
     try {
+      // Get JWT token from localStorage
+      const accessToken = localStorage.getItem('access_token');
+      
+      const headers: HeadersInit = {};
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+      
       const response = await fetch(`/api/risks/attachments/${attachment.id}/download`, {
         credentials: 'include',
+        headers,
       });
 
       if (!response.ok) {
