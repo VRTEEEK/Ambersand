@@ -2168,12 +2168,84 @@ export default function Regulations() {
                               : 'text-slate-600 dark:text-slate-400 group-hover:text-purple-500'
                           }`} />
                         </div>
-                        <Badge 
-                          variant="outline"
-                          className="border-0 font-medium px-3 py-1.5 text-xs bg-gradient-to-r from-purple-50 to-violet-50 text-purple-700 shadow-sm"
-                        >
-                          {language === 'ar' ? 'مستورد' : 'Imported'}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant="outline"
+                            className="border-0 font-medium px-3 py-1.5 text-xs bg-gradient-to-r from-purple-50 to-violet-50 text-purple-700 shadow-sm"
+                          >
+                            {language === 'ar' ? 'مستورد' : 'Imported'}
+                          </Badge>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" data-testid={`button-menu-${regulation.code}`}>
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <DropdownMenuItem
+                                    onSelect={(e) => e.preventDefault()}
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                                    data-testid={`button-delete-${regulation.code}`}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    {language === 'ar' ? 'حذف' : 'Delete'}
+                                  </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      {language === 'ar' ? 'تأكيد الحذف' : 'Confirm Deletion'}
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      {language === 'ar' 
+                                        ? `هل أنت متأكد من حذف "${regulation.name}"؟ سيتم حذف جميع الضوابط المرتبطة بهذا التنظيم. لا يمكن التراجع عن هذا الإجراء.`
+                                        : `Are you sure you want to delete "${regulation.name}"? All controls associated with this regulation will be deleted. This action cannot be undone.`
+                                      }
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                      {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                          await apiRequest(`/api/regulations/${regulation.regulationId}`, 'DELETE');
+                                          queryClient.invalidateQueries({ queryKey: ['/api/regulations/summary'] });
+                                          toast({
+                                            title: language === 'ar' ? 'تم الحذف' : 'Deleted',
+                                            description: language === 'ar' 
+                                              ? 'تم حذف التنظيم بنجاح'
+                                              : 'Regulation deleted successfully',
+                                          });
+                                          // Clear inline view if this regulation was selected
+                                          if (inlineRegulationId === regulation.regulationId) {
+                                            setInlineRegulationId(null);
+                                            setSelectedFramework(null);
+                                          }
+                                        } catch (error: any) {
+                                          toast({
+                                            title: language === 'ar' ? 'خطأ' : 'Error',
+                                            description: language === 'ar' 
+                                              ? `فشل في حذف التنظيم: ${error.message || 'خطأ غير معروف'}`
+                                              : `Failed to delete regulation: ${error.message || 'Unknown error'}`,
+                                            variant: 'destructive',
+                                          });
+                                        }
+                                      }}
+                                      className="bg-red-600 hover:bg-red-700"
+                                    >
+                                      {language === 'ar' ? 'حذف' : 'Delete'}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
                       <CardTitle className={`text-lg font-bold leading-tight transition-colors duration-300 line-clamp-2 ${
                         isSelected 

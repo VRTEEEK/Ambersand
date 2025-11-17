@@ -1929,6 +1929,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         nameEn: regulations.nameEn,
         nameAr: regulations.nameAr,
         version: regulations.version,
+        publisher: regulations.publisher,
         status: regulations.status,
         totalControls: count(regulationControls.id)
       })
@@ -1940,6 +1941,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         regulations.nameEn,
         regulations.nameAr,
         regulations.version,
+        regulations.publisher,
         regulations.status
       )
       .orderBy(asc(regulations.code));
@@ -1948,6 +1950,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching regulations summary:", error);
       res.status(500).json({ message: "Failed to fetch regulations summary" });
+    }
+  });
+
+  // Delete a regulation and its controls
+  app.delete('/api/regulations/:id', requireAuth, async (req, res) => {
+    try {
+      const regulationId = parseInt(req.params.id);
+      if (isNaN(regulationId)) {
+        return res.status(400).json({ message: "Invalid regulation ID" });
+      }
+
+      const { regulations, regulationControls } = await import('../shared/schema');
+      const { db } = await import('./db');
+      const { eq } = await import('drizzle-orm');
+      
+      // Check if regulation exists
+      const regulation = await db.query.regulations.findFirst({
+        where: eq(regulations.id, regulationId)
+      });
+      
+      if (!regulation) {
+        return res.status(404).json({ message: "Regulation not found" });
+      }
+      
+      // Delete all controls associated with this regulation
+      await db.delete(regulationControls).where(eq(regulationControls.regulationId, regulationId));
+      
+      // Delete the regulation
+      await db.delete(regulations).where(eq(regulations.id, regulationId));
+      
+      res.json({ 
+        success: true, 
+        message: "Regulation and its controls deleted successfully" 
+      });
+    } catch (error) {
+      console.error("Error deleting regulation:", error);
+      res.status(500).json({ message: "Failed to delete regulation" });
     }
   });
 
