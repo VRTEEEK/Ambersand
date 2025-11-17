@@ -4418,21 +4418,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const profileImagesDir = path.join(process.cwd(), 'uploads', 'profile-images');
   app.use('/uploads/profile-images', express.static(profileImagesDir));
 
-  // Serve other uploaded files (evidence, risk attachments) - require authentication
-  // TODO: implement signed download route for proper security
-  app.use('/uploads', requireAuth, (req, res, next) => {
-    // Skip auth for profile-images (already handled above)
-    if (req.path.startsWith('/profile-images')) {
+  // Secure uploaded files - require authentication for all uploads EXCEPT profile-images
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  app.use('/uploads', (req, res, next) => {
+    // Skip auth for profile-images (already served above)
+    if (req.path.startsWith('/profile-images/') || req.path === '/profile-images') {
       return next();
     }
-    // Add CORS headers for uploaded files
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-    next();
-  });
-  // Secure uploaded files - require authentication
-  const uploadsDir = path.join(process.cwd(), 'uploads');
-  app.use('/uploads', requireAuth, express.static(uploadsDir)); // TODO: Implement signed download route for better security
+    // All other uploads require authentication
+    requireAuth(req, res, next);
+  }, express.static(uploadsDir));
 
   // Debug endpoint to test PDF generation and compare HTML vs PDF content
   app.get("/api/debug/pdf-content/:projectId", async (req: any, res) => {
