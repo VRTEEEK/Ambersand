@@ -1,5 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import { db } from "../db";
 import { users, userInvites, tasks } from "@shared/schema";
 import { requireAuth } from "../middleware/authMiddleware";
@@ -8,6 +11,34 @@ import email from "../email";
 import crypto from "crypto";
 
 const router = Router();
+
+// Configure multer for profile image uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(process.cwd(), "uploads", "profile-images");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit for profile images
+  fileFilter: (req, file, cb) => {
+    // Only allow image files
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed') as any);
+    }
+  }
+});
 
 
 // Debug endpoint to see what the server thinks about auth
@@ -418,6 +449,59 @@ router.post("/:userId/status", requireAuth, async (req: any, res) => {
       return res.status(400).json({ message: "Invalid status value" });
     }
     res.status(500).json({ message: "Failed to update user status" });
+  }
+});
+
+// POST /api/users/:userId/profile-image - Upload profile image
+router.post("/:userId/profile-image", requireAuth, upload.single('image'), async (req: any, res) => {
+  try {
+    const { userId } = req.params;
+    const currentUserId = req.userId;
+
+    // Users can only upload their own profile image
+    if (userId !== currentUserId) {
+      // Clean up uploaded file if not authorized
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(403).json({ message: "You can only upload your own profile image" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: "No image file provided" });
+    }
+
+    // Generate the URL for the uploaded image
+    const imageUrl = `/uploads/profile-images/${req.file.filename}`;
+
+    // Update user's profileImageUrl in database
+    const [updatedUser] = await db
+      .update(users)
+      .set({ 
+        profileImageUrl: imageUrl,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
+    if (!updatedUser) {
+      // Clean up uploaded file if user not found
+      fs.unlinkSync(req.file.path);
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({ 
+      success: true,
+      profileImageUrl: imageUrl,
+      message: "Profile image uploaded successfully"
+    });
+  } catch (error) {
+    console.error("Error uploading profile image:", error);
+    // Clean up uploaded file on error
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
+    res.status(500).json({ message: "Failed to upload profile image" });
   }
 });
 

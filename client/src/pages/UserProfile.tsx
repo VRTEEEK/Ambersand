@@ -20,7 +20,9 @@ import {
   Award, 
   Clock,
   Edit3,
-  Save
+  Save,
+  Camera,
+  Upload
 } from 'lucide-react';
 import { useState, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -38,6 +40,7 @@ export default function UserProfile() {
   const emailRef = useRef<HTMLInputElement>(null);
   const phoneRef = useRef<HTMLInputElement>(null);
   const jobTitleRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch user statistics
   const { data: stats, isLoading: statsLoading } = useQuery<{projectCount: number, taskCount: number}>({
@@ -101,6 +104,74 @@ export default function UserProfile() {
       });
     },
   });
+
+  // Upload profile image mutation
+  const uploadImageMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`/api/users/${user?.id}/profile-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to upload image');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      toast({
+        title: language === 'ar' ? 'تم تحميل الصورة' : 'Image Uploaded',
+        description: language === 'ar' ? 'تم تحديث صورة الملف الشخصي بنجاح' : 'Profile image updated successfully',
+      });
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message || (language === 'ar' ? 'فشل في تحميل الصورة' : 'Failed to upload image'),
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'يرجى اختيار صورة صالحة' : 'Please select a valid image file',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'حجم الصورة يجب أن يكون أقل من 5 ميجابايت' : 'Image size must be less than 5MB',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    uploadImageMutation.mutate(file);
+  };
 
   const handleSave = () => {
     // Get values and trim whitespace
@@ -213,8 +284,31 @@ export default function UserProfile() {
           {/* Profile Overview */}
           <Card className="lg:col-span-1">
             <CardHeader className="text-center">
-              <div className="flex justify-center mb-4">
-                <UserAvatar user={user} size="lg" className="h-24 w-24" />
+              <div className="flex justify-center mb-4 relative">
+                <div className="relative group">
+                  <UserAvatar user={user} size="lg" className="h-24 w-24" />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadImageMutation.isPending}
+                    className="absolute bottom-0 right-0 bg-[#2699A6] hover:bg-[#1e7a85] text-white p-2 rounded-full shadow-lg transition-all transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={language === 'ar' ? 'تحميل صورة' : 'Upload image'}
+                    data-testid="button-upload-profile-image"
+                  >
+                    {uploadImageMutation.isPending ? (
+                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                    ) : (
+                      <Camera className="h-4 w-4" />
+                    )}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                    data-testid="input-profile-image"
+                  />
+                </div>
               </div>
               <CardTitle className="text-xl">
                 {user?.firstName || user?.lastName 
