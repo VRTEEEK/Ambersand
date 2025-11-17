@@ -1,13 +1,36 @@
 import { Router } from "express";
 import { z } from "zod";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import { db } from "../db";
-import { risks, riskStatus, riskSeverity, type Risk, insertRiskSchema, updateRiskSchema } from "../../shared/risk";
+import { risks, riskStatus, riskSeverity, riskAttachments, type Risk, insertRiskSchema, updateRiskSchema, insertRiskAttachmentSchema } from "../../shared/risk";
 import { tasks } from "../../shared/schema";
 import { and, eq, desc, lt, like, or } from "drizzle-orm";
 import { emailService } from "../emailService";
 import { getUserPermissions } from "../rbac-seed";
 
 const router = Router();
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(process.cwd(), "uploads", "risk-attachments");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+});
 
 // Helper functions for permissions
 async function canEditRisk(userId: string | number): Promise<boolean> {
@@ -308,6 +331,173 @@ router.patch("/:id", async (req: any, res) => {
   } catch (error) {
     console.error("Error updating risk:", error);
     res.status(500).json({ message: "Failed to update risk" });
+  }
+});
+
+// GET /api/risks/:id/attachments - List all attachments for a risk
+router.get("/:id/attachments", async (req: any, res) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const riskId = Number(req.params.id);
+    const organizationId = req.organizationId || 'default';
+
+    // Verify risk exists and user has access
+    const [risk] = await db.select()
+      .from(risks)
+      .where(and(eq(risks.id, riskId), eq(risks.organizationId, organizationId)));
+
+    if (!risk) {
+      return res.status(404).json({ message: "Risk not found" });
+    }
+
+    // Get all attachments for this risk
+    const attachments = await db.select()
+      .from(riskAttachments)
+      .where(eq(riskAttachments.riskId, riskId))
+      .orderBy(desc(riskAttachments.uploadedAt));
+
+    res.json(attachments);
+  } catch (error) {
+    console.error("Error fetching risk attachments:", error);
+    res.status(500).json({ message: "Failed to fetch attachments" });
+  }
+});
+
+// POST /api/risks/:id/attachments - Upload an attachment for a risk
+router.post("/:id/attachments", upload.single("file"), async (req: any, res) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: "No file provided" });
+    }
+
+    const riskId = Number(req.params.id);
+    const organizationId = req.organizationId || 'default';
+
+    // Verify risk exists and user has access
+    const [risk] = await db.select()
+      .from(risks)
+      .where(and(eq(risks.id, riskId), eq(risks.organizationId, organizationId)));
+
+    if (!risk) {
+      // Clean up uploaded file
+      fs.unlinkSync(req.file.path);
+      return res.status(404).json({ message: "Risk not found" });
+    }
+
+    // Save attachment metadata to database
+    const [attachment] = await db.insert(riskAttachments).values({
+      riskId,
+      fileName: req.file.originalname,
+      filePath: req.file.path,
+      fileType: req.file.mimetype,
+      fileSize: req.file.size,
+      uploadedById: req.userId,
+    }).returning();
+
+    res.status(201).json(attachment);
+  } catch (error) {
+    console.error("Error uploading risk attachment:", error);
+    // Clean up file if it was uploaded
+    if (req.file) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (cleanupError) {
+        console.error("Error cleaning up file:", cleanupError);
+      }
+    }
+    res.status(500).json({ message: "Failed to upload attachment" });
+  }
+});
+
+// GET /api/risks/attachments/:id/download - Download a specific attachment
+router.get("/attachments/:id/download", async (req: any, res) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const attachmentId = Number(req.params.id);
+
+    // Get attachment metadata
+    const [attachment] = await db.select()
+      .from(riskAttachments)
+      .where(eq(riskAttachments.id, attachmentId));
+
+    if (!attachment) {
+      return res.status(404).json({ message: "Attachment not found" });
+    }
+
+    // Verify risk access
+    const organizationId = req.organizationId || 'default';
+    const [risk] = await db.select()
+      .from(risks)
+      .where(and(eq(risks.id, attachment.riskId), eq(risks.organizationId, organizationId)));
+
+    if (!risk) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Check if file exists
+    if (!fs.existsSync(attachment.filePath)) {
+      return res.status(404).json({ message: "File not found on server" });
+    }
+
+    // Send file
+    res.download(attachment.filePath, attachment.fileName);
+  } catch (error) {
+    console.error("Error downloading risk attachment:", error);
+    res.status(500).json({ message: "Failed to download attachment" });
+  }
+});
+
+// DELETE /api/risks/attachments/:id - Delete a specific attachment
+router.delete("/attachments/:id", async (req: any, res) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const attachmentId = Number(req.params.id);
+
+    // Get attachment metadata
+    const [attachment] = await db.select()
+      .from(riskAttachments)
+      .where(eq(riskAttachments.id, attachmentId));
+
+    if (!attachment) {
+      return res.status(404).json({ message: "Attachment not found" });
+    }
+
+    // Verify risk access
+    const organizationId = req.organizationId || 'default';
+    const [risk] = await db.select()
+      .from(risks)
+      .where(and(eq(risks.id, attachment.riskId), eq(risks.organizationId, organizationId)));
+
+    if (!risk) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Delete file from filesystem
+    if (fs.existsSync(attachment.filePath)) {
+      fs.unlinkSync(attachment.filePath);
+    }
+
+    // Delete from database
+    await db.delete(riskAttachments)
+      .where(eq(riskAttachments.id, attachmentId));
+
+    res.json({ success: true, message: "Attachment deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting risk attachment:", error);
+    res.status(500).json({ message: "Failed to delete attachment" });
   }
 });
 
