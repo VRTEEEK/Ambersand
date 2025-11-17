@@ -60,6 +60,7 @@ export function RiskAttachments({ riskId }: RiskAttachmentsProps) {
       
       // Get JWT token from localStorage
       const accessToken = localStorage.getItem('access_token');
+      console.log('[RiskAttachments] Uploading with token:', accessToken ? `${accessToken.substring(0, 20)}...` : 'NO TOKEN');
       
       const headers: HeadersInit = {};
       if (accessToken) {
@@ -75,6 +76,7 @@ export function RiskAttachments({ riskId }: RiskAttachmentsProps) {
 
       if (!response.ok) {
         const error = await response.json();
+        console.error('[RiskAttachments] Upload failed:', error);
         throw new Error(error.message || 'Failed to upload file');
       }
 

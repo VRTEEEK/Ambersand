@@ -15,7 +15,11 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
   try {
     // Get token from Authorization header
     const authHeader = req.headers.authorization;
+    console.log('[Auth] Request to:', req.method, req.path);
+    console.log('[Auth] Authorization header:', authHeader ? `${authHeader.substring(0, 30)}...` : 'MISSING');
+    
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log('[Auth] No valid authorization header found');
       return res.status(401).json({
         success: false,
         message: "Authentication required",
@@ -23,9 +27,11 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
     }
 
     const token = authHeader.substring(7); // Remove "Bearer " prefix
+    console.log('[Auth] Token extracted:', token.substring(0, 20) + '...');
 
     // Verify token
     const payload = authService.verifyAccessToken(token);
+    console.log('[Auth] Token verified for user:', payload.userId);
 
     // Attach user info to request
     req.userId = payload.userId;
