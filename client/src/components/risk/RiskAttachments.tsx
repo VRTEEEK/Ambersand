@@ -59,8 +59,7 @@ export function RiskAttachments({ riskId }: RiskAttachmentsProps) {
       formData.append('file', file);
       
       // Get JWT token from localStorage
-      const accessToken = localStorage.getItem('access_token');
-      console.log('[RiskAttachments] Uploading with token:', accessToken ? `${accessToken.substring(0, 20)}...` : 'NO TOKEN');
+      const accessToken = localStorage.getItem('accessToken');
       
       const headers: HeadersInit = {};
       if (accessToken) {
@@ -76,7 +75,6 @@ export function RiskAttachments({ riskId }: RiskAttachmentsProps) {
 
       if (!response.ok) {
         const error = await response.json();
-        console.error('[RiskAttachments] Upload failed:', error);
         throw new Error(error.message || 'Failed to upload file');
       }
 
@@ -134,7 +132,7 @@ export function RiskAttachments({ riskId }: RiskAttachmentsProps) {
   const handleDownload = async (attachment: Attachment) => {
     try {
       // Get JWT token from localStorage
-      const accessToken = localStorage.getItem('access_token');
+      const accessToken = localStorage.getItem('accessToken');
       
       const headers: HeadersInit = {};
       if (accessToken) {
