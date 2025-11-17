@@ -50,7 +50,7 @@ export function RiskAttachments({ riskId }: RiskAttachmentsProps) {
   const [isUploading, setIsUploading] = useState(false);
 
   const { data: attachments = [], isLoading } = useQuery<Attachment[]>({
-    queryKey: ['/api/risks', riskId, 'attachments'],
+    queryKey: [`/api/risks/${riskId}/attachments`],
   });
 
   const uploadMutation = useMutation({
@@ -72,7 +72,7 @@ export function RiskAttachments({ riskId }: RiskAttachmentsProps) {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/risks', riskId, 'attachments'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/risks/${riskId}/attachments`] });
       toast({
         title: 'Success',
         description: 'File uploaded successfully',
@@ -97,7 +97,7 @@ export function RiskAttachments({ riskId }: RiskAttachmentsProps) {
       await apiRequest(`/api/risks/attachments/${attachmentId}`, 'DELETE');
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/risks', riskId, 'attachments'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/risks/${riskId}/attachments`] });
       toast({
         title: 'Deleted',
         description: 'Attachment deleted successfully',
