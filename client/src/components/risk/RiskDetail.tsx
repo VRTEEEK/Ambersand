@@ -14,6 +14,7 @@ import { getRisk, updateRisk, getSeverityColor, getStatusColor, type RiskItem, t
 import Comments from "@/components/comments/Comments";
 import AssigneeSmartInput from "@/components/users/AssigneeSmartInput";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { RiskAttachments } from "@/components/risk/RiskAttachments";
 
 interface RiskDetailProps {
   riskId: number;
@@ -283,13 +284,7 @@ export function RiskDetail({ riskId, onClose }: RiskDetailProps) {
               <Comments targetType="risk" targetId={risk.id} />
             </TabsContent>
             <TabsContent value="attachments">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="text-center py-8 text-muted-foreground">
-                    Attachment system integration coming soon
-                  </div>
-                </CardContent>
-              </Card>
+              <RiskAttachments riskId={risk.id} />
             </TabsContent>
           </Tabs>
         </div>
